@@ -4,9 +4,10 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import { AlertTriangle } from "lucide-react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: "primary" | "secondary" | "danger" | "ghost";
+  variant?: "primary" | "secondary" | "success" | "danger" | "ghost";
   loading?: boolean;
 };
 
@@ -19,14 +20,19 @@ export function Button({
   ...props
 }: ButtonProps) {
   const styles = {
-    primary: "bg-primary text-white hover:bg-[var(--primary-hover)]",
-    secondary: "border border-border bg-surface text-text-primary hover:bg-surface-elevated",
-    danger: "bg-danger text-white hover:opacity-90",
+    primary:
+      "bg-primary text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--primary-shadow)]",
+    secondary:
+      "border-2 border-border bg-surface text-text-primary shadow-[0_4px_0_var(--secondary-shadow)] hover:bg-surface-elevated active:translate-y-[3px] active:shadow-[0_1px_0_var(--secondary-shadow)]",
+    success:
+      "bg-success text-white shadow-[0_4px_0_var(--success-shadow)] hover:opacity-95 active:translate-y-[3px] active:shadow-[0_1px_0_var(--success-shadow)]",
+    danger:
+      "bg-danger text-white shadow-[0_4px_0_var(--danger-shadow)] hover:opacity-95 active:translate-y-[3px] active:shadow-[0_1px_0_var(--danger-shadow)]",
     ghost: "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
   };
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color] duration-100 disabled:cursor-not-allowed disabled:opacity-55 disabled:active:translate-y-0 disabled:active:shadow-[0_4px_0_var(--secondary-shadow)] ${styles[variant]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >
@@ -52,7 +58,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         id={inputId}
-        className={`min-h-11 rounded-lg border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+        className={`min-h-11 rounded-xl border-2 bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
@@ -99,8 +105,11 @@ export function ErrorState({
   message?: string;
 }) {
   return (
-    <div className="rounded-xl border border-danger/25 bg-danger/5 p-5" role="alert">
-      <h2 className="font-semibold text-danger">Algo não saiu como esperado</h2>
+    <div className="rounded-2xl border border-danger/25 bg-danger/5 p-5" role="alert">
+      <h2 className="flex items-center gap-2 font-semibold text-danger">
+        <AlertTriangle className="size-5 shrink-0" aria-hidden />
+        Algo não saiu como esperado
+      </h2>
       <p className="mt-1 text-sm text-text-secondary">{message}</p>
       {retry && <Button variant="secondary" className="mt-4" onClick={retry}>Tentar novamente</Button>}
     </div>
@@ -121,7 +130,15 @@ export function Toggle({
   return (
     <label className="flex cursor-pointer items-center justify-between gap-5 border-b border-border py-4 last:border-0">
       <span><span className="block text-sm font-medium">{label}</span>{description && <span className="mt-1 block text-sm text-text-secondary">{description}</span>}</span>
-      <input className="size-5 accent-[var(--primary)]" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input className="sr-only" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <span
+        aria-hidden
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-success" : "bg-border"}`}
+      >
+        <span
+          className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`}
+        />
+      </span>
     </label>
   );
 }

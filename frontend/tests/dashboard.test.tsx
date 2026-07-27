@@ -83,7 +83,6 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Onboarding concluído")).toBeInTheDocument();
     expect(screen.getByText("Próxima atividade")).toBeInTheDocument();
     expect(screen.getByText("Plano do dia")).toBeInTheDocument();
-    expect(screen.getByText("Progresso")).toBeInTheDocument();
     expect(screen.getByText("Pratique agora")).toBeInTheDocument();
     expect(screen.getByText("Atividade recente")).toBeInTheDocument();
     expect(screen.queryByText("Escolha um idioma para começar.")).not.toBeInTheDocument();

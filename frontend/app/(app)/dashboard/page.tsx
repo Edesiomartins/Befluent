@@ -2,9 +2,19 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import {
+  ArrowRight,
+  BookOpen,
+  Check,
+  Circle,
+  Flame,
+  Sparkles,
+  Trophy,
+} from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState } from "@/components/ui";
+import { getMode, modeColorClasses } from "@/lib/modes";
 
 type DashboardData = {
   onboarding_completed: boolean;
@@ -63,14 +73,7 @@ const levelLabels: Record<string, string> = {
   "nao-sei": "A definir",
 };
 
-const practiceModes = [
-  { href: "/learn/conversation", title: "Conversação", blurb: "Dialogue com correção." },
-  { href: "/learn/vocabulary", title: "Vocabulário", blurb: "Palavras em contexto." },
-  { href: "/learn/review", title: "Revisão", blurb: "Itens agendados." },
-  { href: "/learn/guided", title: "Aula guiada", blurb: "Sequência estruturada." },
-  { href: "/learn/listening", title: "Audição", blurb: "Compreensão oral." },
-  { href: "/learn/writing", title: "Escrita", blurb: "Produza e corrija." },
-];
+const practiceSlugs = ["conversation", "vocabulary", "review", "guided", "listening", "writing"];
 
 function formatLevel(value: string | null | undefined) {
   if (!value) return null;
@@ -125,6 +128,10 @@ export default function DashboardPage() {
   const reviews = data?.reviews_due ?? [];
   const activity = data?.recent_activity ?? [];
 
+  const planItems = dayPlan?.items ?? [];
+  const doneCount = planItems.filter((item) => item.done).length;
+  const planPercent = planItems.length ? Math.round((doneCount / planItems.length) * 100) : 0;
+
   return (
     <div>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -139,20 +146,69 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Estatísticas */}
+      <section className="mt-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--streak-soft)] text-[var(--streak-shadow)]">
+            <Flame className="size-6 fill-current" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xl font-extrabold leading-tight tracking-tight">{progress?.streak_days ?? 0}</p>
+            <p className="text-xs text-text-secondary">dia(s) seguidos</p>
+          </div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--violet-soft)] text-[var(--violet)]">
+            <BookOpen className="size-6" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xl font-extrabold leading-tight tracking-tight">{progress?.vocabulary_items ?? 0}</p>
+            <p className="text-xs text-text-secondary">palavras</p>
+          </div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--gold-soft)] text-[var(--gold-ink)]">
+            <Trophy className="size-6" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xl font-extrabold leading-tight tracking-tight">{progress?.study_sessions ?? 0}</p>
+            <p className="text-xs text-text-secondary">sessões</p>
+          </div>
+        </div>
+        <div className="panel flex items-center gap-3 p-4">
+          <span className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--success-soft)] text-success">
+            <Sparkles className="size-6" aria-hidden />
+          </span>
+          <div>
+            <p className="text-xl font-extrabold leading-tight tracking-tight">{progress?.reviews_due_count ?? 0}</p>
+            <p className="text-xs text-text-secondary">revisões</p>
+          </div>
+        </div>
+      </section>
+
       {/* Próxima atividade | Plano do dia */}
-      <section className="mt-8 grid gap-5 lg:grid-cols-2">
-        <article className="rounded-xl bg-[var(--primary-deep)] p-6 text-white">
-          <p className="text-xs font-semibold uppercase tracking-[.14em] text-white/60">
+      <section className="mt-5 grid gap-5 lg:grid-cols-2">
+        <article className="relative overflow-hidden rounded-2xl bg-[var(--primary-deep)] p-6 text-white">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-30"
+            aria-hidden
+            style={{
+              background:
+                "radial-gradient(circle at 85% 0%, rgba(37,99,235,.6), transparent 45%)",
+            }}
+          />
+          <p className="relative text-xs font-semibold uppercase tracking-[.14em] text-white/60">
             Próxima atividade
           </p>
-          <h2 className="mt-3 text-2xl font-semibold tracking-tight">{next?.title}</h2>
-          <p className="mt-2 text-sm leading-6 text-white/70">{next?.description}</p>
+          <h2 className="relative mt-3 text-2xl font-semibold tracking-tight">{next?.title}</h2>
+          <p className="relative mt-2 text-sm leading-6 text-white/70">{next?.description}</p>
           {next && (
             <Link
               href={next.href}
-              className="mt-6 inline-flex min-h-11 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-[var(--primary-deep)] hover:bg-white/90"
+              className="relative mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-sm font-bold text-[var(--primary-deep)] hover:bg-white/90"
             >
               {next.cta}
+              <ArrowRight className="size-4" aria-hidden />
             </Link>
           )}
         </article>
@@ -162,24 +218,34 @@ export default function DashboardPage() {
             Plano do dia
           </p>
           {hasPlan ? (
-            <div className="mt-4 grid gap-3">
+            <div className="mt-4 grid gap-4">
               {dayPlan?.minutes_per_day != null && (
-                <p className="text-sm text-text-secondary">
-                  Meta: <span className="font-semibold text-text-primary">{dayPlan.minutes_per_day} min</span>
-                </p>
+                <div>
+                  <div className="flex items-center justify-between text-sm text-text-secondary">
+                    <span>
+                      Meta: <span className="font-semibold text-text-primary">{dayPlan.minutes_per_day} min</span>
+                    </span>
+                    <span className="font-semibold text-success">{planPercent}%</span>
+                  </div>
+                  <div className="mt-2 h-2.5 rounded-full bg-surface-elevated">
+                    <div
+                      className="h-full rounded-full bg-success transition-[width]"
+                      style={{ width: `${planPercent}%` }}
+                    />
+                  </div>
+                </div>
               )}
-              <ul className="grid gap-2">
-                {(dayPlan?.items ?? []).map((item) => (
+              <ul className="grid gap-2.5">
+                {planItems.map((item) => (
                   <li
                     key={item.label}
-                    className="flex items-start gap-2 text-sm text-text-primary"
+                    className={`flex items-center gap-2.5 text-sm ${item.done ? "text-text-secondary line-through" : "text-text-primary"}`}
                   >
-                    <span
-                      className={`mt-1 inline-block size-2 shrink-0 rounded-full ${
-                        item.done ? "bg-success" : "bg-border"
-                      }`}
-                      aria-hidden
-                    />
+                    {item.done ? (
+                      <Check className="size-4 shrink-0 text-success" aria-hidden />
+                    ) : (
+                      <Circle className="size-4 shrink-0 text-border" aria-hidden />
+                    )}
                     {item.label}
                   </li>
                 ))}
@@ -199,8 +265,8 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      {/* Idioma ativo | Progresso | Revisões */}
-      <section className="mt-5 grid gap-5 md:grid-cols-3">
+      {/* Idioma ativo | Revisões */}
+      <section className="mt-5 grid gap-5 md:grid-cols-2">
         <article className="panel p-5">
           <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
             Idioma ativo
@@ -235,35 +301,6 @@ export default function DashboardPage() {
               }
             />
           )}
-        </article>
-
-        <article className="panel p-5">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-            Progresso
-          </p>
-          <div className="mt-4 grid gap-3">
-            <p className="text-sm text-text-secondary">
-              Vocabulário:{" "}
-              <span className="font-semibold text-text-primary">
-                {progress?.vocabulary_items ?? 0}
-              </span>
-            </p>
-            <p className="text-sm text-text-secondary">
-              Sessões:{" "}
-              <span className="font-semibold text-text-primary">
-                {progress?.study_sessions ?? 0}
-              </span>
-            </p>
-            <p className="text-sm text-text-secondary">
-              Sequência:{" "}
-              <span className="font-semibold text-text-primary">
-                {progress?.streak_days ?? 0} dia(s)
-              </span>
-            </p>
-            <Link href="/progress" className="text-sm font-semibold text-primary hover:underline">
-              Ver progresso
-            </Link>
-          </div>
         </article>
 
         <article className="panel p-5">
@@ -314,16 +351,27 @@ export default function DashboardPage() {
           </Link>
         </div>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {practiceModes.map((mode) => (
-            <Link
-              key={mode.href}
-              href={mode.href}
-              className="panel group p-4 transition hover:border-primary hover:bg-primary/[0.03]"
-            >
-              <h3 className="font-semibold group-hover:text-primary">{mode.title}</h3>
-              <p className="mt-1 text-sm text-text-secondary">{mode.blurb}</p>
-            </Link>
-          ))}
+          {practiceSlugs.map((slug) => {
+            const mode = getMode(slug);
+            if (!mode) return null;
+            const Icon = mode.icon;
+            const colors = modeColorClasses[mode.color];
+            return (
+              <Link
+                key={slug}
+                href={`/learn/${slug}`}
+                className={`panel group flex items-start gap-3 p-4 transition hover:-translate-y-0.5 ${colors.ring}`}
+              >
+                <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <div>
+                  <h3 className="font-semibold group-hover:text-primary">{mode.title}</h3>
+                  <p className="mt-1 text-sm text-text-secondary">{mode.description}</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </section>
 

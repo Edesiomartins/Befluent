@@ -89,10 +89,10 @@ export default function OnboardingPage() {
             {languages.map(([code, name]) => (
               <label
                 key={code}
-                className={`cursor-pointer rounded-lg border p-4 text-sm font-medium ${
+                className={`cursor-pointer rounded-xl border-2 p-4 text-sm font-semibold transition ${
                   language === code
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-border bg-surface"
+                    ? "border-primary bg-primary-soft text-primary"
+                    : "border-border bg-surface hover:border-primary/40"
                 }`}
               >
                 <input
@@ -112,7 +112,7 @@ export default function OnboardingPage() {
           <label className="grid gap-2 text-sm font-medium">
             Como você avalia seu nível?
             <select
-              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+              className="min-h-11 rounded-xl border-2 border-border bg-surface px-3"
               value={level}
               onChange={(e) => setLevel(e.target.value)}
             >
@@ -126,7 +126,7 @@ export default function OnboardingPage() {
           <label className="grid gap-2 text-sm font-medium">
             Objetivo principal
             <select
-              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+              className="min-h-11 rounded-xl border-2 border-border bg-surface px-3"
               value={goal}
               onChange={(e) => setGoal(e.target.value)}
             >
@@ -146,10 +146,10 @@ export default function OnboardingPage() {
                 key={value}
                 type="button"
                 onClick={() => setMinutes(value)}
-                className={`min-h-11 rounded-lg border px-5 text-sm font-semibold ${
+                className={`min-h-11 rounded-xl border-2 px-5 text-sm font-bold transition ${
                   minutes === value
-                    ? "border-primary bg-primary text-white"
-                    : "border-border bg-surface"
+                    ? "border-primary bg-primary text-white shadow-[0_3px_0_var(--primary-shadow)]"
+                    : "border-border bg-surface hover:border-primary/40"
                 }`}
               >
                 {value} min
@@ -163,10 +163,10 @@ export default function OnboardingPage() {
             {skills.map((skill) => (
               <label
                 key={skill}
-                className={`cursor-pointer rounded-lg border px-4 py-3 text-sm ${
+                className={`cursor-pointer rounded-xl border-2 px-4 py-3 text-sm font-medium transition ${
                   selectedSkills.includes(skill)
-                    ? "border-primary bg-primary/5 text-primary"
-                    : "border-border bg-surface"
+                    ? "border-primary bg-primary-soft text-primary"
+                    : "border-border bg-surface hover:border-primary/40"
                 }`}
               >
                 <input

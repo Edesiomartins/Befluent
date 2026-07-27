@@ -1,22 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f9ff;
+  --background: #f6f8fd;
   --surface: #ffffff;
-  --surface-soft: #f5f9ff;
-  --surface-elevated: #dbeafe;
-  --text-primary: #172033;
-  --text-secondary: #64748b;
-  --border: #dce6f2;
+  --surface-soft: #eef3ff;
+  --surface-elevated: #e4edff;
+  --text-primary: #1a2033;
+  --text-secondary: #5b6472;
+  --border: #e1e7f5;
+
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-strong: #0f2a5f;
   --primary-deep: #0b1f44;
   --primary-soft: #dbeafe;
+  --primary-shadow: #17469e;
+
   --success: #16a34a;
+  --success-soft: #dcfce9;
+  --success-shadow: #0f7a37;
+
   --warning: #d97706;
+  --warning-soft: #fef3c7;
+
   --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --danger-shadow: #a51818;
+
   --info: #2563eb;
+
+  /* Playful accent palette — streaks, XP, and skill-color variety */
+  --streak: #ff9600;
+  --streak-soft: #fff1de;
+  --streak-shadow: #c96e00;
+
+  --gold: #ffc700;
+  --gold-soft: #fff6d6;
+  --gold-ink: #8a5a00;
+  --gold-shadow: #d99e00;
+
+  --violet: #7c3aed;
+  --violet-soft: #efe6fe;
+  --violet-shadow: #5b21b6;
+
+  --teal: #0d9488;
+  --teal-soft: #d9f5f1;
+  --teal-shadow: #0b6e64;
+
+  --rose: #e11d48;
+  --rose-soft: #ffe4e9;
+  --rose-shadow: #a8123a;
+
+  --secondary-shadow: #c9d3e6;
 }
 
 @theme inline {
@@ -31,6 +66,11 @@
   --color-warning: var(--warning);
   --color-danger: var(--danger);
   --color-info: var(--info);
+  --color-streak: var(--streak);
+  --color-gold: var(--gold);
+  --color-violet: var(--violet);
+  --color-teal: var(--teal);
+  --color-rose: var(--rose);
   --font-sans: var(--font-inter);
 }
 
@@ -52,28 +92,49 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 .page-title {
   font-size: clamp(1.75rem, 4vw, 2.35rem);
-  font-weight: 650;
+  font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.1;
 }
 .section-title {
-  font-size: 1.05rem;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
 }
 .panel {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 0.875rem;
+  border-radius: 1.25rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 24px -18px rgba(15, 23, 42, .35);
 }
 .muted { color: var(--text-secondary); }
 .skeleton {
-  border-radius: .5rem;
+  border-radius: .75rem;
   background: linear-gradient(90deg, var(--surface-elevated) 25%, #fff 45%, var(--surface-elevated) 65%);
   background-size: 220% 100%;
   animation: shimmer 1.5s infinite linear;
 }
+
+/* Compact stat pill used for streaks, XP, and other gamified counters */
+.stat-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  border-radius: 999px;
+  padding: .375rem .7rem;
+  font-size: .8rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
 @keyframes shimmer { to { background-position-x: -220%; } }
+@keyframes pop-in {
+  0% { transform: scale(.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-pop { animation: pop-in .25s ease-out; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;

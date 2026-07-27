@@ -3,29 +3,45 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
+import {
+  BookOpen,
+  Dumbbell,
+  Flame,
+  Globe,
+  Home,
+  LogOut,
+  Menu,
+  Settings,
+  TrendingUp,
+  User,
+  X,
+} from "lucide-react";
 import { api } from "@/lib/api";
 import { Logo } from "@/components/logo";
 import { BRAND } from "@/lib/brand";
+import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 
 const navigation = [
-  { href: "/dashboard", label: "Início" },
-  { href: "/learn", label: "Prática" },
-  { href: "/languages", label: "Idiomas" },
-  { href: "/progress", label: "Progresso" },
+  { href: "/dashboard", label: "Início", icon: Home },
+  { href: "/learn", label: "Prática", icon: Dumbbell },
+  { href: "/languages", label: "Idiomas", icon: Globe },
+  { href: "/progress", label: "Progresso", icon: TrendingUp },
 ];
 
 const secondary = [
-  { href: "/settings", label: "Configurações" },
-  { href: "/profile", label: "Perfil" },
+  { href: "/settings", label: "Configurações", icon: Settings },
+  { href: "/profile", label: "Perfil", icon: User },
 ];
 
 function NavItem({
   href,
   label,
+  icon: Icon,
   onNavigate,
 }: {
   href: string;
   label: string;
+  icon: typeof Home;
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
@@ -34,13 +50,14 @@ function NavItem({
     <Link
       href={href}
       onClick={onNavigate}
-      className={`flex min-h-11 items-center rounded-lg px-3 py-2 text-sm font-medium transition ${
+      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition ${
         active
-          ? "bg-primary text-white"
+          ? "bg-primary text-white shadow-[0_3px_0_var(--primary-shadow)]"
           : "text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
       }`}
       aria-current={active ? "page" : undefined}
     >
+      <Icon className="size-5 shrink-0" aria-hidden />
       {label}
     </Link>
   );
@@ -77,8 +94,9 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <button
           type="button"
           onClick={logout}
-          className="flex min-h-11 items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
+          className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
         >
+          <LogOut className="size-5 shrink-0" aria-hidden />
           Sair
         </button>
       </nav>
@@ -91,6 +109,29 @@ export function Sidebar() {
     <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-border bg-[var(--surface-soft)] p-5 lg:flex">
       <SidebarContent />
     </aside>
+  );
+}
+
+function StatsBar() {
+  const summary = useDashboardSummary();
+  if (!summary) return null;
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="stat-pill border-[var(--streak-soft)] bg-[var(--streak-soft)] text-[var(--streak-shadow)]"
+        title="Sequência de dias estudando"
+      >
+        <Flame className="size-4 fill-current" aria-hidden />
+        {summary.streak_days}
+      </span>
+      <span
+        className="hidden stat-pill border-[var(--violet-soft)] bg-[var(--violet-soft)] text-[var(--violet)] sm:inline-flex"
+        title="Palavras aprendidas"
+      >
+        <BookOpen className="size-4" aria-hidden />
+        {summary.vocabulary_items}
+      </span>
+    </div>
   );
 }
 
@@ -113,29 +154,30 @@ export function Header() {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-border lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl border border-border lg:hidden"
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={open ? "Fechar menu" : "Abrir menu"}
             onClick={() => setOpen((value) => !value)}
           >
-            <span aria-hidden className="text-lg">
-              {open ? "×" : "☰"}
-            </span>
+            {open ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
           </button>
-          <div>
+          <div className="hidden sm:block">
             <p className="text-xs font-medium uppercase tracking-[.12em] text-text-secondary">
               Área de estudo
             </p>
             <p className="text-sm font-semibold">{BRAND.name}</p>
           </div>
         </div>
-        <Link
-          href="/onboarding"
-          className="rounded-lg px-3 py-2 text-sm font-medium text-primary hover:bg-primary-soft"
-        >
-          Onboarding
-        </Link>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <StatsBar />
+          <Link
+            href="/onboarding"
+            className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-primary hover:bg-primary-soft sm:inline-flex"
+          >
+            Onboarding
+          </Link>
+        </div>
       </header>
 
       {open && (
@@ -165,8 +207,25 @@ export function MobileNav() {
       aria-label="Navegação móvel"
     >
       {navigation.map((item) => (
-        <NavItem key={item.href} {...item} />
+        <MobileNavItem key={item.href} {...item} />
       ))}
     </nav>
+  );
+}
+
+function MobileNavItem({ href, label, icon: Icon }: { href: string; label: string; icon: typeof Home }) {
+  const pathname = usePathname();
+  const active = pathname === href || (href === "/learn" && pathname.startsWith("/learn/"));
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col items-center justify-center gap-0.5 py-2.5 text-[.7rem] font-semibold transition ${
+        active ? "text-primary" : "text-text-secondary"
+      }`}
+      aria-current={active ? "page" : undefined}
+    >
+      <Icon className={`size-5 ${active ? "fill-primary/15" : ""}`} aria-hidden />
+      {label}
+    </Link>
   );
 }
