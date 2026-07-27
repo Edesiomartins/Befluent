@@ -1,0 +1,1 @@
+"""Leitura é oferecida por atividades e conteúdo de /lessons na primeira versão."""

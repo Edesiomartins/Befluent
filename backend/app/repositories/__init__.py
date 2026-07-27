@@ -1,0 +1,1 @@
+"""Consultas de persistência do Fluentia. Os serviços usam SQLAlchemy diretamente na v1."""

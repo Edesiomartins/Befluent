@@ -1,0 +1,24 @@
+import uuid
+from fastapi import FastAPI,Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException
+from app.api import assessments,auth,conversations,grammar,languages,learning_plans,lessons,listening,onboarding,profile,progress,pronunciation,reviews,settings,speech,study_sessions,vocabulary,writing
+from app.api.health import router as health_router
+from app.core.config import get_settings
+from app.core.csrf import csrf_guard
+from app.core.errors import APIError,api_error_handler,http_error_handler,unexpected_error_handler,validation_error_handler
+from app.core.logging import configure_logging
+configure_logging(); s=get_settings()
+app=FastAPI(title=s.app_name,version="0.1.0")
+app.add_middleware(CORSMiddleware,allow_origins=[s.frontend_origin],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
+app.exception_handler(APIError)(api_error_handler); app.exception_handler(RequestValidationError)(validation_error_handler)
+app.exception_handler(HTTPException)(http_error_handler); app.exception_handler(Exception)(unexpected_error_handler)
+@app.middleware("http")
+async def request_context(request:Request,call_next):
+    request.state.request_id=request.headers.get("X-Request-ID",str(uuid.uuid4()))
+    response=await call_next(request); response.headers["X-Request-ID"]=request.state.request_id; return response
+app.middleware("http")(csrf_guard)
+app.include_router(health_router)
+for router in [auth.router,profile.router,languages.router,onboarding.router,assessments.router,learning_plans.router,lessons.router,study_sessions.router,conversations.router,speech.router,vocabulary.router,reviews.router,grammar.router,listening.router,pronunciation.router,writing.router,progress.router,settings.router]:
+    app.include_router(router,prefix="/api/v1")

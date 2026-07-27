@@ -1,0 +1,85 @@
+services:
+  fluentia-postgres:
+    image: postgres:16-alpine
+    container_name: fluentia-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-fluentia}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-fluentia_dev_only}
+      POSTGRES_DB: ${POSTGRES_DB:-fluentia}
+    ports:
+      - "5432:5432"
+    volumes:
+      - fluentia_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fluentia} -d ${POSTGRES_DB:-fluentia}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - fluentia_net
+
+  fluentia-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: fluentia-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-fluentia}:${POSTGRES_PASSWORD:-fluentia_dev_only}@fluentia-postgres:5432/${POSTGRES_DB:-fluentia}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      AI_MOCK_MODE: ${AI_MOCK_MODE:-true}
+      STT_PROVIDER: ${STT_PROVIDER:-mock}
+      TTS_PROVIDER: ${TTS_PROVIDER:-mock}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+    ports:
+      - "8000:8000"
+    volumes:
+      - fluentia_tmp:/app/tmp
+    depends_on:
+      fluentia-postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - fluentia_net
+
+  fluentia-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    container_name: fluentia-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      fluentia-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - fluentia_net
+
+volumes:
+  fluentia_pg_data:
+  fluentia_tmp:
+
+networks:
+  fluentia_net:
+    driver: bridge

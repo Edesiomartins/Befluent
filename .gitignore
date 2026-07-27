@@ -1,0 +1,52 @@
+# Environment / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Dependencies
+node_modules/
+frontend/node_modules/
+backend/.venv/
+backend/venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+*.egg-info/
+dist/
+build/
+
+# Next.js
+frontend/.next/
+frontend/out/
+frontend/coverage/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / temp
+*.log
+tmp/
+temp/
+backend/tmp/
+backend/uploads/
+*.webm
+*.wav
+*.ogg
+
+# Docker volumes local data
+postgres_data/
+
+# Test artifacts
+playwright-report/
+test-results/
