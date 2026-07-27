@@ -172,6 +172,7 @@ def test_dashboard_shows_onboarding_data(client, auth):
     assert empty.status_code == 200
     assert empty.json()["onboarding_completed"] is False
     assert empty.json()["active_language"] is None
+    assert empty.json()["next_activity"]["kind"] == "onboarding"
 
     complete = client.post(
         "/api/v1/onboarding/complete",
@@ -200,6 +201,10 @@ def test_dashboard_shows_onboarding_data(client, auth):
     assert lang["onboarding_completed"] is True
     assert payload["reviews_due_count"] == 0
     assert payload["recent_activity"] == []
+    assert payload["next_activity"]["href"] == "/learn/vocabulary"
+    assert payload["day_plan"]["minutes_per_day"] == 30
+    assert payload["progress"]["vocabulary_items"] == 0
+    assert payload["progress"]["study_sessions"] == 0
 
 
 def test_onboarding_persists_after_new_session(client):

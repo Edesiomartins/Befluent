@@ -18,6 +18,47 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
+const dashboardWithPlan = {
+  onboarding_completed: true,
+  active_language: {
+    code: "en",
+    name_pt: "Inglês",
+    native_name: "English",
+    level_estimate: "iniciante",
+    goal: "Conversar com confiança",
+    minutes_per_day: 20,
+    skills: ["Conversação"],
+    onboarding_completed: true,
+    user_language_id: "ul-1",
+  },
+  next_activity: {
+    title: "Conversação",
+    description: "Pratique conversação com foco no seu plano.",
+    href: "/learn/conversation",
+    cta: "Continuar",
+    kind: "practice",
+  },
+  day_plan: {
+    minutes_per_day: 20,
+    goal: "Conversar com confiança",
+    skills: ["Conversação"],
+    items: [
+      { label: "20 min de estudo", done: false },
+      { label: "Conversar com confiança", done: true },
+      { label: "Foco: Conversação", done: false },
+    ],
+  },
+  progress: {
+    vocabulary_items: 0,
+    study_sessions: 0,
+    reviews_due_count: 0,
+    streak_days: 0,
+  },
+  reviews_due_count: 0,
+  reviews_due: [],
+  recent_activity: [],
+};
+
 describe("DashboardSkeleton", () => {
   it("informa o estado de carregamento", () => {
     render(<DashboardSkeleton />);
@@ -31,23 +72,7 @@ describe("DashboardPage", () => {
   });
 
   it("mostra o idioma salvo do onboarding", async () => {
-    apiMock.mockResolvedValue({
-      onboarding_completed: true,
-      active_language: {
-        code: "en",
-        name_pt: "Inglês",
-        native_name: "English",
-        level_estimate: "iniciante",
-        goal: "Conversar com confiança",
-        minutes_per_day: 20,
-        skills: ["Conversação"],
-        onboarding_completed: true,
-        user_language_id: "ul-1",
-      },
-      reviews_due_count: 0,
-      reviews_due: [],
-      recent_activity: [],
-    });
+    apiMock.mockResolvedValue(dashboardWithPlan);
 
     render(<DashboardPage />);
 
@@ -55,8 +80,12 @@ describe("DashboardPage", () => {
     expect(await screen.findByText("Inglês")).toBeInTheDocument();
     expect(screen.getByText(/Nível: Iniciante/)).toBeInTheDocument();
     expect(screen.getByText(/Objetivo: Conversar com confiança/)).toBeInTheDocument();
-    expect(screen.getByText(/Meta diária: 20 min/)).toBeInTheDocument();
     expect(screen.getByText("Onboarding concluído")).toBeInTheDocument();
+    expect(screen.getByText("Próxima atividade")).toBeInTheDocument();
+    expect(screen.getByText("Plano do dia")).toBeInTheDocument();
+    expect(screen.getByText("Progresso")).toBeInTheDocument();
+    expect(screen.getByText("Pratique agora")).toBeInTheDocument();
+    expect(screen.getByText("Atividade recente")).toBeInTheDocument();
     expect(screen.queryByText("Escolha um idioma para começar.")).not.toBeInTheDocument();
   });
 
@@ -64,6 +93,25 @@ describe("DashboardPage", () => {
     apiMock.mockResolvedValue({
       onboarding_completed: false,
       active_language: null,
+      next_activity: {
+        title: "Configurar seu plano",
+        description: "Defina idioma, nível e objetivo para começar.",
+        href: "/onboarding",
+        cta: "Começar onboarding",
+        kind: "onboarding",
+      },
+      day_plan: {
+        minutes_per_day: null,
+        goal: null,
+        skills: [],
+        items: [{ label: "Concluir onboarding para montar o plano do dia", done: false }],
+      },
+      progress: {
+        vocabulary_items: 0,
+        study_sessions: 0,
+        reviews_due_count: 0,
+        streak_days: 0,
+      },
       reviews_due_count: 0,
       reviews_due: [],
       recent_activity: [],
@@ -72,6 +120,7 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
     expect(await screen.findByText("Escolha um idioma para começar.")).toBeInTheDocument();
     expect(screen.getByText("Nenhuma revisão pendente por enquanto.")).toBeInTheDocument();
+    expect(screen.getByText("Plano ainda não definido.")).toBeInTheDocument();
   });
 
   it("mostra erro real quando a API falha", async () => {
