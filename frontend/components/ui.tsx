@@ -1,7 +1,8 @@
-import type {
-  ButtonHTMLAttributes,
-  InputHTMLAttributes,
-  ReactNode,
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type InputHTMLAttributes,
+  type ReactNode,
 } from "react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
@@ -18,7 +19,7 @@ export function Button({
   ...props
 }: ButtonProps) {
   const styles = {
-    primary: "bg-primary text-white hover:bg-[var(--primary-strong)]",
+    primary: "bg-primary text-white hover:bg-[var(--primary-hover)]",
     secondary: "border border-border bg-surface text-text-primary hover:bg-surface-elevated",
     danger: "bg-danger text-white hover:opacity-90",
     ghost: "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
@@ -40,12 +41,16 @@ type InputProps = InputHTMLAttributes<HTMLInputElement> & {
   error?: string;
 };
 
-export function Input({ label, error, id, className = "", ...props }: InputProps) {
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { label, error, id, className = "", ...props },
+  ref,
+) {
   const inputId = id ?? props.name;
   return (
     <label className="grid gap-2 text-sm font-medium" htmlFor={inputId}>
       {label}
       <input
+        ref={ref}
         id={inputId}
         className={`min-h-11 rounded-lg border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
         aria-invalid={Boolean(error)}
@@ -55,7 +60,7 @@ export function Input({ label, error, id, className = "", ...props }: InputProps
       {error && <span id={`${inputId}-error`} className="text-sm font-normal text-danger">{error}</span>}
     </label>
   );
-}
+});
 
 export function Loading({ label = "Carregando" }: { label?: string }) {
   return (
@@ -78,8 +83,7 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="panel grid justify-items-start gap-3 p-6">
-      <span className="text-2xl" aria-hidden>○</span>
+    <div className="mt-4 grid justify-items-start gap-2">
       <h2 className="section-title">{title}</h2>
       <p className="max-w-lg text-sm leading-6 text-text-secondary">{description}</p>
       {action}

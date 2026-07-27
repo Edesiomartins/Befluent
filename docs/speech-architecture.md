@@ -1,4 +1,4 @@
-# Arquitetura de Áudio / Fala — Fluentia
+﻿# Arquitetura de Áudio / Fala — BeFluent
 
 Relacionados: [architecture.md](architecture.md), [ai-architecture.md](ai-architecture.md), [privacy.md](privacy.md), [api-specification.md](api-specification.md).
 

@@ -1,4 +1,4 @@
-# Arquitetura de IA — Fluentia
+﻿# Arquitetura de IA — BeFluent
 
 Relacionados: [prompt-strategy.md](prompt-strategy.md), [stack.md](stack.md), [security.md](security.md), [privacy.md](privacy.md).
 

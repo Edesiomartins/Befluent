@@ -1,4 +1,4 @@
-# Privacidade — Fluentia
+﻿# Privacidade — BeFluent
 
 Relacionados: [security.md](security.md), [database.md](database.md), [speech-architecture.md](speech-architecture.md), [observability.md](observability.md).
 

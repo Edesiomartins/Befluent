@@ -9,7 +9,7 @@ def test_register_success(client):
         "/api/v1/auth/register",
         json={
             "name": "Maria Silva",
-            "email": "Maria@Fluentia.Local",
+            "email": "Maria@BeFluent.Local",
             "password": "senha-forte-1",
             "password_confirmation": "senha-forte-1",
         },
@@ -17,13 +17,13 @@ def test_register_success(client):
     assert response.status_code == 201
     body = response.json()
     assert body["message"] == "Conta criada com sucesso."
-    assert body["user"]["email"] == "maria@fluentia.local"
+    assert body["user"]["email"] == "maria@befluent.local"
     assert body["user"]["name"] == "Maria Silva"
     assert "password" not in body
     assert "password" not in body["user"]
     assert "password_hash" not in body["user"]
     # Sem login automático
-    assert client.cookies.get("fluentia_session") is None
+    assert client.cookies.get("befluent_session") is None
     assert client.get("/api/v1/auth/me").status_code == 401
 
 
@@ -32,7 +32,7 @@ def test_register_creates_user_preference(client):
         "/api/v1/auth/register",
         json={
             "name": "João",
-            "email": "joao@fluentia.local",
+            "email": "joao@befluent.local",
             "password": "senha-forte-1",
             "password_confirmation": "senha-forte-1",
         },
@@ -41,7 +41,7 @@ def test_register_creates_user_preference(client):
     # Preferência criada: login + settings devem funcionar
     login = client.post(
         "/api/v1/auth/login",
-        json={"email": "joao@fluentia.local", "password": "senha-forte-1"},
+        json={"email": "joao@befluent.local", "password": "senha-forte-1"},
     )
     assert login.status_code == 200
     headers = {"X-CSRF-Token": client.cookies.get("csrf_token")}
@@ -55,7 +55,7 @@ def test_register_creates_user_preference(client):
 def test_register_duplicate_email(client):
     payload = {
         "name": "Maria",
-        "email": "dup@fluentia.local",
+        "email": "dup@befluent.local",
         "password": "senha-forte-1",
         "password_confirmation": "senha-forte-1",
     }
@@ -70,7 +70,7 @@ def test_register_password_mismatch(client):
         "/api/v1/auth/register",
         json={
             "name": "Ana",
-            "email": "ana@fluentia.local",
+            "email": "ana@befluent.local",
             "password": "senha-forte-1",
             "password_confirmation": "outra-senha-1",
         },
@@ -84,7 +84,7 @@ def test_register_short_password(client):
         "/api/v1/auth/register",
         json={
             "name": "Ana",
-            "email": "ana2@fluentia.local",
+            "email": "ana2@befluent.local",
             "password": "curta",
             "password_confirmation": "curta",
         },
@@ -98,7 +98,7 @@ def test_register_rejects_admin_fields(client):
         "/api/v1/auth/register",
         json={
             "name": "Hack",
-            "email": "hack@fluentia.local",
+            "email": "hack@befluent.local",
             "password": "senha-forte-1",
             "password_confirmation": "senha-forte-1",
             "is_admin": True,
@@ -112,11 +112,11 @@ def test_auth_and_me(client):
     assert client.get("/api/v1/auth/me").status_code == 401
     response = client.post(
         "/api/v1/auth/login",
-        json={"email": "admin@fluentia.local", "password": "senha-segura"},
+        json={"email": "admin@befluent.local", "password": "senha-segura"},
     )
     assert response.status_code == 200
-    assert client.cookies.get("fluentia_session")
-    assert client.get("/api/v1/auth/me").json()["email"] == "admin@fluentia.local"
+    assert client.cookies.get("befluent_session")
+    assert client.get("/api/v1/auth/me").json()["email"] == "admin@befluent.local"
 
 
 def test_logout(client, auth):

@@ -1,4 +1,4 @@
-# Observabilidade — Fluentia
+﻿# Observabilidade — BeFluent
 
 Relacionados: [error-handling.md](error-handling.md), [security.md](security.md), [privacy.md](privacy.md), [deployment-coolify.md](deployment-coolify.md).
 

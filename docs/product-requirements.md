@@ -1,14 +1,14 @@
-# Requisitos do Produto — Fluentia
+﻿# Requisitos do Produto — BeFluent
 
 ## Visão resumida
 
-O Fluentia é um webapp pessoal e privado para aprendizado de inglês, espanhol da Espanha, francês, japonês e mandarim, com apoio de inteligência artificial, prática guiada, voz e acompanhamento de progresso.
+O BeFluent é um webapp pessoal e privado para aprendizado de inglês, espanhol da Espanha, francês, japonês e mandarim, com apoio de inteligência artificial, prática guiada, voz e acompanhamento de progresso.
 
 A interface permanece em português. O sistema é desenvolvido localmente e publicado depois em VPS própria via Coolify.
 
 Documentos relacionados: [vision.md](vision.md), [stack.md](stack.md), [language-strategies.md](language-strategies.md).
 
-## Problema que o Fluentia resolve
+## Problema que o BeFluent resolve
 
 Ferramentas genéricas de idiomas costumam:
 
@@ -18,7 +18,7 @@ Ferramentas genéricas de idiomas costumam:
 - misturar variantes linguísticas sem aviso (ex.: espanhol);
 - não adaptar o estudo ao desempenho real do aluno.
 
-O Fluentia concentra, em um único ambiente privado, estudo estruturado, conversação, revisão e progresso, com estratégia própria por idioma.
+O BeFluent concentra, em um único ambiente privado, estudo estruturado, conversação, revisão e progresso, com estratégia própria por idioma.
 
 ## Usuário principal
 

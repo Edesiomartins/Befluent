@@ -11,6 +11,8 @@ describe("Login", () => {
   it("renderiza os campos e a ação de entrada", () => {
     render(<LoginPage />);
     expect(screen.getByRole("heading", { name: "Entre na sua conta" })).toBeInTheDocument();
+    expect(screen.getAllByText("BeFluent").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Fluentia/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText("E-mail")).toBeInTheDocument();
     expect(screen.getByLabelText("Senha")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();

@@ -5,12 +5,15 @@ import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { Logo } from "@/components/logo";
+import { BRAND } from "@/lib/brand";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const success = searchParams.get("cadastro") === "ok";
@@ -40,11 +43,21 @@ function LoginForm() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
-      <section className="hidden bg-[var(--primary-strong)] px-14 py-12 text-white lg:flex lg:flex-col">
-        <span className="text-xl font-semibold">Fluentia</span>
-        <div className="my-auto max-w-xl">
-          <p className="mb-6 text-sm font-semibold uppercase tracking-[.18em] text-white/60">
-            Aprendizado de idiomas
+      <section className="relative hidden overflow-hidden bg-[var(--primary-deep)] px-14 py-12 text-white lg:flex lg:flex-col">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          aria-hidden
+          style={{
+            background:
+              "radial-gradient(circle at 15% 20%, rgba(37,99,235,.55), transparent 42%), radial-gradient(circle at 85% 80%, rgba(219,234,254,.18), transparent 40%)",
+          }}
+        />
+        <div className="relative">
+          <Logo variant="light" />
+        </div>
+        <div className="relative my-auto max-w-xl">
+          <p className="mb-6 text-sm font-semibold uppercase tracking-[.18em] text-white/55">
+            {BRAND.slogan}
           </p>
           <h1 className="text-5xl font-semibold leading-[1.08] tracking-[-.045em]">
             Estude com clareza.
@@ -52,22 +65,21 @@ function LoginForm() {
             Evolua com constância.
           </h1>
           <p className="mt-7 max-w-md text-lg leading-8 text-white/70">
-            Pratique conversação, compreensão e escrita no seu ritmo.
+            {BRAND.description}
           </p>
         </div>
-        <p className="text-sm text-white/50">Sua rotina, seu progresso, sem distrações.</p>
+        <p className="relative text-sm text-white/45">{BRAND.institutional}</p>
       </section>
-      <section className="flex items-center justify-center px-5 py-12">
+      <section className="flex items-center justify-center bg-surface px-5 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-10 lg:hidden">
-            <span className="grid size-10 place-items-center rounded-lg bg-primary text-xl font-bold text-white">
-              F
-            </span>
+            <Logo />
+            <p className="mt-2 text-sm text-text-secondary">{BRAND.slogan}</p>
           </div>
           <p className="mb-2 text-sm font-semibold text-primary">Bem-vindo de volta</p>
           <h2 className="page-title">Entre na sua conta</h2>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
-            Continue seu plano de estudo de onde parou.
+            Continue sua jornada de aprendizado de onde parou.
           </p>
           {success && (
             <p
@@ -87,14 +99,23 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@exemplo.com"
             />
-            <Input
-              label="Senha"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="grid gap-2">
+              <Input
+                label="Senha"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="justify-self-start text-sm font-medium text-primary hover:underline"
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? "Ocultar senha" : "Mostrar senha"}
+              </button>
+            </div>
             {error && (
               <p
                 className="rounded-lg border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
@@ -108,7 +129,7 @@ function LoginForm() {
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-text-secondary">
-            Ainda não tem conta?{" "}
+            Ainda não tem uma conta?{" "}
             <Link
               href="/register"
               className="font-semibold text-primary underline-offset-2 hover:underline"

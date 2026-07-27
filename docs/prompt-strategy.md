@@ -1,4 +1,4 @@
-# Estratégia de Prompts — Fluentia
+﻿# Estratégia de Prompts — BeFluent
 
 Modelos conceituais e contratos de saída. **Não escrever prompts finais gigantes nesta etapa.**
 

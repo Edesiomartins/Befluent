@@ -1,5 +1,183 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Logo } from "@/components/logo";
+import { BRAND, LANGUAGES } from "@/lib/brand";
 
-export default function Home() {
-  redirect("/dashboard");
+const benefits = [
+  {
+    title: "Conversação com IA",
+    description: "Pratique diálogos reais com feedback claro e no seu nível.",
+  },
+  {
+    title: "Prática de pronúncia",
+    description: "Treine a fala com apoio de áudio e correções objetivas.",
+  },
+  {
+    title: "Vocabulário contextual",
+    description: "Salve e revise palavras no contexto em que aparecem.",
+  },
+  {
+    title: "Compreensão auditiva",
+    description: "Escute, entenda e evolua a percepção natural do idioma.",
+  },
+  {
+    title: "Revisão inteligente",
+    description: "Revise no momento certo com um agendador simples e substituível.",
+  },
+  {
+    title: "Acompanhamento de progresso",
+    description: "Veja evolução, sequência de estudos e próximos passos.",
+  },
+];
+
+const steps = [
+  "Crie sua conta",
+  "Escolha o idioma",
+  "Informe seu nível",
+  "Pratique com seus tutores",
+  "Acompanhe sua evolução",
+];
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen bg-[var(--surface-soft)] text-text-primary">
+      <header className="border-b border-border bg-surface/90 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5 md:px-8">
+          <Logo />
+          <nav className="flex items-center gap-2 sm:gap-3" aria-label="Acesso">
+            <Link
+              href="/login"
+              className="rounded-lg px-3 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
+            >
+              Entrar
+            </Link>
+            <Link
+              href="/register"
+              className="inline-flex min-h-10 items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
+            >
+              Começar agora
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        <section className="relative overflow-hidden border-b border-border bg-[var(--primary-deep)] text-white">
+          <div
+            className="pointer-events-none absolute inset-0 opacity-30"
+            aria-hidden
+            style={{
+              background:
+                "radial-gradient(circle at 20% 20%, rgba(37,99,235,.45), transparent 40%), radial-gradient(circle at 80% 0%, rgba(219,234,254,.25), transparent 35%)",
+            }}
+          />
+          <div className="relative mx-auto grid max-w-6xl gap-10 px-5 py-16 md:px-8 md:py-24 lg:grid-cols-[1.2fr_.8fr] lg:items-center">
+            <div>
+              <p className="mb-4 text-sm font-semibold uppercase tracking-[.16em] text-white/55">
+                {BRAND.slogan}
+              </p>
+              <h1 className="max-w-2xl text-4xl font-semibold leading-[1.08] tracking-[-.04em] md:text-5xl">
+                Aprenda idiomas de forma prática, personalizada e inteligente.
+              </h1>
+              <p className="mt-6 max-w-xl text-lg leading-8 text-white/75">
+                Converse, pratique pronúncia, amplie seu vocabulário e acompanhe sua
+                evolução com tutores de inteligência artificial.
+              </p>
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/register"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg bg-white px-5 text-sm font-semibold text-[var(--primary-strong)] hover:bg-primary-soft"
+                >
+                  Começar agora
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-12 items-center justify-center rounded-lg border border-white/25 px-5 text-sm font-semibold text-white hover:bg-white/10"
+                >
+                  Entrar
+                </Link>
+              </div>
+              <p className="mt-8 text-sm text-white/45">{BRAND.institutional}</p>
+            </div>
+            <div className="hidden rounded-2xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm lg:block" aria-hidden>
+              <div className="space-y-3">
+                {["Conversação", "Pronúncia", "Vocabulário", "Revisão"].map((item, index) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm"
+                  >
+                    <span>{item}</span>
+                    <span className="text-white/45">{index === 0 ? "Em andamento" : "Disponível"}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-5 py-16 md:px-8">
+          <h2 className="text-2xl font-semibold tracking-tight">Por que praticar no BeFluent</h2>
+          <p className="mt-3 max-w-2xl text-text-secondary">
+            Um ambiente claro para estudar com constância, sem poluição visual e com foco na fluência.
+          </p>
+          <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {benefits.map((item) => (
+              <article key={item.title} className="panel p-5">
+                <h3 className="font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">{item.description}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="border-y border-border bg-surface">
+          <div className="mx-auto max-w-6xl px-5 py-16 md:px-8">
+            <h2 className="text-2xl font-semibold tracking-tight">Idiomas disponíveis</h2>
+            <p className="mt-3 text-text-secondary">
+              Cinco idiomas com estratégias próprias de estudo.
+            </p>
+            <ul className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              {LANGUAGES.map((lang) => (
+                <li key={lang.code} className="rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-4">
+                  <p className="font-semibold">{lang.namePt}</p>
+                  <p className="mt-1 text-sm text-text-secondary">{lang.native}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-5 py-16 md:px-8">
+          <h2 className="text-2xl font-semibold tracking-tight">Como funciona</h2>
+          <ol className="mt-8 grid gap-4 md:grid-cols-5">
+            {steps.map((step, index) => (
+              <li key={step} className="panel p-4">
+                <span className="text-xs font-semibold uppercase tracking-[.14em] text-primary">
+                  Passo {index + 1}
+                </span>
+                <p className="mt-2 text-sm font-semibold leading-6">{step}</p>
+              </li>
+            ))}
+          </ol>
+        </section>
+      </main>
+
+      <footer className="border-t border-border bg-surface">
+        <div className="mx-auto flex max-w-6xl flex-col gap-6 px-5 py-10 md:flex-row md:items-end md:justify-between md:px-8">
+          <div>
+            <Logo />
+            <p className="mt-3 text-sm text-text-secondary">{BRAND.slogan}</p>
+            <p className="mt-2 text-sm text-text-secondary">{BRAND.poweredBy}</p>
+          </div>
+          <div className="flex gap-4 text-sm font-semibold">
+            <Link href="/login" className="text-primary hover:underline">
+              Entrar
+            </Link>
+            <Link href="/register" className="text-primary hover:underline">
+              Criar conta
+            </Link>
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 }

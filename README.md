@@ -1,6 +1,13 @@
-# Fluentia
+# BeFluent
 
-Fluentia é um webapp pessoal e privado para aprendizado de idiomas com apoio de inteligência artificial.
+BeFluent é um webapp para aprendizado de idiomas com apoio de inteligência artificial.
+
+**BeFluent é uma aplicação independente, com autenticação e banco próprios.**
+
+O subdomínio de produção planejado é `befluent.medquesthub.com.br` (backend sugerido: `api-befluent.medquesthub.com.br`).
+
+Slogan: **Aprenda. Pratique. Fale.**  
+Assinatura: *Uma plataforma MedQuestHub AI* · *Powered by MedQuestHub AI*
 
 ## Idiomas iniciais
 
@@ -12,7 +19,7 @@ Fluentia é um webapp pessoal e privado para aprendizado de idiomas com apoio de
 
 ## Objetivo
 
-Criar um tutor pessoal acessível pelo navegador, com foco em conversação, compreensão auditiva, vocabulário, gramática, pronúncia, revisão e acompanhamento de progresso.
+Criar um tutor acessível pelo navegador, com foco em conversação, compreensão auditiva, vocabulário, gramática, pronúncia, revisão e acompanhamento de progresso.
 
 ## Arquitetura
 
@@ -21,14 +28,14 @@ Criar um tutor pessoal acessível pelo navegador, com foco em conversação, com
 - **Banco:** PostgreSQL 18
 - **IA:** OpenRouter (modular) com modo mock
 - **Áudio:** STT/TTS modulares com provedor `mock` por padrão
-- **Auth:** cookie HTTP-only (sem JWT em `localStorage`)
-- **Infra:** Docker Compose (Redis não obrigatório)
+- **Auth:** cookie HTTP-only `befluent_session` (sem JWT em `localStorage`)
+- **Infra:** Docker Compose (preparado para Coolify no futuro)
 
 Documentação detalhada em `docs/`.
 
 ## Estado atual
 
-Primeira versão funcional local, com integrações externas em modo simulado por padrão.
+Primeira versão funcional local, com integrações externas em modo simulado por padrão. Cadastro público e multi-usuário autorizados. Sem deploy nesta etapa.
 
 ## Requisitos
 
@@ -47,22 +54,27 @@ Primeira versão funcional local, com integrações externas em modo simulado po
    - `INITIAL_ADMIN_EMAIL`
    - `INITIAL_ADMIN_PASSWORD` (mín. 8 caracteres)
 3. Mantenha `AI_MOCK_MODE=true`, `STT_PROVIDER=mock` e `TTS_PROVIDER=mock` até configurar chaves reais.
+4. Em produção futura: `COOKIE_SECURE=true`, HTTPS, CORS restrito ao domínio real.
 
 ## Variáveis
 
 Veja `.env.example`. Nunca coloque segredos no frontend. Apenas `NEXT_PUBLIC_API_URL` é pública.
 
+Locais padrão:
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8000`
+
 ## Execução sem Docker
 
 ### Banco
 
-Suba um PostgreSQL e ajuste `DATABASE_URL`.
+Suba um PostgreSQL e ajuste `DATABASE_URL` (exemplo: `postgresql+psycopg://befluent:CHANGE_ME@localhost:5432/befluent`).
 
 ### Backend
 
 ```powershell
 cd backend
-# Preferir Python 3.11/3.12
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -80,83 +92,68 @@ uvicorn app.main:app --reload --port 8000
 ```powershell
 cd frontend
 npm install
-$env:NEXT_PUBLIC_API_URL="http://localhost:8000"
 npm run dev
 ```
 
-## Execução com Docker
+## Docker Compose
+
+Serviços: `befluent-frontend`, `befluent-backend`, `befluent-postgres`.
 
 ```powershell
-copy .env.example .env
-# edite .env
 docker compose up --build
 ```
 
-Serviços:
+### Volume legado
 
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8000
-- Health: http://localhost:8000/health
-- PostgreSQL: localhost:5432
+Instalações antigas usavam o volume `fluentia_pg_data`. O Compose atual cria `befluent_pg_data`. Para preservar dados locais antigos, mapeie o volume antigo explicitamente ou faça dump/restore — não apague volumes sem backup.
 
-Criar admin (com Compose no ar):
+## Autenticação
 
-```powershell
-docker compose exec fluentia-backend python scripts/create_admin.py
-```
+Fluxo:
+
+1. Cadastro público (`POST /api/v1/auth/register`) — **sem** login automático
+2. Redirecionamento para `/login?cadastro=ok`
+3. Login (`POST /api/v1/auth/login`) com cookie `befluent_session`
+4. Onboarding / dashboard
+
+Logout revoga a sessão. CSRF protegido nas rotas mutáveis (login/register isentos quando necessário).
+
+## OpenRouter / STT / TTS
+
+Integrações modulares. Com `AI_MOCK_MODE=true` e provedores `mock`, a API responde sem chaves externas.
 
 ## Migrations
 
-```powershell
-cd backend
-alembic upgrade head
-alembic current
-```
+Alembic em `backend/alembic`. Não apague migrations existentes.
+
+- `0001_initial` — criação inicial (`create_all`).
+- `0002_ensure_schema` — **obrigatória em bancos já existentes**: adiciona colunas/tabelas ausentes sem DROP.
+
+No Coolify, o entrypoint do backend executa `alembic upgrade head` no start. Após redeploy do backend, confira logs e `python scripts/check_schema.py`.
+
+Não use `stamp head` sem auditoria. Não apague volumes nem o PostgreSQL.
 
 ## Testes
 
 ```powershell
-# Backend
 cd backend
-.\.venv\Scripts\python.exe -m pytest -q
+python -m pytest -q
 
-# Frontend
-cd frontend
-npm test
+cd ../frontend
+npm install
 npm run typecheck
+npm test
+npm run build
 ```
 
-## Modo mock
+## Coolify (futuro)
 
-Quando `AI_MOCK_MODE=true` ou chaves vazias:
+Ver `docs/deployment-coolify.md`. Não fazer deploy nesta etapa. Domínio planejado: `https://befluent.medquesthub.com.br`.
 
-- conversação usa respostas simuladas;
-- STT/TTS usam provedores mock;
-- a UI indica modo demonstração;
-- a aplicação **não** deve falhar por falta de chave.
+## Histórico técnico
 
-## SRS provisório
+O projeto nasceu como **Fluentia**. Em 2026 a identidade foi renomeada para **BeFluent**, mantendo código, funcionalidades e stack. Referências residuais ao nome antigo podem existir apenas em histórico Git, migrations antigas ou volumes legados.
 
-A primeira versão usa agendador **simples substituível** (D-019). FSRS permanece decisão pendente (P-010).
+## Licença / uso
 
-## Resolução de erros comuns
-
-| Problema | Causa provável | Ação |
-|---|---|---|
-| `pip` falha no `pydantic-core` | Python 3.14 sem wheel | Use Python 3.11/3.12 |
-| Login 401 | Admin não criado | Rode `create_admin.py` |
-| CSRF 403 | Cookie/header ausente | Garanta `credentials: include` e header `X-CSRF-Token` |
-| CORS | Origem diferente | Ajuste `CORS_ORIGINS` / `FRONTEND_URL` |
-| Microfone bloqueado | Permissão do navegador | Use alternativa textual |
-
-## Preparação para Coolify
-
-- Use os Dockerfiles de `frontend/` e `backend/`
-- Configure secrets no Coolify (nunca no git)
-- HTTPS obrigatório em produção (`COOKIE_SECURE=true`)
-- Rode migrations no start (entrypoint do backend)
-- Não faça deploy nesta etapa sem testes locais
-
-## Documentação
-
-Consulte `docs/` para visão, stack, API, segurança, roadmap e critérios de aceitação.
+Uso pessoal e institucional MedQuestHub AI. Sem integração de login com MedQuestHub nesta fase.

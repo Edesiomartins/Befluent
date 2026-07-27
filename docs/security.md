@@ -1,4 +1,4 @@
-# Segurança — Fluentia
+﻿# Segurança — BeFluent
 
 Relacionados: [privacy.md](privacy.md), [architecture.md](architecture.md), [api-specification.md](api-specification.md), [stack.md](stack.md).
 
@@ -22,7 +22,7 @@ Relacionados: [privacy.md](privacy.md), [architecture.md](architecture.md), [api
 
 ## Esclarecimento sobre tokens
 
-| Conceito | O que é | Uso no Fluentia |
+| Conceito | O que é | Uso no BeFluent |
 |---|---|---|
 | Token de sessão **opaco** | Identificador aleatório sem significado para o cliente; o servidor resolve a sessão | Permitido **somente** dentro de cookie HTTP-only |
 | **JWT** | Token assinado que pode carregar claims e ser decodificado no cliente | **Não** deve ser armazenado em `localStorage`/`sessionStorage`. Se algum dia for considerado, exige decisão explícita em [decisions.md](decisions.md) — **não é a estratégia atual** |

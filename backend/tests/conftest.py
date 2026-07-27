@@ -19,12 +19,12 @@ app.dependency_overrides[get_db]=override_db
 def reset_db():
     Base.metadata.drop_all(engine); Base.metadata.create_all(engine)
     with TestingSession() as db:
-        seed_languages(db); user=User(email="admin@fluentia.local",name="Admin",password_hash=hash_password("senha-segura")); db.add(user); db.flush(); db.add(UserPreference(user_id=user.id)); db.commit()
+        seed_languages(db); user=User(email="admin@befluent.local",name="Admin",password_hash=hash_password("senha-segura")); db.add(user); db.flush(); db.add(UserPreference(user_id=user.id)); db.commit()
     yield
 @pytest.fixture
 def client(): return TestClient(app)
 @pytest.fixture
 def auth(client):
-    response=client.post("/api/v1/auth/login",json={"email":"admin@fluentia.local","password":"senha-segura"})
+    response=client.post("/api/v1/auth/login",json={"email":"admin@befluent.local","password":"senha-segura"})
     assert response.status_code==200
     return {"X-CSRF-Token":client.cookies.get("csrf_token")}

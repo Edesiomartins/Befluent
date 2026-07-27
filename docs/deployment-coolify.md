@@ -1,4 +1,4 @@
-# Deploy no Coolify — Fluentia
+﻿# Deploy no Coolify — BeFluent
 
 **Não executar deploy nesta etapa.** Planejamento apenas.
 
@@ -6,7 +6,51 @@ Relacionados: [architecture.md](architecture.md), [security.md](security.md), [t
 
 ## Objetivo
 
-Publicar o Fluentia em VPS própria via Coolify, com HTTPS, após testes locais.
+Publicar o BeFluent em VPS própria via Coolify, com HTTPS, após testes locais.
+
+Domínio planejado do frontend: `https://befluent.medquesthub.com.br`  
+Backend sugerido: `https://api-befluent.medquesthub.com.br`
+
+## Volume e nomes internos
+
+Compose local preserva serviços/volumes `fluentia-*` / `fluentia_pg_data` por compatibilidade com instalações existentes.
+A marca visual é **BeFluent**. No Coolify, **não** renomeie serviços, banco, usuário PostgreSQL ou volumes só por causa da marca.
+
+## Migration segura no Coolify (obrigatória se login falha)
+
+Sintoma típico: `UndefinedColumn` / `column does not exist` (ex.: `users.last_login_at`, `users.is_active`, `sessions.*`).
+
+Causa: a migration `0001_initial` usava `create_all`, que **não adiciona colunas** em tabelas já existentes quando `alembic_version` já está em `0001_initial`.
+
+Correção: revision `0002_ensure_schema` (incremental, sem DROP).
+
+### Como aplicar sem recriar infraestrutura
+
+1. Faça deploy/redeploy **apenas** do serviço backend (imagem nova com a migration).
+2. O entrypoint já executa `alembic upgrade head` antes do Uvicorn.
+3. Confirme nos logs: `Running migrations...` e ausência de erros de coluna.
+4. Opcional, no container do backend:
+
+```bash
+alembic current
+alembic heads
+python scripts/check_schema.py
+```
+
+5. Não use `alembic stamp head` sem confirmar que o schema já está completo.
+6. Não use `docker compose down -v`, drop database ou recriação do PostgreSQL.
+
+### Variáveis a revisar manualmente no Coolify
+
+- `FRONTEND_ORIGIN` / `FRONTEND_URL` / `CORS_ORIGINS` → origem real do frontend (não `localhost` em produção)
+- `COOKIE_SECURE=true` com HTTPS
+- `SESSION_COOKIE_NAME` → `befluent_session` (ou mantenha `fluentia_session` se quiser preservar cookies atuais)
+- `NEXT_PUBLIC_API_URL` no frontend → URL pública do backend
+- Nunca versionar secrets (`DATABASE_URL`, `SESSION_SECRET`, chaves OpenRouter)
+
+## Volume legado
+
+Compose local continua com `fluentia_pg_data` / serviços `fluentia-*`.
 
 ## Componentes
 

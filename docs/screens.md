@@ -1,4 +1,4 @@
-# Telas — Fluentia
+﻿# Telas — BeFluent
 
 Documentos relacionados: [user-flows.md](user-flows.md), [design-system.md](design-system.md), [accessibility.md](accessibility.md).
 
@@ -24,7 +24,7 @@ Documentos relacionados: [user-flows.md](user-flows.md), [design-system.md](desi
 
 ## Onboarding
 
-- **Objetivo:** apresentar o Fluentia e coletar preferências iniciais.
+- **Objetivo:** apresentar o BeFluent e coletar preferências iniciais.
 - **Informações:** propósito do app; próximos passos.
 - **Ações:** continuar; escolher idioma inicial.
 - **Carregamento:** transição entre passos.

@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,13 +14,22 @@ def normalize_database_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    app_name: str = "Fluentia API"
+    app_name: str = "BeFluent API"
     environment: str = "development"
     debug: bool = False
-    database_url: str = "sqlite:///./fluentia.db"
-    frontend_origin: str = "http://localhost:3000"
-    session_cookie_name: str = "fluentia_session"
-    session_secure: bool = False
+    database_url: str = "sqlite:///./befluent.db"
+    frontend_origin: str = Field(
+        default="http://localhost:3000",
+        validation_alias=AliasChoices("FRONTEND_ORIGIN", "FRONTEND_URL"),
+    )
+    session_cookie_name: str = Field(
+        default="befluent_session",
+        validation_alias=AliasChoices("SESSION_COOKIE_NAME", "COOKIE_NAME"),
+    )
+    session_secure: bool = Field(
+        default=False,
+        validation_alias=AliasChoices("SESSION_SECURE", "COOKIE_SECURE"),
+    )
     session_days: int = 30
     ai_mock_mode: bool = True
     openrouter_api_key: str = ""

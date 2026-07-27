@@ -1,8 +1,8 @@
-# Estratégias de Ensino por Idioma
+﻿# Estratégias de Ensino por Idioma
 
 ## Princípio geral
 
-O Fluentia não deve ensinar todos os idiomas da mesma forma.
+O BeFluent não deve ensinar todos os idiomas da mesma forma.
 
 Cada idioma terá prioridades, dificuldades e métodos próprios.
 

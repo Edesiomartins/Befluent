@@ -1,18 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7f7;
+  --background: #f5f9ff;
   --surface: #ffffff;
-  --surface-elevated: #eef2f2;
-  --text-primary: #172426;
-  --text-secondary: #607073;
-  --border: #dce3e3;
-  --primary: #195b63;
-  --primary-strong: #10464d;
-  --success: #247451;
-  --warning: #a36617;
-  --danger: #b33a3a;
-  --info: #356b91;
+  --surface-soft: #f5f9ff;
+  --surface-elevated: #dbeafe;
+  --text-primary: #172033;
+  --text-secondary: #64748b;
+  --border: #dce6f2;
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-strong: #0f2a5f;
+  --primary-deep: #0b1f44;
+  --primary-soft: #dbeafe;
+  --success: #16a34a;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --info: #2563eb;
 }
 
 @theme inline {
@@ -41,17 +45,38 @@ body {
 }
 button, input, textarea, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
-:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 2px; }
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  outline-offset: 2px;
+}
 
-.page-title { font-size: clamp(1.75rem, 4vw, 2.35rem); font-weight: 650; letter-spacing: -0.035em; line-height: 1.1; }
-.section-title { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; }
-.panel { border: 1px solid var(--border); background: var(--surface); border-radius: 1rem; }
+.page-title {
+  font-size: clamp(1.75rem, 4vw, 2.35rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.1;
+}
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.panel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 0.875rem;
+}
 .muted { color: var(--text-secondary); }
 .skeleton {
   border-radius: .5rem;
-  background: linear-gradient(90deg, var(--surface-elevated) 25%, #f8fafa 45%, var(--surface-elevated) 65%);
+  background: linear-gradient(90deg, var(--surface-elevated) 25%, #fff 45%, var(--surface-elevated) 65%);
   background-size: 220% 100%;
   animation: shimmer 1.5s infinite linear;
 }
 @keyframes shimmer { to { background-position-x: -220%; } }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+  }
+}

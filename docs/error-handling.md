@@ -1,4 +1,4 @@
-# Tratamento de Erros — Fluentia
+﻿# Tratamento de Erros — BeFluent
 
 Relacionados: [api-specification.md](api-specification.md), [user-flows.md](user-flows.md), [observability.md](observability.md).
 

@@ -1,10 +1,10 @@
-# Acessibilidade — Fluentia
+﻿# Acessibilidade — BeFluent
 
 Relacionados: [design-system.md](design-system.md), [screens.md](screens.md), [speech-architecture.md](speech-architecture.md).
 
 ## Objetivo
 
-Tornar o Fluentia utilizável por teclado, leitores de tela e em diferentes condições sensoriais/motoras, sem abrir mão da interface adulta e limpa.
+Tornar o BeFluent utilizável por teclado, leitores de tela e em diferentes condições sensoriais/motoras, sem abrir mão da interface adulta e limpa.
 
 ## Navegação por teclado
 

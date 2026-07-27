@@ -1,8 +1,8 @@
-# Visão do Fluentia
+﻿# Visão do BeFluent
 
 ## Propósito
 
-O Fluentia é um webapp pessoal para aprendizado de idiomas com apoio de inteligência artificial, voz, prática guiada e acompanhamento de progresso.
+O BeFluent é um webapp pessoal para aprendizado de idiomas com apoio de inteligência artificial, voz, prática guiada e acompanhamento de progresso.
 
 ## Usuário principal
 
@@ -54,7 +54,7 @@ Não haverá cadastro público nesta fase.
 
 ## Privacidade
 
-- O Fluentia será uma aplicação privada.
+- O BeFluent será uma aplicação privada.
 - Apenas o usuário autorizado terá acesso.
 - Chaves de serviços externos nunca devem aparecer no frontend.
 - Dados de estudo e conversação devem permanecer protegidos.

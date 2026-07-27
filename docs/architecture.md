@@ -1,10 +1,10 @@
-# Arquitetura — Fluentia
+﻿# Arquitetura — BeFluent
 
 Documentos relacionados: [stack.md](stack.md), [database.md](database.md), [api-specification.md](api-specification.md), [deployment-coolify.md](deployment-coolify.md).
 
 ## Arquitetura geral
 
-O Fluentia é um webapp com:
+O BeFluent é um webapp com:
 
 - **Frontend:** Next.js (TypeScript, App Router, Tailwind CSS).
 - **Backend:** FastAPI (Python, SQLAlchemy, Alembic, Pydantic).

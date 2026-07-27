@@ -1,17 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
+import { Logo } from "@/components/logo";
+import { BRAND } from "@/lib/brand";
+
+function PasswordHints({ password }: { password: string }) {
+  const checks = [
+    { ok: password.length >= 8, label: "Pelo menos 8 caracteres" },
+    { ok: /[A-Za-z]/.test(password), label: "Contém letras" },
+    { ok: /\d/.test(password) || password.length >= 10, label: "Números ou senha mais longa" },
+  ];
+  return (
+    <ul className="grid gap-1 text-xs text-text-secondary" aria-live="polite">
+      {checks.map((item) => (
+        <li key={item.label} className={item.ok ? "text-success" : undefined}>
+          {item.ok ? "✓" : "•"} {item.label}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default function RegisterPage() {
   const router = useRouter();
+  const nameRef = useRef<HTMLInputElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
+  const confirmRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -22,11 +46,25 @@ export default function RegisterPage() {
     setSuccess(false);
 
     const trimmedName = name.trim();
-    if (trimmedName.length < 2) return setError("O nome deve ter pelo menos 2 caracteres.");
-    if (!email.trim()) return setError("Informe um e-mail válido.");
-    if (password.length < 8) return setError("A senha deve ter pelo menos 8 caracteres.");
+    if (trimmedName.length < 2) {
+      setError("O nome deve ter pelo menos 2 caracteres.");
+      nameRef.current?.focus();
+      return;
+    }
+    if (!email.trim()) {
+      setError("Informe um e-mail válido.");
+      emailRef.current?.focus();
+      return;
+    }
+    if (password.length < 8) {
+      setError("A senha deve ter pelo menos 8 caracteres.");
+      passwordRef.current?.focus();
+      return;
+    }
     if (password !== passwordConfirmation) {
-      return setError("As senhas não coincidem.");
+      setError("As senhas não coincidem.");
+      confirmRef.current?.focus();
+      return;
     }
 
     setLoading(true);
@@ -59,11 +97,21 @@ export default function RegisterPage() {
 
   return (
     <main className="grid min-h-screen lg:grid-cols-[1fr_1.05fr]">
-      <section className="hidden bg-[var(--primary-strong)] px-14 py-12 text-white lg:flex lg:flex-col">
-        <span className="text-xl font-semibold">Fluentia</span>
-        <div className="my-auto max-w-xl">
-          <p className="mb-6 text-sm font-semibold uppercase tracking-[.18em] text-white/60">
-            Aprendizado de idiomas
+      <section className="relative hidden overflow-hidden bg-[var(--primary-deep)] px-14 py-12 text-white lg:flex lg:flex-col">
+        <div
+          className="pointer-events-none absolute inset-0 opacity-40"
+          aria-hidden
+          style={{
+            background:
+              "radial-gradient(circle at 20% 15%, rgba(37,99,235,.5), transparent 40%), radial-gradient(circle at 80% 70%, rgba(219,234,254,.16), transparent 38%)",
+          }}
+        />
+        <div className="relative">
+          <Logo variant="light" />
+        </div>
+        <div className="relative my-auto max-w-xl">
+          <p className="mb-6 text-sm font-semibold uppercase tracking-[.18em] text-white/55">
+            {BRAND.slogan}
           </p>
           <h1 className="text-5xl font-semibold leading-[1.08] tracking-[-.045em]">
             Comece do seu jeito.
@@ -71,25 +119,24 @@ export default function RegisterPage() {
             No seu ritmo.
           </h1>
           <p className="mt-7 max-w-md text-lg leading-8 text-white/70">
-            Crie sua conta para praticar conversação, compreensão e escrita com acompanhamento claro.
+            {BRAND.description}
           </p>
         </div>
-        <p className="text-sm text-white/50">Cadastro aberto para novos estudantes.</p>
+        <p className="relative text-sm text-white/45">{BRAND.institutional}</p>
       </section>
-      <section className="flex items-center justify-center px-5 py-12">
+      <section className="flex items-center justify-center bg-surface px-5 py-12">
         <div className="w-full max-w-sm">
           <div className="mb-10 lg:hidden">
-            <span className="grid size-10 place-items-center rounded-lg bg-primary text-xl font-bold text-white">
-              F
-            </span>
+            <Logo />
           </div>
           <p className="mb-2 text-sm font-semibold text-primary">Criar conta</p>
-          <h1 className="page-title">Cadastre-se no Fluentia</h1>
+          <h1 className="page-title">Crie sua conta no BeFluent</h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
-            Preencha seus dados para começar a estudar.
+            Comece agora sua jornada de aprendizado e fluência.
           </p>
           <form className="mt-8 grid gap-5" onSubmit={submit} autoComplete="off">
             <Input
+              ref={nameRef}
               label="Nome"
               name="name"
               autoComplete="name"
@@ -98,6 +145,7 @@ export default function RegisterPage() {
               placeholder="Seu nome"
             />
             <Input
+              ref={emailRef}
               label="E-mail"
               name="email"
               type="email"
@@ -106,18 +154,30 @@ export default function RegisterPage() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@exemplo.com"
             />
+            <div className="grid gap-2">
+              <Input
+                ref={passwordRef}
+                label="Senha"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <PasswordHints password={password} />
+              <button
+                type="button"
+                className="justify-self-start text-sm font-medium text-primary hover:underline"
+                onClick={() => setShowPassword((v) => !v)}
+              >
+                {showPassword ? "Ocultar senha" : "Mostrar senha"}
+              </button>
+            </div>
             <Input
-              label="Senha"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <Input
+              ref={confirmRef}
               label="Confirmar senha"
               name="password_confirmation"
-              type="password"
+              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               value={passwordConfirmation}
               onChange={(e) => setPasswordConfirmation(e.target.value)}
@@ -135,11 +195,11 @@ export default function RegisterPage() {
                 className="rounded-lg border border-success/25 bg-success/5 p-3 text-sm text-success"
                 role="status"
               >
-                Conta criada com sucesso
+                Conta criada com sucesso. Redirecionando para o login...
               </p>
             )}
             <Button type="submit" loading={loading} className="w-full" disabled={success}>
-              {loading ? "Criando conta…" : "Criar conta"}
+              {loading ? "Criando conta…" : "Criar minha conta"}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-text-secondary">

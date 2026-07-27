@@ -30,12 +30,14 @@ describe("RegisterPage", () => {
 
   it("renderiza os campos de cadastro", () => {
     render(<RegisterPage />);
-    expect(screen.getByRole("heading", { name: "Cadastre-se no Fluentia" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Crie sua conta no BeFluent" })).toBeInTheDocument();
+    expect(screen.getAllByText("BeFluent").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Fluentia/i)).not.toBeInTheDocument();
     expect(screen.getByLabelText("Nome")).toBeInTheDocument();
     expect(screen.getByLabelText("E-mail")).toBeInTheDocument();
     expect(screen.getByLabelText("Senha")).toBeInTheDocument();
     expect(screen.getByLabelText("Confirmar senha")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Criar conta" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar minha conta" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Entrar" })).toHaveAttribute("href", "/login");
   });
 
@@ -45,7 +47,7 @@ describe("RegisterPage", () => {
     fireEvent.change(screen.getByLabelText("E-mail"), { target: { value: "maria@exemplo.com" } });
     fireEvent.change(screen.getByLabelText("Senha"), { target: { value: "senha-forte-1" } });
     fireEvent.change(screen.getByLabelText("Confirmar senha"), { target: { value: "outra-senha" } });
-    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("As senhas não coincidem.");
     expect(apiMock).not.toHaveBeenCalled();
   });
@@ -62,7 +64,7 @@ describe("RegisterPage", () => {
     fireEvent.change(screen.getByLabelText("Confirmar senha"), {
       target: { value: "senha-forte-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
 
     await waitFor(() =>
       expect(apiMock).toHaveBeenCalledWith("/api/v1/auth/register", {
@@ -75,7 +77,9 @@ describe("RegisterPage", () => {
         },
       }),
     );
-    expect(await screen.findByRole("status")).toHaveTextContent("Conta criada com sucesso");
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Conta criada com sucesso. Redirecionando para o login...",
+    );
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login?cadastro=ok"), {
       timeout: 2000,
     });
@@ -91,7 +95,7 @@ describe("RegisterPage", () => {
     fireEvent.change(screen.getByLabelText("Confirmar senha"), {
       target: { value: "senha-forte-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Criar conta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Criar minha conta" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Já existe uma conta com este e-mail.",
     );

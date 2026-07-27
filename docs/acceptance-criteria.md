@@ -1,4 +1,4 @@
-# Critérios de Aceitação — Fluentia
+﻿# Critérios de Aceitação — BeFluent
 
 Critérios observáveis e testáveis. Evitar “funcionar bem”, “bonito”, “rápido”, “usável” ou “UX simples” sem comportamento verificável.
 

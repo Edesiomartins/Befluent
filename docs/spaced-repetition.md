@@ -1,4 +1,4 @@
-# Repetição Espaçada — Fluentia
+﻿# Repetição Espaçada — BeFluent
 
 Relacionados: [learning-engine.md](learning-engine.md), [database.md](database.md), [decisions.md](decisions.md).
 
@@ -32,7 +32,7 @@ Regras obrigatórias desta documentação:
 
 ## Implementação provisória da primeira versão (D-019)
 
-Na primeira versão do código, o Fluentia usa um **agendador simples isolado e substituível** (não FSRS e não SM-2 completo).
+Na primeira versão do código, o BeFluent usa um **agendador simples isolado e substituível** (não FSRS e não SM-2 completo).
 
 Regras provisórias do scheduler `simple`:
 

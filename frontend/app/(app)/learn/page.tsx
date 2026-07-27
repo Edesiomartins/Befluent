@@ -17,11 +17,19 @@ const modes = [
 export default function LearnPage() {
   return (
     <div>
-      <p className="text-sm font-semibold text-primary">Inglês · B1</p>
+      <p className="text-sm font-semibold text-primary">Prática</p>
       <h1 className="mt-2 page-title">O que vamos praticar?</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-text-secondary">Siga a recomendação do plano ou escolha uma habilidade para trabalhar agora.</p>
-      <Link href="/learn/guided" className="mt-8 grid gap-5 rounded-xl bg-[var(--primary-strong)] p-6 text-white sm:grid-cols-[1fr_auto] sm:items-center">
-        <div><p className="text-xs font-semibold uppercase tracking-[.14em] text-white/60">Recomendado para hoje</p><h2 className="mt-2 text-xl font-semibold">Aula guiada · Situações do cotidiano</h2><p className="mt-2 text-sm leading-6 text-white/70">20 minutos para praticar perguntas e respostas com confiança.</p></div>
+      <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
+        Escolha uma habilidade para trabalhar agora. Recomendações personalizadas aparecem após o onboarding.
+      </p>
+      <Link href="/learn/guided" className="mt-8 grid gap-5 rounded-xl bg-[var(--primary-deep)] p-6 text-white sm:grid-cols-[1fr_auto] sm:items-center">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[.14em] text-white/60">Sugestão inicial</p>
+          <h2 className="mt-2 text-xl font-semibold">Aula guiada</h2>
+          <p className="mt-2 text-sm leading-6 text-white/70">
+            Uma sequência estruturada para começar com clareza.
+          </p>
+        </div>
         <span className="font-semibold">Começar →</span>
       </Link>
       <div className="mt-9 grid gap-x-8 md:grid-cols-2">

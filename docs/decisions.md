@@ -1,4 +1,4 @@
-# Registro de Decisões — Fluentia
+﻿# Registro de Decisões — BeFluent
 
 Formato: ID | decisão | status | motivo | data | impacto.
 
@@ -10,7 +10,7 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 
 | ID | Decisão | Status | Motivo | Data | Impacto |
 |---|---|---|---|---|---|
-| D-001 | Nome do produto: Fluentia | Confirmada | Identidade do projeto | 2026-07-27 | Branding e docs |
+| D-001 | Nome do produto: BeFluent (ex-Fluentia) | Confirmada | Rebranding oficial MedQuestHub AI | 2026-07-27 | Branding e docs |
 | D-002 | Webapp pessoal | Confirmada | Uso do proprietário | 2026-07-27 | Escopo e UX |
 | D-003 | Cinco idiomas iniciais: inglês, espanhol da Espanha, francês, japonês, mandarim | Confirmada | Objetivos de aprendizado | 2026-07-27 | Conteúdo e dados |
 | D-004 | Interface em português | Confirmada | Usabilidade do dono | 2026-07-27 | UI/copy |
@@ -21,7 +21,7 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | D-009 | Docker + Docker Compose | Confirmada | Reprodutibilidade | 2026-07-27 | Dev/Deploy |
 | D-010 | Publicação via Coolify em VPS própria | Confirmada | Hospedagem escolhida | 2026-07-27 | Ops |
 | D-011 | Cadastro público e múltiplos usuários autorizados | Confirmada | Autorização do proprietário em 2026-07-27 (substitui restrição de usuário único) | 2026-07-27 | Auth |
-| D-012 | Endpoint POST /api/v1/auth/register + tela de cadastro | Confirmada | Permitir que outras pessoas usem o Fluentia | 2026-07-27 | Auth |
+| D-012 | Endpoint POST /api/v1/auth/register + tela de cadastro | Confirmada | Permitir que outras pessoas usem o BeFluent | 2026-07-27 | Auth |
 | D-013 | Sessão com cookie HTTP-only | Confirmada | Segurança de sessão | 2026-07-27 | Auth FE/BE |
 | D-014 | Desenvolvimento e testes locais antes do deploy | Confirmada | Qualidade | 2026-07-27 | Processo |
 | D-015 | Redis não obrigatório inicialmente | Confirmada | Evitar complexidade precoce | 2026-07-27 | Infra |
@@ -29,6 +29,8 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | D-017 | Estratégias pedagógicas distintas por idioma | Confirmada | Qualidade de ensino | 2026-07-27 | Motor/prompts |
 | D-018 | Codes de idioma: en, es-ES, fr, ja, zh-CN | Confirmada | Autorização explícita do proprietário | 2026-07-27 | API/DB |
 | D-019 | SRS da 1ª versão: agendador simples substituível (não FSRS) | Confirmada | P-010 permanece pendente para algoritmo final | 2026-07-27 | Reviews |
+| D-020 | Cookie de sessão `befluent_session`; containers `befluent-*`; DB exemplo `befluent` | Confirmada | Migração de identidade sem migration destrutiva de tabelas | 2026-07-27 | Auth/Infra |
+| D-021 | Domínio planejado `befluent.medquesthub.com.br` (app independente do MedQuestHub) | Confirmada | Produção futura; sem SSO nesta fase | 2026-07-27 | Ops/Auth |
 
 ## Decisões pendentes
 

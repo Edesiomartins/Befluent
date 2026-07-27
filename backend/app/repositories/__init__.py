@@ -1,1 +1,1 @@
-"""Consultas de persistência do Fluentia. Os serviços usam SQLAlchemy diretamente na v1."""
+﻿"""Consultas de persistência do BeFluent. Os serviços usam SQLAlchemy diretamente na v1."""

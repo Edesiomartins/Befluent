@@ -1,4 +1,4 @@
-"""Migração inicial com todas as tabelas do Fluentia."""
+﻿"""Migração inicial com todas as tabelas do BeFluent."""
 from alembic import op
 from app.models import Base
 revision="0001_initial"; down_revision=None; branch_labels=None; depends_on=None

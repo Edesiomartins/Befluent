@@ -1,4 +1,4 @@
-# Fluxos de Usuário — Fluentia
+﻿# Fluxos de Usuário — BeFluent
 
 Documentos relacionados: [screens.md](screens.md), [product-requirements.md](product-requirements.md), [error-handling.md](error-handling.md).
 
@@ -27,7 +27,7 @@ flowchart TD
 
 ## 1. Primeiro acesso
 
-1. Usuário abre a URL do Fluentia.
+1. Usuário abre a URL do BeFluent.
 2. Se não autenticado, vai para login.
 3. Após login, se não houver onboarding concluído, inicia onboarding.
 4. Caso contrário, vai ao dashboard.

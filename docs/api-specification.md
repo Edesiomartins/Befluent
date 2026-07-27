@@ -1,4 +1,4 @@
-# Especificação da API — Fluentia
+﻿# Especificação da API — BeFluent
 
 Planejamento REST. **Sem implementação nesta etapa.**
 

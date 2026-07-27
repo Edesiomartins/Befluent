@@ -1,4 +1,4 @@
-# Banco de Dados — Fluentia
+﻿# Banco de Dados — BeFluent
 
 Documento conceitual. **Não criar SQL nem migrations nesta etapa.**
 

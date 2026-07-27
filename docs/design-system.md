@@ -1,4 +1,4 @@
-# Design System — Fluentia
+﻿# Design System — BeFluent
 
 Documentos relacionados: [screens.md](screens.md), [accessibility.md](accessibility.md), [vision.md](vision.md).
 
@@ -13,7 +13,7 @@ Identidade **adulta, limpa, moderna e acadêmica**.
 - Responsiva para computador, tablet e celular.
 - Textos da interface em português.
 
-A paleta **definitiva é decisão pendente** e deve ser validada visualmente antes da implementação final.
+A paleta oficial BeFluent (azul e branco) está implementada nos tokens CSS do frontend.
 
 ## Princípios
 
@@ -23,24 +23,24 @@ A paleta **definitiva é decisão pendente** e deve ser validada visualmente ant
 4. Feedback de estado sempre explícito (carregando, vazio, erro, sucesso).
 5. Controles de áudio e correções linguísticas com padrões consistentes.
 
-## Tokens semânticos provisórios
+## Tokens semânticos
 
-Não fixar valores hex definitivos nesta etapa. Usar nomes semânticos:
+| Token | Valor | Uso |
+|---|---|---|
+| `background` / `surface-soft` | `#F5F9FF` | Fundo da página |
+| `surface` | `#FFFFFF` | Superfície de conteúdo |
+| `text-primary` | `#172033` | Texto principal |
+| `text-secondary` | `#64748B` | Texto de apoio |
+| `border` | `#DCE6F2` | Separadores |
+| `primary` | `#2563EB` | Ação principal |
+| `primary-hover` | `#1D4ED8` | Hover |
+| `primary-strong` / `primary-deep` | `#0F2A5F` / `#0B1F44` | Painéis de destaque |
+| `primary-soft` | `#DBEAFE` | Fundo suave |
+| `success` | `#16A34A` | Sucesso |
+| `warning` | `#D97706` | Atenção |
+| `danger` | `#DC2626` | Erro |
 
-| Token | Uso |
-|---|---|
-| `background` | Fundo da página |
-| `surface` | Superfície de conteúdo (painel leve) |
-| `text-primary` | Texto principal |
-| `text-secondary` | Texto de apoio |
-| `border` | Separadores e contornos sutis |
-| `primary` | Ação principal |
-| `success` | Sucesso / acerto |
-| `warning` | Atenção |
-| `danger` | Erro / destrutivo |
-| `info` | Informação neutra |
-
-**Decisão pendente:** valores finais de cor, tipografia de marca e biblioteca de componentes.
+Tipografia: Inter via `next/font`.
 
 ## Tipografia
 

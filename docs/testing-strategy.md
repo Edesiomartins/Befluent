@@ -1,4 +1,4 @@
-# Estratégia de Testes — Fluentia
+﻿# Estratégia de Testes — BeFluent
 
 Relacionados: [roadmap.md](roadmap.md), [acceptance-criteria.md](acceptance-criteria.md), [deployment-coolify.md](deployment-coolify.md), [error-handling.md](error-handling.md).
 
