@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f5f7f7;
+  --surface: #ffffff;
+  --surface-elevated: #eef2f2;
+  --text-primary: #172426;
+  --text-secondary: #607073;
+  --border: #dce3e3;
+  --primary: #195b63;
+  --primary-strong: #10464d;
+  --success: #247451;
+  --warning: #a36617;
+  --danger: #b33a3a;
+  --info: #356b91;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --font-sans: var(--font-inter);
+}
+
+* { box-sizing: border-box; }
+html { background: var(--background); }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+button, input, textarea, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid color-mix(in srgb, var(--primary) 35%, transparent); outline-offset: 2px; }
+
+.page-title { font-size: clamp(1.75rem, 4vw, 2.35rem); font-weight: 650; letter-spacing: -0.035em; line-height: 1.1; }
+.section-title { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; }
+.panel { border: 1px solid var(--border); background: var(--surface); border-radius: 1rem; }
+.muted { color: var(--text-secondary); }
+.skeleton {
+  border-radius: .5rem;
+  background: linear-gradient(90deg, var(--surface-elevated) 25%, #f8fafa 45%, var(--surface-elevated) 65%);
+  background-size: 220% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+@keyframes shimmer { to { background-position-x: -220%; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; } }
