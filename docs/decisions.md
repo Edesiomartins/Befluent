@@ -20,8 +20,8 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | D-008 | OpenRouter para LLM (principal + fallback) | Confirmada | Abstração de modelos | 2026-07-27 | IA |
 | D-009 | Docker + Docker Compose | Confirmada | Reprodutibilidade | 2026-07-27 | Dev/Deploy |
 | D-010 | Publicação via Coolify em VPS própria | Confirmada | Hospedagem escolhida | 2026-07-27 | Ops |
-| D-011 | Aplicação privada, sem cadastro público | Confirmada | Privacidade e escopo | 2026-07-27 | Auth |
-| D-012 | Apenas um usuário autorizado inicialmente | Confirmada | Simplicidade | 2026-07-27 | Auth/DB |
+| D-011 | Cadastro público e múltiplos usuários autorizados | Confirmada | Autorização do proprietário em 2026-07-27 (substitui restrição de usuário único) | 2026-07-27 | Auth |
+| D-012 | Endpoint POST /api/v1/auth/register + tela de cadastro | Confirmada | Permitir que outras pessoas usem o Fluentia | 2026-07-27 | Auth |
 | D-013 | Sessão com cookie HTTP-only | Confirmada | Segurança de sessão | 2026-07-27 | Auth FE/BE |
 | D-014 | Desenvolvimento e testes locais antes do deploy | Confirmada | Qualidade | 2026-07-27 | Processo |
 | D-015 | Redis não obrigatório inicialmente | Confirmada | Evitar complexidade precoce | 2026-07-27 | Infra |

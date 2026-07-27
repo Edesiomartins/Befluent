@@ -3,6 +3,7 @@
 - O projeto se chama Fluentia.
 - O Fluentia é um webapp pessoal para aprendizado de inglês, espanhol da Espanha, francês, japonês e mandarim.
 - A interface deve permanecer em português.
+- Cadastro público e múltiplos usuários estão autorizados nesta fase.
 - O projeto será desenvolvido localmente e depois publicado no Coolify.
 - Não alterar tecnologias sem autorização.
 - Não apagar arquivos existentes sem autorização.

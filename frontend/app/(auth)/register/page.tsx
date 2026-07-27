@@ -1,37 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, Suspense, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
 
-function LoginForm() {
+export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [passwordConfirmation, setPasswordConfirmation] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const success = searchParams.get("cadastro") === "ok";
+  const [success, setSuccess] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError("");
-    if (!email || !password) return setError("Preencha seu e-mail e sua senha.");
+    setSuccess(false);
+
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) return setError("O nome deve ter pelo menos 2 caracteres.");
+    if (!email.trim()) return setError("Informe um e-mail válido.");
+    if (password.length < 8) return setError("A senha deve ter pelo menos 8 caracteres.");
+    if (password !== passwordConfirmation) {
+      return setError("As senhas não coincidem.");
+    }
+
     setLoading(true);
     try {
-      await api("/api/v1/auth/login", {
+      await api("/api/v1/auth/register", {
         method: "POST",
-        body: { email, password },
+        body: {
+          name: trimmedName,
+          email: email.trim(),
+          password,
+          password_confirmation: passwordConfirmation,
+        },
       });
-      router.replace(searchParams.get("retorno") || "/dashboard");
-      router.refresh();
+      setSuccess(true);
+      setPassword("");
+      setPasswordConfirmation("");
+      window.setTimeout(() => {
+        router.replace("/login?cadastro=ok");
+      }, 900);
     } catch (caught) {
       setError(
         caught instanceof ApiError
           ? caught.message
-          : "Não foi possível acessar o servidor. Tente novamente.",
+          : "Não foi possível criar a conta. Tente novamente.",
       );
     } finally {
       setLoading(false);
@@ -47,15 +66,15 @@ function LoginForm() {
             Aprendizado de idiomas
           </p>
           <h1 className="text-5xl font-semibold leading-[1.08] tracking-[-.045em]">
-            Estude com clareza.
+            Comece do seu jeito.
             <br />
-            Evolua com constância.
+            No seu ritmo.
           </h1>
           <p className="mt-7 max-w-md text-lg leading-8 text-white/70">
-            Pratique conversação, compreensão e escrita no seu ritmo.
+            Crie sua conta para praticar conversação, compreensão e escrita com acompanhamento claro.
           </p>
         </div>
-        <p className="text-sm text-white/50">Sua rotina, seu progresso, sem distrações.</p>
+        <p className="text-sm text-white/50">Cadastro aberto para novos estudantes.</p>
       </section>
       <section className="flex items-center justify-center px-5 py-12">
         <div className="w-full max-w-sm">
@@ -64,20 +83,20 @@ function LoginForm() {
               F
             </span>
           </div>
-          <p className="mb-2 text-sm font-semibold text-primary">Bem-vindo de volta</p>
-          <h2 className="page-title">Entre na sua conta</h2>
+          <p className="mb-2 text-sm font-semibold text-primary">Criar conta</p>
+          <h1 className="page-title">Cadastre-se no Fluentia</h1>
           <p className="mt-3 text-sm leading-6 text-text-secondary">
-            Continue seu plano de estudo de onde parou.
+            Preencha seus dados para começar a estudar.
           </p>
-          {success && (
-            <p
-              className="mt-5 rounded-lg border border-success/25 bg-success/5 p-3 text-sm text-success"
-              role="status"
-            >
-              Conta criada com sucesso. Faça login para continuar.
-            </p>
-          )}
-          <form className="mt-8 grid gap-5" onSubmit={submit}>
+          <form className="mt-8 grid gap-5" onSubmit={submit} autoComplete="off">
+            <Input
+              label="Nome"
+              name="name"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Seu nome"
+            />
             <Input
               label="E-mail"
               name="email"
@@ -91,9 +110,17 @@ function LoginForm() {
               label="Senha"
               name="password"
               type="password"
-              autoComplete="current-password"
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+            />
+            <Input
+              label="Confirmar senha"
+              name="password_confirmation"
+              type="password"
+              autoComplete="new-password"
+              value={passwordConfirmation}
+              onChange={(e) => setPasswordConfirmation(e.target.value)}
             />
             {error && (
               <p
@@ -103,35 +130,29 @@ function LoginForm() {
                 {error}
               </p>
             )}
-            <Button type="submit" loading={loading} className="w-full">
-              {loading ? "Entrando…" : "Entrar"}
+            {success && (
+              <p
+                className="rounded-lg border border-success/25 bg-success/5 p-3 text-sm text-success"
+                role="status"
+              >
+                Conta criada com sucesso
+              </p>
+            )}
+            <Button type="submit" loading={loading} className="w-full" disabled={success}>
+              {loading ? "Criando conta…" : "Criar conta"}
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-text-secondary">
-            Ainda não tem conta?{" "}
+            Já tem uma conta?{" "}
             <Link
-              href="/register"
+              href="/login"
               className="font-semibold text-primary underline-offset-2 hover:underline"
             >
-              Criar conta
+              Entrar
             </Link>
           </p>
         </div>
       </section>
     </main>
-  );
-}
-
-export default function LoginPage() {
-  return (
-    <Suspense
-      fallback={
-        <main className="grid min-h-screen place-items-center text-sm text-text-secondary">
-          Carregando acesso…
-        </main>
-      }
-    >
-      <LoginForm />
-    </Suspense>
   );
 }

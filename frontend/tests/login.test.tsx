@@ -14,5 +14,6 @@ describe("Login", () => {
     expect(screen.getByLabelText("E-mail")).toBeInTheDocument();
     expect(screen.getByLabelText("Senha")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Entrar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Criar conta" })).toHaveAttribute("href", "/register");
   });
 });

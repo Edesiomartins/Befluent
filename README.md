@@ -18,7 +18,7 @@ Criar um tutor pessoal acessível pelo navegador, com foco em conversação, com
 
 - **Frontend:** Next.js 15 (App Router), TypeScript, Tailwind CSS
 - **Backend:** FastAPI, SQLAlchemy, Alembic, Pydantic
-- **Banco:** PostgreSQL 16
+- **Banco:** PostgreSQL 18
 - **IA:** OpenRouter (modular) com modo mock
 - **Áudio:** STT/TTS modulares com provedor `mock` por padrão
 - **Auth:** cookie HTTP-only (sem JWT em `localStorage`)
@@ -34,7 +34,7 @@ Primeira versão funcional local, com integrações externas em modo simulado po
 
 - Python **3.11 ou 3.12** (recomendado; evite 3.14 sem wheels)
 - Node.js 22+
-- PostgreSQL 16 (local ou via Docker)
+- PostgreSQL 18 (local ou via Docker)
 - Docker Desktop (opcional, para Compose)
 
 ## Configuração
