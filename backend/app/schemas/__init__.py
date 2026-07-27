@@ -57,9 +57,36 @@ class LanguageActivate(BaseModel):
 
 
 class OnboardingIn(BaseModel):
+    """Payload do onboarding alinhado ao frontend.
+
+    Aceita também `level_estimate`/`goals` por compatibilidade com clientes antigos.
+    """
+
     language_code: str
+    perceived_level: str | None = None
     level_estimate: str | None = None
+    goal: str | None = None
     goals: list[str] = []
+    minutes_per_day: int | None = Field(default=20, ge=5, le=180)
+    skills: list[str] = []
+
+    @model_validator(mode="after")
+    def normalize_fields(self):
+        if not (self.perceived_level or self.level_estimate):
+            raise ValueError("Informe o nível percebido.")
+        if not (self.goal or self.goals):
+            raise ValueError("Informe pelo menos um objetivo.")
+        return self
+
+    @property
+    def resolved_level(self) -> str:
+        return (self.perceived_level or self.level_estimate or "").strip()
+
+    @property
+    def resolved_goals(self) -> list[str]:
+        if self.goal and self.goal.strip():
+            return [self.goal.strip()]
+        return [g.strip() for g in self.goals if g and g.strip()]
 
 
 class TextIn(BaseModel):
