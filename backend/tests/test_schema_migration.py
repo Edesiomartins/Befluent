@@ -58,7 +58,7 @@ def test_ensure_schema_adds_missing_user_columns(tmp_path: Path):
         assert "is_active" in cols
         assert "updated_at" in cols
         version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert version == "0003_language_levels_and_placement_test"
+        assert version == "0003_levels_placement"
         # dado preservado
         name = conn.execute(text("SELECT name FROM users WHERE id='u1'")).scalar()
         assert name == "A"

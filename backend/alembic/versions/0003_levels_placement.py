@@ -38,7 +38,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision = "0003_language_levels_and_placement_test"
+revision = "0003_levels_placement"
 down_revision = "0002_ensure_schema"
 branch_labels = None
 depends_on = None
