@@ -15,6 +15,8 @@ import { api, ApiError } from "@/lib/api";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState } from "@/components/ui";
 import { getMode, modeColorClasses } from "@/lib/modes";
+import { LEVEL_SOURCE_LABELS, levelShortCode } from "@/lib/levels";
+import type { DashboardLevel } from "@/types/placement";
 
 type DashboardData = {
   onboarding_completed: boolean;
@@ -28,6 +30,7 @@ type DashboardData = {
     skills: string[];
     onboarding_completed: boolean;
     user_language_id: string;
+    level?: DashboardLevel;
   } | null;
   next_activity: {
     title: string;
@@ -65,19 +68,92 @@ type DashboardData = {
   }>;
 };
 
-const levelLabels: Record<string, string> = {
-  iniciante: "Iniciante",
-  basico: "Básico",
-  intermediario: "Intermediário",
-  avancado: "Avançado",
-  "nao-sei": "A definir",
-};
-
 const practiceSlugs = ["conversation", "vocabulary", "review", "guided", "listening", "writing"];
 
-function formatLevel(value: string | null | undefined) {
-  if (!value) return null;
-  return levelLabels[value] ?? value;
+/** Nível do idioma ativo. Nunca inventa nível: pendente vira convite ao teste. */
+function LevelBlock({
+  level,
+  legacyLevel,
+}: {
+  level?: DashboardLevel;
+  legacyLevel: string | null;
+}) {
+  if (!level || level.needs_placement_test || !level.current_level) {
+    return (
+      <div className="rounded-xl border border-primary/25 bg-primary-soft/40 p-4">
+        <p className="text-sm font-semibold">Nível ainda não definido</p>
+        <p className="mt-1 text-sm text-text-secondary">
+          {legacyLevel
+            ? "Faça o teste para uma estimativa por competência."
+            : "Descubra seu nível em cerca de 15 minutos."}
+        </p>
+        <Link
+          href="/placement-test"
+          className="mt-3 inline-flex text-sm font-semibold text-primary hover:underline"
+        >
+          Fazer teste de nível
+        </Link>
+      </div>
+    );
+  }
+
+  const assessed = level.skills.filter((skill) => skill.estimated_level);
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-2xl font-bold tracking-tight text-primary">
+          {levelShortCode(level.current_level)}
+        </span>
+        <span className="text-sm text-text-secondary">
+          {LEVEL_SOURCE_LABELS[level.source]}
+        </span>
+      </div>
+      {level.details && (
+        <p className="mt-1 text-sm text-text-secondary">{level.details.name_pt}</p>
+      )}
+
+      {level.from_test && (
+        <p className="mt-2 text-xs text-text-secondary">
+          Avaliado em{" "}
+          {level.assessed_at
+            ? new Date(level.assessed_at).toLocaleDateString("pt-BR")
+            : "—"}
+          {level.confidence_label ? ` · confiança ${level.confidence_label}` : ""}
+        </p>
+      )}
+
+      {assessed.length > 0 && (
+        <ul className="mt-3 grid gap-1 text-sm">
+          {assessed.map((skill) => (
+            <li key={skill.skill} className="flex justify-between gap-3">
+              <span className="text-text-secondary">{skill.label}</span>
+              <span className="font-medium">{levelShortCode(skill.estimated_level)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+        {level.placement_test_id && (
+          <Link
+            href={`/placement-test/${level.placement_test_id}/resultado`}
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            Ver resultado completo
+          </Link>
+        )}
+        {!level.from_test && (
+          <Link
+            href="/placement-test"
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            Confirmar com o teste
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -272,21 +348,18 @@ export default function DashboardPage() {
             Idioma ativo
           </p>
           {hasPlan && language ? (
-            <div className="mt-4 grid gap-2">
+            <div className="mt-4 grid gap-3">
               <h2 className="text-lg font-semibold text-text-primary">
                 {language.name_pt}
                 <span className="ml-2 text-sm font-normal text-text-secondary">
                   {language.native_name}
                 </span>
               </h2>
-              <p className="text-sm text-text-secondary">
-                Nível: {formatLevel(language.level_estimate) ?? "Não informado"}
-              </p>
+              <LevelBlock level={language.level} legacyLevel={language.level_estimate} />
               {language.goal && (
                 <p className="text-sm text-text-secondary">Objetivo: {language.goal}</p>
               )}
-              <p className="text-sm font-medium text-success">Onboarding concluído</p>
-              <Link href="/languages" className="mt-1 text-sm font-semibold text-primary hover:underline">
+              <Link href="/languages" className="text-sm font-semibold text-primary hover:underline">
                 Gerenciar idiomas
               </Link>
             </div>

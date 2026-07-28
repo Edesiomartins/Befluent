@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "language_code": "en",
+  "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
+  "items": [
+    {
+      "external_key": "en-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual é a saudação usada pela manhã?",
+      "options": ["Good morning", "Good night", "Goodbye", "See you"],
+      "correct_answer": { "value": "Good morning" },
+      "explanation": "\"Good morning\" é usado do amanhecer até por volta do meio-dia.",
+      "difficulty": 0.1
+    },
+    {
+      "external_key": "en-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"My name ___ Ana.\"",
+      "options": ["is", "are", "am", "be"],
+      "correct_answer": { "value": "is" },
+      "explanation": "Com o sujeito \"my name\" (terceira pessoa), usa-se \"is\".",
+      "difficulty": 0.12
+    },
+    {
+      "external_key": "en-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Onde Tom mora?",
+      "passage": "Tom is from Brazil. He lives in a small house in Lisbon. He works at a bakery.",
+      "options": ["In Lisbon", "In Brazil", "In a bakery", "In a hotel"],
+      "correct_answer": { "value": "In Lisbon" },
+      "explanation": "O texto diz \"He lives in a small house in Lisbon\".",
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "en-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa pediu?",
+      "audio_script": "I would like a coffee and a glass of water, please.",
+      "options": ["Café e água", "Chá e suco", "Café e leite", "Água e pão"],
+      "correct_answer": { "value": "Café e água" },
+      "explanation": "A frase menciona \"a coffee and a glass of water\".",
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "en-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Yesterday I ___ to the cinema.\"",
+      "options": ["went", "go", "gone", "going"],
+      "correct_answer": { "value": "went" },
+      "explanation": "\"Yesterday\" exige passado simples: \"went\".",
+      "difficulty": 0.35
+    },
+    {
+      "external_key": "en-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a opção correta: \"There ___ some milk in the fridge.\"",
+      "options": ["is", "are", "have", "has"],
+      "correct_answer": { "value": "is" },
+      "explanation": "\"Milk\" é incontável, então usa-se \"there is\".",
+      "difficulty": 0.38
+    },
+    {
+      "external_key": "en-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que a loja fechou mais cedo?",
+      "passage": "The shop closed at 4 p.m. yesterday because the owner had a medical appointment. It will open at the usual time tomorrow.",
+      "options": [
+        "O dono tinha uma consulta médica",
+        "Não havia clientes",
+        "Faltou energia",
+        "Era feriado"
+      ],
+      "correct_answer": { "value": "O dono tinha uma consulta médica" },
+      "explanation": "O texto diz \"because the owner had a medical appointment\".",
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "en-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que horas o trem parte?",
+      "audio_script": "The train to Manchester leaves at half past seven from platform three.",
+      "options": ["7h30", "7h00", "3h30", "8h30"],
+      "correct_answer": { "value": "7h30" },
+      "explanation": "\"Half past seven\" significa sete e meia.",
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "en-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"If I ___ more time, I would travel more often.\"",
+      "options": ["had", "have", "will have", "would have"],
+      "correct_answer": { "value": "had" },
+      "explanation": "Segunda condicional: \"If + passado simples, would + verbo\".",
+      "difficulty": 0.55
+    },
+    {
+      "external_key": "en-b1-vg-02",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual alternativa tem sentido mais próximo de \"give up\"?",
+      "options": ["quit", "continue", "improve", "start"],
+      "correct_answer": { "value": "quit" },
+      "explanation": "\"Give up\" significa desistir, equivalente a \"quit\".",
+      "difficulty": 0.52
+    },
+    {
+      "external_key": "en-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a principal preocupação mencionada no texto?",
+      "passage": "Remote work has become common in many companies. While employees often report better balance between work and personal life, managers worry that informal communication between colleagues is disappearing.",
+      "options": [
+        "A perda de comunicação informal entre colegas",
+        "O custo dos escritórios",
+        "A queda na produtividade individual",
+        "A falta de equipamentos em casa"
+      ],
+      "correct_answer": { "value": "A perda de comunicação informal entre colegas" },
+      "explanation": "O texto diz que os gestores temem o desaparecimento da comunicação informal.",
+      "difficulty": 0.58
+    },
+    {
+      "external_key": "en-b1-ls-01",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que o falante recomenda?",
+      "audio_script": "If you are visiting the museum on a weekend, I would strongly recommend booking your ticket online, because the queue can be quite long.",
+      "options": [
+        "Comprar o ingresso pela internet",
+        "Visitar durante a semana",
+        "Chegar antes da abertura",
+        "Evitar o museu no verão"
+      ],
+      "correct_answer": { "value": "Comprar o ingresso pela internet" },
+      "explanation": "O falante recomenda \"booking your ticket online\".",
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "en-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"By the time we arrived, the meeting ___.\"",
+      "options": ["had already started", "already started", "has already started", "was already start"],
+      "correct_answer": { "value": "had already started" },
+      "explanation": "Ação anterior a outra no passado exige o past perfect.",
+      "difficulty": 0.72
+    },
+    {
+      "external_key": "en-b2-vg-02",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a alternativa mais adequada: \"The results were ___ inconclusive.\"",
+      "options": ["largely", "largely of", "large", "largeness"],
+      "correct_answer": { "value": "largely" },
+      "explanation": "É necessário um advérbio para modificar o adjetivo \"inconclusive\".",
+      "difficulty": 0.7
+    },
+    {
+      "external_key": "en-b2-rd-01",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a posição do autor?",
+      "passage": "Although automation has undeniably displaced certain roles, framing it purely as a threat overlooks the historical pattern: each wave of technological change has ultimately created more occupations than it eliminated, albeit with painful transitions for those caught in between.",
+      "options": [
+        "A automação tende a criar mais ocupações, apesar de transições difíceis",
+        "A automação destrói empregos de forma definitiva",
+        "A automação não afeta o mercado de trabalho",
+        "A automação deve ser interrompida por lei"
+      ],
+      "correct_answer": {
+        "value": "A automação tende a criar mais ocupações, apesar de transições difíceis"
+      },
+      "explanation": "O autor reconhece a perda de postos, mas defende que historicamente surgem mais ocupações.",
+      "difficulty": 0.78
+    },
+    {
+      "external_key": "en-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual é a atitude do falante em relação à proposta?",
+      "audio_script": "I can see the appeal of the proposal, and parts of it are genuinely well thought out, but I am not convinced that the budget assumptions hold up under scrutiny.",
+      "options": [
+        "Parcialmente favorável, com reservas sobre o orçamento",
+        "Totalmente favorável",
+        "Totalmente contrário",
+        "Indiferente à proposta"
+      ],
+      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "explanation": "O falante reconhece méritos, mas questiona as premissas orçamentárias.",
+      "difficulty": 0.8
+    },
+    {
+      "external_key": "en-a1-wr-01",
+      "cefr_level": "A1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Escreva de 3 a 5 frases em inglês se apresentando (nome, idade, cidade e o que você gosta de fazer).",
+      "instructions": "Escreva em inglês. Entre 20 e 400 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A1",
+        "min_chars": 20
+      },
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "en-a2-wr-01",
+      "cefr_level": "A2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Descreva sua rotina diária em inglês.",
+      "instructions": "Escreva em inglês. Entre 40 e 600 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A2",
+        "min_chars": 40
+      },
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "en-b1-wr-01",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Conte, em inglês, uma experiência importante da sua vida e explique por que ela foi marcante.",
+      "instructions": "Escreva em inglês. Entre 60 e 900 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B1",
+        "min_chars": 60
+      },
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "en-b2-wr-01",
+      "cefr_level": "B2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Defenda, em inglês, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
+      "instructions": "Escreva em inglês. Entre 80 e 1200 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B2",
+        "min_chars": 80
+      },
+      "difficulty": 0.78
+    }
+  ]
+}

@@ -1,0 +1,274 @@
+{
+  "version": 1,
+  "language_code": "es-ES",
+  "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
+  "items": [
+    {
+      "external_key": "es-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Como se diz \"bom dia\" em espanhol?",
+      "options": ["Buenos días", "Buenas noches", "Hasta luego", "Por favor"],
+      "correct_answer": { "value": "Buenos días" },
+      "explanation": "\"Buenos días\" é a saudação usada pela manhã.",
+      "difficulty": 0.1
+    },
+    {
+      "external_key": "es-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Yo ___ Ana.\"",
+      "options": ["soy", "eres", "es", "somos"],
+      "correct_answer": { "value": "soy" },
+      "explanation": "Com o sujeito \"yo\", o verbo \"ser\" fica \"soy\".",
+      "difficulty": 0.12
+    },
+    {
+      "external_key": "es-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Onde trabalha Marta?",
+      "passage": "Marta es española. Vive en Valencia y trabaja en una escuela pequeña. Le gusta leer.",
+      "options": ["En una escuela", "En Valencia centro", "En una tienda", "En casa"],
+      "correct_answer": { "value": "En una escuela" },
+      "explanation": "O texto diz \"trabaja en una escuela pequeña\".",
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "es-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa pediu?",
+      "audio_script": "Quiero un café con leche y una botella de agua, por favor.",
+      "options": ["Café com leite e água", "Chá e suco", "Café e pão", "Leite e bolo"],
+      "correct_answer": { "value": "Café com leite e água" },
+      "explanation": "A frase menciona \"un café con leche y una botella de agua\".",
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "es-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Ayer ___ al cine con mis amigos.\"",
+      "options": ["fui", "voy", "iré", "iba a ir"],
+      "correct_answer": { "value": "fui" },
+      "explanation": "\"Ayer\" exige pretérito indefinido: \"fui\".",
+      "difficulty": 0.35
+    },
+    {
+      "external_key": "es-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a forma correta: \"Vosotros ___ muy pronto.\"",
+      "options": ["llegáis", "llegan", "llegamos", "llegas"],
+      "correct_answer": { "value": "llegáis" },
+      "explanation": "No espanhol da Espanha, \"vosotros\" usa a terminação \"-áis\".",
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "es-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que a biblioteca fechou mais cedo?",
+      "passage": "La biblioteca cerró a las cuatro porque había una reunión del personal. Mañana abrirá a la hora habitual.",
+      "options": [
+        "Havia uma reunião da equipe",
+        "Faltou eletricidade",
+        "Não havia leitores",
+        "Era feriado nacional"
+      ],
+      "correct_answer": { "value": "Havia uma reunião da equipe" },
+      "explanation": "O texto diz \"porque había una reunión del personal\".",
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "es-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que horas o ônibus parte?",
+      "audio_script": "El autobús para Sevilla sale a las siete y media desde la parada número cuatro.",
+      "options": ["7h30", "7h00", "4h30", "8h30"],
+      "correct_answer": { "value": "7h30" },
+      "explanation": "\"Siete y media\" significa sete e meia.",
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "es-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Si ___ más tiempo, viajaría más.\"",
+      "options": ["tuviera", "tengo", "tendré", "tuve"],
+      "correct_answer": { "value": "tuviera" },
+      "explanation": "Condicional irreal exige imperfeito do subjuntivo: \"tuviera\".",
+      "difficulty": 0.58
+    },
+    {
+      "external_key": "es-b1-vg-02",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual expressão tem sentido próximo de \"darse por vencido\"?",
+      "options": ["rendirse", "continuar", "mejorar", "empezar"],
+      "correct_answer": { "value": "rendirse" },
+      "explanation": "\"Darse por vencido\" significa desistir, equivalente a \"rendirse\".",
+      "difficulty": 0.54
+    },
+    {
+      "external_key": "es-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a principal preocupação mencionada?",
+      "passage": "El teletrabajo se ha extendido en muchas empresas. Aunque los empleados suelen valorar la flexibilidad, los responsables temen que la comunicación espontánea entre compañeros desaparezca.",
+      "options": [
+        "O desaparecimento da comunicação espontânea",
+        "O custo dos escritórios",
+        "A falta de computadores",
+        "O aumento das viagens"
+      ],
+      "correct_answer": { "value": "O desaparecimento da comunicação espontânea" },
+      "explanation": "O texto cita o temor de que a comunicação espontânea desapareça.",
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "es-b1-ls-01",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que o falante recomenda?",
+      "audio_script": "Si vas al museo el fin de semana, te recomiendo comprar la entrada por internet, porque la cola suele ser muy larga.",
+      "options": [
+        "Comprar a entrada pela internet",
+        "Ir durante a semana",
+        "Chegar antes da abertura",
+        "Evitar o museu no verão"
+      ],
+      "correct_answer": { "value": "Comprar a entrada pela internet" },
+      "explanation": "O falante recomenda \"comprar la entrada por internet\".",
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "es-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Cuando llegamos, la reunión ya ___.\"",
+      "options": ["había empezado", "empezó", "ha empezado", "empezaba"],
+      "correct_answer": { "value": "había empezado" },
+      "explanation": "Ação anterior a outra no passado exige o pretérito pluscuamperfecto.",
+      "difficulty": 0.72
+    },
+    {
+      "external_key": "es-b2-vg-02",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a opção correta: \"No creo que ___ razón en este punto.\"",
+      "options": ["tenga", "tiene", "tendrá", "tuvo"],
+      "correct_answer": { "value": "tenga" },
+      "explanation": "\"No creo que\" exige subjuntivo: \"tenga\".",
+      "difficulty": 0.74
+    },
+    {
+      "external_key": "es-b2-rd-01",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a posição do autor?",
+      "passage": "Aunque la automatización ha eliminado ciertos puestos, presentarla únicamente como una amenaza ignora un patrón histórico: cada ola tecnológica ha terminado creando más ocupaciones de las que destruyó, si bien con transiciones dolorosas.",
+      "options": [
+        "A automação tende a criar mais ocupações, apesar de transições difíceis",
+        "A automação destrói empregos definitivamente",
+        "A automação não afeta o emprego",
+        "A automação deve ser proibida"
+      ],
+      "correct_answer": {
+        "value": "A automação tende a criar mais ocupações, apesar de transições difíceis"
+      },
+      "explanation": "O autor reconhece perdas, mas defende que historicamente surgem mais ocupações.",
+      "difficulty": 0.78
+    },
+    {
+      "external_key": "es-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual é a atitude do falante?",
+      "audio_script": "Entiendo el atractivo de la propuesta, y algunas partes están bien planteadas, pero no me convence que las previsiones de presupuesto se sostengan.",
+      "options": [
+        "Parcialmente favorável, com reservas sobre o orçamento",
+        "Totalmente favorável",
+        "Totalmente contrário",
+        "Indiferente"
+      ],
+      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "explanation": "Reconhece méritos, mas questiona as previsões orçamentárias.",
+      "difficulty": 0.8
+    },
+    {
+      "external_key": "es-a1-wr-01",
+      "cefr_level": "A1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Escreva de 3 a 5 frases em espanhol se apresentando (nome, idade, cidade e o que você gosta de fazer).",
+      "instructions": "Escreva em espanhol. Entre 20 e 400 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A1",
+        "min_chars": 20
+      },
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "es-a2-wr-01",
+      "cefr_level": "A2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Descreva sua rotina diária em espanhol.",
+      "instructions": "Escreva em espanhol. Entre 40 e 600 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A2",
+        "min_chars": 40
+      },
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "es-b1-wr-01",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Conte, em espanhol, uma experiência importante da sua vida e explique por que ela foi marcante.",
+      "instructions": "Escreva em espanhol. Entre 60 e 900 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B1",
+        "min_chars": 60
+      },
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "es-b2-wr-01",
+      "cefr_level": "B2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Defenda, em espanhol, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
+      "instructions": "Escreva em espanhol. Entre 80 e 1200 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B2",
+        "min_chars": 80
+      },
+      "difficulty": 0.78
+    }
+  ]
+}

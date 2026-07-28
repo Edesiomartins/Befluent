@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "language_code": "ja",
+  "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo. O nível principal é CEFR; referências JLPT são apenas informativas e não entram no cálculo.",
+  "items": [
+    {
+      "external_key": "ja-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Como se diz \"bom dia\" (formal, pela manhã) em japonês?",
+      "options": ["おはようございます", "こんばんは", "さようなら", "ありがとう"],
+      "correct_answer": { "value": "おはようございます" },
+      "explanation": "「おはようございます」é a saudação matinal formal.",
+      "difficulty": 0.1,
+      "reference_note": "JLPT N5"
+    },
+    {
+      "external_key": "ja-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「わたし___ アナです。」",
+      "options": ["は", "を", "に", "へ"],
+      "correct_answer": { "value": "は" },
+      "explanation": "A partícula 「は」marca o tópico da frase.",
+      "difficulty": 0.14,
+      "reference_note": "JLPT N5"
+    },
+    {
+      "external_key": "ja-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Onde Tanaka trabalha?",
+      "passage": "たなかさんはにほんじんです。とうきょうにすんでいます。ぎんこうではたらいています。",
+      "options": ["Em um banco", "Em uma escola", "Em Tóquio, em casa", "Em uma loja"],
+      "correct_answer": { "value": "Em um banco" },
+      "explanation": "O texto diz 「ぎんこうではたらいています」(trabalha em um banco).",
+      "difficulty": 0.24,
+      "reference_note": "JLPT N5"
+    },
+    {
+      "external_key": "ja-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa pediu?",
+      "audio_script": "コーヒーとみずをおねがいします。",
+      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
+      "correct_answer": { "value": "Café e água" },
+      "explanation": "A frase menciona 「コーヒーとみず」(café e água).",
+      "difficulty": 0.26,
+      "reference_note": "JLPT N5"
+    },
+    {
+      "external_key": "ja-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「きのう えいがを ___。」",
+      "options": ["みました", "みます", "みましょう", "みたいです"],
+      "correct_answer": { "value": "みました" },
+      "explanation": "「きのう」(ontem) exige a forma passada 「みました」.",
+      "difficulty": 0.38,
+      "reference_note": "JLPT N5/N4"
+    },
+    {
+      "external_key": "ja-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a partícula correta: 「がっこう___ いきます。」",
+      "options": ["へ", "が", "を", "で"],
+      "correct_answer": { "value": "へ" },
+      "explanation": "「へ」indica direção do movimento.",
+      "difficulty": 0.4,
+      "reference_note": "JLPT N5"
+    },
+    {
+      "external_key": "ja-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que a loja fechou mais cedo?",
+      "passage": "きのう、みせは よじに しまりました。てんちょうが びょういんに いったからです。あしたは いつもの じかんに あきます。",
+      "options": [
+        "O gerente foi ao hospital",
+        "Não havia clientes",
+        "Faltou energia",
+        "Era feriado"
+      ],
+      "correct_answer": { "value": "O gerente foi ao hospital" },
+      "explanation": "O texto explica 「てんちょうが びょういんに いったからです」.",
+      "difficulty": 0.45,
+      "reference_note": "JLPT N4"
+    },
+    {
+      "external_key": "ja-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que horas o trem parte?",
+      "audio_script": "つぎの でんしゃは しちじはんに でます。",
+      "options": ["7h30", "7h00", "3h30", "8h30"],
+      "correct_answer": { "value": "7h30" },
+      "explanation": "「しちじはん」significa sete e meia.",
+      "difficulty": 0.46,
+      "reference_note": "JLPT N4"
+    },
+    {
+      "external_key": "ja-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「じかんが ___、もっと りょこうするのに。」",
+      "options": ["あれば", "あります", "あって", "あるから"],
+      "correct_answer": { "value": "あれば" },
+      "explanation": "A forma condicional 「ば」expressa hipótese irreal.",
+      "difficulty": 0.6,
+      "reference_note": "JLPT N3"
+    },
+    {
+      "external_key": "ja-b1-vg-02",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual expressão tem sentido próximo de 「あきらめる」?",
+      "options": ["やめる", "つづける", "はじめる", "がんばる"],
+      "correct_answer": { "value": "やめる" },
+      "explanation": "「あきらめる」(desistir) aproxima-se de 「やめる」.",
+      "difficulty": 0.56,
+      "reference_note": "JLPT N3"
+    },
+    {
+      "external_key": "ja-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a principal preocupação mencionada?",
+      "passage": "在宅勤務は多くの会社に広がりました。社員は柔軟な働き方を評価していますが、管理職は同僚同士の自然な会話が減ることを心配しています。",
+      "options": [
+        "A redução das conversas naturais entre colegas",
+        "O custo dos escritórios",
+        "A falta de computadores",
+        "O aumento das viagens"
+      ],
+      "correct_answer": { "value": "A redução das conversas naturais entre colegas" },
+      "explanation": "O texto cita a preocupação com a diminuição das conversas espontâneas.",
+      "difficulty": 0.64,
+      "reference_note": "JLPT N3"
+    },
+    {
+      "external_key": "ja-b1-ls-01",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que o falante recomenda?",
+      "audio_script": "週末に美術館へ行くなら、チケットをインターネットで買っておいたほうがいいですよ。行列がとても長いですから。",
+      "options": [
+        "Comprar o ingresso pela internet",
+        "Ir durante a semana",
+        "Chegar antes da abertura",
+        "Evitar o museu no verão"
+      ],
+      "correct_answer": { "value": "Comprar o ingresso pela internet" },
+      "explanation": "O falante recomenda comprar o ingresso pela internet.",
+      "difficulty": 0.64,
+      "reference_note": "JLPT N3"
+    },
+    {
+      "external_key": "ja-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「わたしたちが ついたとき、かいぎは すでに ___。」",
+      "options": ["はじまっていた", "はじまる", "はじめる", "はじまります"],
+      "correct_answer": { "value": "はじまっていた" },
+      "explanation": "A forma 「ていた」marca estado anterior a outro momento passado.",
+      "difficulty": 0.74,
+      "reference_note": "JLPT N3/N2"
+    },
+    {
+      "external_key": "ja-b2-vg-02",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a opção mais adequada: 「この結果は ___ 決定的ではない。」",
+      "options": ["必ずしも", "必ず", "きっと", "ぜひ"],
+      "correct_answer": { "value": "必ずしも" },
+      "explanation": "「必ずしも〜ない」forma a negação parcial \"não necessariamente\".",
+      "difficulty": 0.76,
+      "reference_note": "JLPT N2"
+    },
+    {
+      "external_key": "ja-b2-rd-01",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a posição do autor?",
+      "passage": "自動化が一部の職を奪ってきたことは否定できないが、それを脅威としてのみ捉えるのは歴史的な傾向を見落としている。技術の波は、痛みを伴う移行を経ながらも、失われた以上の職種を生み出してきた。",
+      "options": [
+        "A automação tende a criar mais ocupações, apesar de transições difíceis",
+        "A automação destrói empregos definitivamente",
+        "A automação não afeta o emprego",
+        "A automação deve ser proibida"
+      ],
+      "correct_answer": {
+        "value": "A automação tende a criar mais ocupações, apesar de transições difíceis"
+      },
+      "explanation": "O autor reconhece perdas, mas defende que historicamente surgem mais ocupações.",
+      "difficulty": 0.82,
+      "reference_note": "JLPT N2"
+    },
+    {
+      "external_key": "ja-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual é a atitude do falante?",
+      "audio_script": "この提案の魅力は理解できますし、よく考えられている部分もあります。ただ、予算の前提が本当に成り立つのかは疑問です。",
+      "options": [
+        "Parcialmente favorável, com reservas sobre o orçamento",
+        "Totalmente favorável",
+        "Totalmente contrário",
+        "Indiferente"
+      ],
+      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "explanation": "Reconhece méritos, mas questiona as premissas orçamentárias.",
+      "difficulty": 0.84,
+      "reference_note": "JLPT N2"
+    },
+    {
+      "external_key": "ja-a1-wr-01",
+      "cefr_level": "A1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Escreva de 3 a 5 frases em japonês se apresentando (nome, idade, cidade e o que você gosta de fazer).",
+      "instructions": "Escreva em japonês (hiragana, katakana ou kanji). Entre 15 e 400 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A1",
+        "min_chars": 15
+      },
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "ja-a2-wr-01",
+      "cefr_level": "A2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Descreva sua rotina diária em japonês.",
+      "instructions": "Escreva em japonês. Entre 30 e 600 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A2",
+        "min_chars": 30
+      },
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "ja-b1-wr-01",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Conte, em japonês, uma experiência importante da sua vida e explique por que ela foi marcante.",
+      "instructions": "Escreva em japonês. Entre 45 e 900 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B1",
+        "min_chars": 45
+      },
+      "difficulty": 0.62
+    },
+    {
+      "external_key": "ja-b2-wr-01",
+      "cefr_level": "B2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Defenda, em japonês, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
+      "instructions": "Escreva em japonês. Entre 60 e 1200 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B2",
+        "min_chars": 60
+      },
+      "difficulty": 0.8
+    }
+  ]
+}

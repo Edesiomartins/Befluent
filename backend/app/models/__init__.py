@@ -32,6 +32,13 @@ class Language(UUIDMixin, Base):
     is_active: Mapped[bool]=mapped_column(Boolean, default=True)
 
 class UserLanguage(UUIDMixin, Base):
+    """Perfil linguístico do usuário por idioma.
+
+    As colunas de nível CEFR foram adicionadas aqui (migration 0003) em vez de
+    criar uma tabela `user_language_profiles` separada: esta entidade já é a
+    relação usuário↔idioma e duplicá-la geraria duas fontes de verdade.
+    `level_estimate` guarda o rótulo legado; `current_level` é o código CEFR.
+    """
     __tablename__="user_languages"; __table_args__=(UniqueConstraint("user_id","language_id"),)
     user_id: Mapped[str]=mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     language_id: Mapped[str]=mapped_column(ForeignKey("languages.id"), index=True)
@@ -41,6 +48,17 @@ class UserLanguage(UUIDMixin, Base):
     is_active: Mapped[bool]=mapped_column(Boolean, default=False, index=True)
     started_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    current_level: Mapped[str|None]=mapped_column(String(10))
+    level_source: Mapped[str|None]=mapped_column(String(30))
+    level_assessed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    placement_test_id: Mapped[str|None]=mapped_column(String(36), index=True)
+    vocabulary_grammar_level: Mapped[str|None]=mapped_column(String(10))
+    reading_level: Mapped[str|None]=mapped_column(String(10))
+    listening_level: Mapped[str|None]=mapped_column(String(10))
+    writing_level: Mapped[str|None]=mapped_column(String(10))
+    speaking_level: Mapped[str|None]=mapped_column(String(10))
+    confidence_score: Mapped[float|None]=mapped_column(Float)
+    recommendations_json: Mapped[list|None]=mapped_column(JSON, default=list)
 
 class LearningGoal(UUIDMixin, Base):
     __tablename__="learning_goals"
@@ -187,6 +205,75 @@ class AssessmentAttempt(UUIDMixin, Base):
     assessment_id: Mapped[str]=mapped_column(ForeignKey("assessments.id", ondelete="CASCADE"), index=True)
     question_id: Mapped[str|None]=mapped_column(ForeignKey("assessment_questions.id", ondelete="SET NULL"))
     response_json: Mapped[dict]=mapped_column(JSON, default=dict); result_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+class PlacementTest(UUIDMixin, Base):
+    """Teste de nivelamento CEFR. Distinto do stub legado `assessments`."""
+    __tablename__="placement_tests"
+    user_id: Mapped[str]=mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    language_code: Mapped[str]=mapped_column(String(10), index=True)
+    status: Mapped[str]=mapped_column(String(20), default="pending", index=True)
+    version: Mapped[int]=mapped_column(Integer, default=1)
+    source: Mapped[str]=mapped_column(String(30), default="placement_test")
+    started_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    completed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    current_level_band: Mapped[str|None]=mapped_column(String(10))
+    overall_level: Mapped[str|None]=mapped_column(String(10))
+    confidence_score: Mapped[float|None]=mapped_column(Float)
+    total_score: Mapped[float|None]=mapped_column(Float)
+    duration_seconds: Mapped[int|None]=mapped_column(Integer)
+    result_json: Mapped[dict|None]=mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class PlacementTestSection(UUIDMixin, Base):
+    __tablename__="placement_test_sections"; __table_args__=(UniqueConstraint("test_id","skill"),)
+    test_id: Mapped[str]=mapped_column(ForeignKey("placement_tests.id", ondelete="CASCADE"), index=True)
+    skill: Mapped[str]=mapped_column(String(30))
+    score: Mapped[float]=mapped_column(Float, default=0)
+    max_score: Mapped[float]=mapped_column(Float, default=0)
+    estimated_level: Mapped[str|None]=mapped_column(String(10))
+    confidence_score: Mapped[float|None]=mapped_column(Float)
+    status: Mapped[str]=mapped_column(String(30), default="assessed")
+    completed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+
+class PlacementItem(UUIDMixin, Base):
+    """Item do banco de nivelamento. Carregado por seed versionado, não por migration."""
+    __tablename__="placement_items"; __table_args__=(UniqueConstraint("language_code","external_key"),)
+    external_key: Mapped[str]=mapped_column(String(80), index=True)
+    language_code: Mapped[str]=mapped_column(String(10), index=True)
+    cefr_level: Mapped[str]=mapped_column(String(10), index=True)
+    skill: Mapped[str]=mapped_column(String(30), index=True)
+    item_type: Mapped[str]=mapped_column(String(40))
+    prompt: Mapped[str]=mapped_column(Text)
+    instructions: Mapped[str|None]=mapped_column(Text)
+    passage: Mapped[str|None]=mapped_column(Text)
+    options_json: Mapped[list|None]=mapped_column(JSON, default=list)
+    correct_answer_json: Mapped[dict|None]=mapped_column(JSON, default=dict)
+    explanation: Mapped[str|None]=mapped_column(Text)
+    audio_url: Mapped[str|None]=mapped_column(String(500))
+    audio_script: Mapped[str|None]=mapped_column(Text)
+    rubric_json: Mapped[dict|None]=mapped_column(JSON, default=dict)
+    difficulty: Mapped[float]=mapped_column(Float, default=0.5)
+    discrimination: Mapped[float]=mapped_column(Float, default=1.0)
+    is_active: Mapped[bool]=mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int]=mapped_column(Integer, default=1)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class PlacementTestAnswer(UUIDMixin, Base):
+    __tablename__="placement_test_answers"; __table_args__=(UniqueConstraint("test_id","item_id"),)
+    test_id: Mapped[str]=mapped_column(ForeignKey("placement_tests.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[str]=mapped_column(ForeignKey("placement_items.id", ondelete="CASCADE"), index=True)
+    skill: Mapped[str]=mapped_column(String(30))
+    cefr_level: Mapped[str]=mapped_column(String(10))
+    answer_json: Mapped[dict|None]=mapped_column(JSON, default=dict)
+    is_correct: Mapped[bool|None]=mapped_column(Boolean)
+    raw_score: Mapped[float|None]=mapped_column(Float)
+    normalized_score: Mapped[float|None]=mapped_column(Float)
+    response_time_ms: Mapped[int|None]=mapped_column(Integer)
+    evaluated_by: Mapped[str]=mapped_column(String(30), default="auto")
+    feedback_json: Mapped[dict|None]=mapped_column(JSON, default=dict)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
 
 class ProgressMetric(UUIDMixin, Base):

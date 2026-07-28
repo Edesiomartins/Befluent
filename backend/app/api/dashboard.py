@@ -6,6 +6,8 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import current_user
+from app.core.levels import SKILL_LABELS, LevelSource, Skill, level_payload
+from app.services.placement_engine import confidence_label
 from app.models import (
     Language,
     LearningGoal,
@@ -27,6 +29,41 @@ SKILL_TO_MODE = {
     "Leitura": ("reading", "Leitura"),
     "Escrita": ("writing", "Escrita"),
 }
+
+
+def _level_block(ul: UserLanguage) -> dict:
+    """Bloco de nível do dashboard. Nunca inventa nível: pendente fica None."""
+    source = ul.level_source or LevelSource.PENDING
+    current = ul.current_level
+    skills = [
+        {
+            "skill": skill,
+            "label": SKILL_LABELS[skill],
+            "estimated_level": getattr(ul, column),
+        }
+        for skill, column in (
+            (Skill.VOCABULARY_GRAMMAR, "vocabulary_grammar_level"),
+            (Skill.READING, "reading_level"),
+            (Skill.LISTENING, "listening_level"),
+            (Skill.WRITING, "writing_level"),
+            (Skill.SPEAKING, "speaking_level"),
+        )
+    ]
+    return {
+        "current_level": current,
+        "details": level_payload(current) if current else None,
+        "source": source,
+        "from_test": source == LevelSource.PLACEMENT_TEST,
+        "assessed_at": ul.level_assessed_at.isoformat() if ul.level_assessed_at else None,
+        "confidence_score": ul.confidence_score,
+        "confidence_label": (
+            confidence_label(ul.confidence_score) if ul.confidence_score is not None else None
+        ),
+        "placement_test_id": ul.placement_test_id,
+        "skills": skills,
+        "recommendations": ul.recommendations_json or [],
+        "needs_placement_test": current is None or source == LevelSource.PENDING,
+    }
 
 
 def _next_activity(has_plan: bool, reviews_count: int, skills: list[str]) -> dict:
@@ -134,6 +171,7 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
             "skills": skills,
             "onboarding_completed": ul.onboarding_completed,
             "user_language_id": ul.id,
+            "level": _level_block(ul),
         }
 
         now = datetime.now(timezone.utc)

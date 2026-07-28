@@ -56,13 +56,25 @@ class LanguageActivate(BaseModel):
     code: str
 
 
+LEVEL_CHOICES = {"beginner", "take_test", "self_declared", "later"}
+
+
 class OnboardingIn(BaseModel):
     """Payload do onboarding alinhado ao frontend.
 
-    Aceita também `level_estimate`/`goals` por compatibilidade com clientes antigos.
+    `level_choice` reflete a decisão de nível:
+      beginner      -> PRE_A1, origem self_declared_beginner
+      take_test     -> cria sessão de teste; nível fica pendente
+      self_declared -> exige `cefr_level`, origem self_declared
+      later         -> conclui sem nível confirmado (origem pending)
+
+    Aceita também `perceived_level`/`level_estimate`/`goals` por compatibilidade
+    com clientes antigos (rótulos legados são convertidos para CEFR).
     """
 
     language_code: str
+    level_choice: str | None = None
+    cefr_level: str | None = None
     perceived_level: str | None = None
     level_estimate: str | None = None
     goal: str | None = None
@@ -70,10 +82,22 @@ class OnboardingIn(BaseModel):
     minutes_per_day: int | None = Field(default=20, ge=5, le=180)
     skills: list[str] = []
 
+    @field_validator("level_choice")
+    @classmethod
+    def validate_choice(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        choice = value.strip()
+        if choice not in LEVEL_CHOICES:
+            raise ValueError("Opção de nível inválida.")
+        return choice
+
     @model_validator(mode="after")
     def normalize_fields(self):
-        if not (self.perceived_level or self.level_estimate):
-            raise ValueError("Informe o nível percebido.")
+        if not (self.level_choice or self.perceived_level or self.level_estimate):
+            raise ValueError("Informe como deseja definir seu nível.")
+        if self.level_choice == "self_declared" and not self.cefr_level:
+            raise ValueError("Informe o nível ao escolher declará-lo.")
         if not (self.goal or self.goals):
             raise ValueError("Informe pelo menos um objetivo.")
         return self
@@ -83,10 +107,81 @@ class OnboardingIn(BaseModel):
         return (self.perceived_level or self.level_estimate or "").strip()
 
     @property
+    def resolved_choice(self) -> str:
+        """Decisão efetiva, inferida do payload legado quando ausente."""
+        if self.level_choice:
+            return self.level_choice
+        return "self_declared" if self.resolved_level else "later"
+
+    @property
+    def resolved_cefr(self) -> str | None:
+        """Código CEFR resultante da decisão (None quando pendente)."""
+        from app.core.levels import CEFRLevel, normalize_level
+
+        choice = self.resolved_choice
+        if choice == "beginner":
+            return CEFRLevel.PRE_A1
+        if choice == "self_declared":
+            return normalize_level(self.cefr_level or self.resolved_level)
+        return None
+
+    @property
     def resolved_goals(self) -> list[str]:
         if self.goal and self.goal.strip():
             return [self.goal.strip()]
         return [g.strip() for g in self.goals if g and g.strip()]
+
+
+class PlacementTestCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    language_code: str = Field(min_length=2, max_length=10)
+    declared_beginner: bool = False
+
+
+class PlacementAnswerIn(BaseModel):
+    """Resposta a um item objetivo.
+
+    `response_time_ms` é informativo (alimenta a confiança). O score NUNCA vem
+    do cliente: é calculado no backend a partir do gabarito.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: str = Field(min_length=1, max_length=36)
+    answer: str | None = Field(default=None, max_length=2000)
+    response_time_ms: int | None = Field(default=None, ge=0, le=3_600_000)
+
+
+class PlacementWritingIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    item_id: str = Field(min_length=1, max_length=36)
+    text: str = Field(min_length=1, max_length=4000)
+    response_time_ms: int | None = Field(default=None, ge=0, le=3_600_000)
+
+
+class LanguageProfileUpdate(BaseModel):
+    """Ajustes manuais permitidos no perfil linguístico."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    current_level: str | None = None
+    goal: str | None = Field(default=None, max_length=200)
+    minutes_per_day: int | None = Field(default=None, ge=5, le=180)
+    priority_skills: list[str] | None = None
+
+    @field_validator("current_level")
+    @classmethod
+    def validate_level(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.core.levels import is_valid_level
+
+        code = value.strip().upper().replace("-", "_")
+        if not is_valid_level(code):
+            raise ValueError("Nível inválido.")
+        return code
 
 
 class TextIn(BaseModel):

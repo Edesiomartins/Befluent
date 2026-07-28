@@ -1,0 +1,290 @@
+{
+  "version": 1,
+  "language_code": "zh-CN",
+  "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo. O nível principal é CEFR; referências HSK são apenas informativas e não entram no cálculo.",
+  "items": [
+    {
+      "external_key": "zh-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Como se diz \"olá\" em mandarim?",
+      "options": ["你好", "再见", "谢谢", "晚安"],
+      "correct_answer": { "value": "你好" },
+      "explanation": "「你好」(nǐ hǎo) é a saudação mais comum.",
+      "difficulty": 0.1,
+      "reference_note": "HSK 1"
+    },
+    {
+      "external_key": "zh-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「我___安娜。」",
+      "options": ["是", "在", "有", "很"],
+      "correct_answer": { "value": "是" },
+      "explanation": "「是」(shì) liga sujeito e nome, equivalente a \"ser\".",
+      "difficulty": 0.14,
+      "reference_note": "HSK 1"
+    },
+    {
+      "external_key": "zh-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Onde Wang trabalha?",
+      "passage": "王先生是中国人。他住在北京。他在银行工作。",
+      "options": ["Em um banco", "Em uma escola", "Em casa", "Em uma loja"],
+      "correct_answer": { "value": "Em um banco" },
+      "explanation": "O texto diz 「他在银行工作」(ele trabalha em um banco).",
+      "difficulty": 0.24,
+      "reference_note": "HSK 1"
+    },
+    {
+      "external_key": "zh-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa pediu?",
+      "audio_script": "我要一杯咖啡和一瓶水。",
+      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
+      "correct_answer": { "value": "Café e água" },
+      "explanation": "A frase menciona 「一杯咖啡和一瓶水」(um café e uma garrafa de água).",
+      "difficulty": 0.26,
+      "reference_note": "HSK 1"
+    },
+    {
+      "external_key": "zh-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「昨天我去___电影院。」",
+      "options": ["了", "着", "过来", "的"],
+      "correct_answer": { "value": "了" },
+      "explanation": "「了」marca ação concluída, adequada a 「昨天」(ontem).",
+      "difficulty": 0.38,
+      "reference_note": "HSK 2"
+    },
+    {
+      "external_key": "zh-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha o classificador correto: 「一___书」",
+      "options": ["本", "个", "只", "张"],
+      "correct_answer": { "value": "本" },
+      "explanation": "「本」é o classificador usado para livros.",
+      "difficulty": 0.4,
+      "reference_note": "HSK 2"
+    },
+    {
+      "external_key": "zh-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que a loja fechou mais cedo?",
+      "passage": "昨天商店四点就关门了，因为老板要去医院。明天会按平时的时间开门。",
+      "options": [
+        "O dono precisava ir ao hospital",
+        "Não havia clientes",
+        "Faltou energia",
+        "Era feriado"
+      ],
+      "correct_answer": { "value": "O dono precisava ir ao hospital" },
+      "explanation": "O texto explica 「因为老板要去医院」.",
+      "difficulty": 0.45,
+      "reference_note": "HSK 3"
+    },
+    {
+      "external_key": "zh-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que horas o trem parte?",
+      "audio_script": "下一班火车七点半出发。",
+      "options": ["7h30", "7h00", "3h30", "8h30"],
+      "correct_answer": { "value": "7h30" },
+      "explanation": "「七点半」significa sete e meia.",
+      "difficulty": 0.46,
+      "reference_note": "HSK 2"
+    },
+    {
+      "external_key": "zh-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「如果我有更多时间，我___会多去旅行。」",
+      "options": ["就", "才", "还", "都"],
+      "correct_answer": { "value": "就" },
+      "explanation": "「如果……就……」forma a estrutura condicional padrão.",
+      "difficulty": 0.58,
+      "reference_note": "HSK 3/4"
+    },
+    {
+      "external_key": "zh-b1-vg-02",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual palavra tem sentido próximo de 「放弃」?",
+      "options": ["退出", "继续", "开始", "提高"],
+      "correct_answer": { "value": "退出" },
+      "explanation": "「放弃」(desistir) aproxima-se de 「退出」.",
+      "difficulty": 0.56,
+      "reference_note": "HSK 4"
+    },
+    {
+      "external_key": "zh-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a principal preocupação mencionada?",
+      "passage": "远程办公在很多公司越来越普遍。员工通常认为工作与生活更平衡，但管理者担心同事之间的非正式交流正在消失。",
+      "options": [
+        "O desaparecimento da comunicação informal entre colegas",
+        "O custo dos escritórios",
+        "A falta de computadores",
+        "O aumento das viagens"
+      ],
+      "correct_answer": { "value": "O desaparecimento da comunicação informal entre colegas" },
+      "explanation": "O texto cita o temor de que a comunicação informal desapareça.",
+      "difficulty": 0.64,
+      "reference_note": "HSK 4"
+    },
+    {
+      "external_key": "zh-b1-ls-01",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que o falante recomenda?",
+      "audio_script": "如果你周末去博物馆，我建议你在网上买票，因为排队的人常常很多。",
+      "options": [
+        "Comprar o ingresso pela internet",
+        "Ir durante a semana",
+        "Chegar antes da abertura",
+        "Evitar o museu no verão"
+      ],
+      "correct_answer": { "value": "Comprar o ingresso pela internet" },
+      "explanation": "O falante recomenda 「在网上买票」.",
+      "difficulty": 0.64,
+      "reference_note": "HSK 4"
+    },
+    {
+      "external_key": "zh-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: 「我们到的时候，会议___开始了。」",
+      "options": ["已经", "正在", "将要", "刚要"],
+      "correct_answer": { "value": "已经" },
+      "explanation": "「已经」indica que a ação ocorreu antes do momento de referência.",
+      "difficulty": 0.72,
+      "reference_note": "HSK 4"
+    },
+    {
+      "external_key": "zh-b2-vg-02",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Escolha a opção adequada: 「这个结果___不能说明问题。」",
+      "options": ["未必", "一定", "必须", "尽量"],
+      "correct_answer": { "value": "未必" },
+      "explanation": "「未必」expressa \"não necessariamente\".",
+      "difficulty": 0.76,
+      "reference_note": "HSK 5"
+    },
+    {
+      "external_key": "zh-b2-rd-01",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual é a posição do autor?",
+      "passage": "尽管自动化确实取代了某些岗位，但仅仅把它视为威胁，就忽略了一个历史规律：每一次技术浪潮最终创造的职业都多于它所消灭的，尽管过渡过程往往十分艰难。",
+      "options": [
+        "A automação tende a criar mais ocupações, apesar de transições difíceis",
+        "A automação destrói empregos definitivamente",
+        "A automação não afeta o emprego",
+        "A automação deve ser proibida"
+      ],
+      "correct_answer": {
+        "value": "A automação tende a criar mais ocupações, apesar de transições difíceis"
+      },
+      "explanation": "O autor reconhece perdas, mas defende que historicamente surgem mais ocupações.",
+      "difficulty": 0.82,
+      "reference_note": "HSK 5"
+    },
+    {
+      "external_key": "zh-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual é a atitude do falante?",
+      "audio_script": "我理解这个提案的吸引力，有些部分确实考虑得很周到，但我不认为预算方面的假设站得住脚。",
+      "options": [
+        "Parcialmente favorável, com reservas sobre o orçamento",
+        "Totalmente favorável",
+        "Totalmente contrário",
+        "Indiferente"
+      ],
+      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "explanation": "Reconhece méritos, mas questiona as premissas orçamentárias.",
+      "difficulty": 0.84,
+      "reference_note": "HSK 5"
+    },
+    {
+      "external_key": "zh-a1-wr-01",
+      "cefr_level": "A1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Escreva de 3 a 5 frases em mandarim se apresentando (nome, idade, cidade e o que você gosta de fazer).",
+      "instructions": "Escreva em mandarim (caracteres simplificados ou pinyin). Entre 15 e 400 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A1",
+        "min_chars": 15
+      },
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "zh-a2-wr-01",
+      "cefr_level": "A2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Descreva sua rotina diária em mandarim.",
+      "instructions": "Escreva em mandarim. Entre 30 e 600 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "A2",
+        "min_chars": 30
+      },
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "zh-b1-wr-01",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Conte, em mandarim, uma experiência importante da sua vida e explique por que ela foi marcante.",
+      "instructions": "Escreva em mandarim. Entre 45 e 900 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B1",
+        "min_chars": 45
+      },
+      "difficulty": 0.62
+    },
+    {
+      "external_key": "zh-b2-wr-01",
+      "cefr_level": "B2",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Defenda, em mandarim, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
+      "instructions": "Escreva em mandarim. Entre 60 e 1200 caracteres.",
+      "rubric": {
+        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "target_level": "B2",
+        "min_chars": 60
+      },
+      "difficulty": 0.8
+    }
+  ]
+}
