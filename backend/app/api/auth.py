@@ -17,31 +17,51 @@ from app.services.auth import create_session
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
+def _cookie_kwargs() -> dict:
+    s = get_settings()
+    kwargs: dict = {
+        "secure": s.session_secure,
+        "samesite": s.cookie_samesite,
+        "max_age": s.session_days * 86400,
+        "path": "/",
+    }
+    if s.cookie_domain:
+        kwargs["domain"] = s.cookie_domain
+    return kwargs
+
+
+def _clear_cookie(response: Response, name: str) -> None:
+    s = get_settings()
+    kwargs: dict = {"path": "/"}
+    if s.cookie_domain:
+        kwargs["domain"] = s.cookie_domain
+    response.delete_cookie(name, **kwargs)
+
+
 def _issue_session(response: Response, db: DB, user: User) -> dict:
     token = create_session(db, user.id)
     csrf = secrets.token_urlsafe(32)
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     s = get_settings()
+    cookies = _cookie_kwargs()
     response.set_cookie(
         s.session_cookie_name,
         token,
         httponly=True,
-        secure=s.session_secure,
-        samesite="lax",
-        max_age=s.session_days * 86400,
-        path="/",
+        **cookies,
     )
     response.set_cookie(
         "csrf_token",
         csrf,
         httponly=False,
-        secure=s.session_secure,
-        samesite="lax",
-        max_age=s.session_days * 86400,
-        path="/",
+        **cookies,
     )
-    return {"user": {"id": user.id, "email": user.email, "name": user.name}}
+    # csrf_token também no body: frontend em outro subdomínio não lê cookie host-only.
+    return {
+        "user": {"id": user.id, "email": user.email, "name": user.name},
+        "csrf_token": csrf,
+    }
 
 
 def _public_user(user: User) -> dict:
@@ -110,9 +130,20 @@ def logout(
         .values(revoked_at=datetime.now(timezone.utc))
     )
     db.commit()
-    response.delete_cookie(get_settings().session_cookie_name, path="/")
-    response.delete_cookie("csrf_token", path="/")
+    _clear_cookie(response, get_settings().session_cookie_name)
+    _clear_cookie(response, "csrf_token")
     return {"message": "Sessão encerrada com sucesso."}
+
+
+@router.get("/csrf")
+def get_csrf(request: Request, response: Response):
+    """Devolve o token CSRF no body (necessário quando FE e API são subdomínios)."""
+    existing = request.cookies.get("csrf_token")
+    if existing:
+        return {"csrf_token": existing}
+    csrf = secrets.token_urlsafe(32)
+    response.set_cookie("csrf_token", csrf, httponly=False, **_cookie_kwargs())
+    return {"csrf_token": csrf}
 
 
 @router.get("/me")

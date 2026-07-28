@@ -39,6 +39,7 @@ services:
       TTS_PROVIDER: ${TTS_PROVIDER:-mock}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       COOKIE_SAMESITE: ${COOKIE_SAMESITE:-lax}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       SESSION_COOKIE_NAME: ${SESSION_COOKIE_NAME:-befluent_session}
     ports:
       - "8000:8000"

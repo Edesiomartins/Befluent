@@ -1,6 +1,8 @@
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+const CSRF_STORAGE_KEY = "befluent_csrf_token";
+
 type ApiOptions = Omit<RequestInit, "body"> & { body?: unknown };
 
 export function getCookie(name: string): string | undefined {
@@ -11,6 +13,46 @@ export function getCookie(name: string): string | undefined {
     ?.split("=")
     .slice(1)
     .join("=");
+}
+
+export function storeCsrfToken(token: string | undefined | null) {
+  if (typeof window === "undefined") return;
+  if (!token) {
+    window.sessionStorage.removeItem(CSRF_STORAGE_KEY);
+    return;
+  }
+  window.sessionStorage.setItem(CSRF_STORAGE_KEY, token);
+}
+
+export function clearCsrfToken() {
+  storeCsrfToken(null);
+}
+
+function resolveCsrfToken(): string | undefined {
+  const fromCookie = getCookie("csrf_token");
+  if (fromCookie) return decodeURIComponent(fromCookie);
+  if (typeof window === "undefined") return undefined;
+  return window.sessionStorage.getItem(CSRF_STORAGE_KEY) ?? undefined;
+}
+
+async function ensureCsrfToken(): Promise<string | undefined> {
+  const existing = resolveCsrfToken();
+  if (existing) return existing;
+  try {
+    const response = await fetch(`${API_URL}/api/v1/auth/csrf`, {
+      method: "GET",
+      credentials: "include",
+    });
+    if (!response.ok) return undefined;
+    const payload = (await response.json()) as { csrf_token?: string };
+    if (payload.csrf_token) {
+      storeCsrfToken(payload.csrf_token);
+      return payload.csrf_token;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
 }
 
 export class ApiError extends Error {
@@ -35,8 +77,8 @@ export async function api<T>(
     headers.set("Content-Type", "application/json");
   }
   if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
-    const csrfToken = getCookie("csrf_token");
-    if (csrfToken) headers.set("X-CSRF-Token", decodeURIComponent(csrfToken));
+    const csrfToken = await ensureCsrfToken();
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
   }
 
   const response = await fetch(`${API_URL}${path}`, {

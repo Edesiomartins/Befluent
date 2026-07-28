@@ -44,6 +44,7 @@ python scripts/check_schema.py
 
 - `FRONTEND_ORIGIN` / `FRONTEND_URL` / `CORS_ORIGINS` → origem real do frontend (não `localhost` em produção)
 - `COOKIE_SECURE=true` com HTTPS
+- `COOKIE_DOMAIN=.medquesthub.com.br` (obrigatório se frontend e API forem subdomínios diferentes; sem isso o CSRF falha com 403 porque o JS não lê o cookie)
 - `SESSION_COOKIE_NAME` → `befluent_session` (ou mantenha `fluentia_session` se quiser preservar cookies atuais)
 - `NEXT_PUBLIC_API_URL` no frontend → URL pública do backend
 - Nunca versionar secrets (`DATABASE_URL`, `SESSION_SECRET`, chaves OpenRouter)

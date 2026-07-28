@@ -16,7 +16,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, clearCsrfToken } from "@/lib/api";
 import { Logo } from "@/components/logo";
 import { BRAND } from "@/lib/brand";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
@@ -70,6 +70,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
     try {
       await api("/api/v1/auth/logout", { method: "POST" });
     } finally {
+      clearCsrfToken();
       onNavigate?.();
       router.replace("/login");
       router.refresh();

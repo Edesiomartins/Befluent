@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, storeCsrfToken } from "@/lib/api";
 import { Button, Input } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { BRAND } from "@/lib/brand";
@@ -24,10 +24,11 @@ function LoginForm() {
     if (!email || !password) return setError("Preencha seu e-mail e sua senha.");
     setLoading(true);
     try {
-      await api("/api/v1/auth/login", {
+      const result = await api<{ csrf_token?: string }>("/api/v1/auth/login", {
         method: "POST",
         body: { email, password },
       });
+      storeCsrfToken(result.csrf_token);
       router.replace(searchParams.get("retorno") || "/dashboard");
       router.refresh();
     } catch (caught) {

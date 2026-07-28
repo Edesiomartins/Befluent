@@ -30,6 +30,14 @@ class Settings(BaseSettings):
         default=False,
         validation_alias=AliasChoices("SESSION_SECURE", "COOKIE_SECURE"),
     )
+    cookie_samesite: str = Field(
+        default="lax",
+        validation_alias=AliasChoices("COOKIE_SAMESITE", "SESSION_SAMESITE"),
+    )
+    cookie_domain: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("COOKIE_DOMAIN", "SESSION_COOKIE_DOMAIN"),
+    )
     session_days: int = 30
     ai_mock_mode: bool = True
     openrouter_api_key: str = ""
@@ -55,6 +63,22 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_db_url(cls, value: str) -> str:
         return normalize_database_url(str(value))
+
+    @field_validator("cookie_domain", mode="before")
+    @classmethod
+    def _empty_domain_to_none(cls, value: object) -> str | None:
+        if value is None:
+            return None
+        text = str(value).strip()
+        return text or None
+
+    @field_validator("cookie_samesite", mode="before")
+    @classmethod
+    def _normalize_samesite(cls, value: object) -> str:
+        text = str(value or "lax").strip().lower()
+        if text not in {"lax", "strict", "none"}:
+            return "lax"
+        return text
 
 
 @lru_cache

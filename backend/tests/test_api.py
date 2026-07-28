@@ -116,6 +116,7 @@ def test_auth_and_me(client):
     )
     assert response.status_code == 200
     assert client.cookies.get("befluent_session")
+    assert response.json()["csrf_token"]
     assert client.get("/api/v1/auth/me").json()["email"] == "admin@befluent.local"
 
 
@@ -128,6 +129,13 @@ def test_csrf_error(client, auth):
     response = client.post("/api/v1/languages/activate", json={"code": "en"})
     assert response.status_code == 403
     assert set(response.json()["error"]) == {"code", "message", "retryable", "request_id"}
+
+
+def test_csrf_bootstrap_endpoint(client, auth):
+    response = client.get("/api/v1/auth/csrf")
+    assert response.status_code == 200
+    assert response.json()["csrf_token"]
+    assert response.json()["csrf_token"] == client.cookies.get("csrf_token")
 
 
 def test_languages_and_onboarding(client, auth):
