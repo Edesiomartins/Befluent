@@ -1,7 +1,14 @@
+from fastapi.testclient import TestClient
+
+from app.main import app
+
+
 def test_health(client):
     response = client.get("/health")
     assert response.status_code == 200
-    assert response.json()["status"] == "ok"
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["database"] == "ok"
 
 
 def test_register_success(client):
@@ -329,12 +336,15 @@ def test_conversation_mock(client, auth):
 def test_speech_mocks(client, auth):
     stt = client.post(
         "/api/v1/speech/transcribe",
-        data={"language_code": "en"},
+        data={"language_code": "fr"},
         files={"file": ("voice.wav", b"audio", "audio/wav")},
         headers=auth,
     )
     assert stt.status_code == 200
-    assert stt.json()["provider"] == "mock"
+    body = stt.json()
+    assert body["provider"] == "mock"
+    assert body["language_code"] == "fr"
+    assert "[mock]" in body["text"]
     tts = client.post(
         "/api/v1/speech/synthesize",
         json={"text": "Hello", "language_code": "en"},
@@ -342,6 +352,43 @@ def test_speech_mocks(client, auth):
     )
     assert tts.status_code == 200
     assert tts.headers["content-type"] == "audio/wav"
+
+
+def test_assessment_and_plan_ownership(client, auth, other_user):
+    activate(client, auth)
+    assessment = client.post(
+        "/api/v1/assessments/diagnostic",
+        json={"language_code": "en"},
+        headers=auth,
+    )
+    assert assessment.status_code == 200
+    assessment_id = assessment.json()["id"]
+    plan = client.post(
+        "/api/v1/learning-plans",
+        json={"language_code": "en"},
+        headers=auth,
+    )
+    assert plan.status_code == 200
+    plan_id = plan.json()["id"]
+
+    # Dono acessa
+    assert client.get(f"/api/v1/assessments/{assessment_id}", headers=auth).status_code == 200
+    assert client.get(f"/api/v1/learning-plans/{plan_id}", headers=auth).status_code == 200
+
+    # Outro usuário não acessa
+    other = TestClient(app)
+    login = other.post(
+        "/api/v1/auth/login",
+        json={"email": "outro@befluent.local", "password": "senha-segura"},
+    )
+    assert login.status_code == 200
+    other_headers = {"X-CSRF-Token": other.cookies.get("csrf_token")}
+    assert other.get(f"/api/v1/assessments/{assessment_id}", headers=other_headers).status_code == 404
+    assert other.get(f"/api/v1/learning-plans/{plan_id}", headers=other_headers).status_code == 404
+    assert (
+        other.post(f"/api/v1/assessments/{assessment_id}/complete", headers=other_headers).status_code
+        == 404
+    )
 
 
 def test_vocabulary_and_reviews(client, auth):

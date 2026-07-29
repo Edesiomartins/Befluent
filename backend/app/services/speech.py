@@ -5,7 +5,12 @@ class BaseSTTProvider(ABC):
     @abstractmethod
     def transcribe(self,path:str,language_code:str)->dict: ...
 class MockSTTProvider(BaseSTTProvider):
-    def transcribe(self,path,language_code): return {"text":"Transcrição simulada.","language_code":language_code,"provider":"mock"}
+    def transcribe(self,path,language_code):
+        return {
+            "text": "[mock] Transcrição simulada — configure um provedor STT real para reconhecimento de fala.",
+            "language_code": language_code,
+            "provider": "mock",
+        }
 class BaseTTSProvider(ABC):
     @abstractmethod
     def synthesize(self,text:str,language_code:str)->bytes: ...

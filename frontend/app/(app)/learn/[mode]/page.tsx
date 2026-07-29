@@ -195,7 +195,7 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
   return (
     <div className="grid gap-5 md:grid-cols-[.85fr_1.15fr]">
       <div>
-        <Recorder onTranscript={setTranscript} />
+        <Recorder onTranscript={setTranscript} languageCode={lesson.language_code} />
         <div className="mt-3 panel p-4">
           <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
             Situação
@@ -270,7 +270,7 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
             <p className="mb-4 text-sm text-text-secondary">{current.translation}</p>
             <AudioPlayer text={current.phrase} languageCode={lesson.language_code} />
           </div>
-          <Recorder onTranscript={setTranscript} />
+          <Recorder onTranscript={setTranscript} languageCode={lesson.language_code} />
         </div>
       )}
       {transcript && (
@@ -278,7 +278,7 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
           <h2 className="section-title">Resultado indicativo</h2>
           <p className="mt-3 text-sm text-text-secondary">Transcrição: {transcript}</p>
           <p className="mt-2 text-xs text-text-secondary">
-            O reconhecimento de fala verifica principalmente a transcrição; não substitui
+            O reconhecimento de fala atual está em modo mock/simulado e não substitui
             avaliação fonética especializada.
           </p>
         </div>

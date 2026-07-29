@@ -74,11 +74,19 @@ export function AudioPlayer({
   );
 }
 
-export function Recorder({ onTranscript }: { onTranscript?: (text: string) => void }) {
+export function Recorder({
+  onTranscript,
+  languageCode = "en",
+}: {
+  onTranscript?: (text: string) => void;
+  languageCode?: string;
+}) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [permissionError, setPermissionError] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [sttError, setSttError] = useState("");
+  const [providerNote, setProviderNote] = useState("");
   const stream = useRef<MediaStream | null>(null);
   const mediaRecorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -108,22 +116,34 @@ export function Recorder({ onTranscript }: { onTranscript?: (text: string) => vo
         const blob = new Blob(chunks.current, { type: "audio/webm" });
         const form = new FormData();
         form.append("file", blob, "voice.webm");
-        form.append("language_code", "en");
+        form.append("language_code", languageCode);
         setUploading(true);
+        setSttError("");
+        setProviderNote("");
         try {
           const result = await api<{ text: string; provider: string }>(
             "/api/v1/speech/transcribe",
             { method: "POST", body: form },
           );
           onTranscript?.(result.text);
-        } catch {
-          onTranscript?.("I would like to practice ordering at a restaurant.");
+          if (result.provider === "mock") {
+            setProviderNote(
+              "Transcrição em modo mock (simulada). Não representa reconhecimento de fala real.",
+            );
+          }
+        } catch (caught) {
+          setSttError(
+            caught instanceof ApiError
+              ? caught.message
+              : "Não foi possível transcrever o áudio. Digite sua resposta abaixo.",
+          );
         } finally {
           setUploading(false);
         }
       };
       recorder.start();
       setPermissionError(false);
+      setSttError("");
       setSeconds(0);
       setRecording(true);
     } catch {
@@ -161,6 +181,16 @@ export function Recorder({ onTranscript }: { onTranscript?: (text: string) => vo
       {permissionError && (
         <p role="alert" className="text-center text-sm text-danger">
           Não foi possível acessar o microfone. Use a resposta por texto abaixo.
+        </p>
+      )}
+      {sttError && (
+        <p role="alert" className="text-center text-sm text-danger">
+          {sttError}
+        </p>
+      )}
+      {providerNote && (
+        <p role="status" className="text-center text-xs text-text-secondary">
+          {providerNote}
         </p>
       )}
     </div>

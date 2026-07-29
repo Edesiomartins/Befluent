@@ -10,7 +10,14 @@ from app.core.csrf import csrf_guard
 from app.core.errors import APIError,api_error_handler,http_error_handler,unexpected_error_handler,validation_error_handler
 from app.core.logging import configure_logging
 configure_logging(); s=get_settings()
-app=FastAPI(title=s.app_name,version="0.1.0")
+_is_prod = str(s.environment).lower() in {"production", "prod"}
+app=FastAPI(
+    title=s.app_name,
+    version="0.1.0",
+    docs_url=None if _is_prod and not s.debug else "/docs",
+    redoc_url=None if _is_prod and not s.debug else "/redoc",
+    openapi_url=None if _is_prod and not s.debug else "/openapi.json",
+)
 app.add_middleware(CORSMiddleware,allow_origins=[s.frontend_origin],allow_credentials=True,allow_methods=["*"],allow_headers=["*"])
 app.exception_handler(APIError)(api_error_handler); app.exception_handler(RequestValidationError)(validation_error_handler)
 app.exception_handler(HTTPException)(http_error_handler); app.exception_handler(Exception)(unexpected_error_handler)
