@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -12,7 +14,7 @@ from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.levels import SKILL_LABELS
-from app.models import Lesson, LessonActivity, User, UserLanguage
+from app.models import Lesson, LessonActivity, StudySession, User, UserLanguage
 from app.prompts.library import MODE_SKILL, SUPPORTED_MODES
 from app.schemas import LessonGenerateIn
 from app.services.ai import get_ai_provider
@@ -100,8 +102,17 @@ def generate(
         except APIError:
             ul = None
         if ul is not None:
+            session = StudySession(
+                user_language_id=ul.id,
+                status="completed",
+                ended_at=datetime.now(timezone.utc),
+                summary_short=f"Prática: {payload.get('title', data.mode)}",
+            )
+            db.add(session)
+            db.flush()
             lesson = Lesson(
                 user_language_id=ul.id,
+                study_session_id=session.id,
                 title=payload.get("title", data.mode),
                 objective=payload.get("objective", ""),
                 content_json=payload,
@@ -119,7 +130,7 @@ def generate(
                 )
             )
             db.commit()
-            payload = {**payload, "lesson_id": lesson.id}
+            payload = {**payload, "lesson_id": lesson.id, "study_session_id": session.id}
 
     return payload
 

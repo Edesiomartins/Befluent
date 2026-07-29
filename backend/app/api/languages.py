@@ -13,7 +13,14 @@ def list_languages(db:Session=Depends(get_db),user:User=Depends(current_user)): 
 @router.get("/mine")
 def mine(db:Session=Depends(get_db),user:User=Depends(current_user)):
     rows=db.execute(select(UserLanguage,Language).join(Language).where(UserLanguage.user_id==user.id)).all()
-    return [{**out(lang),"user_language_id":ul.id,"active":ul.is_active,"level_estimate":ul.level_estimate} for ul,lang in rows]
+    return [{
+        **out(lang),
+        "user_language_id":ul.id,
+        "active":ul.is_active,
+        "level_estimate":ul.level_estimate,
+        "current_level":ul.current_level,
+        "onboarding_completed":ul.onboarding_completed,
+    } for ul,lang in rows]
 @router.post("/activate")
 def activate(data:LanguageActivate,db:Session=Depends(get_db),user:User=Depends(current_user)):
     lang=db.scalar(select(Language).where(Language.code==data.code,Language.is_active.is_(True)))

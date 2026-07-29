@@ -154,7 +154,7 @@ describe("Lição adaptada ao nível", () => {
     });
 
     render(<StudyModePage />);
-    expect(await screen.findByText("Conteúdo de demonstração")).toBeInTheDocument();
+    expect(await screen.findByText("Gerado em modo mock (IA local)")).toBeInTheDocument();
   });
 
   it("não marca demonstração quando vem da IA real", async () => {
@@ -165,7 +165,7 @@ describe("Lição adaptada ao nível", () => {
 
     render(<StudyModePage />);
     await screen.findByText("Vocabulário essencial · B1");
-    expect(screen.queryByText("Conteúdo de demonstração")).not.toBeInTheDocument();
+    expect(screen.queryByText("Gerado em modo mock (IA local)")).not.toBeInTheDocument();
   });
 
   it("aponta o diagnóstico para o teste de nivelamento", async () => {
@@ -375,6 +375,182 @@ describe("Correção de escrita", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Não foi possível enviar o texto para correção.",
+    );
+  });
+});
+
+describe("Conversação calibrada pelo nível", () => {
+  const conversationLesson = {
+    ...vocabularyLesson,
+    mode: "conversation",
+    skill: "speaking",
+    skill_label: "Fala",
+    level: "A1",
+    title: "Conversação · A1",
+    objective: "Praticar cumprimentos.",
+    situation: "Apresentar-se a alguém que você acabou de conhecer",
+    opening: "Good morning! How are you?",
+    opening_translation: "Bom dia! Como você está?",
+    suggested_replies: [],
+    target_expressions: ["good morning", "my name is"],
+  };
+
+  const turn = {
+    reply: "Nice to meet you. Where are you from?",
+    reply_translation: "Prazer em conhecer. De onde você é?",
+    corrections: [
+      {
+        original: "I is Ana",
+        corrected: "I am Ana",
+        explanation: "Com 'I' o verbo to be é 'am'.",
+      },
+    ],
+    suggestions: ["my name is"],
+    corrections_available: true,
+    provider: "openrouter",
+    level: "A1",
+  };
+
+  beforeEach(() => {
+    currentMode = "conversation";
+  });
+
+  async function chat(response: unknown) {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": conversationLesson,
+      "/api/v1/conversations": response,
+    });
+    render(<StudyModePage />);
+    await screen.findByText("Good morning! How are you?");
+    const box = screen.getByPlaceholderText("Escreva sua resposta…");
+    fireEvent.change(box, { target: { value: "I is Ana" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+  }
+
+  it("abre a conversa com a situação da lição, não um tópico fixo", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": conversationLesson,
+      "/api/v1/conversations": { id: "conv-1" },
+    });
+
+    render(<StudyModePage />);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith("/api/v1/conversations", {
+        method: "POST",
+        body: {
+          language_code: "en",
+          topic: "Apresentar-se a alguém que você acabou de conhecer",
+          opening: "Good morning! How are you?",
+        },
+      }),
+    );
+  });
+
+  it("mostra tradução da abertura em nível baixo", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": conversationLesson,
+      "/api/v1/conversations": { id: "conv-1" },
+    });
+
+    render(<StudyModePage />);
+    expect(await screen.findByText("Bom dia! Como você está?")).toBeInTheDocument();
+  });
+
+  it("omite tradução quando o nível não precisa", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": {
+        ...conversationLesson,
+        level: "B2",
+        opening_translation: null,
+      },
+      "/api/v1/conversations": { id: "conv-1" },
+    });
+
+    render(<StudyModePage />);
+    await screen.findByText("Good morning! How are you?");
+    expect(screen.queryByText("Bom dia! Como você está?")).not.toBeInTheDocument();
+  });
+
+  it("exibe a correção do tutor ancorada na fala do aluno", async () => {
+    await chat(turn);
+
+    expect(await screen.findByText("I am Ana")).toBeInTheDocument();
+    expect(screen.getByText("Com 'I' o verbo to be é 'am'.")).toBeInTheDocument();
+    expect(screen.getByText("Nice to meet you. Where are you from?")).toBeInTheDocument();
+  });
+
+  it("avisa quando o modo mock não corrige", async () => {
+    await chat({
+      ...turn,
+      corrections: [],
+      corrections_available: false,
+      provider: "mock",
+    });
+
+    expect(await screen.findByText(/não corrige o que você escreve/)).toBeInTheDocument();
+  });
+
+  it("não marca demonstração quando a IA real responde", async () => {
+    await chat(turn);
+    await screen.findByText("Nice to meet you. Where are you from?");
+    expect(screen.queryByText(/Modo demonstração/)).not.toBeInTheDocument();
+  });
+
+  it("mostra erro sem inventar resposta do tutor", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": conversationLesson,
+      "/api/v1/conversations": new Error("fora do ar"),
+    });
+    render(<StudyModePage />);
+    await screen.findByText("Good morning! How are you?");
+    fireEvent.change(screen.getByPlaceholderText("Escreva sua resposta…"), {
+      target: { value: "hello" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Não foi possível obter resposta do tutor.",
+    );
+  });
+});
+
+describe("Persistência da abertura", () => {
+  it("envia a abertura para o backend não repeti-la no primeiro turno", async () => {
+    currentMode = "conversation";
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": {
+        ...vocabularyLesson,
+        mode: "conversation",
+        skill: "speaking",
+        level: "B2",
+        title: "Conversação · B2",
+        situation: "Discordar educadamente",
+        opening: "The policy brought about significant change.",
+        opening_translation: null,
+        suggested_replies: [],
+        target_expressions: [],
+      },
+      "/api/v1/conversations": { id: "conv-1" },
+    });
+
+    render(<StudyModePage />);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith("/api/v1/conversations", {
+        method: "POST",
+        body: {
+          language_code: "en",
+          topic: "Discordar educadamente",
+          opening: "The policy brought about significant change.",
+        },
+      }),
     );
   });
 });

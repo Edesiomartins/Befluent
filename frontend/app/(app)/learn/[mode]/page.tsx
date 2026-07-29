@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
@@ -62,7 +62,7 @@ function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
       )}
       {lesson.provider === "mock" && (
         <span className="w-fit rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">
-          Conteúdo de demonstração
+          Gerado em modo mock (IA local)
         </span>
       )}
     </div>
@@ -288,15 +288,54 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
 }
 
 function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
+  const { code } = useActiveLanguage();
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
   const item = lesson.items[index];
   if (!item) return null;
   const last = index >= lesson.items.length - 1;
+
   const advance = () => {
     setIndex((i) => Math.min(lesson.items.length - 1, i + 1));
     setRevealed(false);
+    setNotice("");
+    setError("");
   };
+
+  async function saveAndAdvance(kind: "learning" | "known") {
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api("/api/v1/vocabulary", {
+        method: "POST",
+        body: {
+          language_code: code,
+          term: item.term,
+          translation_pt: item.translation,
+          notes: item.usage_note || item.example || null,
+        },
+      });
+      setNotice(
+        kind === "known"
+          ? "Salvo no vocabulário e na fila de revisão."
+          : "Salvo no vocabulário para revisar depois.",
+      );
+      window.setTimeout(advance, 450);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Não foi possível salvar o item.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-3 flex justify-between text-xs text-text-secondary">
@@ -323,16 +362,40 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
           </Button>
         )}
       </div>
+      {notice && (
+        <p role="status" className="mt-3 text-sm text-success">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
       <div className="mt-4 flex flex-wrap justify-between gap-3">
-        <Button variant="secondary" onClick={advance} disabled={last}>
-          Difícil
+        <Button
+          variant="secondary"
+          loading={saving}
+          disabled={last || saving || !revealed}
+          onClick={() => void saveAndAdvance("learning")}
+        >
+          Difícil · salvar
         </Button>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={advance} disabled={last}>
+          <Button
+            variant="secondary"
+            loading={saving}
+            disabled={last || saving || !revealed}
+            onClick={() => void saveAndAdvance("learning")}
+          >
             Ainda aprendendo
           </Button>
-          <Button onClick={advance} disabled={last}>
-            Eu sabia
+          <Button
+            loading={saving}
+            disabled={last || saving || !revealed}
+            onClick={() => void saveAndAdvance("known")}
+          >
+            Eu sabia · salvar
           </Button>
         </div>
       </div>
@@ -721,6 +784,178 @@ function Writing({ lesson }: { lesson: WritingLesson }) {
   );
 }
 
+type DueReview = {
+  id: string;
+  item_type: string;
+  reference_id: string;
+  payload: Record<string, unknown>;
+  next_review_at: string | null;
+};
+
+const REVIEW_RATINGS = [
+  { value: "again", label: "De novo" },
+  { value: "hard", label: "Difícil" },
+  { value: "good", label: "Bom" },
+  { value: "easy", label: "Fácil" },
+] as const;
+
+function DueReviews() {
+  const [items, setItems] = useState<DueReview[] | null>(null);
+  const [index, setIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    api<DueReview[]>("/api/v1/reviews/due")
+      .then((payload) => {
+        if (active) setItems(payload);
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Não foi possível carregar as revisões.",
+        );
+        setItems([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (items === null) return <Loading label="Carregando revisões" />;
+  if (error && items.length === 0) {
+    return <ErrorState message={error} retry={() => window.location.reload()} />;
+  }
+  if (items.length === 0) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-surface p-8 text-center">
+        <h2 className="text-xl font-semibold">Nenhuma revisão pendente</h2>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Quando você salvar vocabulário, os itens aparecem aqui no prazo certo.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link
+            href="/learn/vocabulary"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-white"
+          >
+            Praticar vocabulário
+          </Link>
+          <Link
+            href="/dashboard"
+            className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            Voltar ao painel
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (index >= items.length) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-surface p-8 text-center">
+        <h2 className="text-xl font-semibold">Revisão concluída</h2>
+        <p className="mt-3 text-sm text-text-secondary">
+          Você respondeu {done} {done === 1 ? "item" : "itens"}. O agendamento foi atualizado.
+        </p>
+        <Link
+          href="/dashboard"
+          className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-white"
+        >
+          Ir ao painel
+        </Link>
+      </div>
+    );
+  }
+
+  const item = items[index];
+  const term = typeof item.payload?.term === "string" ? item.payload.term : null;
+  const prompt =
+    term ||
+    (typeof item.payload?.prompt === "string" ? item.payload.prompt : null) ||
+    `${item.item_type} · ${item.reference_id.slice(0, 8)}`;
+  const answer =
+    (typeof item.payload?.translation_pt === "string" && item.payload.translation_pt) ||
+    (typeof item.payload?.answer === "string" && item.payload.answer) ||
+    "Revise este item e avalie sua lembrança.";
+
+  async function rate(rating: string) {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/reviews/${item.id}/answer`, {
+        method: "POST",
+        body: { rating },
+      });
+      setDone((value) => value + 1);
+      setIndex((value) => value + 1);
+      setRevealed(false);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Não foi possível registrar a avaliação.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-3 flex justify-between text-sm text-text-secondary">
+        <span>
+          {items.length - index}{" "}
+          {items.length - index === 1 ? "item restante" : "itens restantes"}
+        </span>
+        <span>{item.item_type}</span>
+      </div>
+      <div className="panel p-8">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Recupere da memória
+        </p>
+        <p className="mt-6 text-2xl font-semibold">{prompt}</p>
+        {revealed ? (
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="text-xl font-semibold text-primary">{answer}</p>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-text-secondary">
+            Pense na resposta e revele quando estiver pronto.
+          </p>
+        )}
+      </div>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <div className="mt-4 flex flex-wrap justify-end gap-2">
+        {!revealed ? (
+          <Button onClick={() => setRevealed(true)}>Ver resposta</Button>
+        ) : (
+          REVIEW_RATINGS.map((option) => (
+            <Button
+              key={option.value}
+              variant={option.value === "good" || option.value === "easy" ? "primary" : "secondary"}
+              loading={saving}
+              disabled={saving}
+              onClick={() => void rate(option.value)}
+            >
+              {option.label}
+            </Button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 function Review({ lesson }: { lesson: ReviewLesson }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -736,6 +971,9 @@ function Review({ lesson }: { lesson: ReviewLesson }) {
         </span>
         <span>Nível {lesson.level}</span>
       </div>
+      <p className="mb-3 text-xs text-text-secondary">
+        Prática gerada (sem fila SRS). Itens salvos no vocabulário entram na revisão real.
+      </p>
       <div className="panel p-8">
         <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
           Recupere da memória
@@ -845,6 +1083,14 @@ export default function StudyModePage() {
       <div>
         <PageHeader mode={mode} lesson={null} />
         <Assessment />
+      </div>
+    );
+  }
+  if (mode === "review") {
+    return (
+      <div>
+        <PageHeader mode={mode} lesson={null} />
+        <DueReviews />
       </div>
     );
   }

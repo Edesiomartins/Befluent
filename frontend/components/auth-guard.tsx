@@ -48,7 +48,11 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }
   return (
     <>
-      {demo && <div className="bg-info px-4 py-2 text-center text-xs font-medium text-white">Backend indisponível — exibindo dados de demonstração.</div>}
+      {demo && (
+        <div className="bg-warning px-4 py-2 text-center text-xs font-medium text-white" role="status">
+          Backend indisponível — não foi possível validar sua sessão. Os dados das páginas podem falhar ao carregar.
+        </div>
+      )}
       {children}
     </>
   );

@@ -534,3 +534,25 @@ def test_conversation_lesson_opening_follows_translation_rule():
     advanced = provider.generate_lesson("conversation", _context(level=CEFRLevel.B2))
     assert beginner["opening_translation"]
     assert advanced["opening_translation"] is None
+
+
+def test_conversation_persists_opening_and_does_not_repeat_it(client, auth, db_session):
+    """Regressão: sem persistir a abertura, o primeiro turno repetia a mesma fala."""
+    _profile(db_session, CEFRLevel.B2)
+    opening = "The policy brought about significant change."
+
+    started = client.post(
+        "/api/v1/conversations",
+        json={"language_code": "en", "topic": "Reunião", "opening": opening},
+        headers=auth,
+    ).json()
+
+    saved = client.get(f"/api/v1/conversations/{started['id']}/messages", headers=auth).json()
+    assert [m["content"] for m in saved] == [opening]
+
+    turn = client.post(
+        f"/api/v1/conversations/{started['id']}/messages",
+        json={"text": "I disagree."},
+        headers=auth,
+    ).json()
+    assert turn["reply"] != opening

@@ -258,6 +258,15 @@ class PlacementItem(UUIDMixin, Base):
     discrimination: Mapped[float]=mapped_column(Float, default=1.0)
     is_active: Mapped[bool]=mapped_column(Boolean, default=True, index=True)
     version: Mapped[int]=mapped_column(Integer, default=1)
+    # Proveniência (migration 0004): sem isso não há como auditar a origem de um
+    # item nem remover uma fonte inteira se a licença mudar.
+    source: Mapped[str|None]=mapped_column(String(60), index=True)
+    license: Mapped[str|None]=mapped_column(String(80))
+    attribution: Mapped[str|None]=mapped_column(Text)
+    source_ref: Mapped[str|None]=mapped_column(String(200))
+    #: pending_review | approved | rejected. Item importado nunca é servido ao
+    #: aluno antes de revisão — calibragem automática de nível é heurística.
+    review_status: Mapped[str|None]=mapped_column(String(20), index=True)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 

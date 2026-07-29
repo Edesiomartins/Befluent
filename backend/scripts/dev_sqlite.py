@@ -34,7 +34,17 @@ DEV_PASSWORD = "senha-de-desenvolvimento"
 
 
 def bootstrap() -> None:
-    Base.metadata.create_all(engine)
+    # Alembic, não `create_all`: `create_all` cria tabela que falta mas nunca
+    # adiciona coluna a tabela que já existe. Um banco de dev criado antes de
+    # uma migration ficaria sem as colunas novas e quebraria em query — a mesma
+    # deriva que a migration 0002 teve que consertar em produção.
+    from alembic import command
+    from alembic.config import Config
+
+    config = Config(str(ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(ROOT / "alembic"))
+    command.upgrade(config, "head")
+
     with SessionLocal() as db:
         seed_languages(db)
         seed_placement_items(db)

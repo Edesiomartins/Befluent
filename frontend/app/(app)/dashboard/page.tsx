@@ -50,6 +50,9 @@ type DashboardData = {
     study_sessions: number;
     reviews_due_count: number;
     streak_days: number;
+    total_minutes?: number;
+    minutes_today?: number;
+    total_minutes_label?: string;
   };
   reviews_due_count: number;
   reviews_due: Array<{
@@ -65,6 +68,7 @@ type DashboardData = {
     summary: string | null;
     started_at: string | null;
     ended_at: string | null;
+    minutes?: number;
   }>;
 };
 
@@ -458,10 +462,10 @@ export default function DashboardPage() {
             {activity.map((session) => (
               <li key={session.id} className="border-b border-border pb-3 text-sm last:border-0 last:pb-0">
                 <span className="font-medium text-text-primary">
-                  Sessão {session.status}
+                  {session.summary || (session.status === "completed" ? "Sessão concluída" : "Sessão de estudo")}
                 </span>
-                {session.summary ? (
-                  <span className="text-text-secondary"> — {session.summary}</span>
+                {typeof session.minutes === "number" ? (
+                  <span className="text-text-secondary"> · {session.minutes} min</span>
                 ) : null}
                 {session.started_at ? (
                   <span className="mt-1 block text-xs text-text-secondary">

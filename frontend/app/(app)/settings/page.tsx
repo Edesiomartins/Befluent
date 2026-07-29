@@ -1,28 +1,205 @@
 "use client";
 
-import { useState } from "react";
-import { api } from "@/lib/api";
-import { Button, Toggle } from "@/components/ui";
+import { FormEvent, useEffect, useState } from "react";
+import { api, ApiError } from "@/lib/api";
+import { Button, Loading, Toggle } from "@/components/ui";
+
+type UiPrefs = {
+  translation?: boolean;
+  autoplay?: boolean;
+  save_audio?: boolean;
+  analytics?: boolean;
+  correction_mode?: string;
+};
+
+type SettingsResponse = {
+  tts_speed: number;
+  ui_prefs: UiPrefs;
+  default_language_id: string | null;
+};
+
+const DEFAULT_PREFS: Required<UiPrefs> = {
+  translation: false,
+  autoplay: true,
+  save_audio: false,
+  analytics: true,
+  correction_mode: "each",
+};
 
 export default function SettingsPage() {
-  const [settings, setSettings] = useState({ translation: false, autoplay: true, saveAudio: false, analytics: true });
+  const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [speed, setSpeed] = useState("1");
-  const [correction, setCorrection] = useState("each");
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  function update(key: keyof typeof settings, value: boolean) { setSettings((current) => ({ ...current, [key]: value })); setSaved(false); }
-  async function save() {
-    setSaving(true);
-    try { await api("/api/v1/settings", { method: "PUT", body: { ...settings, voice_speed: Number(speed), correction_mode: correction } }); } catch { /* modo mock */ }
-    setSaving(false); setSaved(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    api<SettingsResponse>("/api/v1/settings")
+      .then((payload) => {
+        if (!active) return;
+        const ui = payload.ui_prefs || {};
+        setPrefs({
+          translation: Boolean(ui.translation ?? DEFAULT_PREFS.translation),
+          autoplay: Boolean(ui.autoplay ?? DEFAULT_PREFS.autoplay),
+          save_audio: Boolean(ui.save_audio ?? DEFAULT_PREFS.save_audio),
+          analytics: Boolean(ui.analytics ?? DEFAULT_PREFS.analytics),
+          correction_mode: String(ui.correction_mode ?? DEFAULT_PREFS.correction_mode),
+        });
+        setSpeed(String(payload.tts_speed || 1));
+      })
+      .catch((caught) => {
+        if (!active) return;
+        setError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Não foi possível carregar as configurações.",
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function updatePref<K extends keyof Required<UiPrefs>>(key: K, value: Required<UiPrefs>[K]) {
+    setPrefs((current) => ({ ...current, [key]: value }));
+    setSaved(false);
   }
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      const payload = await api<SettingsResponse>("/api/v1/settings", {
+        method: "PATCH",
+        body: {
+          tts_speed: Number(speed),
+          ui_prefs: {
+            translation: prefs.translation,
+            autoplay: prefs.autoplay,
+            save_audio: prefs.save_audio,
+            analytics: prefs.analytics,
+            correction_mode: prefs.correction_mode,
+          },
+        },
+      });
+      setSpeed(String(payload.tts_speed || 1));
+      setSaved(true);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Não foi possível salvar as preferências.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (loading) return <Loading label="Carregando configurações" />;
+
   return (
     <div className="max-w-3xl">
-      <p className="text-sm font-semibold text-primary">Preferências</p><h1 className="mt-2 page-title">Configurações</h1><p className="mt-3 leading-7 text-text-secondary">Ajuste como o BeFluent apresenta áudio, traduções e correções.</p>
-      <section className="mt-9 border-t border-border py-7"><h2 className="section-title">Voz e áudio</h2><label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">Velocidade padrão da voz<select value={speed} onChange={(e) => { setSpeed(e.target.value); setSaved(false); }} className="min-h-11 rounded-lg border border-border bg-surface px-3"><option value=".75">0,75× — mais lenta</option><option value="1">1× — normal</option><option value="1.25">1,25× — mais rápida</option></select></label><div className="mt-4"><Toggle label="Reproduzir áudio automaticamente" description="Inicia o áudio ao abrir atividades auditivas." checked={settings.autoplay} onChange={(value) => update("autoplay", value)} /></div></section>
-      <section className="border-t border-border py-7"><h2 className="section-title">Apoio durante o estudo</h2><label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">Momento das correções<select value={correction} onChange={(e) => { setCorrection(e.target.value); setSaved(false); }} className="min-h-11 rounded-lg border border-border bg-surface px-3"><option value="each">Após cada resposta</option><option value="end">Ao final da atividade</option><option value="request">Somente quando eu pedir</option></select></label><div className="mt-4"><Toggle label="Mostrar traduções por padrão" description="Você ainda poderá ocultar ou exibir durante cada atividade." checked={settings.translation} onChange={(value) => update("translation", value)} /></div></section>
-      <section className="border-t border-border py-7"><h2 className="section-title">Privacidade</h2><div className="mt-3"><Toggle label="Salvar gravações de voz" description="Desativado: o áudio é descartado após o processamento." checked={settings.saveAudio} onChange={(value) => update("saveAudio", value)} /><Toggle label="Compartilhar dados de uso anônimos" description="Ajuda a identificar falhas sem incluir o conteúdo das suas atividades." checked={settings.analytics} onChange={(value) => update("analytics", value)} /></div></section>
-      <div className="flex items-center justify-end gap-4 border-t border-border pt-6">{saved && <span className="text-sm font-medium text-success" role="status">Preferências salvas.</span>}<Button loading={saving} onClick={save}>Salvar alterações</Button></div>
+      <p className="text-sm font-semibold text-primary">Preferências</p>
+      <h1 className="mt-2 page-title">Configurações</h1>
+      <p className="mt-3 leading-7 text-text-secondary">
+        Ajuste como o BeFluent apresenta áudio, traduções e correções.
+      </p>
+
+      <form onSubmit={save}>
+        <section className="mt-9 border-t border-border py-7">
+          <h2 className="section-title">Voz e áudio</h2>
+          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+            Velocidade padrão da voz
+            <select
+              value={speed}
+              onChange={(e) => {
+                setSpeed(e.target.value);
+                setSaved(false);
+              }}
+              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+            >
+              <option value="0.75">0,75× — mais lenta</option>
+              <option value="1">1× — normal</option>
+              <option value="1.25">1,25× — mais rápida</option>
+              <option value="1.5">1,5× — bem mais rápida</option>
+            </select>
+          </label>
+          <div className="mt-4">
+            <Toggle
+              label="Reproduzir áudio automaticamente"
+              description="Inicia o áudio ao abrir atividades auditivas."
+              checked={prefs.autoplay}
+              onChange={(value) => updatePref("autoplay", value)}
+            />
+          </div>
+        </section>
+
+        <section className="border-t border-border py-7">
+          <h2 className="section-title">Apoio durante o estudo</h2>
+          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+            Momento das correções
+            <select
+              value={prefs.correction_mode}
+              onChange={(e) => updatePref("correction_mode", e.target.value)}
+              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+            >
+              <option value="each">Após cada resposta</option>
+              <option value="end">Ao final da atividade</option>
+              <option value="request">Somente quando eu pedir</option>
+            </select>
+          </label>
+          <div className="mt-4">
+            <Toggle
+              label="Mostrar traduções por padrão"
+              description="Você ainda poderá ocultar ou exibir durante cada atividade."
+              checked={prefs.translation}
+              onChange={(value) => updatePref("translation", value)}
+            />
+          </div>
+        </section>
+
+        <section className="border-t border-border py-7">
+          <h2 className="section-title">Privacidade</h2>
+          <div className="mt-3">
+            <Toggle
+              label="Salvar gravações de voz"
+              description="Desativado: o áudio é descartado após o processamento."
+              checked={prefs.save_audio}
+              onChange={(value) => updatePref("save_audio", value)}
+            />
+            <Toggle
+              label="Compartilhar dados de uso anônimos"
+              description="Ajuda a identificar falhas sem incluir o conteúdo das suas atividades."
+              checked={prefs.analytics}
+              onChange={(value) => updatePref("analytics", value)}
+            />
+          </div>
+        </section>
+
+        {error && (
+          <p role="alert" className="mb-4 text-sm text-danger">
+            {error}
+          </p>
+        )}
+
+        <div className="flex items-center justify-end gap-4 border-t border-border pt-6">
+          {saved && (
+            <span className="text-sm font-medium text-success" role="status">
+              Preferências salvas.
+            </span>
+          )}
+          <Button type="submit" loading={saving}>
+            Salvar alterações
+          </Button>
+        </div>
+      </form>
     </div>
   );
 }

@@ -11,13 +11,14 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.levels import (
+    ReviewStatus,
     SKILL_LABELS,
     CEFRLevel,
     LevelSource,
@@ -49,6 +50,19 @@ SPEAKING_AVAILABLE = False
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _reviewed():
+    """Filtro que exclui item pendente de revisão.
+
+    Escrito com `or_` em vez de `!=` porque em SQL `NULL != 'x'` avalia NULL, o
+    que descartaria silenciosamente todo item sem `review_status` — incluindo o
+    seed próprio, se a migration 0004 ainda não tiver rodado.
+    """
+    return or_(
+        PlacementItem.review_status.is_(None),
+        PlacementItem.review_status != ReviewStatus.PENDING_REVIEW,
+    )
 
 
 def _owned_test(db: Session, test_id: str, user: User) -> PlacementTest:
@@ -281,6 +295,9 @@ def _pick_objective_item(
     base = [
         PlacementItem.language_code == language_code,
         PlacementItem.is_active.is_(True),
+        # Item importado só é servido depois de revisão humana: a calibragem
+        # automática de nível a partir de corpus é heurística.
+        _reviewed(),
     ]
     if answered_ids:
         base.append(PlacementItem.id.not_in(answered_ids))
@@ -328,6 +345,7 @@ def _pick_writing_item(
     base = [
         PlacementItem.language_code == test.language_code,
         PlacementItem.is_active.is_(True),
+        _reviewed(),
         PlacementItem.skill == Skill.WRITING,
     ]
     if answered_ids:

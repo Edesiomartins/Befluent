@@ -211,8 +211,51 @@ def test_dashboard_shows_onboarding_data(client, auth):
     assert payload["recent_activity"] == []
     assert payload["next_activity"]["href"] == "/learn/vocabulary"
     assert payload["day_plan"]["minutes_per_day"] == 30
+    assert payload["day_plan"]["minutes_today"] == 0
     assert payload["progress"]["vocabulary_items"] == 0
     assert payload["progress"]["study_sessions"] == 0
+    assert payload["progress"]["streak_days"] == 0
+    assert payload["progress"]["total_minutes"] == 0
+
+
+def test_progress_reflects_study_session(client, auth):
+    assert client.post(
+        "/api/v1/onboarding/complete",
+        json={
+            "language_code": "en",
+            "perceived_level": "iniciante",
+            "goal": "Conversar com confiança",
+            "minutes_per_day": 20,
+            "skills": ["Conversação"],
+        },
+        headers=auth,
+    ).status_code == 200
+
+    started = client.post(
+        "/api/v1/study-sessions",
+        json={"language_code": "en"},
+        headers=auth,
+    )
+    assert started.status_code == 200
+    session_id = started.json()["id"]
+    assert client.post(
+        f"/api/v1/study-sessions/{session_id}/report",
+        headers=auth,
+    ).status_code == 200
+
+    progress = client.get("/api/v1/progress", headers=auth)
+    assert progress.status_code == 200
+    body = progress.json()
+    assert body["study_sessions"] == 1
+    assert body["streak_days"] >= 1
+    assert body["total_minutes"] >= 0
+    assert body["active_language"]["code"] == "en"
+    assert len(body["recent_activity"]) == 1
+
+    dashboard = client.get("/api/v1/dashboard", headers=auth).json()
+    assert dashboard["progress"]["study_sessions"] == 1
+    assert dashboard["progress"]["streak_days"] >= 1
+    assert len(dashboard["recent_activity"]) == 1
 
 
 def test_onboarding_persists_after_new_session(client):

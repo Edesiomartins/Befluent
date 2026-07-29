@@ -55,7 +55,7 @@ export function AudioPlayer({
           <div className="h-full w-1/3 rounded-full bg-primary" />
         </div>
         <p className="mt-2 text-xs text-text-secondary">
-          {demo ? "Síntese local de demonstração" : "Áudio da atividade"}
+          {demo ? "Voz do navegador (TTS local)" : "Áudio da atividade"}
         </p>
       </div>
       <label className="text-xs text-text-secondary">
@@ -220,7 +220,7 @@ export function Chat({
       try {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic },
+          body: { language_code: languageCode, topic, opening },
         });
         if (!cancelled) conversationId.current = started.id;
       } catch {
@@ -230,7 +230,7 @@ export function Chat({
     return () => {
       cancelled = true;
     };
-  }, [languageCode, topic]);
+  }, [languageCode, topic, opening]);
 
   async function send() {
     if (!text.trim()) return;
@@ -243,7 +243,7 @@ export function Chat({
       if (!conversationId.current) {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic },
+          body: { language_code: languageCode, topic, opening },
         });
         conversationId.current = started.id;
       }

@@ -58,7 +58,12 @@ def test_ensure_schema_adds_missing_user_columns(tmp_path: Path):
         assert "is_active" in cols
         assert "updated_at" in cols
         version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert version == "0003_levels_placement"
+        # Head derivado do diretório de scripts: fixar o número aqui obriga a
+        # editar este teste a cada migration nova.
+        from alembic.script import ScriptDirectory
+
+        expected_head = ScriptDirectory.from_config(cfg).get_current_head()
+        assert version == expected_head
         # dado preservado
         name = conn.execute(text("SELECT name FROM users WHERE id='u1'")).scalar()
         assert name == "A"

@@ -180,3 +180,16 @@ def level_payload(code: str) -> dict:
 
 def all_levels() -> list[dict]:
     return [level_payload(code) for code in LEVEL_ORDER]
+
+
+class ReviewStatus(StrEnum):
+    """Estado de revisão de um item do banco (migration 0004).
+
+    Item importado de corpus externo entra como `PENDING_REVIEW` e não é servido
+    ao aluno: a calibragem automática de nível é heurística e precisa de
+    conferência humana antes de valer como avaliação.
+    """
+
+    PENDING_REVIEW = "pending_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"

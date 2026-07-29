@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -16,8 +16,8 @@ from app.models import (
     User,
     UserLanguage,
     UserPreference,
-    VocabularyItem,
 )
+from app.services.progress import aggregate_progress
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -124,13 +124,11 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
 
     active_language = None
     reviews_due: list[dict] = []
-    recent_activity: list[dict] = []
     onboarding_completed = False
     skills: list[str] = []
     minutes = None
     primary_goal = None
-    vocabulary_items = 0
-    study_sessions = 0
+    stats = aggregate_progress(db, user.id)
 
     if active_row:
         ul, lang = active_row
@@ -160,6 +158,7 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         skills = [g.description for g in skill_goals] or list(ui_prefs.get("skills") or [])
         primary_goal = goals[0].description if goals else ui_prefs.get("primary_goal")
         minutes = ui_prefs.get("minutes_per_day")
+        stats = aggregate_progress(db, user.id, user_language_id=ul.id)
 
         active_language = {
             "code": lang.code,
@@ -194,38 +193,6 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
             }
             for item in due_items
         ]
-
-        sessions = list(
-            db.scalars(
-                select(StudySession)
-                .where(StudySession.user_language_id == ul.id)
-                .order_by(StudySession.started_at.desc())
-                .limit(5)
-            )
-        )
-        recent_activity = [
-            {
-                "id": session.id,
-                "status": session.status,
-                "summary": session.summary_short,
-                "started_at": session.started_at.isoformat() if session.started_at else None,
-                "ended_at": session.ended_at.isoformat() if session.ended_at else None,
-            }
-            for session in sessions
-        ]
-
-        vocabulary_items = (
-            db.scalar(
-                select(func.count(VocabularyItem.id)).where(VocabularyItem.user_language_id == ul.id)
-            )
-            or 0
-        )
-        study_sessions = (
-            db.scalar(
-                select(func.count(StudySession.id)).where(StudySession.user_language_id == ul.id)
-            )
-            or 0
-        )
     else:
         any_completed = db.scalar(
             select(UserLanguage.id).where(
@@ -237,19 +204,24 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
 
     has_plan = bool(active_language and onboarding_completed)
     next_activity = _next_activity(has_plan, len(reviews_due), skills)
+    studied_today = (stats.get("minutes_today") or 0) > 0
+    minutes_done = bool(minutes) and (stats.get("minutes_today") or 0) >= int(minutes)
 
     if has_plan:
         day_items = [
             {
                 "label": f"{minutes} min de estudo" if minutes else "Definir meta diária",
-                "done": False,
+                "done": minutes_done if minutes else False,
             },
             {
                 "label": primary_goal or "Definir objetivo",
                 "done": bool(primary_goal),
             },
         ]
-        day_items.extend({"label": f"Foco: {skill}", "done": False} for skill in skills[:3])
+        # Marca foco como feito se houve qualquer estudo hoje (proxy simples e honesto).
+        day_items.extend(
+            {"label": f"Foco: {skill}", "done": studied_today} for skill in skills[:3]
+        )
     else:
         day_items = [{"label": "Concluir onboarding para montar o plano do dia", "done": False}]
 
@@ -258,6 +230,7 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         "goal": primary_goal,
         "skills": skills,
         "items": day_items,
+        "minutes_today": stats.get("minutes_today") or 0,
     }
 
     return {
@@ -266,12 +239,15 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         "next_activity": next_activity,
         "day_plan": day_plan,
         "progress": {
-            "vocabulary_items": vocabulary_items,
-            "study_sessions": study_sessions,
+            "vocabulary_items": stats["vocabulary_items"],
+            "study_sessions": stats["study_sessions"],
             "reviews_due_count": len(reviews_due),
-            "streak_days": 0,
+            "streak_days": stats["streak_days"],
+            "total_minutes": stats["total_minutes"],
+            "minutes_today": stats["minutes_today"],
+            "total_minutes_label": stats["total_minutes_label"],
         },
         "reviews_due_count": len(reviews_due),
         "reviews_due": reviews_due,
-        "recent_activity": recent_activity,
+        "recent_activity": stats["recent_activity"][:5],
     }

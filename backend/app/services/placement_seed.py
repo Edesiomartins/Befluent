@@ -15,10 +15,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.levels import is_valid_level
+from app.core.levels import ReviewStatus, is_valid_level
 from app.models import PlacementItem
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "placement_items"
@@ -35,6 +35,11 @@ def available_languages() -> list[str]:
     if not DATA_DIR.exists():
         return []
     return sorted(path.stem for path in DATA_DIR.glob("*.json"))
+
+
+#: Origem dos itens escritos pelo próprio projeto (ver migration 0004).
+OWN_SOURCE = "befluent_dev_seed"
+OWN_LICENSE = "proprietary"
 
 
 def _apply(item: PlacementItem, raw: dict, language_code: str, version: int) -> None:
@@ -55,6 +60,16 @@ def _apply(item: PlacementItem, raw: dict, language_code: str, version: int) -> 
     item.discrimination = float(raw.get("discrimination", 1.0))
     item.is_active = True
     item.version = version
+    # Proveniência gravada na criação, não só no backfill da migration 0004:
+    # assim os itens próprios ficam distinguíveis de corpus importado mesmo em
+    # base recriada do zero (testes, ambiente novo).
+    item.source = OWN_SOURCE
+    item.license = OWN_LICENSE
+    item.attribution = raw.get("attribution")
+    item.source_ref = raw.get("source_ref")
+    # 'approved' aqui significa "liberado para servir", não "validado por
+    # especialista" — a limitação pedagógica segue declarada no fixture.
+    item.review_status = ReviewStatus.APPROVED
 
 
 def seed_placement_items(db: Session, language_codes: list[str] | None = None) -> dict:
@@ -87,9 +102,20 @@ def seed_placement_items(db: Session, language_codes: list[str] | None = None) -
                 db.add(existing)
             _apply(existing, raw, code, version)
 
-        # Itens fora da fixture atual são desativados, nunca removidos.
+        # Itens fora da fixture atual são desativados, nunca removidos — mas só
+        # os desta fonte. Sem o filtro por `source`, o seed desativaria corpus
+        # importado (Tatoeba etc.) a cada execução, e o entrypoint roda o seed
+        # em todo deploy: a importação seria perdida silenciosamente.
         current = db.scalars(
-            select(PlacementItem).where(PlacementItem.language_code == code)
+            select(PlacementItem).where(
+                PlacementItem.language_code == code,
+                or_(
+                    PlacementItem.source == OWN_SOURCE,
+                    # Itens anteriores à migration 0004 não têm origem gravada;
+                    # são, por definição, do seed próprio.
+                    PlacementItem.source.is_(None),
+                ),
+            )
         ).all()
         for item in current:
             if item.external_key not in seen_keys:

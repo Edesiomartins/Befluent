@@ -36,6 +36,10 @@ class StartIn(BaseModel):
     language_code: str
     topic: str = "Conversa livre"
     study_session_id: str | None = None
+    #: Fala de abertura já exibida ao aluno pela lição. Persistir aqui evita que
+    #: o tutor repita essa mesma fala no primeiro turno e mantém o histórico
+    #: salvo igual ao que o aluno viu na tela.
+    opening: str | None = Field(default=None, max_length=2000)
 
 
 class MessageIn(BaseModel):
@@ -68,6 +72,13 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
         study_session_id=session_id, user_language_id=ul.id, topic=data.topic
     )
     db.add(item)
+    db.flush()
+    if data.opening:
+        db.add(
+            ConversationMessage(
+                conversation_id=item.id, role="assistant", content_text=data.opening
+            )
+        )
     db.commit()
 
     context = build_context(db, user, data.language_code)
