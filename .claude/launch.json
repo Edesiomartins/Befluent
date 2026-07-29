@@ -10,15 +10,7 @@
     {
       "name": "backend-dev",
       "runtimeExecutable": "python",
-      "runtimeArgs": [
-        "-m",
-        "uvicorn",
-        "app.main:app",
-        "--app-dir",
-        "backend",
-        "--port",
-        "8000"
-      ],
+      "runtimeArgs": ["backend/scripts/dev_sqlite.py"],
       "port": 8000
     }
   ]

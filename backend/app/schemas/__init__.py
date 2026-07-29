@@ -211,3 +211,48 @@ class SettingsIn(BaseModel):
     tts_speed: float | None = Field(None, ge=0.5, le=2)
     ui_prefs: dict | None = None
     default_language_code: str | None = None
+
+
+class LessonGenerateIn(BaseModel):
+    """Pedido de lição adaptada ao nível do aluno."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language_code: str = Field(min_length=2, max_length=10)
+    mode: str = Field(min_length=2, max_length=30)
+    persist: bool = True
+
+    @field_validator("mode")
+    @classmethod
+    def validate_mode(cls, value: str) -> str:
+        from app.prompts.library import SUPPORTED_MODES
+
+        mode = value.strip().lower()
+        if mode not in SUPPORTED_MODES:
+            raise ValueError("Modo de estudo inválido.")
+        return mode
+
+
+class LessonWritingIn(BaseModel):
+    """Texto produzido numa lição de escrita, enviado para correção."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    language_code: str = Field(min_length=2, max_length=10)
+    prompt: str = Field(min_length=1, max_length=1000)
+    content_text: str = Field(min_length=1, max_length=4000)
+    target_level: str | None = None
+    min_words: int = Field(default=25, ge=1, le=1000)
+    max_words: int = Field(default=220, ge=1, le=2000)
+
+    @field_validator("target_level")
+    @classmethod
+    def validate_target_level(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.core.levels import normalize_level
+
+        level = normalize_level(value)
+        if not level:
+            raise ValueError("Nível inválido.")
+        return level

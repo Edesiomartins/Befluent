@@ -4,14 +4,30 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 
-export function AudioPlayer({ text = "Áudio da atividade", demo = true }: { text?: string; demo?: boolean }) {
+const SPEECH_LANGS: Record<string, string> = {
+  en: "en-US",
+  "es-ES": "es-ES",
+  fr: "fr-FR",
+  ja: "ja-JP",
+  "zh-CN": "zh-CN",
+};
+
+export function AudioPlayer({
+  text = "Áudio da atividade",
+  demo = true,
+  languageCode = "en",
+}: {
+  text?: string;
+  demo?: boolean;
+  languageCode?: string;
+}) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   function play() {
     if ("speechSynthesis" in window) {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "en-US";
+      utterance.lang = SPEECH_LANGS[languageCode] ?? "en-US";
       utterance.rate = speed;
       utterance.onend = () => setPlaying(false);
       window.speechSynthesis.speak(utterance);

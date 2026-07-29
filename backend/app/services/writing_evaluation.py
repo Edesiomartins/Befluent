@@ -34,6 +34,19 @@ RUBRIC_CRITERIA = [
     "organizacao",
 ]
 
+RUBRIC_LABELS: dict[str, str] = {
+    "adequacao_ao_tema": "Adequação ao tema",
+    "coerencia": "Coerência",
+    "vocabulario": "Vocabulário",
+    "gramatica": "Gramática",
+    "clareza": "Clareza",
+    "organizacao": "Organização",
+}
+
+#: Estimativa de caracteres por palavra, para converter a faixa de palavras da
+#: tarefa no `min_chars` que a heurística usa.
+CHARS_PER_WORD = 5
+
 
 def _tokenize(text: str) -> list[str]:
     return [token for token in re.split(r"[^\w']+", text.lower()) if token]
@@ -177,3 +190,60 @@ def evaluate_writing(
     if result is not None:
         return result
     return heuristic_evaluation(text, target_level, min_chars)
+
+
+def evaluate_lesson_writing(
+    text: str,
+    language_code: str,
+    target_level: str,
+    min_words: int,
+    max_words: int,
+) -> dict:
+    """Correção da produção escrita de uma lição.
+
+    Difere de `evaluate_writing` no propósito: o teste de nivelamento quer
+    estimar um nível, a lição quer devolver correção acionável. Por isso aqui
+    entram a aderência à faixa de palavras pedida e a rubrica rotulada para a
+    interface.
+
+    A heurística não analisa gramática — quando ela responde, o resultado sai
+    marcado como preliminar em vez de fingir uma correção linguística.
+    """
+    cleaned = text.strip()
+    words = len(_tokenize(cleaned))
+    base = evaluate_writing(
+        cleaned,
+        language_code,
+        target_level,
+        min_chars=max(min_words * CHARS_PER_WORD, 20),
+    )
+
+    if base.get("status") != "assessed":
+        return {
+            **base,
+            "word_count": words,
+            "min_words": min_words,
+            "max_words": max_words,
+            "within_range": False,
+            "criteria": [],
+        }
+
+    raw_criteria = base.get("criteria") or {}
+    criteria = [
+        {
+            "key": key,
+            "label": RUBRIC_LABELS[key],
+            "score": round(float(value), 3),
+        }
+        for key, value in raw_criteria.items()
+        if key in RUBRIC_LABELS and isinstance(value, (int, float))
+    ]
+
+    return {
+        **base,
+        "criteria": criteria,
+        "word_count": words,
+        "min_words": min_words,
+        "max_words": max_words,
+        "within_range": min_words <= words <= max_words,
+    }

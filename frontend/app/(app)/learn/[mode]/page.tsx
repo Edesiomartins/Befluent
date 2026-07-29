@@ -1,103 +1,847 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
-import { Button, EmptyState, ErrorState, Loading } from "@/components/ui";
+import { Button, ErrorState, Loading } from "@/components/ui";
+import { api, ApiError } from "@/lib/api";
+import { useActiveLanguage } from "@/hooks/use-active-language";
+import { useLesson } from "@/hooks/use-lesson";
+import type {
+  ConversationLesson,
+  GrammarLesson,
+  GuidedLesson,
+  LessonEnvelope,
+  ListeningLesson,
+  PronunciationLesson,
+  ReadingLesson,
+  ReviewLesson,
+  VocabularyLesson,
+  WritingFeedback,
+  WritingLesson,
+} from "@/types/lesson";
 
-const meta: Record<string, { title: string; subtitle: string }> = {
-  guided: { title: "Aula guiada", subtitle: "Situações do cotidiano · Lição 4 de 8" },
-  conversation: { title: "Conversação por texto", subtitle: "Tema: viagens · Nível B1" },
-  voice: { title: "Conversa por voz", subtitle: "Prática oral em modo demonstração" },
-  pronunciation: { title: "Pronúncia", subtitle: "Ritmo, clareza e inteligibilidade" },
-  vocabulary: { title: "Vocabulário", subtitle: "Palavras em contexto · 8 itens" },
-  grammar: { title: "Gramática", subtitle: "Present perfect × simple past" },
-  listening: { title: "Compreensão auditiva", subtitle: "Uma conversa no aeroporto" },
-  reading: { title: "Leitura", subtitle: "Hábitos de trabalho em diferentes culturas" },
-  writing: { title: "Escrita", subtitle: "E-mail informal · 80–120 palavras" },
-  review: { title: "Revisão", subtitle: "7 itens agendados para hoje" },
-  assessment: { title: "Diagnóstico", subtitle: "Atualização de nível · cerca de 25 min" },
+const meta: Record<string, { title: string }> = {
+  guided: { title: "Aula guiada" },
+  conversation: { title: "Conversação por texto" },
+  voice: { title: "Conversa por voz" },
+  pronunciation: { title: "Pronúncia" },
+  vocabulary: { title: "Vocabulário" },
+  grammar: { title: "Gramática" },
+  listening: { title: "Compreensão auditiva" },
+  reading: { title: "Leitura" },
+  writing: { title: "Escrita" },
+  review: { title: "Revisão" },
+  assessment: { title: "Diagnóstico" },
 };
 
-function PageHeader({ mode }: { mode: string }) {
-  const data = meta[mode];
+const SOURCE_LABELS: Record<string, string> = {
+  placement_test: "estimado pelo teste de nivelamento",
+  self_declared: "informado por você",
+  self_declared_beginner: "informado por você",
+  admin: "definido pela equipe",
+  imported: "importado",
+  pending: "padrão até você fazer o teste",
+};
+
+function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
+  const source = SOURCE_LABELS[lesson.level_source] ?? "padrão";
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="w-fit rounded-md bg-primary-soft px-2.5 py-1.5 text-xs font-semibold text-primary">
+        Nível {lesson.level} · {source}
+      </span>
+      {!lesson.level_is_estimated && (
+        <Link
+          href="/placement-test"
+          className="text-xs font-semibold text-primary hover:underline"
+        >
+          Fazer teste de nível
+        </Link>
+      )}
+      {lesson.provider === "mock" && (
+        <span className="w-fit rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">
+          Conteúdo de demonstração
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | null }) {
+  const fallback = meta[mode];
   return (
     <header className="mb-8">
-      <Link href="/learn" className="text-sm font-medium text-text-secondary hover:text-primary">← Voltar para aprender</Link>
+      <Link href="/learn" className="text-sm font-medium text-text-secondary hover:text-primary">
+        ← Voltar para aprender
+      </Link>
       <div className="mt-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
-        <div><h1 className="page-title">{data.title}</h1><p className="mt-2 text-text-secondary">{data.subtitle}</p></div>
-        <span className="w-fit rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">Conteúdo demonstrativo</span>
+        <div>
+          <h1 className="page-title">{lesson?.title ?? fallback.title}</h1>
+          {lesson?.objective && <p className="mt-2 text-text-secondary">{lesson.objective}</p>}
+        </div>
+        {lesson && <LevelBadge lesson={lesson} />}
       </div>
     </header>
   );
 }
 
-function Guided() {
-  const [step, setStep] = useState(1);
-  return <div className="grid gap-7"><div><div className="mb-2 flex justify-between text-xs text-text-secondary"><span>Progresso da aula</span><span>{step}/3</span></div><div className="h-1.5 rounded-full bg-surface-elevated"><div className="h-full rounded-full bg-primary transition-all" style={{ width: `${step * 33.33}%` }} /></div></div><section className="max-w-3xl"><p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">Objetivo</p><h2 className="mt-3 text-2xl font-semibold tracking-tight">Fazer perguntas de forma natural</h2><p className="mt-4 text-lg leading-8">Em inglês, perguntas no presente normalmente usam <strong>do</strong> ou <strong>does</strong> antes do sujeito.</p><div className="mt-6 border-l-2 border-primary bg-surface px-5 py-4"><p className="font-medium">Where do you usually have lunch?</p><p className="mt-1 text-sm text-text-secondary">Onde você costuma almoçar?</p></div></section><div className="flex gap-3 border-t border-border pt-5"><Button variant="secondary" disabled={step === 1} onClick={() => setStep((s) => s - 1)}>Anterior</Button><Button onClick={() => setStep((s) => Math.min(3, s + 1))}>{step === 3 ? "Concluir aula" : "Continuar"}</Button></div></div>;
+/* ------------------------------------------------------------------ */
+/* Modos                                                               */
+/* ------------------------------------------------------------------ */
+
+function Guided({ lesson }: { lesson: GuidedLesson }) {
+  const [step, setStep] = useState(0);
+  const steps = lesson.steps;
+  const total = steps.length + 1; // +1 para a pergunta de verificação
+  const atCheck = step >= steps.length;
+  const current = atCheck ? null : steps[step];
+  return (
+    <div className="grid gap-7">
+      <div>
+        <div className="mb-2 flex justify-between text-xs text-text-secondary">
+          <span>Progresso da aula</span>
+          <span>
+            {Math.min(step + 1, total)}/{total}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-surface-elevated">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${(Math.min(step + 1, total) / total) * 100}%` }}
+          />
+        </div>
+      </div>
+      {current ? (
+        <section className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+            {current.title}
+          </p>
+          <p className="mt-4 text-lg leading-8">{current.explanation}</p>
+          {current.example && (
+            <div className="mt-6 border-l-2 border-primary bg-surface px-5 py-4">
+              <p className="font-medium">{current.example}</p>
+              {current.example_translation && (
+                <p className="mt-1 text-sm text-text-secondary">{current.example_translation}</p>
+              )}
+            </div>
+          )}
+        </section>
+      ) : (
+        <section className="max-w-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+            Verificação
+          </p>
+          <p className="mt-4 text-lg leading-8">{lesson.check_question}</p>
+          <p className="mt-3 text-sm text-text-secondary">
+            Explicar com as próprias palavras é o que confirma que você entendeu — é a
+            técnica Feynman.
+          </p>
+        </section>
+      )}
+      <div className="flex gap-3 border-t border-border pt-5">
+        <Button variant="secondary" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
+          Anterior
+        </Button>
+        {!atCheck ? (
+          <Button onClick={() => setStep((s) => s + 1)}>Continuar</Button>
+        ) : (
+          <Link
+            href="/learn"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+          >
+            Concluir aula
+          </Link>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function Conversation() {
-  const [translation, setTranslation] = useState(false);
-  return <div><div className="mb-4 flex flex-wrap items-center gap-4 text-sm"><label>Tema <select className="ml-2 rounded-lg border border-border bg-surface px-3 py-2"><option>Viagens</option><option>Trabalho</option><option>Cultura</option></select></label><label>Correção <select className="ml-2 rounded-lg border border-border bg-surface px-3 py-2"><option>Após cada resposta</option><option>Ao final</option><option>Somente quando eu pedir</option></select></label><label className="ml-auto flex items-center gap-2"><input type="checkbox" checked={translation} onChange={(e) => setTranslation(e.target.checked)} className="accent-[var(--primary)]" /> Tradução opcional</label></div><Chat />{translation && <p className="mt-3 text-sm text-text-secondary">Traduções aparecem abaixo das mensagens do tutor quando solicitadas.</p>}</div>;
+function Conversation({ lesson }: { lesson: ConversationLesson }) {
+  return (
+    <div className="grid gap-5">
+      <div className="panel p-5">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Situação
+        </p>
+        <p className="mt-2 font-medium">{lesson.situation}</p>
+        {lesson.target_expressions.length > 0 && (
+          <div className="mt-4 flex flex-wrap gap-2">
+            {lesson.target_expressions.map((expression) => (
+              <span
+                key={expression}
+                className="rounded-full bg-surface-elevated px-3 py-1 text-xs font-medium"
+              >
+                {expression}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      <Chat languageCode={lesson.language_code} />
+    </div>
+  );
 }
 
-function Voice() {
+function Voice({ lesson }: { lesson: ConversationLesson }) {
   const [transcript, setTranscript] = useState("");
-  return <div className="grid gap-5 md:grid-cols-[.85fr_1.15fr]"><div><Recorder onTranscript={setTranscript} /><p className="mt-3 rounded-lg bg-warning/10 p-3 text-xs leading-5 text-warning">Modo demonstração: a transcrição é simulada. O provedor de voz definitivo ainda não foi escolhido.</p></div><div className="panel p-5"><h2 className="section-title">Transcrição</h2><textarea value={transcript} onChange={(e) => setTranscript(e.target.value)} placeholder="Sua fala aparecerá aqui. Você também pode digitar como alternativa." className="mt-4 min-h-32 w-full resize-y rounded-lg border border-border p-3 text-sm" /><h3 className="mt-6 text-sm font-semibold">Resposta do tutor</h3><p className="mt-2 text-sm leading-6 text-text-secondary">That is a great situation to practice. How would you ask for the menu?</p><div className="mt-4"><AudioPlayer text="That is a great situation to practice. How would you ask for the menu?" /></div></div></div>;
+  return (
+    <div className="grid gap-5 md:grid-cols-[.85fr_1.15fr]">
+      <div>
+        <Recorder onTranscript={setTranscript} />
+        <div className="mt-3 panel p-4">
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            Situação
+          </p>
+          <p className="mt-2 text-sm">{lesson.situation}</p>
+        </div>
+      </div>
+      <div className="panel p-5">
+        <h2 className="section-title">Abertura do tutor</h2>
+        <p className="mt-3 font-medium">{lesson.opening}</p>
+        <p className="mt-1 text-sm text-text-secondary">{lesson.opening_translation}</p>
+        <div className="mt-4">
+          <AudioPlayer text={lesson.opening} languageCode={lesson.language_code} />
+        </div>
+        <h3 className="mt-6 text-sm font-semibold">Sua transcrição</h3>
+        <label className="sr-only" htmlFor="voice-transcript">
+          Sua transcrição
+        </label>
+        <textarea
+          id="voice-transcript"
+          value={transcript}
+          onChange={(e) => setTranscript(e.target.value)}
+          placeholder="Sua fala aparecerá aqui. Você também pode digitar como alternativa."
+          className="mt-2 min-h-28 w-full resize-y rounded-lg border border-border p-3 text-sm"
+        />
+        {lesson.suggested_replies.length > 0 && (
+          <>
+            <h3 className="mt-5 text-sm font-semibold">Respostas possíveis</h3>
+            <ul className="mt-2 grid gap-1.5 text-sm text-text-secondary">
+              {lesson.suggested_replies.map((reply) => (
+                <li key={reply}>· {reply}</li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
-function Pronunciation() {
+function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
   const [transcript, setTranscript] = useState("");
-  return <div className="grid gap-5"><div className="rounded-lg border border-info/25 bg-info/5 p-4 text-sm leading-6 text-info"><strong>Limite importante:</strong> reconhecimento de fala (STT) verifica principalmente a transcrição. Ele não substitui uma avaliação fonética especializada de sons, entonação ou sotaque.</div><div className="grid gap-5 md:grid-cols-2"><div className="panel p-5"><p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">Frase-alvo</p><p className="my-5 text-2xl font-medium">Could you tell me where the station is?</p><AudioPlayer text="Could you tell me where the station is?" /></div><Recorder onTranscript={setTranscript} /></div>{transcript && <div className="panel p-5"><h2 className="section-title">Resultado indicativo</h2><p className="mt-2 text-sm text-success">A frase foi reconhecida por completo.</p><p className="mt-3 text-sm text-text-secondary">Transcrição: {transcript}</p></div>}</div>;
+  const [phrase, setPhrase] = useState(0);
+  const current = lesson.target_phrases[phrase];
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-4 md:grid-cols-3">
+        {lesson.focus_sounds.map((sound) => (
+          <div key={sound.sound} className="panel p-4">
+            <p className="font-semibold text-primary">{sound.sound}</p>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">{sound.why_hard}</p>
+            <p className="mt-2 text-sm leading-6">{sound.how_to_produce}</p>
+          </div>
+        ))}
+      </div>
+      {current && (
+        <div className="grid gap-5 md:grid-cols-2">
+          <div className="panel p-5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                Frase-alvo · {phrase + 1}/{lesson.target_phrases.length}
+              </p>
+              <button
+                type="button"
+                className="text-xs font-semibold text-primary hover:underline"
+                onClick={() => setPhrase((p) => (p + 1) % lesson.target_phrases.length)}
+              >
+                Próxima frase
+              </button>
+            </div>
+            <p className="my-5 text-2xl font-medium">{current.phrase}</p>
+            <p className="mb-4 text-sm text-text-secondary">{current.translation}</p>
+            <AudioPlayer text={current.phrase} languageCode={lesson.language_code} />
+          </div>
+          <Recorder onTranscript={setTranscript} />
+        </div>
+      )}
+      {transcript && (
+        <div className="panel p-5">
+          <h2 className="section-title">Resultado indicativo</h2>
+          <p className="mt-3 text-sm text-text-secondary">Transcrição: {transcript}</p>
+          <p className="mt-2 text-xs text-text-secondary">
+            O reconhecimento de fala verifica principalmente a transcrição; não substitui
+            avaliação fonética especializada.
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
-function Vocabulary() {
+function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
+  const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
-  const [index, setIndex] = useState(1);
-  return <div className="mx-auto max-w-2xl"><div className="mb-3 flex justify-between text-xs text-text-secondary"><span>Item {index} de 8</span><span>Revisão contextual</span></div><div className="panel min-h-80 p-7 sm:p-10"><p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">Expressão</p><h2 className="mt-5 text-3xl font-semibold tracking-tight">to figure out</h2><p className="mt-4 text-lg italic text-text-secondary">“We need to figure out a better solution.”</p>{revealed ? <div className="mt-8 border-t border-border pt-6"><p className="font-semibold">descobrir; entender; resolver</p><p className="mt-2 text-sm leading-6 text-text-secondary">Usado quando chegamos a uma resposta por reflexão ou tentativa.</p></div> : <Button className="mt-9" variant="secondary" onClick={() => setRevealed(true)}>Revelar significado</Button>}</div><div className="mt-4 flex flex-wrap justify-between gap-3"><Button variant="secondary">Difícil</Button><div className="flex gap-2"><Button variant="secondary">Ainda aprendendo</Button><Button onClick={() => { setIndex((i) => Math.min(8, i + 1)); setRevealed(false); }}>Eu sabia</Button></div></div></div>;
+  const item = lesson.items[index];
+  if (!item) return null;
+  const last = index >= lesson.items.length - 1;
+  const advance = () => {
+    setIndex((i) => Math.min(lesson.items.length - 1, i + 1));
+    setRevealed(false);
+  };
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-3 flex justify-between text-xs text-text-secondary">
+        <span>
+          Item {index + 1} de {lesson.items.length}
+        </span>
+        <span>Nível {lesson.level}</span>
+      </div>
+      <div className="panel min-h-80 p-7 sm:p-10">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Expressão
+        </p>
+        <h2 className="mt-5 text-3xl font-semibold tracking-tight">{item.term}</h2>
+        <p className="mt-4 text-lg italic text-text-secondary">“{item.example}”</p>
+        {revealed ? (
+          <div className="mt-8 border-t border-border pt-6">
+            <p className="font-semibold">{item.translation}</p>
+            <p className="mt-1 text-sm text-text-secondary">{item.example_translation}</p>
+            <p className="mt-3 text-sm leading-6 text-text-secondary">{item.usage_note}</p>
+          </div>
+        ) : (
+          <Button className="mt-9" variant="secondary" onClick={() => setRevealed(true)}>
+            Revelar significado
+          </Button>
+        )}
+      </div>
+      <div className="mt-4 flex flex-wrap justify-between gap-3">
+        <Button variant="secondary" onClick={advance} disabled={last}>
+          Difícil
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={advance} disabled={last}>
+            Ainda aprendendo
+          </Button>
+          <Button onClick={advance} disabled={last}>
+            Eu sabia
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
-function Grammar() {
-  const [answer, setAnswer] = useState(""); const [checked, setChecked] = useState(false);
-  return <div className="max-w-3xl"><section><h2 className="section-title">Escolha pelo contexto</h2><p className="mt-3 leading-7 text-text-secondary">Use o present perfect quando a experiência mantém relação com o presente; use o simple past quando o tempo está encerrado ou explícito.</p></section><div className="mt-7 panel p-6"><p className="text-sm text-text-secondary">Complete a frase:</p><p className="mt-3 text-xl font-medium">I ____ to Paris three times.</p><div className="mt-5 grid gap-2">{["have been", "went", "was going"].map((option) => <label key={option} className={`rounded-lg border p-3 ${answer === option ? "border-primary bg-primary/5" : "border-border"}`}><input className="mr-3 accent-[var(--primary)]" type="radio" name="answer" checked={answer === option} onChange={() => { setAnswer(option); setChecked(false); }} />{option}</label>)}</div><Button className="mt-5" disabled={!answer} onClick={() => setChecked(true)}>Verificar resposta</Button>{checked && <p className={`mt-4 rounded-lg p-3 text-sm ${answer === "have been" ? "bg-success/10 text-success" : "bg-danger/10 text-danger"}`}>{answer === "have been" ? "Correto. Não há um tempo passado encerrado na frase." : "Quase. Como não há um momento passado específico, use “have been”."}</p>}</div></div>;
+function Grammar({ lesson }: { lesson: GrammarLesson }) {
+  const [answer, setAnswer] = useState("");
+  const [checked, setChecked] = useState(false);
+  const exercise = lesson.exercises[0];
+  return (
+    <div className="max-w-3xl">
+      <section>
+        <h2 className="section-title">A lógica</h2>
+        <p className="mt-3 leading-7 text-text-secondary">{lesson.explanation}</p>
+        {lesson.patterns.length > 0 && (
+          <ul className="mt-4 grid gap-2 text-sm">
+            {lesson.patterns.map((pattern) => (
+              <li key={pattern} className="border-l-2 border-primary pl-3">
+                {pattern}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      {lesson.examples.length > 0 && (
+        <section className="mt-7">
+          <h2 className="section-title">Exemplos</h2>
+          <div className="mt-3 grid gap-3">
+            {lesson.examples.map((example) => (
+              <div key={example.sentence} className="panel p-4">
+                <p className="font-medium">{example.sentence}</p>
+                <p className="mt-1 text-sm text-text-secondary">{example.translation}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+      {exercise && (
+        <div className="mt-7 panel p-6">
+          <p className="text-sm text-text-secondary">Complete a frase:</p>
+          <p className="mt-3 text-xl font-medium">{exercise.prompt}</p>
+          <div className="mt-5 grid gap-2">
+            {exercise.options.map((option) => (
+              <label
+                key={option}
+                className={`rounded-lg border p-3 ${
+                  answer === option ? "border-primary bg-primary/5" : "border-border"
+                }`}
+              >
+                <input
+                  className="mr-3 accent-[var(--primary)]"
+                  type="radio"
+                  name="answer"
+                  checked={answer === option}
+                  onChange={() => {
+                    setAnswer(option);
+                    setChecked(false);
+                  }}
+                />
+                {option}
+              </label>
+            ))}
+          </div>
+          <Button className="mt-5" disabled={!answer} onClick={() => setChecked(true)}>
+            Verificar resposta
+          </Button>
+          {checked && (
+            <p
+              role="status"
+              className={`mt-4 rounded-lg p-3 text-sm ${
+                answer === exercise.answer
+                  ? "bg-success/10 text-success"
+                  : "bg-danger/10 text-danger"
+              }`}
+            >
+              {answer === exercise.answer ? "Correto. " : "Quase. "}
+              {exercise.rationale}
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
-function Listening() {
-  const [answer, setAnswer] = useState(""); const [done, setDone] = useState(false);
-  return <div className="max-w-3xl"><AudioPlayer text="Attention passengers. Flight 482 to Madrid has been delayed by thirty minutes. Boarding will begin at gate sixteen." /><div className="mt-7 panel p-6"><h2 className="section-title">Por que o voo sofreu uma alteração?</h2><div className="mt-4 grid gap-2">{["O portão mudou.", "O voo está atrasado.", "O voo foi cancelado."].map((item) => <label key={item} className="rounded-lg border border-border p-3"><input className="mr-3 accent-[var(--primary)]" type="radio" checked={answer === item} onChange={() => setAnswer(item)} />{item}</label>)}</div><Button className="mt-5" disabled={!answer} onClick={() => setDone(true)}>Responder</Button>{done && <p className="mt-4 text-sm font-medium text-success">{answer === "O voo está atrasado." ? "Correto." : "Ouça novamente: “has been delayed” indica atraso."}</p>}</div></div>;
+function Questions({
+  questions,
+}: {
+  questions: Array<{ prompt: string; options: string[]; answer: string }>;
+}) {
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  return (
+    <div className="grid gap-5">
+      {questions.map((question, index) => (
+        <div key={question.prompt} className="panel p-6">
+          <h2 className="section-title">{question.prompt}</h2>
+          <div className="mt-4 grid gap-2">
+            {question.options.map((option) => (
+              <label
+                key={option}
+                className={`rounded-lg border p-3 ${
+                  answers[index] === option ? "border-primary bg-primary/5" : "border-border"
+                }`}
+              >
+                <input
+                  className="mr-3 accent-[var(--primary)]"
+                  type="radio"
+                  name={`question-${index}`}
+                  checked={answers[index] === option}
+                  onChange={() => {
+                    setAnswers((current) => ({ ...current, [index]: option }));
+                    setChecked((current) => ({ ...current, [index]: false }));
+                  }}
+                />
+                {option}
+              </label>
+            ))}
+          </div>
+          <Button
+            className="mt-5"
+            disabled={!answers[index]}
+            onClick={() => setChecked((current) => ({ ...current, [index]: true }))}
+          >
+            Responder
+          </Button>
+          {checked[index] && (
+            <p
+              role="status"
+              className={`mt-4 text-sm font-medium ${
+                answers[index] === question.answer ? "text-success" : "text-danger"
+              }`}
+            >
+              {answers[index] === question.answer
+                ? "Correto."
+                : `A resposta esperada é: ${question.answer}`}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function Reading() {
-  return <div className="grid gap-8 lg:grid-cols-[1.5fr_.7fr]"><article className="panel p-6 sm:p-9"><p className="mb-5 text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">Leitura · aproximadamente 4 min</p><h2 className="text-2xl font-semibold tracking-tight">How flexible work changed our routines</h2><div className="mt-6 space-y-5 text-[1.05rem] leading-8"><p>For many professionals, flexible work has changed more than the place where tasks are completed. It has also altered how people organize their attention, communicate with colleagues, and separate work from personal life.</p><p>Some employees value the autonomy, while others miss the spontaneous conversations of a shared office. Research suggests that the most effective arrangements depend less on a fixed model and more on clear expectations.</p></div></article><aside><h2 className="section-title">Glossário</h2><dl className="mt-4 divide-y divide-border border-y border-border text-sm"><div className="py-3"><dt className="font-semibold">altered</dt><dd className="mt-1 text-text-secondary">mudou, modificou</dd></div><div className="py-3"><dt className="font-semibold">arrangements</dt><dd className="mt-1 text-text-secondary">acordos, configurações</dd></div></dl><Button variant="secondary" className="mt-5">Responder questões</Button></aside></div>;
+function Listening({ lesson }: { lesson: ListeningLesson }) {
+  return (
+    <div className="max-w-3xl">
+      <AudioPlayer text={lesson.transcript} languageCode={lesson.language_code} />
+      <p className="mt-2 text-xs text-text-secondary">
+        Velocidade de fala: {lesson.speaking_rate}
+      </p>
+      <div className="mt-7">
+        <Questions questions={lesson.questions} />
+      </div>
+    </div>
+  );
 }
 
-function Writing() {
-  const [text, setText] = useState(""); const [sent, setSent] = useState(false);
-  return <div className="max-w-4xl"><div className="border-l-2 border-primary pl-5"><h2 className="section-title">Proposta</h2><p className="mt-2 leading-7 text-text-secondary">Escreva para um amigo contando sobre uma mudança recente na sua rotina e como você se sentiu. Use entre 80 e 120 palavras.</p></div><label className="mt-7 block text-sm font-medium" htmlFor="writing">Seu texto</label><textarea id="writing" value={text} onChange={(e) => { setText(e.target.value); setSent(false); }} className="mt-2 min-h-64 w-full rounded-xl border border-border bg-surface p-5 leading-7" placeholder="Hi Alex,&#10;&#10;I wanted to tell you about…" /><div className="mt-3 flex items-center justify-between"><span className="text-xs text-text-secondary">{text.trim() ? text.trim().split(/\s+/).length : 0} palavras</span><Button disabled={!text.trim()} onClick={() => setSent(true)}>Enviar para correção</Button></div>{sent && <div className="mt-6 rounded-xl border border-success/25 bg-success/5 p-5"><h2 className="font-semibold text-success">Texto recebido</h2><p className="mt-2 text-sm leading-6 text-text-secondary">No modo conectado, a correção detalhará clareza, gramática e alternativas naturais sem reescrever sua voz.</p></div>}</div>;
+function Reading({ lesson }: { lesson: ReadingLesson }) {
+  const paragraphs = useMemo(() => lesson.text.split(/\n+/).filter(Boolean), [lesson.text]);
+  return (
+    <div className="grid gap-8 lg:grid-cols-[1.5fr_.7fr]">
+      <article className="panel p-6 sm:p-9">
+        <p className="mb-5 text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Leitura · nível {lesson.level}
+        </p>
+        <h2 className="text-2xl font-semibold tracking-tight">{lesson.title}</h2>
+        <div className="mt-6 space-y-5 text-[1.05rem] leading-8">
+          {paragraphs.map((paragraph) => (
+            <p key={paragraph.slice(0, 40)}>{paragraph}</p>
+          ))}
+        </div>
+      </article>
+      <aside>
+        {lesson.glossary.length > 0 && (
+          <>
+            <h2 className="section-title">Glossário</h2>
+            <dl className="mt-4 divide-y divide-border border-y border-border text-sm">
+              {lesson.glossary.map((entry) => (
+                <div key={entry.term} className="py-3">
+                  <dt className="font-semibold">{entry.term}</dt>
+                  <dd className="mt-1 text-text-secondary">{entry.translation}</dd>
+                </div>
+              ))}
+            </dl>
+          </>
+        )}
+        <div className="mt-5">
+          <Questions questions={lesson.questions} />
+        </div>
+      </aside>
+    </div>
+  );
 }
 
-function Review() {
-  const [remaining, setRemaining] = useState(7);
-  if (!remaining) return <EmptyState title="Nada pendente hoje" description="Sua fila está em dia. Novos itens aparecerão conforme o agendamento simples de revisão." action={<Link href="/learn" className="text-sm font-semibold text-primary">Escolher outra atividade</Link>} />;
-  return <div className="mx-auto max-w-2xl"><div className="mb-3 flex justify-between text-sm text-text-secondary"><span>{remaining} itens restantes</span><span>Vocabulário</span></div><div className="panel p-8"><p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">Traduza para o inglês</p><p className="mt-6 text-2xl font-semibold">“Eu ainda não decidi.”</p><input className="mt-8 min-h-12 w-full rounded-lg border border-border px-4" placeholder="Digite sua resposta…" /></div><div className="mt-4 flex justify-end gap-2"><Button variant="secondary" onClick={() => setRemaining((n) => n - 1)}>Adiar</Button><Button onClick={() => setRemaining((n) => n - 1)}>Responder</Button></div></div>;
+function ScoreBar({ label, value }: { label: string; value: number }) {
+  const percent = Math.round(Math.max(0, Math.min(1, value)) * 100);
+  return (
+    <div>
+      <div className="mb-1 flex justify-between text-sm">
+        <span>{label}</span>
+        <span className="text-text-secondary tabular-nums">{percent}%</span>
+      </div>
+      <div className="h-2 rounded-full bg-surface-elevated">
+        <div
+          className={`h-full rounded-full ${percent >= 70 ? "bg-success" : percent >= 45 ? "bg-warning" : "bg-danger"}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
+  if (feedback.status !== "assessed") {
+    return (
+      <div className="mt-6 rounded-xl border border-border bg-surface p-5" role="status">
+        <h2 className="section-title">Não foi possível avaliar</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          O texto enviado está vazio ou curto demais para qualquer análise.
+        </p>
+      </div>
+    );
+  }
+
+  const heuristic = feedback.evaluated_by === "heuristic";
+  const score = Math.round((feedback.normalized_score ?? 0) * 100);
+
+  return (
+    <div className="mt-6 grid gap-4" role="status">
+      <div className="panel p-5">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <h2 className="section-title">Correção</h2>
+          <span className="text-sm text-text-secondary">
+            {feedback.word_count} palavras
+            {feedback.within_range ? (
+              <span className="ml-1 text-success">· dentro da faixa</span>
+            ) : (
+              <span className="ml-1 text-warning">
+                · fora da faixa de {feedback.min_words}–{feedback.max_words}
+              </span>
+            )}
+          </span>
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          <span className="text-3xl font-bold tabular-nums">{score}%</span>
+          {feedback.estimated_level && (
+            <span className="rounded-md bg-primary-soft px-2.5 py-1.5 text-xs font-semibold text-primary">
+              Sustenta {feedback.estimated_level}
+            </span>
+          )}
+        </div>
+
+        {feedback.feedback && (
+          <p className="mt-4 text-sm leading-6">{feedback.feedback}</p>
+        )}
+
+        {heuristic && (
+          <p className="mt-4 rounded-lg bg-warning/10 p-3 text-xs leading-5 text-warning">
+            Avaliação preliminar. Sem a IA conectada, o BeFluent mede extensão, segmentação
+            em frases e variedade de palavras — não corrige gramática nem vocabulário.
+          </p>
+        )}
+      </div>
+
+      {feedback.criteria.length > 0 && (
+        <div className="panel grid gap-4 p-5">
+          <h3 className="text-sm font-semibold">Por critério</h3>
+          {feedback.criteria.map((item) => (
+            <ScoreBar key={item.key} label={item.label} value={item.score} />
+          ))}
+        </div>
+      )}
+
+      {heuristic && feedback.metrics && (
+        <div className="panel grid gap-2 p-5 text-sm">
+          <h3 className="text-sm font-semibold">O que foi medido</h3>
+          <div className="flex justify-between text-text-secondary">
+            <span>Frases</span>
+            <span className="tabular-nums">{feedback.metrics.sentences}</span>
+          </div>
+          <div className="flex justify-between text-text-secondary">
+            <span>Palavras distintas</span>
+            <span className="tabular-nums">
+              {Math.round(feedback.metrics.lexical_diversity * 100)}%
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Writing({ lesson }: { lesson: WritingLesson }) {
+  const [text, setText] = useState("");
+  const [feedback, setFeedback] = useState<WritingFeedback | null>(null);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const inRange = words >= lesson.min_words && words <= lesson.max_words;
+
+  async function submit() {
+    setSending(true);
+    setError("");
+    setFeedback(null);
+    try {
+      const result = await api<WritingFeedback>("/api/v1/writing", {
+        method: "POST",
+        body: {
+          language_code: lesson.language_code,
+          prompt: lesson.prompt,
+          content_text: text.trim(),
+          target_level: lesson.level,
+          min_words: lesson.min_words,
+          max_words: lesson.max_words,
+        },
+      });
+      setFeedback(result);
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Não foi possível enviar o texto para correção.",
+      );
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="max-w-4xl">
+      <div className="border-l-2 border-primary pl-5">
+        <h2 className="section-title">Proposta</h2>
+        <p className="mt-2 leading-7 text-text-secondary">{lesson.prompt}</p>
+        <p className="mt-2 text-xs text-text-secondary">
+          Entre {lesson.min_words} e {lesson.max_words} palavras.
+        </p>
+      </div>
+      {lesson.rubric_hints.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {lesson.rubric_hints.map((hint) => (
+            <span
+              key={hint}
+              className="rounded-full bg-surface-elevated px-3 py-1 text-xs font-medium"
+            >
+              {hint}
+            </span>
+          ))}
+        </div>
+      )}
+      <label className="mt-7 block text-sm font-medium" htmlFor="writing">
+        Seu texto
+      </label>
+      <textarea
+        id="writing"
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setFeedback(null);
+        }}
+        className="mt-2 min-h-64 w-full rounded-xl border border-border bg-surface p-5 leading-7"
+        placeholder="Escreva aqui…"
+      />
+      <div className="mt-3 flex items-center justify-between">
+        <span className={`text-xs ${inRange ? "text-success" : "text-text-secondary"}`}>
+          {words} palavras
+        </span>
+        <Button
+          disabled={!text.trim()}
+          loading={sending}
+          onClick={() => void submit()}
+        >
+          {sending ? "Corrigindo…" : "Enviar para correção"}
+        </Button>
+      </div>
+      {error && (
+        <p className="mt-4 rounded-lg border border-danger/25 bg-danger/5 p-3 text-sm text-danger" role="alert">
+          {error}
+        </p>
+      )}
+      {feedback && <WritingFeedbackPanel feedback={feedback} />}
+    </div>
+  );
+}
+
+function Review({ lesson }: { lesson: ReviewLesson }) {
+  const [index, setIndex] = useState(0);
+  const [revealed, setRevealed] = useState(false);
+  const item = lesson.items[index];
+  if (!item) return null;
+  const remaining = lesson.items.length - index;
+  const last = index >= lesson.items.length - 1;
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-3 flex justify-between text-sm text-text-secondary">
+        <span>
+          {remaining} {remaining === 1 ? "item restante" : "itens restantes"}
+        </span>
+        <span>Nível {lesson.level}</span>
+      </div>
+      <div className="panel p-8">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Recupere da memória
+        </p>
+        <p className="mt-6 text-2xl font-semibold">{item.prompt}</p>
+        {revealed ? (
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="text-xl font-semibold text-primary">{item.answer}</p>
+            <p className="mt-2 text-sm text-text-secondary">{item.hint}</p>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-text-secondary">Dica: {item.hint}</p>
+        )}
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        {!revealed ? (
+          <Button onClick={() => setRevealed(true)}>Ver resposta</Button>
+        ) : (
+          <Button
+            disabled={last}
+            onClick={() => {
+              setIndex((i) => i + 1);
+              setRevealed(false);
+            }}
+          >
+            {last ? "Concluído" : "Próximo item"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+
+function LessonContent({ mode, lesson }: { mode: string; lesson: LessonEnvelope }) {
+  switch (mode) {
+    case "guided":
+      return <Guided lesson={lesson as GuidedLesson} />;
+    case "conversation":
+      return <Conversation lesson={lesson as ConversationLesson} />;
+    case "voice":
+      return <Voice lesson={lesson as ConversationLesson} />;
+    case "pronunciation":
+      return <Pronunciation lesson={lesson as PronunciationLesson} />;
+    case "vocabulary":
+      return <Vocabulary lesson={lesson as VocabularyLesson} />;
+    case "grammar":
+      return <Grammar lesson={lesson as GrammarLesson} />;
+    case "listening":
+      return <Listening lesson={lesson as ListeningLesson} />;
+    case "reading":
+      return <Reading lesson={lesson as ReadingLesson} />;
+    case "writing":
+      return <Writing lesson={lesson as WritingLesson} />;
+    case "review":
+      return <Review lesson={lesson as ReviewLesson} />;
+    default:
+      return null;
+  }
 }
 
 function Assessment() {
-  const [started, setStarted] = useState(false);
-  if (started) return <div className="max-w-3xl"><div className="mb-8"><div className="flex justify-between text-xs text-text-secondary"><span>Questão 1 de 12</span><span>Compreensão gramatical</span></div><div className="mt-2 h-1.5 rounded-full bg-surface-elevated"><div className="h-full w-[8%] rounded-full bg-primary" /></div></div><div className="panel p-6"><h2 className="text-xl font-semibold">Choose the sentence that sounds most natural.</h2><div className="mt-5 grid gap-2">{["I have seen her yesterday.", "I saw her yesterday.", "I was see her yesterday."].map((item) => <label key={item} className="rounded-lg border border-border p-4"><input type="radio" name="assessment" className="mr-3 accent-[var(--primary)]" />{item}</label>)}</div><Button className="mt-5">Próxima questão</Button></div></div>;
-  return <div className="max-w-2xl"><h2 className="text-2xl font-semibold tracking-tight">Antes de começar</h2><p className="mt-3 leading-7 text-text-secondary">Este diagnóstico combina leitura, gramática, vocabulário e compreensão. O resultado é uma estimativa para ajustar seu plano — não uma certificação.</p><ul className="my-7 space-y-3 border-y border-border py-6 text-sm"><li>• Reserve cerca de 25 minutos.</li><li>• Responda sem usar tradutores.</li><li>• Você pode ouvir cada áudio duas vezes.</li></ul><Button onClick={() => setStarted(true)}>Iniciar diagnóstico</Button></div>;
+  return (
+    <div className="max-w-2xl">
+      <h2 className="text-2xl font-semibold tracking-tight">Diagnóstico de nível</h2>
+      <p className="mt-3 leading-7 text-text-secondary">
+        O diagnóstico agora é o teste de nivelamento completo, com resultado por
+        competência, confiança da estimativa e recomendações de estudo.
+      </p>
+      <Link
+        href="/placement-test"
+        className="mt-7 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+      >
+        Ir para o teste de nivelamento
+      </Link>
+    </div>
+  );
 }
 
-const content: Record<string, () => ReactNode> = { guided: Guided, conversation: Conversation, voice: Voice, pronunciation: Pronunciation, vocabulary: Vocabulary, grammar: Grammar, listening: Listening, reading: Reading, writing: Writing, review: Review, assessment: Assessment };
+function AdaptiveLesson({ mode }: { mode: string }) {
+  const { code } = useActiveLanguage();
+  const { status, lesson, error, reload } = useLesson(mode, code);
+  return (
+    <div>
+      <PageHeader mode={mode} lesson={lesson} />
+      {status === "loading" && <Loading label={`Preparando ${meta[mode].title}`} />}
+      {status === "error" && (
+        <ErrorState message={error ?? undefined} retry={() => void reload()} />
+      )}
+      {status === "ready" && lesson && <LessonContent mode={mode} lesson={lesson} />}
+    </div>
+  );
+}
 
 export default function StudyModePage() {
   const params = useParams<{ mode: string }>();
   const mode = params.mode;
-  const [state, setState] = useState<"loading" | "ready" | "error">("loading");
-  useEffect(() => { const timer = window.setTimeout(() => setState("ready"), 300); return () => window.clearTimeout(timer); }, [mode]);
-  if (!meta[mode]) notFound();
-  const Content = content[mode];
-  return <div><PageHeader mode={mode} />{state === "loading" ? <Loading label={`Carregando ${meta[mode].title}`} /> : state === "error" ? <ErrorState retry={() => setState("ready")} /> : <Content />}</div>;
+  if (!meta[mode]) {
+    // `notFound()` lança em produção; o return explícito evita seguir com um
+    // modo inexistente caso isso mude.
+    notFound();
+    return null;
+  }
+  if (mode === "assessment") {
+    return (
+      <div>
+        <PageHeader mode={mode} lesson={null} />
+        <Assessment />
+      </div>
+    );
+  }
+  return <AdaptiveLesson mode={mode} />;
 }
