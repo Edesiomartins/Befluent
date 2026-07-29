@@ -180,7 +180,12 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
           </div>
         )}
       </div>
-      <Chat languageCode={lesson.language_code} />
+      <Chat
+        languageCode={lesson.language_code}
+        situation={lesson.situation}
+        opening={lesson.opening}
+        openingTranslation={lesson.opening_translation}
+      />
     </div>
   );
 }

@@ -19,8 +19,10 @@ from abc import ABC, abstractmethod
 import httpx
 
 from app.core.config import get_settings
-from app.core.levels import SKILL_LABELS
+from app.core.levels import LEVEL_INDEX, SKILL_LABELS, CEFRLevel
+from app.core.levels import Skill
 from app.prompts.library import (
+    CONVERSATION,
     MODE_SKILL,
     get_mode_prompt,
     get_output_contract,
@@ -29,12 +31,43 @@ from app.services import lesson_bank
 from app.services.learner_context import LearnerContext
 
 
+#: Abaixo deste nível, o tutor acompanha cada fala com tradução — é a regra do
+#: prompt de conversação ("tradução entre parênteses quando o nível exigir").
+TRANSLATION_THRESHOLD = CEFRLevel.B1
+
+
 class BaseAIProvider(ABC):
     @abstractmethod
     def conversation(self, text: str, language_code: str) -> dict: ...
 
     @abstractmethod
+    def conversation_turn(
+        self, text: str, context: LearnerContext, history: list[dict]
+    ) -> dict: ...
+
+    @abstractmethod
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict: ...
+
+
+def _needs_translation(level: str) -> bool:
+    return LEVEL_INDEX[level] < LEVEL_INDEX[TRANSLATION_THRESHOLD]
+
+
+def _conversation_envelope(context: LearnerContext, payload: dict, provider: str) -> dict:
+    level = context.level_for_skill(MODE_SKILL["conversation"])
+    return {
+        "reply": payload.get("reply", ""),
+        "reply_translation": payload.get("reply_translation"),
+        "corrections": payload.get("corrections") or [],
+        "natural_alternative": payload.get("natural_alternative"),
+        "suggestions": payload.get("suggestions") or [],
+        "corrections_available": payload.get("corrections_available", True),
+        "provider": provider,
+        "level": level,
+        "level_source": context.level_source,
+        "level_is_estimated": context.level_is_estimated,
+        "shows_translation": _needs_translation(level),
+    }
 
 
 def _envelope(mode: str, context: LearnerContext, payload: dict, provider: str) -> dict:
@@ -68,6 +101,38 @@ class MockAIProvider(BaseAIProvider):
             "suggestions": ["Continue praticando!"],
             "provider": "mock",
         }
+
+    def conversation_turn(self, text, context, history):
+        """Avança um roteiro de prática no nível do aluno.
+
+        Não devolve correções: analisar gramática exige o modelo. Fabricar uma
+        correção aqui seria pior do que não corrigir — o aluno confiaria em algo
+        que ninguém verificou. `corrections_available=False` diz isso à interface.
+        """
+        level = context.level_for_skill(MODE_SKILL["conversation"])
+        band = lesson_bank.band_for(level)
+        vocab = lesson_bank.VOCABULARY.get(
+            context.language_code, lesson_bank.VOCABULARY["en"]
+        )
+        items = vocab.get(band) or vocab[lesson_bank.BAND_ELEMENTARY]
+
+        # Uma fala do tutor por turno já ocorrido, dando a volta ao fim do roteiro.
+        turn = sum(1 for message in history if message.get("role") == "assistant")
+        item = items[turn % len(items)]
+
+        return _conversation_envelope(
+            context,
+            {
+                "reply": item["example"],
+                "reply_translation": (
+                    item["example_translation"] if _needs_translation(level) else None
+                ),
+                "corrections": [],
+                "corrections_available": False,
+                "suggestions": [other["term"] for other in items[:3]],
+            },
+            "mock",
+        )
 
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict:
         skill = MODE_SKILL.get(mode)
@@ -178,7 +243,10 @@ def _conversation(context: LearnerContext, band: str, level: str) -> dict:
         "objective": f"Praticar {situation['focus']} em uma situação realista.",
         "situation": situation["situation"],
         "opening": items[0]["example"],
-        "opening_translation": items[0]["example_translation"],
+        # Mesma regra dos turnos: acima de B1 o aluno pratica sem tradução.
+        "opening_translation": (
+            items[0]["example_translation"] if _needs_translation(level) else None
+        ),
         "suggested_replies": [item["example"] for item in items[1:4]],
         "target_expressions": [item["term"] for item in items[:4]],
     }
@@ -337,6 +405,10 @@ class OpenRouterProvider(BaseAIProvider):
     def __init__(self):
         self.s = get_settings()
 
+    @property
+    def openrouter_ready(self) -> bool:
+        return bool(self.s.openrouter_api_key and self.s.openrouter_model)
+
     def conversation(self, text, language_code):
         if not self.s.openrouter_api_key or not self.s.openrouter_model:
             return MockAIProvider().conversation(text, language_code)
@@ -368,6 +440,60 @@ class OpenRouterProvider(BaseAIProvider):
             }
         except httpx.HTTPError as exc:
             raise RuntimeError("Falha temporária no serviço de IA.") from exc
+
+    def conversation_turn(self, text, context, history):
+        """Um turno de conversa pelo prompt do documento (Parte II · 3).
+
+        Cai no mock em qualquer falha: o aluno no meio de um diálogo não pode
+        receber um erro no lugar da resposta do tutor.
+        """
+        if not self.openrouter_ready:
+            return MockAIProvider().conversation_turn(text, context, history)
+
+        level = context.level_for_skill(MODE_SKILL["conversation"])
+        contract = (
+            '{"reply": str, "reply_translation": str|null, '
+            '"corrections": [{"original": str, "corrected": str, "explanation": str}], '
+            '"natural_alternative": str|null, "suggestions": [str]}'
+        )
+        instruction = CONVERSATION.render(context.to_prompt_context(Skill.SPEAKING), contract)
+        if _needs_translation(level):
+            instruction += (
+                "\n\nO nível do aluno exige tradução: preencha `reply_translation` "
+                "com a tradução em português da sua fala."
+            )
+        else:
+            instruction += "\n\nO aluno dispensa tradução: deixe `reply_translation` nulo."
+
+        messages = [{"role": "system", "content": instruction}]
+        for message in history[-10:]:
+            messages.append(
+                {
+                    "role": "assistant" if message.get("role") == "assistant" else "user",
+                    "content": message.get("content", ""),
+                }
+            )
+        messages.append({"role": "user", "content": text})
+
+        try:
+            response = httpx.post(
+                f"{self.s.openrouter_base_url}/chat/completions",
+                json={
+                    "model": self.s.openrouter_model,
+                    "messages": messages,
+                    "response_format": {"type": "json_object"},
+                },
+                headers={"Authorization": f"Bearer {self.s.openrouter_api_key}"},
+                timeout=45,
+            )
+            response.raise_for_status()
+            payload = json.loads(response.json()["choices"][0]["message"]["content"])
+        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
+            return MockAIProvider().conversation_turn(text, context, history)
+
+        if not isinstance(payload, dict) or not payload.get("reply"):
+            return MockAIProvider().conversation_turn(text, context, history)
+        return _conversation_envelope(context, payload, "openrouter")
 
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict:
         """Gera a lição pelo prompt da biblioteca; cai no mock em qualquer falha.

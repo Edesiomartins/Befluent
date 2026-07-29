@@ -408,3 +408,129 @@ def test_lesson_writing_rejects_oversized_text(client, auth, db_session):
         headers=auth,
     )
     assert response.status_code == 422
+
+
+# ---------------------------------------------------------------- conversação
+
+
+def test_conversation_turn_uses_speaking_level():
+    """O turno calibra pela fala avaliada, não pelo nível geral."""
+    turn = MockAIProvider().conversation_turn(
+        "hello",
+        _context(level=CEFRLevel.B2, skill_levels={Skill.SPEAKING: CEFRLevel.A1}),
+        [],
+    )
+    assert turn["level"] == CEFRLevel.A1
+
+
+def test_conversation_translates_below_b1():
+    """Nível baixo recebe tradução; a partir de B1, não."""
+    beginner = MockAIProvider().conversation_turn("oi", _context(level=CEFRLevel.A1), [])
+    advanced = MockAIProvider().conversation_turn("hi", _context(level=CEFRLevel.B2), [])
+
+    assert beginner["shows_translation"] is True
+    assert beginner["reply_translation"]
+    assert advanced["shows_translation"] is False
+    assert advanced["reply_translation"] is None
+
+
+def test_conversation_reply_differs_between_levels():
+    provider = MockAIProvider()
+    beginner = provider.conversation_turn("oi", _context(level=CEFRLevel.PRE_A1), [])
+    advanced = provider.conversation_turn("hi", _context(level=CEFRLevel.B2), [])
+    assert beginner["reply"] != advanced["reply"]
+
+
+def test_conversation_mock_never_invents_corrections():
+    """Sem IA não há análise gramatical — e a resposta diz isso."""
+    turn = MockAIProvider().conversation_turn(
+        "I has go to school yesterday", _context(level=CEFRLevel.A2), []
+    )
+    assert turn["corrections"] == []
+    assert turn["corrections_available"] is False
+
+
+def test_conversation_advances_with_history():
+    """Turnos seguintes não repetem a mesma fala do tutor."""
+    provider = MockAIProvider()
+    context = _context(level=CEFRLevel.B1)
+    first = provider.conversation_turn("a", context, [])
+    history = [{"role": "user", "content": "a"}, {"role": "assistant", "content": first["reply"]}]
+    second = provider.conversation_turn("b", context, history)
+    assert first["reply"] != second["reply"]
+
+
+def test_conversation_endpoint_returns_level(client, auth, db_session):
+    _profile(db_session, CEFRLevel.B1)
+    started = client.post(
+        "/api/v1/conversations", json={"language_code": "en", "topic": "Restaurante"}, headers=auth
+    )
+    assert started.status_code == 200
+    assert started.json()["level"] == CEFRLevel.B1
+
+    reply = client.post(
+        f"/api/v1/conversations/{started.json()['id']}/messages",
+        json={"text": "I would like a table."},
+        headers=auth,
+    )
+    assert reply.status_code == 200
+    body = reply.json()
+    assert body["reply"]
+    assert body["level"] == CEFRLevel.B1
+    assert body["level_is_estimated"] is True
+
+
+def test_conversation_rejects_other_users_conversation(client, auth, db_session):
+    """Regressão: o GET de mensagens não checava dono."""
+    from app.models import Conversation, StudySession
+
+    language = db_session.scalar(select(Language).where(Language.code == "en"))
+    stranger = User(
+        email="outro@befluent.local", password_hash="x", name="Outro", is_active=True
+    )
+    db_session.add(stranger)
+    db_session.flush()
+    profile = UserLanguage(user_id=stranger.id, language_id=language.id)
+    db_session.add(profile)
+    db_session.flush()
+    session = StudySession(user_language_id=profile.id)
+    db_session.add(session)
+    db_session.flush()
+    conversation = Conversation(
+        study_session_id=session.id, user_language_id=profile.id, topic="Privada"
+    )
+    db_session.add(conversation)
+    db_session.commit()
+
+    assert (
+        client.get(f"/api/v1/conversations/{conversation.id}/messages", headers=auth).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            f"/api/v1/conversations/{conversation.id}/messages",
+            json={"text": "oi"},
+            headers=auth,
+        ).status_code
+        == 404
+    )
+
+
+def test_conversation_rejects_empty_message(client, auth, db_session):
+    _profile(db_session, CEFRLevel.A2)
+    started = client.post(
+        "/api/v1/conversations", json={"language_code": "en"}, headers=auth
+    ).json()
+    response = client.post(
+        f"/api/v1/conversations/{started['id']}/messages", json={"text": ""}, headers=auth
+    )
+    assert response.status_code == 422
+
+
+def test_conversation_lesson_opening_follows_translation_rule():
+    """A abertura segue a mesma regra dos turnos: sem tradução a partir de B1."""
+    provider = MockAIProvider()
+    beginner = provider.generate_lesson("conversation", _context(level=CEFRLevel.A1))
+    advanced = provider.generate_lesson("conversation", _context(level=CEFRLevel.B2))
+    assert beginner["opening_translation"]
+    assert advanced["opening_translation"] is None

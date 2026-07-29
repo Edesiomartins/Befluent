@@ -167,28 +167,60 @@ export function Recorder({ onTranscript }: { onTranscript?: (text: string) => vo
   );
 }
 
-type Message = { role: "tutor" | "user"; text: string; correction?: string };
+type Correction = { original?: string; corrected?: string; explanation?: string };
 
-export function Chat({ languageCode = "en" }: { languageCode?: string }) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "tutor",
-      text: "Hello! Today we'll talk about travel. What kind of places do you enjoy visiting?",
-    },
-  ]);
+type Message = {
+  role: "tutor" | "user";
+  text: string;
+  translation?: string | null;
+  corrections?: Correction[];
+};
+
+type TurnResponse = {
+  reply: string;
+  reply_translation?: string | null;
+  corrections?: Correction[];
+  natural_alternative?: string | null;
+  suggestions?: string[];
+  corrections_available?: boolean;
+  provider?: string;
+  level?: string;
+};
+
+export function Chat({
+  languageCode = "en",
+  situation,
+  opening,
+  openingTranslation,
+}: {
+  languageCode?: string;
+  situation?: string;
+  opening?: string;
+  openingTranslation?: string | null;
+}) {
+  const [messages, setMessages] = useState<Message[]>(() =>
+    opening
+      ? [{ role: "tutor", text: opening, translation: openingTranslation }]
+      : [],
+  );
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [demoMode, setDemoMode] = useState(true);
+  const [correctionsOff, setCorrectionsOff] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const conversationId = useRef<string | null>(null);
+
+  const topic = situation ?? "Conversa livre";
 
   useEffect(() => {
     let cancelled = false;
+    conversationId.current = null;
     (async () => {
       try {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic: "Viagens" },
+          body: { language_code: languageCode, topic },
         });
         if (!cancelled) conversationId.current = started.id;
       } catch {
@@ -198,7 +230,7 @@ export function Chat({ languageCode = "en" }: { languageCode?: string }) {
     return () => {
       cancelled = true;
     };
-  }, [languageCode]);
+  }, [languageCode, topic]);
 
   async function send() {
     if (!text.trim()) return;
@@ -211,48 +243,43 @@ export function Chat({ languageCode = "en" }: { languageCode?: string }) {
       if (!conversationId.current) {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic: "Viagens" },
+          body: { language_code: languageCode, topic },
         });
         conversationId.current = started.id;
       }
-      const result = await api<{
-        reply: string;
-        corrections?: { message?: string }[] | string[];
-        provider?: string;
-      }>(`/api/v1/conversations/${conversationId.current}/messages`, {
-        method: "POST",
-        body: { text: userText },
-      });
-      setDemoMode(result.provider === "mock" || !result.provider);
-      const correction =
-        Array.isArray(result.corrections) && result.corrections.length
-          ? typeof result.corrections[0] === "string"
-            ? result.corrections[0]
-            : result.corrections[0]?.message
-          : undefined;
+      const result = await api<TurnResponse>(
+        `/api/v1/conversations/${conversationId.current}/messages`,
+        { method: "POST", body: { text: userText } },
+      );
+
+      setDemoMode(result.provider !== "openrouter");
+      setCorrectionsOff(result.corrections_available === false);
+      setSuggestions(result.suggestions ?? []);
+
+      const corrections = result.corrections ?? [];
       setMessages((current) => {
         const next = [...current];
-        if (correction) {
-          const lastUser = [...next].reverse().find((m) => m.role === "user");
-          if (lastUser) lastUser.correction = correction;
+        if (corrections.length) {
+          for (let index = next.length - 1; index >= 0; index -= 1) {
+            if (next[index].role === "user") {
+              next[index] = { ...next[index], corrections };
+              break;
+            }
+          }
         }
-        next.push({ role: "tutor", text: result.reply });
+        next.push({
+          role: "tutor",
+          text: result.reply,
+          translation: result.reply_translation,
+        });
         return next;
       });
     } catch (err) {
-      const message =
+      setError(
         err instanceof ApiError
           ? err.message
-          : "Não foi possível obter resposta do tutor.";
-      setError(message);
-      setMessages((current) => [
-        ...current,
-        {
-          role: "tutor",
-          text: "That sounds interesting. What was the most memorable place you visited?",
-        },
-      ]);
-      setDemoMode(true);
+          : "Não foi possível obter resposta do tutor.",
+      );
     } finally {
       setThinking(false);
     }
@@ -261,8 +288,10 @@ export function Chat({ languageCode = "en" }: { languageCode?: string }) {
   return (
     <div className="panel overflow-hidden">
       {demoMode && (
-        <p className="border-b border-border bg-warning/10 px-4 py-2 text-xs text-warning">
-          Modo demonstração de IA (mock) quando não há chave OpenRouter.
+        <p className="border-b border-border bg-warning/10 px-4 py-2 text-xs leading-5 text-warning">
+          {correctionsOff
+            ? "Prática guiada por roteiro. Sem a IA conectada, o tutor propõe frases no seu nível mas não corrige o que você escreve."
+            : "Modo demonstração de IA (mock) quando não há chave OpenRouter."}
         </p>
       )}
       <div className="min-h-80 space-y-5 p-5 sm:p-6" aria-live="polite">
@@ -281,11 +310,27 @@ export function Chat({ languageCode = "en" }: { languageCode?: string }) {
             >
               {message.text}
             </div>
-            {message.correction && (
-              <div className="mt-2 border-l-2 border-warning pl-3 text-sm text-text-secondary">
-                <strong className="text-text-primary">Ajuste:</strong> {message.correction}
-              </div>
+            {message.translation && (
+              <p className="mt-1.5 pl-1 text-sm italic text-text-secondary">
+                {message.translation}
+              </p>
             )}
+            {message.corrections?.map((correction, position) => (
+              <div
+                key={position}
+                className="mt-2 border-l-2 border-warning pl-3 text-sm text-text-secondary"
+              >
+                {correction.corrected && (
+                  <p>
+                    <strong className="text-text-primary">Mais natural:</strong>{" "}
+                    {correction.corrected}
+                  </p>
+                )}
+                {correction.explanation && (
+                  <p className="mt-0.5">{correction.explanation}</p>
+                )}
+              </div>
+            ))}
           </div>
         ))}
         {thinking && <p className="text-sm text-text-secondary">O tutor está respondendo…</p>}
@@ -295,6 +340,19 @@ export function Chat({ languageCode = "en" }: { languageCode?: string }) {
           </p>
         )}
       </div>
+      {suggestions.length > 0 && (
+        <div className="flex flex-wrap gap-2 border-t border-border px-3 pt-3">
+          <span className="text-xs font-medium text-text-secondary">Tente usar:</span>
+          {suggestions.map((item) => (
+            <span
+              key={item}
+              className="rounded-full bg-surface-elevated px-2.5 py-0.5 text-xs font-medium"
+            >
+              {item}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="flex gap-2 border-t border-border p-3">
         <label className="sr-only" htmlFor="chat-message">
           Sua resposta
