@@ -292,23 +292,16 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [finished, setFinished] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
   const item = lesson.items[index];
-  if (!item) return null;
   const last = index >= lesson.items.length - 1;
 
-  const advance = () => {
-    setIndex((i) => Math.min(lesson.items.length - 1, i + 1));
-    setRevealed(false);
-    setNotice("");
-    setError("");
-  };
-
-  async function saveAndAdvance(kind: "learning" | "known") {
+  async function saveAndAdvance(_kind: "learning" | "known") {
+    if (!item || saving) return;
     setSaving(true);
     setError("");
-    setNotice("");
     try {
       await api("/api/v1/vocabulary", {
         method: "POST",
@@ -319,12 +312,13 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
           notes: item.usage_note || item.example || null,
         },
       });
-      setNotice(
-        kind === "known"
-          ? "Salvo no vocabulário e na fila de revisão."
-          : "Salvo no vocabulário para revisar depois.",
-      );
-      window.setTimeout(advance, 450);
+      setSavedCount((value) => value + 1);
+      if (last) {
+        setFinished(true);
+        return;
+      }
+      setIndex((current) => current + 1);
+      setRevealed(false);
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -335,6 +329,34 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
       setSaving(false);
     }
   }
+
+  if (finished) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-surface p-8 text-center">
+        <h2 className="text-xl font-semibold">Vocabulário concluído</h2>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Você salvou {savedCount}{" "}
+          {savedCount === 1 ? "expressão" : "expressões"} na fila de revisão.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <Link
+            href="/learn/review"
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-white"
+          >
+            Ir para revisão
+          </Link>
+          <Link
+            href="/learn"
+            className="inline-flex min-h-11 items-center rounded-xl border border-border px-4 text-sm font-semibold"
+          >
+            Outra prática
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!item) return null;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -362,11 +384,6 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
           </Button>
         )}
       </div>
-      {notice && (
-        <p role="status" className="mt-3 text-sm text-success">
-          {notice}
-        </p>
-      )}
       {error && (
         <p role="alert" className="mt-3 text-sm text-danger">
           {error}
@@ -376,7 +393,7 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
         <Button
           variant="secondary"
           loading={saving}
-          disabled={last || saving || !revealed}
+          disabled={saving || !revealed}
           onClick={() => void saveAndAdvance("learning")}
         >
           Difícil · salvar
@@ -385,17 +402,17 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
           <Button
             variant="secondary"
             loading={saving}
-            disabled={last || saving || !revealed}
+            disabled={saving || !revealed}
             onClick={() => void saveAndAdvance("learning")}
           >
             Ainda aprendendo
           </Button>
           <Button
             loading={saving}
-            disabled={last || saving || !revealed}
+            disabled={saving || !revealed}
             onClick={() => void saveAndAdvance("known")}
           >
-            Eu sabia · salvar
+            {last ? "Eu sabia · concluir" : "Eu sabia · salvar"}
           </Button>
         </div>
       </div>
@@ -959,10 +976,31 @@ function DueReviews() {
 function Review({ lesson }: { lesson: ReviewLesson }) {
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
+  const [finished, setFinished] = useState(false);
   const item = lesson.items[index];
-  if (!item) return null;
-  const remaining = lesson.items.length - index;
+  const remaining = Math.max(lesson.items.length - index, 0);
   const last = index >= lesson.items.length - 1;
+
+  if (finished) {
+    return (
+      <div className="mx-auto max-w-2xl rounded-xl border border-border bg-surface p-8 text-center">
+        <h2 className="text-xl font-semibold">Revisão concluída</h2>
+        <p className="mt-3 text-sm text-text-secondary">
+          Você passou por {lesson.items.length}{" "}
+          {lesson.items.length === 1 ? "item" : "itens"} desta prática.
+        </p>
+        <Link
+          href="/learn"
+          className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-4 text-sm font-semibold text-white"
+        >
+          Voltar para praticar
+        </Link>
+      </div>
+    );
+  }
+
+  if (!item) return null;
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-3 flex justify-between text-sm text-text-secondary">
@@ -993,13 +1031,16 @@ function Review({ lesson }: { lesson: ReviewLesson }) {
           <Button onClick={() => setRevealed(true)}>Ver resposta</Button>
         ) : (
           <Button
-            disabled={last}
             onClick={() => {
+              if (last) {
+                setFinished(true);
+                return;
+              }
               setIndex((i) => i + 1);
               setRevealed(false);
             }}
           >
-            {last ? "Concluído" : "Próximo item"}
+            {last ? "Concluir" : "Próximo item"}
           </Button>
         )}
       </div>

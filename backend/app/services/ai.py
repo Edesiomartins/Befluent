@@ -14,11 +14,14 @@ resultado do teste de nivelamento.
 from __future__ import annotations
 
 import json
+import logging
 from abc import ABC, abstractmethod
 
 import httpx
 
 from app.core.config import get_settings
+
+logger = logging.getLogger(__name__)
 from app.core.levels import LEVEL_INDEX, SKILL_LABELS, CEFRLevel
 from app.core.levels import Skill
 from app.prompts.library import (
@@ -488,10 +491,12 @@ class OpenRouterProvider(BaseAIProvider):
             )
             response.raise_for_status()
             payload = json.loads(response.json()["choices"][0]["message"]["content"])
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
+        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
+            logger.warning("OpenRouter conversation_turn falhou; usando mock: %s", exc)
             return MockAIProvider().conversation_turn(text, context, history)
 
         if not isinstance(payload, dict) or not payload.get("reply"):
+            logger.warning("OpenRouter conversation_turn sem reply válido; usando mock")
             return MockAIProvider().conversation_turn(text, context, history)
         return _conversation_envelope(context, payload, "openrouter")
 
@@ -525,18 +530,22 @@ class OpenRouterProvider(BaseAIProvider):
             )
             response.raise_for_status()
             content = json.loads(response.json()["choices"][0]["message"]["content"])
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
+        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
+            logger.warning("OpenRouter generate_lesson(%s) falhou; usando mock: %s", mode, exc)
             return MockAIProvider().generate_lesson(mode, context)
 
         if not isinstance(content, dict) or not content.get("title"):
+            logger.warning("OpenRouter generate_lesson(%s) sem title válido; usando mock", mode)
             return MockAIProvider().generate_lesson(mode, context)
         return _envelope(mode, context, content, "openrouter")
 
 
 def get_ai_provider() -> BaseAIProvider:
     s = get_settings()
-    return (
-        MockAIProvider()
-        if s.ai_mock_mode or not s.openrouter_api_key
-        else OpenRouterProvider()
-    )
+    if s.ai_mock_mode:
+        logger.info("IA em MockAIProvider (AI_MOCK_MODE=true)")
+        return MockAIProvider()
+    if not s.openrouter_api_key:
+        logger.warning("IA em MockAIProvider (OPENROUTER_API_KEY ausente)")
+        return MockAIProvider()
+    return OpenRouterProvider()

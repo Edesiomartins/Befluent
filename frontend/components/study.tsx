@@ -236,7 +236,8 @@ export function Chat({
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoMode, setDemoMode] = useState(true);
+  // null = ainda não houve turno; só avisamos mock depois da resposta real da API
+  const [demoMode, setDemoMode] = useState<boolean | null>(null);
   const [correctionsOff, setCorrectionsOff] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const conversationId = useRef<string | null>(null);
@@ -317,11 +318,11 @@ export function Chat({
 
   return (
     <div className="panel overflow-hidden">
-      {demoMode && (
+      {demoMode === true && (
         <p className="border-b border-border bg-warning/10 px-4 py-2 text-xs leading-5 text-warning">
           {correctionsOff
             ? "Prática guiada por roteiro. Sem a IA conectada, o tutor propõe frases no seu nível mas não corrige o que você escreve."
-            : "Modo demonstração de IA (mock) quando não há chave OpenRouter."}
+            : "Resposta em modo local (mock). A chave OpenRouter pode estar ausente, o modelo falhou, ou AI_MOCK_MODE=true no backend."}
         </p>
       )}
       <div className="min-h-80 space-y-5 p-5 sm:p-6" aria-live="polite">

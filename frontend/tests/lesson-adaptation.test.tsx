@@ -168,6 +168,28 @@ describe("Lição adaptada ao nível", () => {
     expect(screen.queryByText("Gerado em modo mock (IA local)")).not.toBeInTheDocument();
   });
 
+  it("conclui o vocabulário no último item ao clicar Eu sabia", async () => {
+    apiMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/language-profiles")) return Promise.resolve(profiles);
+      if (path.startsWith("/api/v1/lessons/generate")) return Promise.resolve(vocabularyLesson);
+      if (path === "/api/v1/vocabulary") return Promise.resolve({ id: "v1" });
+      return Promise.reject(new Error(`sem handler: ${path}`));
+    });
+
+    render(<StudyModePage />);
+    await screen.findByText("to figure out");
+    fireEvent.click(screen.getByRole("button", { name: "Revelar significado" }));
+    fireEvent.click(screen.getByRole("button", { name: "Eu sabia · salvar" }));
+    expect(await screen.findByText("to come up with")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Revelar significado" }));
+    fireEvent.click(screen.getByRole("button", { name: "Eu sabia · concluir" }));
+    expect(await screen.findByText("Vocabulário concluído")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir para revisão" })).toHaveAttribute(
+      "href",
+      "/learn/review",
+    );
+  });
+
   it("aponta o diagnóstico para o teste de nivelamento", async () => {
     currentMode = "assessment";
     routeApi({ "/api/v1/language-profiles": profiles });
