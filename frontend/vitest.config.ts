@@ -9,6 +9,8 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./tests/setup.ts"],
     css: true,
+    // threads evita falha de forks+jsdom/undici em alguns ambientes CI
+    pool: "threads",
   },
   resolve: {
     alias: { "@": fileURLToPath(new URL(".", import.meta.url)) },
