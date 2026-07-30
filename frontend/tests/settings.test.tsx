@@ -35,6 +35,7 @@ describe("SettingsPage", () => {
             correction_mode: "end",
           },
           default_language_id: null,
+          timezone: "America/Sao_Paulo",
         });
       }
       if (path === "/api/v1/settings" && options?.method === "PATCH") {
@@ -55,6 +56,7 @@ describe("SettingsPage", () => {
         method: "PATCH",
         body: {
           tts_speed: 1.25,
+          timezone: "America/Sao_Paulo",
           ui_prefs: {
             translation: true,
             autoplay: false,
@@ -73,9 +75,10 @@ describe("SettingsPage", () => {
     apiMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/api/v1/settings" && !options?.method) {
         return Promise.resolve({
-          tts_speed: 1,
+          tts_speed: 1.25,
           ui_prefs: {},
           default_language_id: null,
+          timezone: "America/Sao_Paulo",
         });
       }
       return Promise.reject(new ApiError("Falha ao salvar.", 500, "server_error"));

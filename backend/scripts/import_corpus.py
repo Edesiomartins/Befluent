@@ -1,4 +1,10 @@
-"""Importa pares de frases do Tatoeba para o banco de itens.
+"""Importa pares de frases licenciados do Tatoeba para o banco de itens.
+
+IMPORTANTE — escopo deste script:
+- Tatoeba é um corpus de frases licenciadas, NÃO um importador de livros/PDFs.
+- Todo item importado entra como ``pending_review`` e NÃO é servido ao aluno até revisão.
+- Itens pendentes NÃO entram automaticamente em lições nem no teste de nivelamento.
+- Para livros e PDFs, use ``python -m tools.content_ingestion`` (candidatos locais).
 
 O download é seu: em https://tatoeba.org/downloads escolha "Sentence pairs",
 idioma-alvo + Portuguese, e salve o TSV.

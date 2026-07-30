@@ -50,3 +50,26 @@ postgres_data/
 # Test artifacts
 playwright-report/
 test-results/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+backend/local_data/
+
+# Private pedagogical sources
+private_sources/
+content_work/
+extracted_books/
+content_candidates/
+content_rejected/
+content_manifests/
+
+# Raw educational files
+*.pdf
+*.zip
+*.epub
+
+# Corpus and local imports
+*.tsv
+*_frequency.txt

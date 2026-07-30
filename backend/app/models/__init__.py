@@ -296,7 +296,81 @@ class UserPreference(UUIDMixin, Base):
     user_id: Mapped[str]=mapped_column(ForeignKey("users.id", ondelete="CASCADE"), unique=True)
     default_language_id: Mapped[str|None]=mapped_column(ForeignKey("languages.id", ondelete="SET NULL"))
     tts_speed: Mapped[float]=mapped_column(Float, default=1.0); ui_prefs_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    timezone: Mapped[str]=mapped_column(String(64), default="America/Sao_Paulo")
     updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class PlacementItemDelivery(UUIDMixin, Base):
+    """Entrega de item de nivelamento a um teste (anti-IDOR / anti-escolha de item)."""
+    __tablename__="placement_item_deliveries"
+    __table_args__=(UniqueConstraint("test_id", "item_id", name="uq_placement_delivery_test_item"),)
+    test_id: Mapped[str]=mapped_column(ForeignKey("placement_tests.id", ondelete="CASCADE"), index=True)
+    item_id: Mapped[str]=mapped_column(ForeignKey("placement_items.id", ondelete="CASCADE"), index=True)
+    delivered_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    expires_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), index=True)
+    consumed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+class ContentSource(UUIDMixin, Base):
+    __tablename__="content_sources"
+    language_id: Mapped[str|None]=mapped_column(ForeignKey("languages.id", ondelete="SET NULL"), index=True)
+    title: Mapped[str]=mapped_column(String(300))
+    author: Mapped[str|None]=mapped_column(String(200))
+    publisher: Mapped[str|None]=mapped_column(String(200))
+    source_type: Mapped[str]=mapped_column(String(40), default="book")
+    original_filename: Mapped[str|None]=mapped_column(String(300))
+    file_hash: Mapped[str|None]=mapped_column(String(64), index=True)
+    page_count: Mapped[int|None]=mapped_column(Integer)
+    usage_policy: Mapped[str]=mapped_column(String(40), default="UNREVIEWED", index=True)
+    license_name: Mapped[str|None]=mapped_column(String(120))
+    license_reference: Mapped[str|None]=mapped_column(String(300))
+    attribution_text: Mapped[str|None]=mapped_column(Text)
+    allow_excerpt: Mapped[bool]=mapped_column(Boolean, default=False)
+    allow_concept_extraction: Mapped[bool]=mapped_column(Boolean, default=True)
+    commercial_use_reviewed: Mapped[bool]=mapped_column(Boolean, default=False)
+    review_status: Mapped[str]=mapped_column(String(40), default="PENDING_REVIEW", index=True)
+    notes_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class ContentUnit(UUIDMixin, Base):
+    __tablename__="content_units"
+    source_id: Mapped[str]=mapped_column(ForeignKey("content_sources.id", ondelete="CASCADE"), index=True)
+    language_id: Mapped[str|None]=mapped_column(ForeignKey("languages.id", ondelete="SET NULL"), index=True)
+    cefr_level: Mapped[str]=mapped_column(String(10), index=True)
+    skill: Mapped[str]=mapped_column(String(40), index=True)
+    mode: Mapped[str]=mapped_column(String(40), index=True)
+    content_type: Mapped[str]=mapped_column(String(40), default="lesson_unit")
+    topic: Mapped[str|None]=mapped_column(String(200))
+    title: Mapped[str]=mapped_column(String(300))
+    payload_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    origin_type: Mapped[str]=mapped_column(String(40), default="CONCEPT_DERIVED")
+    source_page_start: Mapped[int|None]=mapped_column(Integer)
+    source_page_end: Mapped[int|None]=mapped_column(Integer)
+    excerpt_text: Mapped[str|None]=mapped_column(Text)
+    attribution_text: Mapped[str|None]=mapped_column(Text)
+    similarity_score: Mapped[float|None]=mapped_column(Float)
+    validation_status: Mapped[str]=mapped_column(String(40), default="PENDING_REVIEW", index=True)
+    is_active: Mapped[bool]=mapped_column(Boolean, default=True, index=True)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class ContentReview(UUIDMixin, Base):
+    __tablename__="content_reviews"
+    content_unit_id: Mapped[str]=mapped_column(ForeignKey("content_units.id", ondelete="CASCADE"), index=True)
+    reviewer_user_id: Mapped[str|None]=mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    linguistic_status: Mapped[str]=mapped_column(String(40), default="PENDING_REVIEW")
+    pedagogical_status: Mapped[str]=mapped_column(String(40), default="PENDING_REVIEW")
+    rights_status: Mapped[str]=mapped_column(String(40), default="PENDING_REVIEW")
+    notes: Mapped[str|None]=mapped_column(Text)
+    reviewed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+class LessonContentUsage(UUIDMixin, Base):
+    __tablename__="lesson_content_usages"
+    lesson_id: Mapped[str]=mapped_column(ForeignKey("lessons.id", ondelete="CASCADE"), index=True)
+    content_unit_id: Mapped[str]=mapped_column(ForeignKey("content_units.id", ondelete="CASCADE"), index=True)
+    usage_type: Mapped[str]=mapped_column(String(40), default="primary")
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
 
 class AuditLog(UUIDMixin, Base):
     __tablename__="audit_logs"

@@ -45,6 +45,15 @@ const SOURCE_LABELS: Record<string, string> = {
   pending: "padrão até você fazer o teste",
 };
 
+async function completeLesson(lessonId: string | undefined) {
+  if (!lessonId) return;
+  try {
+    await api(`/api/v1/lessons/${lessonId}/complete`, { method: "POST", body: {} });
+  } catch {
+    /* progresso é best-effort no cliente */
+  }
+}
+
 function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
   const source = SOURCE_LABELS[lesson.level_source] ?? "padrão";
   return (
@@ -93,6 +102,7 @@ function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | n
 
 function Guided({ lesson }: { lesson: GuidedLesson }) {
   const [step, setStep] = useState(0);
+  const [completing, setCompleting] = useState(false);
   const steps = lesson.steps;
   const total = steps.length + 1; // +1 para a pergunta de verificação
   const atCheck = step >= steps.length;
@@ -149,9 +159,13 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
         ) : (
           <Link
             href="/learn"
-            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+            onClick={() => {
+              setCompleting(true);
+              void completeLesson(lesson.lesson_id).finally(() => setCompleting(false));
+            }}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)] ${completing ? "pointer-events-none opacity-70" : ""}`}
           >
-            Concluir aula
+            {completing ? "Concluindo…" : "Concluir aula"}
           </Link>
         )}
       </div>
@@ -185,6 +199,7 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
         situation={lesson.situation}
         opening={lesson.opening}
         openingTranslation={lesson.opening_translation}
+        studySessionId={lesson.study_session_id}
       />
     </div>
   );
@@ -192,6 +207,7 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
 
 function Voice({ lesson }: { lesson: ConversationLesson }) {
   const [transcript, setTranscript] = useState("");
+  const [ending, setEnding] = useState(false);
   return (
     <div className="grid gap-5 md:grid-cols-[.85fr_1.15fr]">
       <div>
@@ -231,6 +247,18 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
             </ul>
           </>
         )}
+        <div className="mt-6">
+          <Button
+            variant="secondary"
+            loading={ending}
+            onClick={() => {
+              setEnding(true);
+              void completeLesson(lesson.lesson_id).finally(() => setEnding(false));
+            }}
+          >
+            Encerrar prática
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -314,6 +342,7 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
       });
       setSavedCount((value) => value + 1);
       if (last) {
+        void completeLesson(lesson.lesson_id);
         setFinished(true);
         return;
       }
@@ -478,7 +507,12 @@ function Grammar({ lesson }: { lesson: GrammarLesson }) {
               </label>
             ))}
           </div>
-          <Button className="mt-5" disabled={!answer} onClick={() => setChecked(true)}>
+          <Button className="mt-5" disabled={!answer} onClick={() => {
+            setChecked(true);
+            if (answer === exercise.answer) {
+              void completeLesson(lesson.lesson_id);
+            }
+          }}>
             Verificar resposta
           </Button>
           {checked && (
@@ -502,11 +536,22 @@ function Grammar({ lesson }: { lesson: GrammarLesson }) {
 
 function Questions({
   questions,
+  lessonId,
 }: {
   questions: Array<{ prompt: string; options: string[]; answer: string }>;
+  lessonId?: string;
 }) {
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [checked, setChecked] = useState<Record<number, boolean>>({});
+  const allChecked =
+    questions.length > 0 && questions.every((_, index) => checked[index]);
+
+  useEffect(() => {
+    if (allChecked) {
+      void completeLesson(lessonId);
+    }
+  }, [allChecked, lessonId]);
+
   return (
     <div className="grid gap-5">
       {questions.map((question, index) => (
@@ -567,7 +612,7 @@ function Listening({ lesson }: { lesson: ListeningLesson }) {
         Velocidade de fala: {lesson.speaking_rate}
       </p>
       <div className="mt-7">
-        <Questions questions={lesson.questions} />
+        <Questions questions={lesson.questions} lessonId={lesson.lesson_id} />
       </div>
     </div>
   );
@@ -603,7 +648,7 @@ function Reading({ lesson }: { lesson: ReadingLesson }) {
           </>
         )}
         <div className="mt-5">
-          <Questions questions={lesson.questions} />
+          <Questions questions={lesson.questions} lessonId={lesson.lesson_id} />
         </div>
       </aside>
     </div>
@@ -734,6 +779,7 @@ function Writing({ lesson }: { lesson: WritingLesson }) {
         },
       });
       setFeedback(result);
+      void completeLesson(lesson.lesson_id);
     } catch (caught) {
       setError(
         caught instanceof ApiError

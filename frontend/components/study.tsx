@@ -222,11 +222,13 @@ export function Chat({
   situation,
   opening,
   openingTranslation,
+  studySessionId,
 }: {
   languageCode?: string;
   situation?: string;
   opening?: string;
   openingTranslation?: string | null;
+  studySessionId?: string;
 }) {
   const [messages, setMessages] = useState<Message[]>(() =>
     opening
@@ -240,6 +242,8 @@ export function Chat({
   const [demoMode, setDemoMode] = useState<boolean | null>(null);
   const [correctionsOff, setCorrectionsOff] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [closing, setClosing] = useState(false);
+  const [closed, setClosed] = useState(false);
   const conversationId = useRef<string | null>(null);
 
   const topic = situation ?? "Conversa livre";
@@ -251,7 +255,12 @@ export function Chat({
       try {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic, opening },
+          body: {
+            language_code: languageCode,
+            topic,
+            opening,
+            study_session_id: studySessionId ?? undefined,
+          },
         });
         if (!cancelled) conversationId.current = started.id;
       } catch {
@@ -261,7 +270,28 @@ export function Chat({
     return () => {
       cancelled = true;
     };
-  }, [languageCode, topic, opening]);
+  }, [languageCode, topic, opening, studySessionId]);
+
+  async function endConversation() {
+    if (!conversationId.current || closed) return;
+    setClosing(true);
+    setError(null);
+    try {
+      await api(`/api/v1/conversations/${conversationId.current}/complete`, {
+        method: "POST",
+        body: {},
+      });
+      setClosed(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Não foi possível encerrar a conversa.",
+      );
+    } finally {
+      setClosing(false);
+    }
+  }
 
   async function send() {
     if (!text.trim()) return;
@@ -274,7 +304,12 @@ export function Chat({
       if (!conversationId.current) {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
-          body: { language_code: languageCode, topic, opening },
+          body: {
+            language_code: languageCode,
+            topic,
+            opening,
+            study_session_id: studySessionId ?? undefined,
+          },
         });
         conversationId.current = started.id;
       }
@@ -400,11 +435,22 @@ export function Chat({
             }
           }}
           placeholder="Escreva sua resposta…"
-          className="min-h-12 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2.5 text-sm"
+          disabled={closed}
+          className="min-h-12 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2.5 text-sm disabled:opacity-60"
         />
-        <Button onClick={() => void send()} disabled={!text.trim() || thinking}>
-          Enviar
-        </Button>
+        <div className="flex flex-col gap-2">
+          <Button onClick={() => void send()} disabled={!text.trim() || thinking || closed}>
+            Enviar
+          </Button>
+          <Button
+            variant="secondary"
+            loading={closing}
+            disabled={closed || !conversationId.current}
+            onClick={() => void endConversation()}
+          >
+            {closed ? "Encerrada" : "Encerrar conversa"}
+          </Button>
+        </div>
       </div>
     </div>
   );

@@ -16,6 +16,7 @@ type SettingsResponse = {
   tts_speed: number;
   ui_prefs: UiPrefs;
   default_language_id: string | null;
+  timezone?: string;
 };
 
 const DEFAULT_PREFS: Required<UiPrefs> = {
@@ -29,6 +30,7 @@ const DEFAULT_PREFS: Required<UiPrefs> = {
 export default function SettingsPage() {
   const [prefs, setPrefs] = useState(DEFAULT_PREFS);
   const [speed, setSpeed] = useState("1");
+  const [timezone, setTimezone] = useState("America/Sao_Paulo");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -48,6 +50,7 @@ export default function SettingsPage() {
           correction_mode: String(ui.correction_mode ?? DEFAULT_PREFS.correction_mode),
         });
         setSpeed(String(payload.tts_speed || 1));
+        setTimezone(payload.timezone || "America/Sao_Paulo");
       })
       .catch((caught) => {
         if (!active) return;
@@ -80,6 +83,7 @@ export default function SettingsPage() {
         method: "PATCH",
         body: {
           tts_speed: Number(speed),
+          timezone,
           ui_prefs: {
             translation: prefs.translation,
             autoplay: prefs.autoplay,
@@ -139,6 +143,26 @@ export default function SettingsPage() {
               onChange={(value) => updatePref("autoplay", value)}
             />
           </div>
+        </section>
+
+        <section className="border-t border-border py-7">
+          <h2 className="section-title">Fuso horário</h2>
+          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+            Seu fuso (streak e minutos de hoje)
+            <select
+              value={timezone}
+              onChange={(e) => {
+                setTimezone(e.target.value);
+                setSaved(false);
+              }}
+              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+            >
+              <option value="America/Sao_Paulo">Brasília (America/Sao_Paulo)</option>
+              <option value="America/Manaus">Manaus (America/Manaus)</option>
+              <option value="America/Noronha">Fernando de Noronha</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </label>
         </section>
 
         <section className="border-t border-border py-7">

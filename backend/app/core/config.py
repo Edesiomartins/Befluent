@@ -56,6 +56,14 @@ class Settings(BaseSettings):
     initial_admin_name: str = ""
     initial_admin_email: str = ""
     initial_admin_password: str = ""
+    placement_item_delivery_minutes: int = 30
+    active_session_timeout_hours: int = 6
+    min_completed_session_seconds: int = 15
+    max_completed_session_hours: int = 6
+    content_max_literal_chars: int = 80
+    content_similarity_review_threshold: float = 0.35
+    content_similarity_block_threshold: float = 0.55
+    content_short_excerpt_max_chars: int = 240
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 

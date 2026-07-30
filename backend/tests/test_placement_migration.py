@@ -206,7 +206,8 @@ def test_0004_adds_provenance_and_preserves_items(tmp_path):
     assert row[3] == "approved"
 
 
-def test_0004_is_reversible(tmp_path):
+def test_0004_downgrade_is_noop(tmp_path):
+    """Downgrade da 0004 é no-op: colunas de proveniência permanecem."""
     import sqlite3
 
     from alembic import command
@@ -228,7 +229,6 @@ def test_0004_is_reversible(tmp_path):
     columns = {row[1] for row in conn.execute("PRAGMA table_info(placement_items)")}
     conn.close()
 
-    assert "source" not in columns
-    assert "review_status" not in columns
-    # A tabela em si permanece.
+    assert "source" in columns
+    assert "review_status" in columns
     assert "prompt" in columns

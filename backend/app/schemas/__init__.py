@@ -1,3 +1,5 @@
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
@@ -211,6 +213,21 @@ class SettingsIn(BaseModel):
     tts_speed: float | None = Field(None, ge=0.5, le=2)
     ui_prefs: dict | None = None
     default_language_code: str | None = None
+    timezone: str | None = Field(default=None, max_length=64)
+
+    @field_validator("timezone")
+    @classmethod
+    def validate_timezone(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        tz_name = value.strip()
+        if not tz_name:
+            raise ValueError("Fuso horário inválido.")
+        try:
+            ZoneInfo(tz_name)
+        except ZoneInfoNotFoundError as exc:
+            raise ValueError("Fuso horário inválido.") from exc
+        return tz_name
 
 
 class LessonGenerateIn(BaseModel):

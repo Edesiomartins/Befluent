@@ -70,8 +70,12 @@ def upgrade() -> None:
     inspector = inspect(bind)
 
     if not inspector.has_table("placement_items"):
-        # Base anterior à 0003 não tem a tabela; nada a fazer.
-        return
+        # Falha explícita: marcar 0004 como aplicada sem criar colunas deixa o
+        # schema inconsistente. Rode 0003 antes (placement_items).
+        raise RuntimeError(
+            "Migration 0004 exige a tabela placement_items (revision 0003). "
+            "Aplique 0003_levels_placement antes de 0004_item_provenance."
+        )
 
     added = []
     for column in NEW_COLUMNS:
@@ -105,21 +109,10 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove apenas o que esta migration criou.
+    """No-op seguro.
 
-    A perda é dos metadados de proveniência; os itens em si permanecem.
+    Metadados de proveniência não devem ser removidos automaticamente: em bases
+    com dados, dropar essas colunas apaga auditoria de licença/fonte. Se um
+    rollback for realmente necessário, faça-o manualmente com backup.
     """
-    bind = op.get_bind()
-    inspector = inspect(bind)
-
-    if not inspector.has_table("placement_items"):
-        return
-
-    existing_indexes = {index["name"] for index in inspector.get_indexes("placement_items")}
-    for name in ("ix_placement_items_source", "ix_placement_items_review_status"):
-        if name in existing_indexes:
-            op.drop_index(name, table_name="placement_items")
-
-    for column in reversed(NEW_COLUMNS):
-        if _has_column(inspector, "placement_items", column.name):
-            op.drop_column("placement_items", column.name)
+    return

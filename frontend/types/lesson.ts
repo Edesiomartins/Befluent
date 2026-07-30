@@ -12,6 +12,7 @@ export type LessonEnvelope = {
   level_source: string;
   level_is_estimated: boolean;
   lesson_id?: string;
+  study_session_id?: string;
   title: string;
   objective: string;
 };

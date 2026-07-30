@@ -11,17 +11,17 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.levels import (
-    ReviewStatus,
     SKILL_LABELS,
     CEFRLevel,
     LevelSource,
+    ReviewStatus,
     Skill,
     TestStatus,
     level_payload,
@@ -37,6 +37,12 @@ from app.models import (
 )
 from app.schemas import PlacementAnswerIn, PlacementTestCreate, PlacementWritingIn
 from app.services import placement_engine as engine
+from app.services.placement_delivery import (
+    approved_active_filter,
+    consume_delivery_for_answer,
+    deliver_item,
+    get_open_delivery,
+)
 from app.services.writing_evaluation import evaluate_writing
 
 router = APIRouter(prefix="/placement-tests", tags=["placement"])
@@ -50,19 +56,6 @@ SPEAKING_AVAILABLE = False
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
-
-
-def _reviewed():
-    """Filtro que exclui item pendente de revisão.
-
-    Escrito com `or_` em vez de `!=` porque em SQL `NULL != 'x'` avalia NULL, o
-    que descartaria silenciosamente todo item sem `review_status` — incluindo o
-    seed próprio, se a migration 0004 ainda não tiver rodado.
-    """
-    return or_(
-        PlacementItem.review_status.is_(None),
-        PlacementItem.review_status != ReviewStatus.PENDING_REVIEW,
-    )
 
 
 def _owned_test(db: Session, test_id: str, user: User) -> PlacementTest:
@@ -264,9 +257,19 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
     declared_beginner = bool((test.result_json or {}).get("declared_beginner"))
     state = _state_from(answers, declared_beginner)
 
+    # Retoma entrega aberta (mesmo item) se o aluno pedir next-item de novo.
+    open_delivery = get_open_delivery(db, test.id)
+    if open_delivery and open_delivery.item_id not in answered_ids:
+        item = db.get(PlacementItem, open_delivery.item_id)
+        if item and item.review_status == ReviewStatus.APPROVED and item.is_active:
+            stage = "writing" if item.skill == Skill.WRITING else "objective"
+            return {"item": _public_item(item), "stage": stage, "progress": _progress(answers)}
+
     if engine.should_stop(state):
         writing_item = _pick_writing_item(db, test, state, answered_ids)
         if writing_item:
+            deliver_item(db, test, writing_item)
+            db.commit()
             return {"item": _public_item(writing_item), "stage": "writing", "progress": _progress(answers)}
         return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers)}
 
@@ -274,9 +277,12 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
     if item is None:
         writing_item = _pick_writing_item(db, test, state, answered_ids)
         if writing_item:
+            deliver_item(db, test, writing_item)
+            db.commit()
             return {"item": _public_item(writing_item), "stage": "writing", "progress": _progress(answers)}
         return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers)}
 
+    deliver_item(db, test, item)
     test.current_level_band = state.current_band
     db.commit()
     return {"item": _public_item(item), "stage": "objective", "progress": _progress(answers)}
@@ -294,10 +300,7 @@ def _pick_objective_item(
 
     base = [
         PlacementItem.language_code == language_code,
-        PlacementItem.is_active.is_(True),
-        # Item importado só é servido depois de revisão humana: a calibragem
-        # automática de nível a partir de corpus é heurística.
-        _reviewed(),
+        *approved_active_filter(),
     ]
     if answered_ids:
         base.append(PlacementItem.id.not_in(answered_ids))
@@ -313,7 +316,6 @@ def _pick_objective_item(
         if item:
             return item
 
-    # Faixa esgotada: aceita qualquer competência objetiva em faixa vizinha.
     for band in engine.TESTABLE_LEVELS:
         item = db.scalar(
             select(PlacementItem).where(
@@ -344,8 +346,7 @@ def _pick_writing_item(
 
     base = [
         PlacementItem.language_code == test.language_code,
-        PlacementItem.is_active.is_(True),
-        _reviewed(),
+        *approved_active_filter(),
         PlacementItem.skill == Skill.WRITING,
     ]
     if answered_ids:
@@ -369,9 +370,7 @@ def submit_answer(
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
-    item = db.get(PlacementItem, data.item_id)
-    if not item or item.language_code != test.language_code:
-        raise APIError(404, "placement_item_not_found", "Item não encontrado.")
+    item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
     if item.skill == Skill.WRITING:
         raise APIError(400, "wrong_endpoint", "Use o endpoint de escrita para esta atividade.")
 
@@ -405,7 +404,6 @@ def submit_answer(
     test.current_level_band = state.current_band
     db.commit()
 
-    # A correção não é revelada durante o teste (evita indução e cola).
     return {"accepted": True, "progress": _progress(answers)}
 
 
@@ -420,8 +418,8 @@ def submit_writing(
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
-    item = db.get(PlacementItem, data.item_id)
-    if not item or item.language_code != test.language_code or item.skill != Skill.WRITING:
+    item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
+    if item.skill != Skill.WRITING:
         raise APIError(404, "placement_item_not_found", "Atividade de escrita não encontrada.")
 
     duplicate = db.scalar(
