@@ -91,6 +91,29 @@ class LearnerContext:
     #: modelo geraria "vocabulário B1" genérico em toda semana do plano.
     topic: str | None = None
     curriculum_week_theme: str | None = None
+    previous_week_theme: str | None = None
+    day_number: int | None = None
+
+    #: Fase pedagógica do bloco dentro do dia (`core/curriculum.py::LessonPhase`).
+    phase_label: str | None = None
+    phase_goal: str | None = None
+
+    #: Fio condutor: o que os blocos anteriores do dia já introduziram e que
+    #: esta atividade é obrigada a reaproveitar (`services/lesson_thread.py`).
+    #: Cada item segue `{term, translation, example, example_translation}`.
+    carryover_items: list[dict[str, str]] = field(default_factory=list)
+    carryover_patterns: list[str] = field(default_factory=list)
+    carryover_sources: list[str] = field(default_factory=list)
+    #: Léxico dos dias anteriores da semana — reforço em espiral.
+    recycled_items: list[dict[str, str]] = field(default_factory=list)
+
+    @property
+    def carryover_terms(self) -> list[str]:
+        return [item["term"] for item in self.carryover_items if item.get("term")]
+
+    @property
+    def recycled_terms(self) -> list[str]:
+        return [item["term"] for item in self.recycled_items if item.get("term")]
 
     @property
     def level_index(self) -> int:
@@ -109,6 +132,44 @@ class LearnerContext:
 
     def next_level(self) -> str:
         return level_at(self.level_index + 1)
+
+    def _thread_lines(self) -> list[str]:
+        """Instruções de continuidade: o que já foi visto e precisa voltar.
+
+        É a diferença entre cinco lições sobre o mesmo assunto e um dia de
+        estudo: sem estas linhas, o bloco de conversação monta um diálogo que
+        não usa nenhuma das palavras apresentadas trinta minutos antes.
+        """
+        lines: list[str] = []
+
+        if self.carryover_items:
+            origin = f" (vindos de: {', '.join(self.carryover_sources)})" if self.carryover_sources else ""
+            listed = "; ".join(
+                f"{item['term']}"
+                + (f" = {item['translation']}" if item.get("translation") else "")
+                for item in self.carryover_items
+            )
+            lines.append(
+                f"Material JÁ APRESENTADO ao aluno hoje{origin}: {listed}. "
+                "Esta atividade precisa reaproveitar esse material — use pelo menos "
+                "metade destes itens em exemplos, frases ou perguntas. Não introduza "
+                "um conjunto novo de palavras que ignore o que já foi visto."
+            )
+
+        if self.carryover_patterns:
+            lines.append(
+                "Estruturas gramaticais trabalhadas hoje, que devem aparecer nas "
+                "frases desta atividade: " + "; ".join(self.carryover_patterns)
+            )
+
+        if self.recycled_items:
+            lines.append(
+                "Léxico dos dias anteriores desta semana, para reforço em espiral "
+                "(reapareça com 1 ou 2 destes, sem reensinar): "
+                + ", ".join(self.recycled_terms)
+            )
+
+        return lines
 
     def to_prompt_context(self, skill: str | None = None) -> str:
         """Bloco `# CONTEXT` dos prompts do documento, preenchido com dados reais."""
@@ -155,11 +216,21 @@ class LearnerContext:
 
         if self.curriculum_week_theme:
             lines.append(f"Tema da semana no cronograma: {self.curriculum_week_theme}")
+        if self.previous_week_theme:
+            lines.append(
+                f"Tema da semana anterior (retomar de leve, sem reensinar): "
+                f"{self.previous_week_theme}"
+            )
         if self.topic:
             lines.append(
                 f"Tópico obrigatório desta atividade: {self.topic}. "
                 "A atividade precisa tratar deste tópico, não de um tema genérico."
             )
+        if self.phase_label:
+            goal = f" — {self.phase_goal}" if self.phase_goal else ""
+            lines.append(f"Fase desta atividade no dia de estudo: {self.phase_label}{goal}")
+
+        lines.extend(self._thread_lines())
 
         script_rule = SCRIPT_RULES.get(self.language_code)
         if script_rule:
@@ -240,18 +311,37 @@ def for_curriculum_block(
     cefr_level: str,
     topic: str | None,
     week_theme: str | None = None,
+    previous_week_theme: str | None = None,
+    day_number: int | None = None,
+    phase_label: str | None = None,
+    phase_goal: str | None = None,
+    carryover: list[dict[str, str]] | None = None,
+    carryover_patterns: list[str] | None = None,
+    carryover_sources: list[str] | None = None,
+    recycled: list[dict[str, str]] | None = None,
 ) -> LearnerContext:
     """Contexto calibrado para um bloco do cronograma.
 
     O nível do bloco vem do cronograma, não do perfil: depois de uma promoção
     por checkpoint, o plano avança antes de o perfil ser reavaliado por inteiro.
     Usar o nível do perfil aqui congelaria o aluno na faixa antiga.
+
+    O fio (`carryover`, `recycled`) é o que liga esta atividade às anteriores.
+    Sem ele o bloco sabe o tema, mas não sabe o que o aluno acabou de estudar.
     """
     return replace(
         context,
         skill_levels={**context.skill_levels, assessed_skill: cefr_level},
         topic=topic,
         curriculum_week_theme=week_theme,
+        previous_week_theme=previous_week_theme,
+        day_number=day_number,
+        phase_label=phase_label,
+        phase_goal=phase_goal,
+        carryover_items=list(carryover or []),
+        carryover_patterns=list(carryover_patterns or []),
+        carryover_sources=list(carryover_sources or []),
+        recycled_items=list(recycled or []),
     )
 
 

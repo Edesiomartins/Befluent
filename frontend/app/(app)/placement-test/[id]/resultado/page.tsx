@@ -44,14 +44,41 @@ function skillMessage(result: PlacementResult, ranked: SkillResult[] | null): st
 
 /** Oferta do cronograma logo após o resultado.
  *
- *  É aqui que o nivelamento deixa de ser um número e vira um plano: os níveis
- *  por competência que acabaram de ser gravados definem o ponto de entrada.
+ *  O nivelamento já gera o caminho automaticamente (90 dias). Aqui só oferecemos
+ *  regenerar com outra duração quando o aluno quiser.
  */
-function BuildCurriculum({ languageCode }: { languageCode: string }) {
+function BuildCurriculum({
+  languageCode,
+  curriculum,
+}: {
+  languageCode: string;
+  curriculum: PlacementResult["curriculum"];
+}) {
   const router = useRouter();
   const [duration, setDuration] = useState<Duration>(90);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  if (curriculum) {
+    return (
+      <section className="panel mt-5 p-6">
+        <h2 className="section-title">Seu caminho já está pronto</h2>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          Geramos um plano de {curriculum.duration_days} dias a partir do seu
+          nivelamento ({curriculum.entry_level} → {curriculum.target_level}).
+        </p>
+        <Button className="mt-5" onClick={() => router.push(curriculum.day_href)}>
+          Começar o dia 1
+        </Button>
+        <p className="mt-4 text-sm text-text-secondary">
+          Prefere outra duração?{" "}
+          <Link href="/cronograma" className="font-semibold text-primary hover:underline">
+            Regenerar no cronograma
+          </Link>
+        </p>
+      </section>
+    );
+  }
 
   async function submit() {
     setSaving(true);
@@ -257,20 +284,20 @@ export default function PlacementResultPage() {
         </section>
       )}
 
-      <BuildCurriculum languageCode={result.language_code} />
+      <BuildCurriculum languageCode={result.language_code} curriculum={result.curriculum} />
 
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
         <Link
-          href="/dashboard"
+          href={result.curriculum?.day_href || "/dashboard"}
           className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
         >
-          Ir para o dashboard
+          {result.curriculum ? "Continuar caminho" : "Ir para o dashboard"}
         </Link>
         <Link
-          href="/learn"
+          href="/dashboard"
           className="inline-flex min-h-11 items-center rounded-xl border-2 border-border bg-surface px-5 text-sm font-bold shadow-[0_4px_0_var(--secondary-shadow)] hover:bg-surface-elevated"
         >
-          Começar a praticar
+          Ver painel
         </Link>
       </div>
     </div>

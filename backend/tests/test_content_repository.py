@@ -17,13 +17,14 @@ def _seed(db, *, unit_status=ValidationStatus.APPROVED, source_status=Validation
     )
     db.add(source)
     db.flush()
+    # mode "guided" não faz parte do seed starter — evita falso positivo.
     unit = ContentUnit(
         source_id=source.id,
         language_id=lang.id,
         cefr_level="A2",
-        skill="reading",
-        mode="reading",
-        title="Unidade de leitura",
+        skill="vocabulary_grammar",
+        mode="guided",
+        title="Unidade guiada de teste",
         payload_json={"text": "Hello world", "internal_notes": "privado"},
         validation_status=unit_status,
         is_active=True,
@@ -40,8 +41,8 @@ def test_fetch_approved_unit(db_session):
         db_session,
         language_id=unit.language_id,
         level="A2",
-        skill="reading",
-        mode="reading",
+        skill="vocabulary_grammar",
+        mode="guided",
     )
     assert found is not None
     assert found.id == unit.id
@@ -57,8 +58,8 @@ def test_pending_blocked(db_session):
         db_session,
         language_id=unit.language_id,
         level="A2",
-        skill="reading",
-        mode="reading",
+        skill="vocabulary_grammar",
+        mode="guided",
     )
     assert found is None
 
@@ -70,7 +71,7 @@ def test_rejected_source_blocked(db_session):
         db_session,
         language_id=unit.language_id,
         level="A2",
-        skill="reading",
-        mode="reading",
+        skill="vocabulary_grammar",
+        mode="guided",
     )
     assert found is None

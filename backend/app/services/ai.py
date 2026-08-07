@@ -78,6 +78,11 @@ def _envelope(mode: str, context: LearnerContext, payload: dict, provider: str) 
 
     O frontend usa isso para mostrar ao aluno por que aquela lição é aquela —
     sem isso a adaptação fica invisível e indistinguível de conteúdo fixo.
+
+    `thread` é a continuidade declarada: de onde veio o material reaproveitado.
+    Vale para os dois provedores — no mock ele é garantido pelos construtores
+    abaixo; no OpenRouter é uma instrução do prompt, então o campo diz o que foi
+    **pedido**, não o que o modelo comprovadamente usou.
     """
     skill = MODE_SKILL.get(mode)
     return {
@@ -91,7 +96,62 @@ def _envelope(mode: str, context: LearnerContext, payload: dict, provider: str) 
         "skill_label": SKILL_LABELS.get(skill) if skill else None,
         "level_source": context.level_source,
         "level_is_estimated": context.level_is_estimated,
+        "thread": {
+            "carried_terms": context.carryover_terms,
+            "carried_patterns": list(context.carryover_patterns),
+            "sources": list(context.carryover_sources),
+            "recycled_terms": context.recycled_terms,
+            "guaranteed": provider == "mock",
+        },
     }
+
+
+# --------------------------------------------------------------------- o fio
+#
+# O mock precisa reaproveitar o material dos blocos anteriores do dia. Sem isto,
+# o cronograma volta a ser cinco lições independentes: `lesson_bank` devolve a
+# mesma lista por faixa de nível, então o bloco de conversação do dia 40 abriria
+# com as mesmas palavras do dia 3 — e nenhuma delas seria a que o aluno acabou
+# de estudar no bloco anterior.
+
+
+def _carried(context: LearnerContext) -> list[dict[str, str]]:
+    """Itens que este bloco herdou, do mais recente para o mais antigo."""
+    return [*context.carryover_items, *context.recycled_items]
+
+
+def _rotate(items: list, context: LearnerContext) -> list:
+    """Gira o banco pelo número do dia.
+
+    O banco é pequeno e declaradamente provisório: girar não cria conteúdo novo,
+    mas evita que dois dias na mesma faixa abram exatamente iguais — que é o que
+    fazia o cronograma parecer parado.
+    """
+    if not items or not context.day_number:
+        return list(items)
+    offset = (context.day_number - 1) % len(items)
+    return [*items[offset:], *items[:offset]]
+
+
+def _target_items(context: LearnerContext, band: str, count: int = 4) -> list[dict[str, str]]:
+    """Léxico de trabalho do bloco: o herdado primeiro, o banco só completa."""
+    carried = [item for item in _carried(context) if item.get("term")]
+    if len(carried) >= count:
+        return carried[:count]
+
+    known = {item["term"].casefold() for item in carried}
+    extra = [
+        item
+        for item in _rotate(lesson_bank.vocabulary(context.language_code, band), context)
+        if item["term"].casefold() not in known
+    ]
+    return [*carried, *extra[: count - len(carried)]]
+
+
+def _phrases(items: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Itens com exemplo utilizável. Um termo herdado sem frase não vira alvo
+    de pronúncia: mandar o aluno repetir uma palavra solta não treina ritmo."""
+    return [item for item in items if item.get("example")]
 
 
 class MockAIProvider(BaseAIProvider):
@@ -150,19 +210,33 @@ class MockAIProvider(BaseAIProvider):
 
 
 def _vocabulary(context: LearnerContext, band: str, level: str) -> dict:
-    items = lesson_bank.vocabulary(context.language_code, band)
+    """Bloco que **abre** o dia: é ele que define o léxico dos blocos seguintes.
+
+    Os itens saem girados pelo número do dia, e o léxico dos dias anteriores da
+    semana entra separado, marcado como retomada — misturar os dois faria o
+    aluno achar que está aprendendo palavra nova quando está revendo.
+    """
+    items = _rotate(lesson_bank.vocabulary(context.language_code, band), context)
+    revisited = [item for item in context.recycled_items if item.get("term")]
     return {
         "title": f"Vocabulário essencial · {level}",
         "objective": (
             "Ampliar o vocabulário de alta frequência que você já consegue usar "
-            "no seu nível atual."
+            "no seu nível atual. Estas palavras voltam nos próximos blocos de hoje."
         ),
         "items": list(items),
+        "revisited_items": revisited[:3],
+        "thread_note": (
+            "As palavras deste bloco são o material dos blocos seguintes: você vai "
+            "reencontrá-las na estrutura, no texto ou áudio, na produção e na revisão."
+        ),
     }
 
 
 def _grammar(context: LearnerContext, band: str, level: str) -> dict:
+    """Estrutura aplicada ao léxico que acabou de ser ativado."""
     focus = lesson_bank.grammar_focus(context.language_code, band)
+    carried = [item for item in _carried(context) if item.get("term")][:4]
     return {
         "title": f"{focus['title']} · {level}",
         "objective": focus["objective"],
@@ -170,17 +244,30 @@ def _grammar(context: LearnerContext, band: str, level: str) -> dict:
         "patterns": list(focus["patterns"]),
         "examples": lesson_bank.grammar_examples(context.language_code, band),
         "exercises": lesson_bank.grammar_exercises(context.language_code, band),
+        "apply_to_terms": [item["term"] for item in carried],
+        "thread_note": (
+            "Monte uma frase com cada padrão acima usando as palavras que você "
+            "acabou de ver no bloco de vocabulário."
+            if carried
+            else None
+        ),
     }
 
 
 def _reading(context: LearnerContext, band: str, level: str) -> dict:
+    """Texto do banco, mas com o glossário do dia — não um glossário genérico."""
     text = lesson_bank.reading_text(context.language_code, band)
+    carried = [item for item in _carried(context) if item.get("term")]
     return {
         "title": f"{text['title']} · {level}",
         "objective": "Ler um texto calibrado para o seu nível e verificar a compreensão.",
         "text": text["text"],
         "note": text["note"],
-        "glossary": [],
+        "glossary": [
+            {"term": item["term"], "translation": item.get("translation", "")}
+            for item in carried[:6]
+        ],
+        "watch_for": [item["term"] for item in carried[:4]],
         "questions": [
             {
                 "prompt": "Qual é a ideia principal do texto?",
@@ -196,13 +283,20 @@ def _reading(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _listening(context: LearnerContext, band: str, level: str) -> dict:
+    """Escuta com objetivo ativo: caçar no áudio as palavras do bloco anterior."""
     script = lesson_bank.listening_script(context.language_code, band)
+    carried = [item for item in _carried(context) if item.get("term")]
     return {
         "title": f"Compreensão auditiva · {level}",
-        "objective": "Treinar escuta ativa com um objetivo definido, não escuta de fundo.",
+        "objective": (
+            "Treinar escuta ativa com um objetivo definido, não escuta de fundo."
+            if not carried
+            else "Escutar procurando as palavras que você ativou no início do dia."
+        ),
         "transcript": script["transcript"],
         "speaking_rate": script["speaking_rate"],
         "note": script["note"],
+        "watch_for": [item["term"] for item in carried[:4]],
         "questions": [
             {
                 "prompt": "Qual é a informação central do áudio?",
@@ -218,7 +312,9 @@ def _listening(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _writing(context: LearnerContext, band: str, level: str) -> dict:
+    """Produção escrita com as expressões do dia como material obrigatório."""
     task = lesson_bank.writing_task(context.language_code, band)
+    carried = [item for item in _carried(context) if item.get("term")]
     return {
         "title": f"Produção escrita · {level}",
         "objective": "Produzir um texto no seu nível e receber correção estruturada.",
@@ -226,30 +322,50 @@ def _writing(context: LearnerContext, band: str, level: str) -> dict:
         "min_words": task["min_words"],
         "max_words": task["max_words"],
         "rubric_hints": list(task["rubric_hints"]),
-        "useful_expressions": [],
+        "useful_expressions": [item["term"] for item in carried[:6]],
+        "must_use": [item["term"] for item in carried[:3]],
+        "thread_note": (
+            "Use no texto, obrigatoriamente, as expressões marcadas — é assim que "
+            "vocabulário reconhecido vira vocabulário produzido."
+            if carried
+            else None
+        ),
     }
 
 
 def _conversation(context: LearnerContext, band: str, level: str) -> dict:
+    """Produção falada sobre o léxico e as estruturas já vistos no dia."""
     situation = lesson_bank.conversation_situation(context.language_code, band)
-    items = lesson_bank.vocabulary(context.language_code, band)
+    working = _target_items(context, band, count=4)
+    openers = _phrases(working) or _phrases(
+        _rotate(lesson_bank.vocabulary(context.language_code, band), context)
+    )
+    opener = openers[0]
     return {
         "title": f"Conversação · {level}",
         "objective": f"Praticar {situation['focus']} em uma situação realista.",
         "situation": situation["situation"],
-        "opening": items[0]["example"],
+        "opening": opener["example"],
         # Mesma regra dos turnos: acima de B1 o aluno pratica sem tradução.
         "opening_translation": (
-            items[0]["example_translation"] if _needs_translation(level) else None
+            opener.get("example_translation") if _needs_translation(level) else None
         ),
-        "suggested_replies": [item["example"] for item in items[1:4]],
-        "target_expressions": [item["term"] for item in items[:4]],
+        "suggested_replies": [item["example"] for item in openers[1:4]],
+        "target_expressions": [item["term"] for item in working],
+        "thread_note": (
+            "As expressões-alvo são as do bloco de vocabulário de hoje."
+            if context.carryover_items
+            else None
+        ),
     }
 
 
 def _pronunciation(context: LearnerContext, band: str, level: str) -> dict:
+    """Sons do idioma treinados nas frases do léxico do dia."""
     sounds = lesson_bank.pronunciation_focus(context.language_code)
-    items = lesson_bank.vocabulary(context.language_code, band)
+    working = _phrases(_target_items(context, band, count=6)) or _phrases(
+        _rotate(lesson_bank.vocabulary(context.language_code, band), context)
+    )
     return {
         "title": f"Pronúncia · {level}",
         "objective": "Treinar os sons que mais comprometem a compreensão.",
@@ -257,10 +373,10 @@ def _pronunciation(context: LearnerContext, band: str, level: str) -> dict:
         "target_phrases": [
             {
                 "phrase": item["example"],
-                "translation": item["example_translation"],
+                "translation": item.get("example_translation", ""),
                 "focus": item["term"],
             }
-            for item in items[:4]
+            for item in working[:4]
         ],
     }
 
@@ -298,7 +414,17 @@ def _guided(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _review(context: LearnerContext, band: str, level: str) -> dict:
-    items = lesson_bank.vocabulary(context.language_code, band)
+    """Recuperação ativa do que foi visto — hoje primeiro, banco só se faltar.
+
+    No cronograma o bloco de revisão vem da fila real do SRS
+    (`progression._review_payload`); este construtor atende as lições avulsas e
+    o caso em que o fio existe mas a fila ainda não.
+    """
+    items = [
+        item
+        for item in _carried(context)
+        if item.get("term") and item.get("translation")
+    ] or list(lesson_bank.vocabulary(context.language_code, band))
     return {
         "title": f"Revisão ativa · {level}",
         "objective": "Recuperar da memória antes de ver a resposta — é o esforço que fixa.",
@@ -306,7 +432,7 @@ def _review(context: LearnerContext, band: str, level: str) -> dict:
             {
                 "prompt": f"Como se diz “{item['translation']}”?",
                 "answer": item["term"],
-                "hint": item["example_translation"],
+                "hint": item.get("example_translation") or item.get("example", ""),
             }
             for item in items
         ],

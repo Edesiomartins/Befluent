@@ -296,8 +296,8 @@ export default function DashboardPage() {
           <h1 className="page-title">Bem-vindo ao BeFluent</h1>
           <p className="mt-3 text-text-secondary">
             {hasPlan
-              ? "Seu próximo passo e o plano do dia estão abaixo."
-              : "Configure seu plano para desbloquear recomendações."}
+              ? "Continue o caminho do dia — a sequência é o foco do BeFluent."
+              : "Configure seu plano para desbloquear o caminho diário."}
           </p>
         </div>
       </div>
@@ -494,12 +494,14 @@ export default function DashboardPage() {
         </article>
       </section>
 
-      {/* Pratique agora */}
+      {/* Prática livre — secundária ao caminho do dia */}
       <section className="mt-8">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h2 className="section-title">Pratique agora</h2>
-            <p className="mt-1 text-sm text-text-secondary">Escolha uma atividade para começar.</p>
+            <h2 className="section-title">Prática livre</h2>
+            <p className="mt-1 text-sm text-text-secondary">
+              Extra, fora da sequência do dia. O caminho do cronograma continua sendo o foco.
+            </p>
           </div>
           <Link href="/learn" className="text-sm font-semibold text-primary hover:underline">
             Ver todas
@@ -515,7 +517,7 @@ export default function DashboardPage() {
               <Link
                 key={slug}
                 href={`/learn/${slug}`}
-                className={`panel group flex items-start gap-3 p-4 transition hover:-translate-y-0.5 ${colors.ring}`}
+                className={`panel group flex items-start gap-3 p-4 opacity-90 transition hover:-translate-y-0.5 hover:opacity-100 ${colors.ring}`}
               >
                 <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
                   <Icon className="size-5" aria-hidden />
@@ -554,18 +556,18 @@ export default function DashboardPage() {
             ))}
           </ul>
         ) : (
-          <EmptyState
-            title="Você ainda não iniciou nenhuma prática."
-            description="Comece por conversação, vocabulário ou uma aula guiada."
-            action={
-              <Link
-                href="/learn/conversation"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
-              >
-                Conversação
-              </Link>
-            }
-          />
+            <EmptyState
+              title="Você ainda não iniciou nenhuma prática."
+              description="Abra o caminho do dia no cronograma para começar."
+              action={
+                <Link
+                  href={next?.kind === "curriculum" ? next.href : "/cronograma"}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]"
+                >
+                  Abrir caminho
+                </Link>
+              }
+            />
         )}
       </section>
     </div>

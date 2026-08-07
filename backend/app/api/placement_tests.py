@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.curriculum import GeneratedFrom
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
@@ -27,6 +28,8 @@ from app.core.levels import (
     level_payload,
 )
 from app.models import (
+    CurriculumDay,
+    CurriculumWeek,
     Language,
     PlacementItem,
     PlacementTest,
@@ -37,6 +40,7 @@ from app.models import (
 )
 from app.schemas import PlacementAnswerIn, PlacementTestCreate, PlacementWritingIn
 from app.services import placement_engine as engine
+from app.services.curriculum_generator import active_curriculum, ensure_active_curriculum
 from app.services.progression import CHECKPOINT_SOURCE, apply_checkpoint_outcome
 from app.services.placement_delivery import (
     approved_active_filter,
@@ -490,7 +494,7 @@ def submit_speaking(test_id: str, db: Session = Depends(get_db), user: User = De
 def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
     test = _owned_test(db, test_id, user)
     if test.status == TestStatus.COMPLETED:
-        return _result_payload(db, test)
+        return _result_payload(db, test, user=user)
 
     answers = _answers_of(db, test.id)
     scored = _records(answers)
@@ -550,8 +554,29 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     # das semanas ainda pendentes. Teste comum não passa por aqui.
     if test.source == CHECKPOINT_SOURCE:
         apply_checkpoint_outcome(db, test)
+    else:
+        # Nivelamento inicial: o caminho diário nasce junto com o resultado.
+        language = db.scalar(select(Language).where(Language.code == test.language_code))
+        if language is not None:
+            profile = db.scalar(
+                select(UserLanguage).where(
+                    UserLanguage.user_id == user.id,
+                    UserLanguage.language_id == language.id,
+                )
+            )
+            if profile is not None:
+                try:
+                    ensure_active_curriculum(
+                        db,
+                        profile.id,
+                        duration_days=90,
+                        generated_from=GeneratedFrom.PLACEMENT,
+                    )
+                except APIError:
+                    # Sem níveis por competência ainda (edge): o aluno gera depois.
+                    pass
     db.commit()
-    return _result_payload(db, test)
+    return _result_payload(db, test, user=user)
 
 
 def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User) -> None:
@@ -593,10 +618,42 @@ def get_result(test_id: str, db: Session = Depends(get_db), user: User = Depends
     test = _owned_test(db, test_id, user)
     if test.status != TestStatus.COMPLETED:
         raise APIError(409, "placement_test_incomplete", "Este teste ainda não foi concluído.")
-    return _result_payload(db, test)
+    return _result_payload(db, test, user=user)
 
 
-def _result_payload(db: Session, test: PlacementTest) -> dict:
+def _curriculum_summary(db: Session, user: User | None, language_code: str) -> dict | None:
+    if user is None:
+        return None
+    language = db.scalar(select(Language).where(Language.code == language_code))
+    if language is None:
+        return None
+    profile = db.scalar(
+        select(UserLanguage).where(
+            UserLanguage.user_id == user.id,
+            UserLanguage.language_id == language.id,
+        )
+    )
+    if profile is None:
+        return None
+    curriculum = active_curriculum(db, profile.id)
+    if curriculum is None:
+        return None
+    day = db.scalar(
+        select(CurriculumDay)
+        .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+        .where(CurriculumWeek.curriculum_id == curriculum.id)
+        .order_by(CurriculumDay.day_number)
+    )
+    return {
+        "id": curriculum.id,
+        "duration_days": curriculum.duration_days,
+        "entry_level": curriculum.entry_level,
+        "target_level": curriculum.target_level,
+        "day_href": f"/cronograma/dia/{day.id}" if day else "/cronograma",
+    }
+
+
+def _result_payload(db: Session, test: PlacementTest, *, user: User | None = None) -> dict:
     result = dict(test.result_json or {})
     result.pop("declared_beginner", None)
 
@@ -633,4 +690,5 @@ def _result_payload(db: Session, test: PlacementTest) -> dict:
         "skills": skills,
         "speaking_available": SPEAKING_AVAILABLE,
         "disclaimer": "Nível estimado. Não é uma certificação oficial.",
+        "curriculum": _curriculum_summary(db, user, test.language_code),
     }

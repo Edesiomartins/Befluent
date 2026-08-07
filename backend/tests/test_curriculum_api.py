@@ -75,6 +75,21 @@ def blocks_of(db, day):
     )
 
 
+def complete_prior_blocks(client, auth, day_blocks, target):
+    """Conclui blocos anteriores para liberar a sequência obrigatória do dia."""
+    for block in day_blocks:
+        if block.position >= target.position:
+            break
+        assert client.post(
+            f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+        ).status_code == 200
+        assert client.post(
+            f"/api/v1/curriculum/block/{block.id}/complete",
+            json={},
+            headers=auth,
+        ).status_code == 200
+
+
 class TestAutenticacao:
     def test_leitura_sem_sessao_e_bloqueada(self, client):
         assert client.get("/api/v1/curriculum/active?language_code=en").status_code == 401
@@ -289,7 +304,9 @@ class TestExecucaoDeBloco:
         db_session.commit()
         curriculum = make_curriculum(db_session, profile)
         day = first_day(db_session, curriculum)
-        review = next(b for b in blocks_of(db_session, day) if b.skill == BlockSkill.REVIEW)
+        day_blocks = blocks_of(db_session, day)
+        review = next(b for b in day_blocks if b.skill == BlockSkill.REVIEW)
+        complete_prior_blocks(client, auth, day_blocks, review)
 
         body = client.post(f"/api/v1/curriculum/block/{review.id}/start", headers=auth).json()
         assert body["lesson"]["source"] == "srs_queue"
@@ -300,7 +317,9 @@ class TestExecucaoDeBloco:
         profile = setup_profile(db_session)
         curriculum = make_curriculum(db_session, profile)
         day = first_day(db_session, curriculum)
-        review = next(b for b in blocks_of(db_session, day) if b.skill == BlockSkill.REVIEW)
+        day_blocks = blocks_of(db_session, day)
+        review = next(b for b in day_blocks if b.skill == BlockSkill.REVIEW)
+        complete_prior_blocks(client, auth, day_blocks, review)
 
         body = client.post(f"/api/v1/curriculum/block/{review.id}/start", headers=auth).json()
         assert body["lesson"]["queue_empty"] is True

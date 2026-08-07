@@ -17,6 +17,9 @@ from sqlalchemy.orm import Session
 
 from app.api.helpers import user_language
 from app.core.curriculum import (
+    block_phase,
+    block_phase_label,
+    block_phase_why,
     BLOCK_LESSON_MODE,
     BlockStatus,
     CurriculumStatus,
@@ -36,15 +39,20 @@ from app.models import (
     UserLanguage,
 )
 from app.services.curriculum_generator import generate_curriculum
+from app.services.lesson_thread import day_thread
 from app.services.progression import (
     OVERDUE_THRESHOLD,
     RESCHEDULE_STRATEGIES,
     build_block_lesson,
     complete_block,
+    ensure_block_unlocked,
     overdue_days,
     reschedule,
     start_checkpoint,
 )
+
+#: Posição acima de qualquer bloco real: pede o fio completo do dia.
+ALL_POSITIONS = 10_000
 
 router = APIRouter(prefix="/curriculum", tags=["curriculum"])
 
@@ -113,7 +121,24 @@ def _active_curriculum(db: Session, user: User, language_code: str) -> Curriculu
 # ------------------------------------------------------------------ payloads
 
 
-def _block_payload(block: CurriculumBlock) -> dict:
+def _block_payload(
+    block: CurriculumBlock,
+    *,
+    siblings: list[CurriculumBlock] | None = None,
+) -> dict:
+    locked = False
+    is_current = False
+    if siblings is not None:
+        prior_open = any(
+            sibling.position < block.position and sibling.status != BlockStatus.COMPLETED
+            for sibling in siblings
+        )
+        locked = block.status != BlockStatus.COMPLETED and prior_open
+        first_open = next(
+            (sibling for sibling in siblings if sibling.status != BlockStatus.COMPLETED),
+            None,
+        )
+        is_current = first_open is not None and first_open.id == block.id
     return {
         "id": block.id,
         "skill": block.skill,
@@ -126,6 +151,11 @@ def _block_payload(block: CurriculumBlock) -> dict:
         "lesson_ref": block.lesson_ref,
         "status": block.status,
         "score": block.score,
+        "phase": block_phase(block.skill),
+        "phase_label": block_phase_label(block.skill),
+        "phase_why": block_phase_why(block.skill),
+        "locked": locked,
+        "is_current": is_current,
     }
 
 
@@ -142,18 +172,33 @@ def _blocks_of(db: Session, day_ids: list[str]) -> dict[str, list[CurriculumBloc
     return grouped
 
 
-def _day_payload(day: CurriculumDay, blocks: list[CurriculumBlock]) -> dict:
-    done = [block for block in blocks if block.status == BlockStatus.COMPLETED]
+def _day_payload(
+    day: CurriculumDay,
+    blocks: list[CurriculumBlock],
+    *,
+    thread: dict | None = None,
+) -> dict:
+    ordered = sorted(blocks, key=lambda item: item.position)
+    done = [block for block in ordered if block.status == BlockStatus.COMPLETED]
+    current = next(
+        (block for block in ordered if block.status != BlockStatus.COMPLETED),
+        None,
+    )
     return {
+        # O que o dia já construiu e que os blocos seguintes reaproveitam. É a
+        # continuidade visível: sem isso o aluno vê cinco cartões independentes.
+        "thread": thread,
         "id": day.id,
         "day_number": day.day_number,
         "scheduled_date": day.scheduled_date.isoformat(),
         "status": day.status,
         "completed_at": day.completed_at.isoformat() if day.completed_at else None,
-        "total_minutes": sum(block.estimated_minutes for block in blocks),
-        "blocks_total": len(blocks),
+        "total_minutes": sum(block.estimated_minutes for block in ordered),
+        "blocks_total": len(ordered),
         "blocks_completed": len(done),
-        "blocks": [_block_payload(block) for block in blocks],
+        "sequence_label": "Ativar → Estruturar → Compreender → Produzir → Consolidar",
+        "current_block_id": current.id if current else None,
+        "blocks": [_block_payload(block, siblings=ordered) for block in ordered],
     }
 
 
@@ -314,7 +359,15 @@ def today(
     return {
         "curriculum": _curriculum_payload(db, curriculum),
         "week": _week_payload(week) if week else None,
-        "day": _day_payload(current, blocks.get(current.id, [])) if current else None,
+        "day": (
+            _day_payload(
+                current,
+                blocks.get(current.id, []),
+                thread=day_thread(db, current, before_position=ALL_POSITIONS).to_payload(),
+            )
+            if current
+            else None
+        ),
         "overdue_days": [
             {
                 "id": day.id,
@@ -374,7 +427,11 @@ def day_detail(
     return {
         "curriculum": _curriculum_payload(db, curriculum, with_progress=False),
         "week": _week_payload(week),
-        "day": _day_payload(day, blocks.get(day.id, [])),
+        "day": _day_payload(
+            day,
+            blocks.get(day.id, []),
+            thread=day_thread(db, day, before_position=ALL_POSITIONS).to_payload(),
+        ),
     }
 
 
@@ -386,13 +443,21 @@ def start_block(
 ):
     """Gera (ou recupera) a lição do bloco e vincula em `lesson_ref`."""
     block, day, _ = _owned_block(db, block_id, user)
+    ensure_block_unlocked(db, block, day)
     payload = build_block_lesson(db, user=user, block=block, day=day)
 
     if day.status == DayStatus.PENDING:
         day.status = DayStatus.IN_PROGRESS
     db.commit()
 
-    return {"block": _block_payload(block), "lesson": payload}
+    siblings = list(
+        db.scalars(
+            select(CurriculumBlock)
+            .where(CurriculumBlock.day_id == day.id)
+            .order_by(CurriculumBlock.position)
+        )
+    )
+    return {"block": _block_payload(block, siblings=siblings), "lesson": payload}
 
 
 @router.post("/block/{block_id}/complete")
@@ -414,6 +479,8 @@ def finish_block(
             "completed_at": day.completed_at.isoformat() if day.completed_at else None,
         },
         "day_completed": result["day_completed"],
+        # Quantas palavras deste bloco entraram na fila de revisão espaçada.
+        "review_items_added": result.get("review_items_added", 0),
         "progress": _progress_summary(db, curriculum),
     }
 

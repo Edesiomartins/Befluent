@@ -210,7 +210,7 @@ class TestGeracao:
         assert sundays
         for day in sundays:
             skills = [block.skill for block in blocks_of(db_session, day)]
-            assert set(skills) == {BlockSkill.REVIEW, BlockSkill.READING}
+            assert skills == [BlockSkill.READING, BlockSkill.REVIEW]
 
     def test_semanas_pares_sao_checkpoint(self, db_session):
         profile = make_profile(db_session)

@@ -30,6 +30,7 @@ import uvicorn  # noqa: E402
 from app.core.database import SessionLocal, engine  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.models import Base, User, UserPreference  # noqa: E402
+from app.services.content_seed import seed_starter_content  # noqa: E402
 from app.services.placement_seed import seed_placement_items  # noqa: E402
 from app.services.seed import seed_languages  # noqa: E402
 
@@ -52,6 +53,7 @@ def bootstrap() -> None:
     with SessionLocal() as db:
         seed_languages(db)
         seed_placement_items(db)
+        seed_starter_content(db)
         from sqlalchemy import select
 
         if not db.scalar(select(User).where(User.email == DEV_EMAIL)):

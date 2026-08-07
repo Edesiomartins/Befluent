@@ -8,7 +8,12 @@ from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.levels import SKILL_LABELS, LevelSource, Skill, level_payload
 from app.services.placement_engine import confidence_label
+from app.core.curriculum import CurriculumStatus, DayStatus, block_skill_label, BlockStatus
 from app.models import (
+    Curriculum,
+    CurriculumBlock,
+    CurriculumDay,
+    CurriculumWeek,
     Language,
     LearningGoal,
     ReviewItem,
@@ -20,15 +25,6 @@ from app.models import (
 from app.services.progress import aggregate_progress
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
-
-SKILL_TO_MODE = {
-    "Conversação": ("conversation", "Conversação"),
-    "Compreensão auditiva": ("listening", "Compreensão auditiva"),
-    "Vocabulário": ("vocabulary", "Vocabulário"),
-    "Gramática": ("grammar", "Gramática"),
-    "Leitura": ("reading", "Leitura"),
-    "Escrita": ("writing", "Escrita"),
-}
 
 
 def _level_block(ul: UserLanguage) -> dict:
@@ -66,7 +62,65 @@ def _level_block(ul: UserLanguage) -> dict:
     }
 
 
-def _next_activity(has_plan: bool, reviews_count: int, skills: list[str]) -> dict:
+def _curriculum_path(db: Session, user_language_id: str) -> dict | None:
+    """Próximo passo do cronograma ativo — path pedagógico do dia."""
+    curriculum = db.scalar(
+        select(Curriculum)
+        .where(
+            Curriculum.user_language_id == user_language_id,
+            Curriculum.status == CurriculumStatus.ACTIVE,
+        )
+        .order_by(Curriculum.created_at.desc())
+    )
+    if not curriculum:
+        return None
+    day = db.scalar(
+        select(CurriculumDay)
+        .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+        .where(
+            CurriculumWeek.curriculum_id == curriculum.id,
+            CurriculumDay.status != DayStatus.COMPLETED,
+        )
+        .order_by(CurriculumDay.day_number)
+    )
+    if not day:
+        return {
+            "day_id": None,
+            "day_number": None,
+            "blocks": [],
+            "next_block": None,
+            "href": "/cronograma",
+        }
+    blocks = list(
+        db.scalars(
+            select(CurriculumBlock)
+            .where(CurriculumBlock.day_id == day.id)
+            .order_by(CurriculumBlock.position)
+        )
+    )
+    next_block = next((b for b in blocks if b.status != BlockStatus.COMPLETED), None)
+    return {
+        "day_id": day.id,
+        "day_number": day.day_number,
+        "blocks": blocks,
+        "next_block": next_block,
+        "href": f"/cronograma/dia/{day.id}",
+    }
+
+
+def _next_activity(
+    has_plan: bool,
+    reviews_count: int,
+    skills: list[str],
+    *,
+    curriculum_path: dict | None = None,
+    needs_placement: bool = False,
+) -> dict:
+    """Porta única: caminho do dia > nivelamento > cronograma > revisão.
+
+    Prática livre fica fora da CTA principal (está em /learn).
+    """
+    del skills  # mantido na assinatura por compatibilidade com chamadores
     if not has_plan:
         return {
             "title": "Configurar seu plano",
@@ -74,6 +128,40 @@ def _next_activity(has_plan: bool, reviews_count: int, skills: list[str]) -> dic
             "href": "/onboarding",
             "cta": "Começar onboarding",
             "kind": "onboarding",
+        }
+    if curriculum_path and curriculum_path.get("next_block"):
+        block = curriculum_path["next_block"]
+        label = block_skill_label(block.skill)
+        return {
+            "title": f"Dia {curriculum_path['day_number']} · {label}",
+            "description": "Continue a sequência do dia: ativar → estruturar → compreender → produzir → consolidar.",
+            "href": curriculum_path["href"],
+            "cta": "Continuar caminho",
+            "kind": "curriculum",
+        }
+    if curriculum_path and curriculum_path.get("day_id") is None:
+        return {
+            "title": "Cronograma concluído",
+            "description": "Você terminou o caminho atual. Revise ou gere um novo cronograma.",
+            "href": "/cronograma",
+            "cta": "Ver cronograma",
+            "kind": "curriculum",
+        }
+    if needs_placement:
+        return {
+            "title": "Descubra seu nível",
+            "description": "Faça o teste para gerar seu caminho diário por competência.",
+            "href": "/placement-test",
+            "cta": "Fazer teste de nível",
+            "kind": "placement",
+        }
+    if curriculum_path is None:
+        return {
+            "title": "Montar seu cronograma",
+            "description": "Gere um caminho diário em sequência lógica a partir do seu nível.",
+            "href": "/cronograma",
+            "cta": "Ver cronograma",
+            "kind": "curriculum",
         }
     if reviews_count > 0:
         return {
@@ -83,23 +171,12 @@ def _next_activity(has_plan: bool, reviews_count: int, skills: list[str]) -> dic
             "cta": "Revisar agora",
             "kind": "review",
         }
-    for skill in skills:
-        mapped = SKILL_TO_MODE.get(skill)
-        if mapped:
-            slug, label = mapped
-            return {
-                "title": label,
-                "description": f"Pratique {label.lower()} com foco no seu plano.",
-                "href": f"/learn/{slug}",
-                "cta": "Continuar",
-                "kind": "practice",
-            }
     return {
-        "title": "Aula guiada",
-        "description": "Uma sequência estruturada para avançar com clareza.",
-        "href": "/learn/guided",
-        "cta": "Começar",
-        "kind": "practice",
+        "title": "Continuar seu caminho",
+        "description": "Abra o dia de hoje e siga a sequência do cronograma.",
+        "href": curriculum_path.get("href") or "/cronograma",
+        "cta": "Abrir caminho",
+        "kind": "curriculum",
     }
 
 
@@ -203,11 +280,38 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         onboarding_completed = any_completed is not None
 
     has_plan = bool(active_language and onboarding_completed)
-    next_activity = _next_activity(has_plan, len(reviews_due), skills)
+    curriculum_path = (
+        _curriculum_path(db, active_language["user_language_id"]) if active_language else None
+    )
+    needs_placement = bool(
+        active_language
+        and active_language.get("level", {}).get("needs_placement_test")
+    )
+    next_activity = _next_activity(
+        has_plan,
+        len(reviews_due),
+        skills,
+        curriculum_path=curriculum_path,
+        needs_placement=needs_placement,
+    )
     studied_today = (stats.get("minutes_today") or 0) > 0
     minutes_done = bool(minutes) and (stats.get("minutes_today") or 0) >= int(minutes)
 
-    if has_plan:
+    if has_plan and curriculum_path and curriculum_path.get("blocks"):
+        day_items = [
+            {
+                "label": f"Dia {curriculum_path['day_number']} do cronograma",
+                "done": curriculum_path.get("next_block") is None,
+            }
+        ]
+        day_items.extend(
+            {
+                "label": f"{block_skill_label(block.skill)} · {block.topic}",
+                "done": block.status == BlockStatus.COMPLETED,
+            }
+            for block in curriculum_path["blocks"]
+        )
+    elif has_plan:
         day_items = [
             {
                 "label": f"{minutes} min de estudo" if minutes else "Definir meta diária",
@@ -217,8 +321,11 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
                 "label": primary_goal or "Definir objetivo",
                 "done": bool(primary_goal),
             },
+            {
+                "label": "Montar cronograma estruturado",
+                "done": False,
+            },
         ]
-        # Marca foco como feito se houve qualquer estudo hoje (proxy simples e honesto).
         day_items.extend(
             {"label": f"Foco: {skill}", "done": studied_today} for skill in skills[:3]
         )
@@ -231,6 +338,8 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         "skills": skills,
         "items": day_items,
         "minutes_today": stats.get("minutes_today") or 0,
+        "source": "curriculum" if curriculum_path and curriculum_path.get("blocks") else "prefs",
+        "curriculum_day_href": curriculum_path["href"] if curriculum_path else None,
     }
 
     return {

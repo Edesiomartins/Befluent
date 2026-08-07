@@ -28,6 +28,8 @@ from app.core.curriculum import (
     BlockSkill,
     BlockStatus,
     DayStatus,
+    block_phase_label,
+    block_phase_why,
 )
 from app.core.errors import APIError
 from app.core.levels import LEVEL_INDEX, LevelSource, TestStatus, level_at
@@ -39,6 +41,7 @@ from app.models import (
     Language,
     Lesson,
     LessonActivity,
+    LessonContentUsage,
     PlacementTest,
     ReviewItem,
     StudySession,
@@ -48,6 +51,14 @@ from app.models import (
 from app.services.ai import get_ai_provider
 from app.services.content_repository import fetch_approved_unit, record_lesson_usage
 from app.services.learner_context import build_context, for_curriculum_block
+from app.services.lesson_thread import (
+    EMPTY_THREAD,
+    LessonThread,
+    day_thread,
+    enroll,
+    extract,
+    week_thread,
+)
 from app.services.study_sessions import complete_session
 
 #: A partir de quantos dias vencidos o cronograma oferece reagendamento.
@@ -110,38 +121,94 @@ def review_queue(db: Session, user_language_id: str, *, limit: int = REVIEW_QUEU
     )
 
 
-def _review_payload(db: Session, block: CurriculumBlock, owner: UserLanguage) -> dict:
+def _review_payload(
+    db: Session,
+    block: CurriculumBlock,
+    owner: UserLanguage,
+    *,
+    thread: LessonThread = EMPTY_THREAD,
+) -> dict:
     """Bloco de revisão: consome a fila do SRS, não gera conteúdo novo.
+
+    O que o aluno estudou hoje vem primeiro na fila. Fechar o dia recuperando o
+    léxico do próprio dia é a última etapa da cadeia — sem essa ordenação, a
+    consolidação cairia em itens antigos e o dia terminaria sem retomar o que
+    acabou de ser ensinado.
 
     Com a fila vazia, declara isso em vez de inventar itens — o aluno precisa
     saber que não há nada vencido, não receber uma revisão de mentira.
     """
+    today = {term.casefold() for term in thread.term_labels}
     items = review_queue(db, owner.id)
+
+    def from_today(item: ReviewItem) -> bool:
+        term = (item.payload_json or {}).get("term")
+        return isinstance(term, str) and term.casefold() in today
+
+    ordered = sorted(items, key=lambda item: not from_today(item))
+    seen_today = sum(1 for item in ordered if from_today(item))
+
     return {
         "mode": BlockSkill.REVIEW,
         "provider": "srs",
         "title": f"Revisão espaçada · {block.cefr_level}",
-        "objective": "Recuperar da memória o que está vencido na sua fila de revisão.",
+        "objective": (
+            "Recuperar da memória o que você viu hoje e o que está vencido na fila."
+            if seen_today
+            else "Recuperar da memória o que está vencido na sua fila de revisão."
+        ),
         "topic": block.topic,
         "level": block.cefr_level,
         "source": "srs_queue",
-        "queue_empty": not items,
+        "queue_empty": not ordered,
+        "from_today_count": seen_today,
         "items": [
             {
                 "review_item_id": item.id,
                 "item_type": item.item_type,
                 "reference_id": item.reference_id,
                 "payload": item.payload_json,
+                "from_today": from_today(item),
                 "next_review_at": item.next_review_at.isoformat() if item.next_review_at else None,
             }
-            for item in items
+            for item in ordered
         ],
         "empty_notice": (
             None
-            if items
+            if ordered
             else "Nenhum item vencido na fila hoje. Salve vocabulário para alimentar a revisão."
         ),
     }
+
+
+def _recent_unit_ids(db: Session, owner: UserLanguage, *, limit: int = 40) -> set[str]:
+    """Unidades já usadas neste idioma — evita repetir o mesmo bloco curado."""
+    rows = db.execute(
+        select(LessonContentUsage.content_unit_id)
+        .join(Lesson, Lesson.id == LessonContentUsage.lesson_id)
+        .where(Lesson.user_language_id == owner.id)
+        .order_by(LessonContentUsage.created_at.desc())
+        .limit(limit)
+    ).all()
+    return {row[0] for row in rows if row[0]}
+
+
+def _week_context(db: Session, day: CurriculumDay) -> tuple[str | None, str | None]:
+    """Tema da semana do dia e o da semana anterior.
+
+    O tema anterior existe para a espiral: a semana nova retoma de leve o que a
+    anterior fechou, em vez de trocar de assunto do zero toda segunda-feira.
+    """
+    week = db.get(CurriculumWeek, day.week_id)
+    if week is None:
+        return None, None
+    previous = db.scalar(
+        select(CurriculumWeek).where(
+            CurriculumWeek.curriculum_id == week.curriculum_id,
+            CurriculumWeek.week_number == week.week_number - 1,
+        )
+    )
+    return week.theme, previous.theme if previous else None
 
 
 def _generate_payload(
@@ -149,12 +216,16 @@ def _generate_payload(
     *,
     user: User,
     block: CurriculumBlock,
+    day: CurriculumDay,
     owner: UserLanguage,
     language_code: str,
+    thread: LessonThread,
+    recycled: LessonThread,
 ) -> tuple[dict, object | None]:
     """Conteúdo do bloco: biblioteca curada quando existir, senão IA/mock."""
     mode = BLOCK_LESSON_MODE[block.skill]
     assessed_skill = BLOCK_ASSESSED_SKILL[block.skill]
+    week_theme, previous_theme = _week_context(db, day)
 
     context = build_context(db, user, language_code)
     context = for_curriculum_block(
@@ -162,6 +233,15 @@ def _generate_payload(
         assessed_skill=assessed_skill,
         cefr_level=block.cefr_level,
         topic=block.topic,
+        week_theme=week_theme,
+        previous_week_theme=previous_theme,
+        day_number=day.day_number,
+        phase_label=block_phase_label(block.skill),
+        phase_goal=block_phase_why(block.skill),
+        carryover=[term.to_payload() for term in thread.terms],
+        carryover_patterns=list(thread.patterns),
+        carryover_sources=list(thread.sources),
+        recycled=[term.to_payload() for term in recycled.terms],
     )
 
     curated = fetch_approved_unit(
@@ -170,18 +250,42 @@ def _generate_payload(
         level=block.cefr_level,
         skill=assessed_skill,
         mode=mode,
+        topic=block.topic,
+        exclude_ids=_recent_unit_ids(db, owner),
     )
+    if curated is None:
+        # Sem unidades novas: ainda preferimos curado a mock, mesmo repetindo.
+        curated = fetch_approved_unit(
+            db,
+            language_id=owner.language_id,
+            level=block.cefr_level,
+            skill=assessed_skill,
+            mode=mode,
+            topic=block.topic,
+        )
     if curated is not None:
         unit_payload = dict(curated.payload_json or {})
         payload = {
             **unit_payload,
             "mode": mode,
             "title": curated.title or unit_payload.get("title", mode),
-            "objective": unit_payload.get("objective", curated.topic or ""),
+            "objective": unit_payload.get("objective", curated.topic or block.topic or ""),
             "language_code": language_code,
             "level": curated.cefr_level,
             "content_origin": "curated_library",
             "provider": "curated_library",
+            "topic": block.topic,
+            # Unidade curada é texto fixo: ela não pode ser reescrita para
+            # encaixar o léxico do dia. O fio vai como material de apoio, com
+            # `guaranteed=False` dizendo que a continuidade aqui é sugerida,
+            # não construída dentro do conteúdo.
+            "thread": {
+                "carried_terms": context.carryover_terms,
+                "carried_patterns": list(context.carryover_patterns),
+                "sources": list(context.carryover_sources),
+                "recycled_terms": context.recycled_terms,
+                "guaranteed": False,
+            },
         }
         if curated.attribution_text:
             payload["attribution_text"] = curated.attribution_text
@@ -192,6 +296,29 @@ def _generate_payload(
     except ValueError:
         raise APIError(400, "unsupported_mode", "Modo de estudo não suportado.")
     return payload, None
+
+
+def ensure_block_unlocked(db: Session, block: CurriculumBlock, day: CurriculumDay) -> None:
+    """Impede pular a sequência do dia: só o próximo bloco pendente pode iniciar.
+
+    Vocabulário → estrutura → input → output → revisão. Abrir o bloco 4 sem
+    fechar o 1–3 quebra a lógica pedagógica do path.
+    """
+    if block.status == BlockStatus.COMPLETED:
+        return
+    prior_open = db.scalar(
+        select(CurriculumBlock.id).where(
+            CurriculumBlock.day_id == day.id,
+            CurriculumBlock.position < block.position,
+            CurriculumBlock.status != BlockStatus.COMPLETED,
+        )
+    )
+    if prior_open:
+        raise APIError(
+            409,
+            "curriculum_block_locked",
+            "Conclua o bloco anterior antes de avançar. A sequência do dia é fixa.",
+        )
 
 
 def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: CurriculumDay) -> dict:
@@ -208,12 +335,24 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
         if existing is not None:
             return {**(existing.content_json or {}), "lesson_id": existing.id}
 
+    # O fio é lido antes de gerar: é ele que faz este bloco continuar o anterior
+    # em vez de recomeçar. `week_thread` acrescenta a espiral da semana.
+    thread = day_thread(db, day, before_position=block.position)
+    recycled = week_thread(db, day)
+
     if block.skill == BlockSkill.REVIEW:
-        payload = _review_payload(db, block, owner)
+        payload = _review_payload(db, block, owner, thread=thread)
         curated = None
     else:
         payload, curated = _generate_payload(
-            db, user=user, block=block, owner=owner, language_code=language_code
+            db,
+            user=user,
+            block=block,
+            day=day,
+            owner=owner,
+            language_code=language_code,
+            thread=thread,
+            recycled=recycled,
         )
 
     payload = {**payload, "curriculum_block_id": block.id, "topic": block.topic}
@@ -257,6 +396,29 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
     return {**payload, "lesson_id": lesson.id, "study_session_id": session.id}
 
 
+def _enroll_lesson(
+    db: Session, *, block: CurriculumBlock, day: CurriculumDay, lesson: Lesson
+) -> int:
+    """Manda o léxico do bloco concluído para a fila de revisão espaçada.
+
+    Aqui o dia deixa de ser um evento isolado. Antes disso, `ReviewItem` só
+    nascia quando o aluno salvava uma palavra à mão em `/vocabulary` — então o
+    bloco de consolidação abria vazio quase sempre e nada do dia voltava depois.
+    Agora o que o bloco apresentou entra na fila e reaparece nos dias seguintes.
+
+    Só blocos que **introduzem** conteúdo alimentam a fila. Revisão não: ela
+    consome a fila, e reinserir o que acabou de ser revisado zeraria o
+    espaçamento calculado pelo SRS.
+    """
+    if block.skill == BlockSkill.REVIEW:
+        return 0
+    payload = dict(lesson.content_json or {})
+    thread = extract(str(payload.get("mode") or block.skill), payload)
+    if not thread:
+        return 0
+    return enroll(db, user_language_id=_owner_of(db, day).id, thread=thread)
+
+
 def complete_block(
     db: Session,
     *,
@@ -264,12 +426,13 @@ def complete_block(
     day: CurriculumDay,
     score: float | None = None,
 ) -> dict:
-    """Marca o bloco e fecha o dia quando todos os blocos estiverem concluídos."""
+    """Marca o bloco, alimenta o SRS e fecha o dia quando tudo estiver concluído."""
     if block.status != BlockStatus.COMPLETED:
         block.status = BlockStatus.COMPLETED
     if score is not None:
         block.score = score
 
+    enrolled = 0
     if block.lesson_ref:
         lesson = db.get(Lesson, block.lesson_ref)
         if lesson is not None:
@@ -278,6 +441,7 @@ def complete_block(
                 session = db.get(StudySession, lesson.study_session_id)
                 if session is not None and session.status == "active":
                     complete_session(db, session, summary=lesson.title)
+            enrolled = _enroll_lesson(db, block=block, day=day, lesson=lesson)
 
     blocks = list(
         db.scalars(select(CurriculumBlock).where(CurriculumBlock.day_id == day.id))
@@ -290,7 +454,7 @@ def complete_block(
         day.status = DayStatus.IN_PROGRESS
 
     db.flush()
-    return {"day_completed": day_completed}
+    return {"day_completed": day_completed, "review_items_added": enrolled}
 
 
 # ---------------------------------------------------------------- checkpoints

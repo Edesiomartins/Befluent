@@ -49,6 +49,7 @@ class BlockStatus(StrEnum):
 class GeneratedFrom(StrEnum):
     PLACEMENT = "placement"
     MANUAL = "manual"
+    ONBOARDING = "onboarding"
 
 
 #: Durações permitidas, em dias. Fora disso o gerador recusa.
@@ -105,5 +106,55 @@ ESSENTIAL_BLOCKS: frozenset[str] = frozenset(
 )
 
 
+class LessonPhase(StrEnum):
+    """Fases pedagógicas do dia — ordem estilo path (ativar → produzir → fixar)."""
+
+    ACTIVATE = "activate"
+    STRUCTURE = "structure"
+    INPUT = "input"
+    OUTPUT = "output"
+    CONSOLIDATE = "consolidate"
+
+
+PHASE_LABELS: dict[str, str] = {
+    LessonPhase.ACTIVATE: "Ativar",
+    LessonPhase.STRUCTURE: "Estruturar",
+    LessonPhase.INPUT: "Compreender",
+    LessonPhase.OUTPUT: "Produzir",
+    LessonPhase.CONSOLIDATE: "Consolidar",
+}
+
+PHASE_WHY: dict[str, str] = {
+    LessonPhase.ACTIVATE: "Primeiro ativa o léxico do tema — sem palavras, o resto trava.",
+    LessonPhase.STRUCTURE: "Depois organiza a forma: padrões e sons que você vai usar.",
+    LessonPhase.INPUT: "Escuta ou lê o tema em contexto antes de falar ou escrever.",
+    LessonPhase.OUTPUT: "Só então produz: conversa ou escrita com o que acabou de ver.",
+    LessonPhase.CONSOLIDATE: "Fecha com revisão espaçada para não esquecer amanhã.",
+}
+
+BLOCK_PHASE: dict[str, str] = {
+    BlockSkill.VOCABULARY: LessonPhase.ACTIVATE,
+    BlockSkill.GRAMMAR: LessonPhase.STRUCTURE,
+    BlockSkill.PRONUNCIATION: LessonPhase.STRUCTURE,
+    BlockSkill.LISTENING: LessonPhase.INPUT,
+    BlockSkill.READING: LessonPhase.INPUT,
+    BlockSkill.CONVERSATION: LessonPhase.OUTPUT,
+    BlockSkill.WRITING: LessonPhase.OUTPUT,
+    BlockSkill.REVIEW: LessonPhase.CONSOLIDATE,
+}
+
+
 def block_skill_label(skill: str) -> str:
     return BLOCK_SKILL_LABELS.get(skill, skill)
+
+
+def block_phase(skill: str) -> str:
+    return BLOCK_PHASE.get(skill, LessonPhase.ACTIVATE)
+
+
+def block_phase_label(skill: str) -> str:
+    return PHASE_LABELS.get(block_phase(skill), "")
+
+
+def block_phase_why(skill: str) -> str:
+    return PHASE_WHY.get(block_phase(skill), "")

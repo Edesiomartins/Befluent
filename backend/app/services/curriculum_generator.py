@@ -91,7 +91,8 @@ SUNDAY = 6
 
 #: Domingo é dia leve: só revisão e leitura. Um cronograma sem folga é
 #: abandonado na terceira semana.
-LIGHT_DAY_BLOCKS: tuple[str, ...] = (BlockSkill.REVIEW, BlockSkill.READING)
+#: Domingo leve: input curto e só então consolidação (revisão nunca vem antes).
+LIGHT_DAY_BLOCKS: tuple[str, ...] = (BlockSkill.READING, BlockSkill.REVIEW)
 
 DAYS_PER_WEEK = 7
 
@@ -115,6 +116,67 @@ def assessed_skill_levels(profile: UserLanguage) -> dict[str, str]:
         if value:
             levels[skill] = value
     return levels
+
+
+def hydrate_skill_levels(profile: UserLanguage, level: str) -> bool:
+    """Preenche competências vazias a partir de um nível CEFR único.
+
+    Usado no onboarding (iniciante / autodeclarado): sem colunas por skill o
+    gerador recusa o cronograma. Só preenche o que estiver vazio — nunca
+    sobrescreve um resultado de teste.
+    """
+    cefr = normalize_level(level)
+    if not cefr:
+        return False
+    changed = False
+    for column in SKILL_COLUMNS.values():
+        if not normalize_level(getattr(profile, column, None)):
+            setattr(profile, column, cefr)
+            changed = True
+    if changed and not profile.current_level:
+        profile.current_level = cefr
+    return changed
+
+
+def active_curriculum(db: Session, user_language_id: str) -> Curriculum | None:
+    return db.scalar(
+        select(Curriculum)
+        .where(
+            Curriculum.user_language_id == user_language_id,
+            Curriculum.status == CurriculumStatus.ACTIVE,
+        )
+        .order_by(Curriculum.created_at.desc())
+    )
+
+
+def ensure_active_curriculum(
+    db: Session,
+    user_language_id: str,
+    *,
+    duration_days: int = 90,
+    generated_from: str = GeneratedFrom.MANUAL,
+) -> Curriculum:
+    """Devolve o cronograma ativo ou gera um novo (idempotente)."""
+    existing = active_curriculum(db, user_language_id)
+    if existing is not None:
+        return existing
+
+    profile = db.get(UserLanguage, user_language_id)
+    if profile is None:
+        raise APIError(404, "language_not_configured", "Idioma não configurado para o usuário.")
+
+    if not assessed_skill_levels(profile):
+        fallback = normalize_level(profile.current_level) or normalize_level(profile.level_estimate)
+        if fallback:
+            hydrate_skill_levels(profile, fallback)
+        db.flush()
+
+    return generate_curriculum(
+        db,
+        user_language_id,
+        duration_days,
+        generated_from=generated_from,
+    )
 
 
 def median_level(skill_levels: dict[str, str]) -> str:

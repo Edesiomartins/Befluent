@@ -46,6 +46,49 @@ def _public_payload(unit: ContentUnit) -> dict:
     }
 
 
+def _pick_unit(
+    db: Session,
+    *,
+    base_filters: list,
+    band: str,
+    topic: str | None,
+) -> ContentUnit | None:
+    """Prefere unidade cujo tópico casa com o bloco; senão a mais recente."""
+    source_ok = ContentSource.review_status == ValidationStatus.APPROVED
+    if topic and topic.strip():
+        needle = topic.strip().lower()
+        # Match simples por substring — tópicos do currículo e da biblioteca
+        # não compartilham taxonomia rígida ainda.
+        candidates = list(
+            db.scalars(
+                select(ContentUnit)
+                .join(ContentSource, ContentSource.id == ContentUnit.source_id)
+                .where(
+                    *base_filters,
+                    ContentUnit.cefr_level == band,
+                    source_ok,
+                    ContentUnit.topic.is_not(None),
+                )
+                .order_by(ContentUnit.updated_at.desc())
+                .limit(24)
+            )
+        )
+        for unit in candidates:
+            hay = (unit.topic or "").lower()
+            if needle in hay or hay in needle:
+                return unit
+    return db.scalar(
+        select(ContentUnit)
+        .join(ContentSource, ContentSource.id == ContentUnit.source_id)
+        .where(
+            *base_filters,
+            ContentUnit.cefr_level == band,
+            source_ok,
+        )
+        .order_by(ContentUnit.updated_at.desc())
+    )
+
+
 def fetch_approved_unit(
     db: Session,
     *,
@@ -54,6 +97,7 @@ def fetch_approved_unit(
     skill: str,
     mode: str,
     exclude_ids: set[str] | None = None,
+    topic: str | None = None,
 ) -> ContentUnit | None:
     """Busca unidade aprovada mais próxima do nível pedido; None se indisponível."""
     exclude_ids = exclude_ids or set()
@@ -68,16 +112,7 @@ def fetch_approved_unit(
         base_filters.append(ContentUnit.id.not_in(exclude_ids))
 
     for band in _nearby_levels(level):
-        unit = db.scalar(
-            select(ContentUnit)
-            .join(ContentSource, ContentSource.id == ContentUnit.source_id)
-            .where(
-                *base_filters,
-                ContentUnit.cefr_level == band,
-                ContentSource.review_status == ValidationStatus.APPROVED,
-            )
-            .order_by(ContentUnit.updated_at.desc())
-        )
+        unit = _pick_unit(db, base_filters=base_filters, band=band, topic=topic)
         if unit:
             return unit
     return None

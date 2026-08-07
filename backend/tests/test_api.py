@@ -216,7 +216,8 @@ def test_dashboard_shows_onboarding_data(client, auth):
     assert lang["onboarding_completed"] is True
     assert payload["reviews_due_count"] == 0
     assert payload["recent_activity"] == []
-    assert payload["next_activity"]["href"] == "/learn/vocabulary"
+    assert payload["next_activity"]["kind"] == "curriculum"
+    assert payload["next_activity"]["href"].startswith("/cronograma/dia/")
     assert payload["day_plan"]["minutes_per_day"] == 30
     assert payload["day_plan"]["minutes_today"] == 0
     assert payload["progress"]["vocabulary_items"] == 0

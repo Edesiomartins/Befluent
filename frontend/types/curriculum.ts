@@ -20,6 +20,13 @@ export type CurriculumStatus = "active" | "paused" | "completed" | "regenerated"
 export const DURATIONS = [90, 180] as const;
 export type Duration = (typeof DURATIONS)[number];
 
+export type LessonPhase =
+  | "activate"
+  | "structure"
+  | "input"
+  | "output"
+  | "consolidate";
+
 export type CurriculumBlock = {
   id: string;
   skill: BlockSkill;
@@ -33,6 +40,11 @@ export type CurriculumBlock = {
   lesson_ref: string | null;
   status: BlockStatus;
   score: number | null;
+  phase?: LessonPhase;
+  phase_label?: string;
+  phase_why?: string;
+  locked?: boolean;
+  is_current?: boolean;
 };
 
 export type CurriculumDay = {
@@ -44,6 +56,8 @@ export type CurriculumDay = {
   total_minutes: number;
   blocks_total: number;
   blocks_completed: number;
+  sequence_label?: string;
+  current_block_id?: string | null;
   blocks: CurriculumBlock[];
 };
 

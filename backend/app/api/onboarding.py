@@ -4,12 +4,22 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.core.curriculum import GeneratedFrom
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.levels import LevelSource
-from app.models import Language, LearningGoal, User, UserLanguage, UserPreference
+from app.models import (
+    CurriculumDay,
+    CurriculumWeek,
+    Language,
+    LearningGoal,
+    User,
+    UserLanguage,
+    UserPreference,
+)
 from app.schemas import OnboardingIn
+from app.services.curriculum_generator import ensure_active_curriculum, hydrate_skill_levels
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -109,6 +119,29 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
     ui_prefs["primary_goal"] = goals[0] if goals else None
     pref.ui_prefs_json = ui_prefs
 
+    # Iniciante / autodeclarado: já há CEFR → gera o caminho. Quem vai ao teste
+    # ou deixa para depois recebe o cronograma só após o nivelamento.
+    curriculum_id = None
+    curriculum_day_href = None
+    if choice in {"beginner", "self_declared"} and cefr_level:
+        hydrate_skill_levels(ul, cefr_level)
+        db.flush()
+        curriculum = ensure_active_curriculum(
+            db,
+            ul.id,
+            duration_days=90,
+            generated_from=GeneratedFrom.ONBOARDING,
+        )
+        curriculum_id = curriculum.id
+        day = db.scalar(
+            select(CurriculumDay)
+            .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+            .where(CurriculumWeek.curriculum_id == curriculum.id)
+            .order_by(CurriculumDay.day_number)
+        )
+        if day is not None:
+            curriculum_day_href = f"/cronograma/dia/{day.id}"
+
     db.commit()
     return {
         "completed": True,
@@ -122,4 +155,6 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
         "goal": goals[0] if goals else None,
         "minutes_per_day": minutes,
         "skills": skills,
+        "curriculum_id": curriculum_id,
+        "curriculum_day_href": curriculum_day_href,
     }

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Check, Circle } from "lucide-react";
+import { Check, Circle, Lock } from "lucide-react";
 import { LessonContent } from "@/components/lesson-modes";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -192,11 +192,14 @@ function BlockRunner({
     <div>
       <div className="mb-6 border-l-2 border-primary pl-4">
         <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
-          {block.skill_label} · {block.estimated_minutes} min ·{" "}
-          {levelShortCode(block.cefr_level)}
+          {block.phase_label ?? "Etapa"} · {block.skill_label} · {block.estimated_minutes}{" "}
+          min · {levelShortCode(block.cefr_level)}
         </p>
         <h2 className="mt-1.5 text-xl font-semibold tracking-tight">{lesson.title}</h2>
         <p className="mt-1 text-sm text-text-secondary">{block.topic}</p>
+        {block.phase_why && (
+          <p className="mt-3 text-sm leading-6 text-text-secondary">{block.phase_why}</p>
+        )}
         {lesson.provider === "mock" && (
           <span className="mt-3 inline-flex rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">
             Gerado em modo mock (IA local)
@@ -218,7 +221,7 @@ function BlockRunner({
 
       <div className="mt-8 flex justify-end border-t border-border pt-6">
         <Button loading={finishing} disabled={finishing} onClick={() => void finish()}>
-          Concluir bloco
+          Concluir e avançar
         </Button>
       </div>
     </div>
@@ -233,12 +236,16 @@ export default function CurriculumDayPage() {
   if (status === "loading") return <Loading label="Carregando o dia de estudo" />;
   if (status === "error") return <ErrorState message={error} retry={() => void reload()} />;
 
-  const { day, week } = data;
-  const pending = day.blocks.filter((block) => block.status === "pending");
-  // Sem escolha explícita, o dia continua do primeiro bloco em aberto.
+  const { day, week, curriculum } = data;
+  const current =
+    day.blocks.find((block) => block.is_current) ??
+    day.blocks.find((block) => block.status === "pending" && !block.locked) ??
+    null;
   const active =
-    day.blocks.find((block) => block.id === activeBlockId) ?? pending[0] ?? null;
-  const finished = pending.length === 0;
+    day.blocks.find((block) => block.id === activeBlockId && !block.locked) ?? current;
+  const finished = day.blocks.every((block) => block.status === "completed");
+  const progressPct =
+    day.blocks_total > 0 ? Math.round((day.blocks_completed / day.blocks_total) * 100) : 0;
 
   return (
     <div>
@@ -260,37 +267,96 @@ export default function CurriculumDayPage() {
         </p>
         <h1 className="mt-2 page-title">Dia {day.day_number}</h1>
         <p className="mt-2 text-text-secondary">
-          {day.blocks_completed} de {day.blocks_total} blocos concluídos ·{" "}
-          {day.total_minutes} min estimados
+          {day.sequence_label ??
+            "Ativar → Estruturar → Compreender → Produzir → Consolidar"}
         </p>
+        <p className="mt-1 text-sm text-text-secondary">
+          {day.blocks_completed} de {day.blocks_total} blocos · {day.total_minutes} min
+          estimados
+        </p>
+        <div className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated">
+          <div
+            className="h-full rounded-full bg-primary transition-all"
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
       </header>
 
+      {week.is_checkpoint && finished && (
+        <div className="mt-6 rounded-xl border border-[var(--gold)]/30 bg-[var(--gold-soft)]/40 p-5">
+          <p className="text-sm font-semibold text-[var(--gold-ink)]">
+            Semana de checkpoint
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            Faça a mini-avaliação para atualizar seu nível e liberar a próxima fase do
+            cronograma.
+          </p>
+          <Link
+            href={`/placement-test?curriculum=${curriculum.id}&week=${week.week_number}`}
+            className="mt-3 inline-flex text-sm font-semibold text-primary hover:underline"
+            onClick={(event) => {
+              // Abre o checkpoint via API quando disponível no fluxo do cronograma.
+              event.preventDefault();
+              void api<{ placement_test_id: string }>(
+                `/api/v1/curriculum/${curriculum.id}/checkpoint/${week.week_number}/start`,
+                { method: "POST", body: {} },
+              )
+                .then((result) => {
+                  window.location.href = `/placement-test/${result.placement_test_id}`;
+                })
+                .catch(() => {
+                  window.location.href = "/placement-test";
+                });
+            }}
+          >
+            Iniciar checkpoint da semana {week.week_number}
+          </Link>
+        </div>
+      )}
+
       <div className="mt-6 grid gap-8 lg:grid-cols-[16rem_1fr]">
-        {/* Sequência do dia */}
-        <nav aria-label="Blocos do dia">
+        <nav aria-label="Caminho do dia">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            Sequência obrigatória
+          </p>
           <ol className="grid gap-1">
             {day.blocks.map((block) => {
               const done = block.status === "completed";
-              const current = active?.id === block.id;
+              const locked = Boolean(block.locked);
+              const selected = active?.id === block.id;
               return (
                 <li key={block.id}>
                   <button
                     type="button"
-                    onClick={() => setActiveBlockId(block.id)}
-                    aria-current={current ? "step" : undefined}
+                    disabled={locked}
+                    onClick={() => {
+                      if (!locked) setActiveBlockId(block.id);
+                    }}
+                    aria-current={selected ? "step" : undefined}
                     className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition ${
-                      current
+                      selected
                         ? "bg-primary-soft font-semibold text-primary"
-                        : "hover:bg-surface-elevated"
+                        : locked
+                          ? "cursor-not-allowed opacity-55"
+                          : "hover:bg-surface-elevated"
                     }`}
                   >
                     {done ? (
                       <Check className="size-4 shrink-0 text-success" aria-hidden />
+                    ) : locked ? (
+                      <Lock className="size-4 shrink-0 text-text-secondary" aria-hidden />
                     ) : (
                       <Circle className="size-4 shrink-0 text-border" aria-hidden />
                     )}
-                    <span className={`min-w-0 flex-1 truncate ${done ? "line-through" : ""}`}>
-                      {block.skill_label}
+                    <span className="min-w-0 flex-1">
+                      <span className={`block truncate ${done ? "line-through" : ""}`}>
+                        {block.skill_label}
+                      </span>
+                      {block.phase_label && (
+                        <span className="block text-[.7rem] font-medium text-text-secondary">
+                          {block.phase_label}
+                        </span>
+                      )}
                     </span>
                     <span className="shrink-0 text-xs text-text-secondary tabular-nums">
                       {block.estimated_minutes}min
@@ -302,13 +368,13 @@ export default function CurriculumDayPage() {
           </ol>
         </nav>
 
-        {/* Bloco em execução */}
         <div>
           {finished && !activeBlockId ? (
             <div className="panel p-8 text-center" role="status">
               <h2 className="text-xl font-semibold">Dia concluído</h2>
               <p className="mt-3 text-sm leading-6 text-text-secondary">
-                Você completou os {day.blocks_total} blocos deste dia.
+                Você completou a sequência completa: léxico, estrutura, input, produção e
+                revisão.
               </p>
               <Link
                 href="/cronograma"

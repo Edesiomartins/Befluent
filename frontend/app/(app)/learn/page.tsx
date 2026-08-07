@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Clock, Sparkles } from "lucide-react";
+import { ArrowRight, Clock, Route, Sparkles } from "lucide-react";
 import { MODES, modeColorClasses } from "@/lib/modes";
 import { api } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
+import { useTodayInCurriculum } from "@/hooks/use-curriculum";
 import type { LessonModesResponse } from "@/types/lesson";
 
 export default function LearnPage() {
   const { code, resolved } = useActiveLanguage();
   const [plan, setPlan] = useState<LessonModesResponse | null>(null);
+  const today = useTodayInCurriculum(resolved ? code : null);
 
   useEffect(() => {
     if (!resolved) return;
@@ -36,16 +38,46 @@ export default function LearnPage() {
 
   const weakest = plan?.weakest_skills ?? [];
   const SuggestionIcon = suggestion.icon;
+  const pathDay = today.status === "ready" ? today.data.day : null;
+  const pathBlock = pathDay?.blocks.find((block) => block.is_current) ?? null;
 
   return (
     <div>
       <p className="text-sm font-semibold text-primary">Prática</p>
       <h1 className="mt-2 page-title">O que vamos praticar?</h1>
       <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
-        {plan?.level_is_estimated
-          ? "As atividades abaixo estão calibradas pelo seu resultado no teste de nivelamento."
-          : "Escolha uma habilidade para trabalhar agora. Faça o teste de nível para receber recomendações personalizadas."}
+        {pathDay
+          ? "O caminho do dia é a sequência principal. Abaixo, prática livre para reforçar uma competência."
+          : plan?.level_is_estimated
+            ? "As atividades abaixo estão calibradas pelo seu resultado no teste de nivelamento."
+            : "Escolha uma habilidade para trabalhar agora. Faça o teste de nível para receber recomendações personalizadas."}
       </p>
+
+      {pathDay && (
+        <Link
+          href={`/cronograma/dia/${pathDay.id}`}
+          className="mt-6 flex flex-col gap-3 rounded-2xl border border-primary/25 bg-primary-soft/50 p-5 transition hover:border-primary sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[.12em] text-primary">
+              <Route className="size-3.5" aria-hidden />
+              Caminho de hoje · Dia {pathDay.day_number}
+            </p>
+            <p className="mt-2 text-lg font-semibold">
+              {pathBlock
+                ? `${pathBlock.phase_label ?? "Próximo"} · ${pathBlock.skill_label}`
+                : "Continuar o cronograma"}
+            </p>
+            <p className="mt-1 text-sm text-text-secondary">
+              {pathDay.sequence_label ??
+                "Ativar → Estruturar → Compreender → Produzir → Consolidar"}
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-2 font-semibold text-primary">
+            Continuar sequência <ArrowRight className="size-4" aria-hidden />
+          </span>
+        </Link>
+      )}
 
       {plan && (
         <div className="mt-5 flex flex-wrap items-center gap-2">

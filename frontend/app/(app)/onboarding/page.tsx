@@ -68,7 +68,10 @@ export default function OnboardingPage() {
     setError("");
     setSuccess(false);
     try {
-      await api("/api/v1/onboarding/complete", {
+      const completed = await api<{
+        curriculum_day_href?: string | null;
+        curriculum_id?: string | null;
+      }>("/api/v1/onboarding/complete", {
         method: "POST",
         body: {
           language_code: language,
@@ -93,8 +96,9 @@ export default function OnboardingPage() {
       }
 
       setSuccess(true);
+      const pathHref = completed.curriculum_day_href || "/cronograma";
       window.setTimeout(() => {
-        router.replace("/dashboard");
+        router.replace(pathHref);
         router.refresh();
       }, 700);
     } catch (caught) {
@@ -269,7 +273,7 @@ export default function OnboardingPage() {
           <p role="status" className="text-sm text-success">
             {levelChoice === "take_test"
               ? "Plano criado. Abrindo seu teste de nível…"
-              : "Plano criado com sucesso. Abrindo seu painel…"}
+              : "Plano criado. Abrindo seu caminho de estudo…"}
           </p>
         )}
         <div className="flex justify-end border-t border-border pt-6">

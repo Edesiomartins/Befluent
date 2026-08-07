@@ -79,6 +79,13 @@ export type PlacementResult = {
   skills: SkillResult[];
   speaking_available: boolean;
   disclaimer: string;
+  curriculum?: {
+    id: string;
+    duration_days: number;
+    entry_level: string;
+    target_level: string;
+    day_href: string;
+  } | null;
 };
 
 export type DashboardLevel = {
