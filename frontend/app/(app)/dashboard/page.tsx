@@ -16,6 +16,8 @@ import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState } from "@/components/ui";
 import { getMode, modeColorClasses } from "@/lib/modes";
 import { LEVEL_SOURCE_LABELS, levelShortCode } from "@/lib/levels";
+import { useActiveLanguage } from "@/hooks/use-active-language";
+import { useTodayInCurriculum } from "@/hooks/use-curriculum";
 import type { DashboardLevel } from "@/types/placement";
 
 type DashboardData = {
@@ -160,6 +162,80 @@ function LevelBlock({
   );
 }
 
+/** Card do dia corrente do cronograma.
+ *
+ *  Fica em silêncio quando não há cronograma ativo: quem ainda não gerou um não
+ *  precisa ver um erro no painel — o convite para criar está em /cronograma.
+ */
+function TodayInCurriculum() {
+  const { code, resolved } = useActiveLanguage();
+  const { status, data } = useTodayInCurriculum(resolved ? code : null);
+
+  if (status !== "ready" || !data.day) return null;
+
+  const { day, week, curriculum } = data;
+  const remaining = day.blocks_total - day.blocks_completed;
+  const late = curriculum.progress.overdue_days;
+
+  return (
+    <section className="panel mt-5 p-6">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Hoje no seu cronograma
+        </p>
+        <span className="text-sm text-text-secondary">
+          Dia {day.day_number} de {curriculum.progress.days_total}
+        </span>
+      </div>
+
+      <h2 className="mt-3 text-lg font-semibold">
+        {week ? week.theme : `Dia ${day.day_number}`}
+        {week?.is_checkpoint && (
+          <span className="ml-2 rounded-md bg-[var(--gold-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--gold-ink)]">
+            Checkpoint
+          </span>
+        )}
+      </h2>
+      <p className="mt-1 text-sm text-text-secondary">
+        {remaining} {remaining === 1 ? "bloco restante" : "blocos restantes"} ·{" "}
+        {day.total_minutes} min estimados
+      </p>
+
+      <div className="mt-4 flex flex-wrap gap-2">
+        {day.blocks.map((block) => (
+          <span
+            key={block.id}
+            className={`rounded-full px-3 py-1 text-xs font-medium ${
+              block.status === "completed"
+                ? "bg-[var(--success-soft)] text-success line-through"
+                : "bg-surface-elevated"
+            }`}
+          >
+            {block.skill_label}
+          </span>
+        ))}
+      </div>
+
+      {late > 0 && (
+        <p className="mt-4 text-sm text-warning">
+          {late} {late === 1 ? "dia atrasado" : "dias atrasados"}.{" "}
+          <Link href="/cronograma" className="font-semibold underline">
+            Ver opções de reagendamento
+          </Link>
+        </p>
+      )}
+
+      <Link
+        href={`/cronograma/dia/${day.id}`}
+        className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+      >
+        {day.blocks_completed > 0 ? "Continuar o dia" : "Começar o dia"}
+        <ArrowRight className="size-4" aria-hidden />
+      </Link>
+    </section>
+  );
+}
+
 export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
@@ -265,6 +341,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+
+      <TodayInCurriculum />
 
       {/* Próxima atividade | Plano do dia */}
       <section className="mt-5 grid gap-5 lg:grid-cols-2">

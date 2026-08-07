@@ -5,11 +5,16 @@ produção. Sem este módulo, o modo mock devolveria a mesma frase para todo mun
 e o teste de nivelamento continuaria sem efeito prático — que é exatamente o
 problema que esta integração resolve. Aqui o conteúdo varia por faixa de nível.
 
+Cobertura: todas as combinações idioma × habilidade × faixa devolvem conteúdo —
+`coverage_report()` verifica isso e um teste falha se abrir uma lacuna. Sem essa
+garantia, um bloco do cronograma em japonês abriria vazio no modo mock, que é o
+modo padrão do projeto.
+
 LIMITAÇÃO DECLARADA: banco inicial de desenvolvimento, escrito para validar o
-fluxo técnico de ponta a ponta. Não passou por validação pedagógica e não tem
-cobertura uniforme entre os cinco idiomas — inglês é o mais completo. Com uma
-chave OpenRouter configurada, `ai.py` gera conteúdo real por prompt e este banco
-passa a ser apenas fallback.
+fluxo técnico de ponta a ponta. Não passou por validação pedagógica nem por
+revisão de falante nativo; a cobertura é mínima (3 a 6 itens por célula) e não
+substitui material didático. Com uma chave OpenRouter configurada, `ai.py` gera
+conteúdo por prompt e este banco passa a ser apenas fallback.
 """
 
 from __future__ import annotations
@@ -312,85 +317,714 @@ CONVERSATION_SITUATIONS: dict[str, dict[str, str]] = {
     BAND_UPPER: {"situation": "Discordar educadamente em uma reunião de trabalho", "focus": "argumentação e ressalva"},
 }
 
-READING_TEXTS: dict[str, dict[str, object]] = {
-    BAND_BEGINNER: {
-        "title": "Uma manhã comum",
-        "text": (
-            "Ana acorda às sete horas. Ela toma café da manhã com a família. "
-            "Depois ela vai para o trabalho de ônibus. O trajeto leva trinta minutos. "
-            "Ana gosta de ler durante a viagem."
-        ),
-        "note": "Frases curtas, vocabulário de rotina.",
+#: Textos de leitura POR IDIOMA. Antes eram só por faixa e vinham em português —
+#: uma "leitura em inglês" servia um texto em português, o que não treina
+#: leitura nenhuma. Cada célula idioma×faixa tem texto no idioma-alvo.
+READING_TEXTS: dict[str, dict[str, dict[str, object]]] = {
+    "en": {
+        BAND_BEGINNER: {
+            "title": "An ordinary morning",
+            "text": (
+                "Ana wakes up at seven o'clock. She has breakfast with her family. "
+                "Then she goes to work by bus. The trip takes thirty minutes. "
+                "Ana likes to read on the bus."
+            ),
+            "note": "Frases curtas, vocabulário de rotina.",
+        },
+        BAND_ELEMENTARY: {
+            "title": "Moving to a new city",
+            "text": (
+                "Last year, Pedro moved to another city because of his job. At first it "
+                "was hard: he did not know anyone and he missed his friends. Little by "
+                "little, he made new friends in the neighbourhood. Today he says the "
+                "move was a good decision, despite the difficult beginning."
+            ),
+            "note": "Passado simples, conectores, causa e consequência.",
+        },
+        BAND_INTERMEDIATE: {
+            "title": "How flexible work changed daily routines",
+            "text": (
+                "For many professionals, flexible work changed more than the place "
+                "where tasks are done. It also changed how people organise their "
+                "attention, talk to colleagues and separate work from personal life. "
+                "Some value the autonomy; others miss the spontaneous conversations of "
+                "the office. Research suggests that the most effective arrangements "
+                "depend less on a fixed model and more on clear expectations."
+            ),
+            "note": "Texto expositivo, contraste de pontos de vista.",
+        },
+        BAND_UPPER: {
+            "title": "Automation and the value of human work",
+            "text": (
+                "The debate about automation tends to swing between two equally "
+                "unlikely extremes: the widespread disappearance of jobs and the "
+                "spontaneous creation of better ones. The available evidence points to "
+                "a less dramatic and more uncomfortable scenario — the uneven "
+                "recomposition of tasks within existing occupations. Not every role is "
+                "replaced; many are hollowed out from the inside, losing precisely the "
+                "activities that gave autonomy to the people doing them."
+            ),
+            "note": "Argumentação densa, nuance e ressalva.",
+        },
     },
-    BAND_ELEMENTARY: {
-        "title": "Mudança de cidade",
-        "text": (
-            "No ano passado, Pedro se mudou para outra cidade por causa do trabalho. "
-            "No começo foi difícil: ele não conhecia ninguém e sentia falta dos amigos. "
-            "Aos poucos, começou a fazer novas amizades no bairro. Hoje ele diz que "
-            "a mudança foi uma boa decisão, mesmo com as dificuldades do início."
-        ),
-        "note": "Passado, conectores simples, causa e consequência.",
+    "es-ES": {
+        BAND_BEGINNER: {
+            "title": "Una mañana normal",
+            "text": (
+                "Ana se levanta a las siete. Desayuna con su familia. Después va al "
+                "trabajo en autobús. El trayecto dura treinta minutos. A Ana le gusta "
+                "leer durante el viaje."
+            ),
+            "note": "Frases curtas, presente e rotina.",
+        },
+        BAND_ELEMENTARY: {
+            "title": "Mudarse de ciudad",
+            "text": (
+                "El año pasado, Pedro se mudó a otra ciudad por el trabajo. Al "
+                "principio fue difícil: no conocía a nadie y echaba de menos a sus "
+                "amigos. Poco a poco hizo nuevas amistades en el barrio. Hoy dice que "
+                "la mudanza fue una buena decisión."
+            ),
+            "note": "Indefinido × imperfecto, conectores simples.",
+        },
+        BAND_INTERMEDIATE: {
+            "title": "Cómo el trabajo flexible cambió las rutinas",
+            "text": (
+                "Para muchos profesionales, el trabajo flexible cambió más que el "
+                "lugar donde se hacen las tareas. También cambió la forma de organizar "
+                "la atención, de hablar con los compañeros y de separar el trabajo de "
+                "la vida personal. Algunos valoran la autonomía; otros echan de menos "
+                "las conversaciones espontáneas de la oficina. Los estudios sugieren "
+                "que los acuerdos más eficaces dependen menos de un modelo fijo y más "
+                "de expectativas claras."
+            ),
+            "note": "Texto expositivo peninsular.",
+        },
+        BAND_UPPER: {
+            "title": "La automatización y el valor del trabajo humano",
+            "text": (
+                "El debate sobre la automatización suele oscilar entre dos extremos "
+                "igualmente improbables: la desaparición generalizada del empleo y la "
+                "creación espontánea de ocupaciones mejores. La evidencia disponible "
+                "apunta a un escenario menos dramático y más incómodo: la "
+                "recomposición desigual de las tareas dentro de las profesiones "
+                "existentes. No toda función se sustituye; muchas se vacían por dentro "
+                "y pierden justamente las actividades que daban autonomía a quien las "
+                "ejercía."
+            ),
+            "note": "Argumentação com ressalva, registro formal.",
+        },
     },
-    BAND_INTERMEDIATE: {
-        "title": "Como o trabalho flexível mudou as rotinas",
-        "text": (
-            "Para muitos profissionais, o trabalho flexível mudou mais do que o lugar "
-            "onde as tarefas são feitas. Ele também alterou a forma como as pessoas "
-            "organizam a atenção, se comunicam com colegas e separam trabalho e vida "
-            "pessoal. Alguns valorizam a autonomia; outros sentem falta das conversas "
-            "espontâneas do escritório. Pesquisas sugerem que os arranjos mais eficazes "
-            "dependem menos de um modelo fixo e mais de expectativas claras."
-        ),
-        "note": "Texto expositivo, contraste de pontos de vista.",
+    "fr": {
+        BAND_BEGINNER: {
+            "title": "Une matinée ordinaire",
+            "text": (
+                "Ana se lève à sept heures. Elle prend le petit-déjeuner avec sa "
+                "famille. Ensuite, elle va au travail en bus. Le trajet dure trente "
+                "minutes. Ana aime lire pendant le voyage."
+            ),
+            "note": "Presente, rotina, frases curtas.",
+        },
+        BAND_ELEMENTARY: {
+            "title": "Déménager dans une autre ville",
+            "text": (
+                "L'année dernière, Pedro a déménagé dans une autre ville pour son "
+                "travail. Au début, c'était difficile : il ne connaissait personne et "
+                "ses amis lui manquaient. Peu à peu, il s'est fait de nouveaux amis "
+                "dans le quartier. Aujourd'hui, il dit que ce déménagement était une "
+                "bonne décision."
+            ),
+            "note": "Passé composé × imparfait.",
+        },
+        BAND_INTERMEDIATE: {
+            "title": "Comment le travail flexible a changé les routines",
+            "text": (
+                "Pour beaucoup de professionnels, le travail flexible a changé plus "
+                "que le lieu où les tâches sont faites. Il a aussi changé la façon "
+                "dont les gens organisent leur attention, parlent à leurs collègues et "
+                "séparent le travail de la vie personnelle. Certains apprécient "
+                "l'autonomie ; d'autres regrettent les conversations spontanées du "
+                "bureau. Les études suggèrent que les arrangements les plus efficaces "
+                "dépendent moins d'un modèle fixe que d'attentes claires."
+            ),
+            "note": "Texto expositivo, contraste de posições.",
+        },
+        BAND_UPPER: {
+            "title": "L'automatisation et la valeur du travail humain",
+            "text": (
+                "Le débat sur l'automatisation oscille souvent entre deux extrêmes "
+                "également improbables : la disparition généralisée de l'emploi et la "
+                "création spontanée de meilleurs métiers. Les données disponibles "
+                "indiquent un scénario moins dramatique et plus inconfortable : la "
+                "recomposition inégale des tâches à l'intérieur des professions "
+                "existantes. Toutes les fonctions ne sont pas remplacées ; beaucoup se "
+                "vident de l'intérieur et perdent précisément les activités qui "
+                "donnaient de l'autonomie à ceux qui les exerçaient."
+            ),
+            "note": "Registro formal, concessão e nuance.",
+        },
     },
-    BAND_UPPER: {
-        "title": "Automação e o valor do trabalho humano",
-        "text": (
-            "O debate sobre automação costuma oscilar entre dois extremos igualmente "
-            "improváveis: o desaparecimento generalizado do emprego e a criação "
-            "espontânea de ocupações melhores. A evidência disponível sugere um "
-            "cenário menos dramático e mais incômodo — a recomposição desigual das "
-            "tarefas dentro das profissões existentes. Nem toda função é substituída; "
-            "muitas são esvaziadas por dentro, perdendo justamente as atividades que "
-            "conferiam autonomia a quem as exercia."
-        ),
-        "note": "Argumentação densa, nuance e ressalva.",
+    "ja": {
+        BAND_BEGINNER: {
+            "title": "ふつうの朝（あさ）",
+            "text": (
+                "アナさんは七時（しちじ）に起（お）きます。家族（かぞく）と朝（あさ）ごはんを食（た）べます。"
+                "それからバスで会社（かいしゃ）に行（い）きます。バスは三十分（さんじゅっぷん）かかります。"
+                "アナさんはバスの中（なか）で本（ほん）を読（よ）みます。"
+            ),
+            "note": "Frases curtas com furigana; leitura desde o início.",
+        },
+        BAND_ELEMENTARY: {
+            "title": "引（ひ）っ越（こ）し",
+            "text": (
+                "去年（きょねん）、ペドロさんは仕事（しごと）のために別（べつ）の町（まち）に引（ひ）っ越（こ）しました。"
+                "最初（さいしょ）は大変（たいへん）でした。知（し）っている人（ひと）がいなくて、"
+                "友達（ともだち）に会（あ）いたかったからです。少（すこ）しずつ近所（きんじょ）で"
+                "新（あたら）しい友達（ともだち）ができました。今（いま）は、引（ひ）っ越（こ）して"
+                "よかったと言（い）っています。"
+            ),
+            "note": "Passado em ました, conectores simples.",
+        },
+        BAND_INTERMEDIATE: {
+            "title": "柔軟（じゅうなん）な働（はたら）き方（かた）",
+            "text": (
+                "多（おお）くの働（はたら）く人（ひと）にとって、柔軟（じゅうなん）な働（はたら）き方（かた）は"
+                "場所（ばしょ）だけを変（か）えたのではありません。集中（しゅうちゅう）の仕方（しかた）や、"
+                "同僚（どうりょう）との話（はな）し方（かた）、仕事（しごと）と私生活（しせいかつ）の"
+                "区別（くべつ）も変（か）わりました。自由（じゆう）を歓迎（かんげい）する人（ひと）もいれば、"
+                "職場（しょくば）の自然（しぜん）な会話（かいわ）が恋（こい）しい人（ひと）もいます。"
+            ),
+            "note": "Texto expositivo com kanji de uso frequente.",
+        },
+        BAND_UPPER: {
+            "title": "自動化（じどうか）と人間（にんげん）の仕事（しごと）",
+            "text": (
+                "自動化（じどうか）をめぐる議論（ぎろん）は、極端（きょくたん）な二（ふた）つの"
+                "見方（みかた）の間（あいだ）で揺（ゆ）れがちです。仕事（しごと）が広（ひろ）く"
+                "消（き）えるという見方（みかた）と、より良（よ）い職業（しょくぎょう）が"
+                "自然（しぜん）に生（う）まれるという見方（みかた）です。実際（じっさい）のデータが"
+                "示（しめ）すのは、もっと地味（じみ）で厄介（やっかい）な状況（じょうきょう）、"
+                "つまり既存（きそん）の職業（しょくぎょう）の中（なか）で業務（ぎょうむ）が"
+                "不均等（ふきんとう）に組（く）み替（か）えられることです。"
+            ),
+            "note": "Registro escrito, estruturas de concessão.",
+        },
+    },
+    "zh-CN": {
+        BAND_BEGINNER: {
+            "title": "普通的早晨",
+            "text": (
+                "安娜七点起床。她和家人一起吃早饭。然后她坐公交车去上班。"
+                "路上要三十分钟。安娜喜欢在车上看书。"
+            ),
+            "note": "Pinyin: Ānnà qī diǎn qǐchuáng… Frases curtas, hanzi de alta frequência.",
+        },
+        BAND_ELEMENTARY: {
+            "title": "搬到另一个城市",
+            "text": (
+                "去年，彼得因为工作搬到了另一个城市。刚开始很难：他谁也不认识，"
+                "也很想念朋友。慢慢地，他在小区里交了新朋友。"
+                "现在他说，搬家是一个好决定。"
+            ),
+            "note": "Partícula 了 e marcadores de tempo.",
+        },
+        BAND_INTERMEDIATE: {
+            "title": "灵活办公如何改变日常",
+            "text": (
+                "对很多职场人来说，灵活办公改变的不只是工作的地点。"
+                "它也改变了人们安排注意力、跟同事沟通以及区分工作与生活的方式。"
+                "有人喜欢这种自主，也有人怀念办公室里自然发生的对话。"
+                "研究表明，最有效的安排更多取决于清晰的预期，而不是固定的模式。"
+            ),
+            "note": "Texto expositivo, conectores de contraste.",
+        },
+        BAND_UPPER: {
+            "title": "自动化与人的劳动价值",
+            "text": (
+                "关于自动化的讨论常常在两个同样不太可能的极端之间摇摆："
+                "工作大规模消失，或者更好的职业自动出现。"
+                "现有证据指向一个不那么戏剧化、却更令人不安的情形："
+                "现有职业内部的任务被不均衡地重新组合。"
+                "并非每个岗位都会被取代；许多岗位是从内部被掏空的，"
+                "失去的恰恰是让从业者拥有自主性的那些活动。"
+            ),
+            "note": "Registro formal escrito, expressões de quatro caracteres.",
+        },
     },
 }
 
-LISTENING_SCRIPTS: dict[str, dict[str, object]] = {
-    BAND_BEGINNER: {
-        "transcript": "Bom dia. Meu nome é Carlos. Eu sou professor. Muito prazer.",
-        "speaking_rate": "lenta, com pausas entre as frases",
-        "note": "Apresentação pessoal simples.",
+#: Roteiros de escuta POR IDIOMA, mesma razão dos textos de leitura.
+LISTENING_SCRIPTS: dict[str, dict[str, dict[str, object]]] = {
+    "en": {
+        BAND_BEGINNER: {
+            "transcript": "Good morning. My name is Carlos. I am a teacher. Nice to meet you.",
+            "speaking_rate": "lenta, com pausas entre as frases",
+            "note": "Apresentação pessoal simples.",
+        },
+        BAND_ELEMENTARY: {
+            "transcript": (
+                "Attention, passengers. Flight 482 to Madrid is delayed by thirty "
+                "minutes. Boarding will begin at gate sixteen."
+            ),
+            "speaking_rate": "moderada, típica de anúncio público",
+            "note": "Anúncio funcional com números.",
+        },
+        BAND_INTERMEDIATE: {
+            "transcript": (
+                "So, about tomorrow's meeting — I moved it earlier because the room "
+                "was only free in the morning. I told the team by message, but if "
+                "anyone can't make it, we can reschedule, no problem."
+            ),
+            "speaking_rate": "natural, com hesitações",
+            "note": "Fala espontânea de trabalho.",
+        },
+        BAND_UPPER: {
+            "transcript": (
+                "What struck me in the report wasn't the number itself, but the way it "
+                "was presented. When you aggregate everything into a single indicator, "
+                "you hide exactly the variation that matters — and then the discussion "
+                "becomes about the average, not about who falls outside it."
+            ),
+            "speaking_rate": "rápida, natural, com encadeamento",
+            "note": "Opinião analítica em velocidade real.",
+        },
     },
-    BAND_ELEMENTARY: {
-        "transcript": (
-            "Atenção, passageiros. O voo 482 para Madri está atrasado em trinta "
-            "minutos. O embarque começará no portão dezesseis."
-        ),
-        "speaking_rate": "moderada, típica de anúncio público",
-        "note": "Anúncio funcional com números.",
+    "es-ES": {
+        BAND_BEGINNER: {
+            "transcript": "Buenos días. Me llamo Carlos. Soy profesor. Encantado.",
+            "speaking_rate": "lenta, com pausas entre as frases",
+            "note": "Apresentação pessoal simples.",
+        },
+        BAND_ELEMENTARY: {
+            "transcript": (
+                "Atención, pasajeros. El vuelo 482 con destino a Madrid lleva treinta "
+                "minutos de retraso. El embarque comenzará en la puerta dieciséis."
+            ),
+            "speaking_rate": "moderada, típica de anúncio público",
+            "note": "Anúncio funcional com números.",
+        },
+        BAND_INTERMEDIATE: {
+            "transcript": (
+                "Bueno, sobre la reunión de mañana: la he adelantado porque la sala "
+                "solo estaba libre por la mañana. Se lo he dicho al equipo por "
+                "mensaje, pero si alguien no puede, la cambiamos sin problema."
+            ),
+            "speaking_rate": "natural, com hesitações",
+            "note": "Fala espontânea de trabalho (variante peninsular).",
+        },
+        BAND_UPPER: {
+            "transcript": (
+                "Lo que más me llamó la atención del informe no fue el número en sí, "
+                "sino cómo se presentó. Cuando lo agregas todo en un único indicador, "
+                "escondes justamente la variación que importa, y entonces la discusión "
+                "pasa a ser sobre la media y no sobre quien queda fuera de ella."
+            ),
+            "speaking_rate": "rápida, natural, com encadeamento",
+            "note": "Opinião analítica em velocidade real.",
+        },
     },
-    BAND_INTERMEDIATE: {
-        "transcript": (
-            "Então, sobre a reunião de amanhã: eu adiantei o horário porque a sala "
-            "só estava livre de manhã. Avisei o time por mensagem, mas se alguém não "
-            "puder, a gente remarca sem problema."
-        ),
-        "speaking_rate": "natural, com hesitações",
-        "note": "Fala espontânea de trabalho.",
+    "fr": {
+        BAND_BEGINNER: {
+            "transcript": "Bonjour. Je m'appelle Carlos. Je suis professeur. Enchanté.",
+            "speaking_rate": "lenta, com pausas entre as frases",
+            "note": "Apresentação pessoal simples.",
+        },
+        BAND_ELEMENTARY: {
+            "transcript": (
+                "Attention, mesdames et messieurs. Le vol 482 à destination de Madrid "
+                "a trente minutes de retard. L'embarquement se fera porte seize."
+            ),
+            "speaking_rate": "moderada, típica de anúncio público",
+            "note": "Anúncio funcional com números.",
+        },
+        BAND_INTERMEDIATE: {
+            "transcript": (
+                "Alors, pour la réunion de demain : je l'ai avancée parce que la salle "
+                "n'était libre que le matin. J'ai prévenu l'équipe par message, mais "
+                "si quelqu'un ne peut pas, on la déplace sans problème."
+            ),
+            "speaking_rate": "natural, com liaison e hesitações",
+            "note": "Fala espontânea de trabalho.",
+        },
+        BAND_UPPER: {
+            "transcript": (
+                "Ce qui m'a le plus frappé dans le rapport, ce n'est pas le chiffre "
+                "lui-même, mais la façon dont il a été présenté. Quand on agrège tout "
+                "dans un seul indicateur, on cache justement la variation qui compte — "
+                "et la discussion porte alors sur la moyenne, pas sur ceux qui en sortent."
+            ),
+            "speaking_rate": "rápida, natural, com encadeamento",
+            "note": "Opinião analítica em velocidade real.",
+        },
     },
-    BAND_UPPER: {
-        "transcript": (
-            "O que mais me chamou atenção no relatório não foi o número em si, mas a "
-            "forma como ele foi apresentado. Quando você agrega tudo num único "
-            "indicador, você esconde exatamente a variação que interessa — e aí a "
-            "discussão vira sobre a média, não sobre quem está fora dela."
-        ),
-        "speaking_rate": "rápida, natural, com encadeamento",
-        "note": "Opinião analítica em velocidade real.",
+    "ja": {
+        BAND_BEGINNER: {
+            "transcript": "おはようございます。カルロスです。教師（きょうし）です。よろしくお願（ねが）いします。",
+            "speaking_rate": "lenta, com pausas entre as frases",
+            "note": "Apresentação pessoal em forma polida.",
+        },
+        BAND_ELEMENTARY: {
+            "transcript": (
+                "ご案内（あんない）します。マドリード行（ゆ）き四八二便（びん）は、"
+                "三十分（さんじゅっぷん）遅（おく）れています。"
+                "十六番（じゅうろくばん）ゲートからご搭乗（とうじょう）ください。"
+            ),
+            "speaking_rate": "moderada, típica de anúncio público",
+            "note": "Anúncio funcional com números e keigo.",
+        },
+        BAND_INTERMEDIATE: {
+            "transcript": (
+                "あの、明日（あした）の会議（かいぎ）ですが、部屋（へや）が午前中（ごぜんちゅう）しか"
+                "空（あ）いていなかったので、時間（じかん）を早（はや）めました。"
+                "メッセージでチームに伝（つた）えましたが、都合（つごう）が悪（わる）い人（ひと）がいたら、"
+                "日程（にってい）を変（か）えても大丈夫（だいじょうぶ）です。"
+            ),
+            "speaking_rate": "natural, com hesitações",
+            "note": "Fala espontânea de trabalho.",
+        },
+        BAND_UPPER: {
+            "transcript": (
+                "報告書（ほうこくしょ）で気（き）になったのは、数字（すうじ）そのものより、"
+                "その見（み）せ方（かた）でした。すべてを一（ひと）つの指標（しひょう）にまとめると、"
+                "いちばん重要（じゅうよう）なばらつきが隠（かく）れてしまいます。そうすると、"
+                "議論（ぎろん）は平均（へいきん）の話（はなし）になってしまいます。"
+            ),
+            "speaking_rate": "rápida, natural, com encadeamento",
+            "note": "Opinião analítica em velocidade real.",
+        },
+    },
+    "zh-CN": {
+        BAND_BEGINNER: {
+            "transcript": "早上好。我叫卡洛斯。我是老师。很高兴认识你。",
+            "speaking_rate": "lenta, com tons bem marcados",
+            "note": "Pinyin: Zǎoshang hǎo. Wǒ jiào Kǎluòsī…",
+        },
+        BAND_ELEMENTARY: {
+            "transcript": (
+                "各位旅客请注意。飞往马德里的482次航班晚点三十分钟，"
+                "将在十六号登机口开始登机。"
+            ),
+            "speaking_rate": "moderada, típica de anúncio público",
+            "note": "Anúncio funcional com números.",
+        },
+        BAND_INTERMEDIATE: {
+            "transcript": (
+                "关于明天的会议啊，我把时间提前了，因为会议室只有上午空着。"
+                "我已经发消息告诉大家了，如果谁来不了，我们再改时间也没问题。"
+            ),
+            "speaking_rate": "natural, com partículas de fala",
+            "note": "Fala espontânea de trabalho.",
+        },
+        BAND_UPPER: {
+            "transcript": (
+                "这份报告里最让我在意的，不是数字本身，而是它的呈现方式。"
+                "当你把所有东西都汇总成一个指标时，恰恰把最值得关注的差异藏了起来——"
+                "于是讨论变成了关于平均值，而不是关于那些落在平均值之外的人。"
+            ),
+            "speaking_rate": "rápida, natural, com encadeamento",
+            "note": "Opinião analítica em velocidade real.",
+        },
+    },
+}
+
+#: Exigências de escrita acrescentadas à rubrica da tarefa, por idioma.
+#: É o que impede uma tarefa de escrita em japonês de ser cumprida em romaji.
+WRITING_SCRIPT_HINTS: dict[str, list[str]] = {
+    "en": [],
+    "es-ES": ["Vocabulário peninsular", "Acentuação correta"],
+    "fr": ["Gênero e concordância", "Acentos e cedilha"],
+    "ja": ["Escreva em kana", "Kanji apenas com furigana", "Romaji não conta como resposta"],
+    "zh-CN": ["Escreva em hanzi", "Inclua o pinyin com marcação de tom"],
+}
+
+#: Exemplos de gramática por idioma e faixa, alinhados a `GRAMMAR_FOCUS`.
+#: Antes existia só para inglês (em `ai.py`), então uma lição de gramática em
+#: japonês saía sem um único exemplo.
+GRAMMAR_EXAMPLES: dict[str, dict[str, list[dict[str, str]]]] = {
+    "en": {
+        BAND_BEGINNER: [
+            {"sentence": "What is your name?", "translation": "Qual é o seu nome?"},
+            {"sentence": "Where are you from?", "translation": "De onde você é?"},
+            {"sentence": "What do you do?", "translation": "O que você faz?"},
+        ],
+        BAND_ELEMENTARY: [
+            {"sentence": "I worked late yesterday.", "translation": "Eu trabalhei até tarde ontem."},
+            {"sentence": "I usually work from home.", "translation": "Eu normalmente trabalho de casa."},
+            {"sentence": "She called, then she left.", "translation": "Ela ligou, depois saiu."},
+        ],
+        BAND_INTERMEDIATE: [
+            {"sentence": "I have been to Paris three times.", "translation": "Já estive em Paris três vezes."},
+            {"sentence": "I went to Paris in 2019.", "translation": "Fui a Paris em 2019."},
+            {"sentence": "I have been working here since March.", "translation": "Trabalho aqui desde março."},
+        ],
+        BAND_UPPER: [
+            {"sentence": "That might explain the delay.", "translation": "Isso talvez explique o atraso."},
+            {"sentence": "If we had known, we would have waited.", "translation": "Se soubéssemos, teríamos esperado."},
+            {"sentence": "It is arguably the better option.", "translation": "É, discutivelmente, a melhor opção."},
+        ],
+    },
+    "es-ES": {
+        BAND_BEGINNER: [
+            {"sentence": "¿Cómo te llamas?", "translation": "Qual é o seu nome?"},
+            {"sentence": "¿De dónde eres?", "translation": "De onde você é?"},
+            {"sentence": "¿A qué te dedicas?", "translation": "O que você faz?"},
+        ],
+        BAND_ELEMENTARY: [
+            {"sentence": "Ayer trabajé hasta tarde.", "translation": "Ontem trabalhei até tarde."},
+            {"sentence": "Normalmente trabajo desde casa.", "translation": "Normalmente trabalho de casa."},
+            {"sentence": "Llamó y luego se fue.", "translation": "Ligou e depois foi embora."},
+        ],
+        BAND_INTERMEDIATE: [
+            {"sentence": "He estado en París tres veces.", "translation": "Já estive em Paris três vezes."},
+            {"sentence": "Fui a París en 2019.", "translation": "Fui a Paris em 2019."},
+            {"sentence": "Trabajo aquí desde marzo.", "translation": "Trabalho aqui desde março."},
+        ],
+        BAND_UPPER: [
+            {"sentence": "Eso podría explicar el retraso.", "translation": "Isso poderia explicar o atraso."},
+            {"sentence": "Si lo hubiéramos sabido, habríamos esperado.", "translation": "Se soubéssemos, teríamos esperado."},
+            {"sentence": "Es, sin duda, la mejor opción.", "translation": "É, sem dúvida, a melhor opção."},
+        ],
+    },
+    "fr": {
+        BAND_BEGINNER: [
+            {"sentence": "Comment vous appelez-vous ?", "translation": "Como você se chama?"},
+            {"sentence": "D'où venez-vous ?", "translation": "De onde você é?"},
+            {"sentence": "Que faites-vous ?", "translation": "O que você faz?"},
+        ],
+        BAND_ELEMENTARY: [
+            {"sentence": "Hier, j'ai travaillé tard.", "translation": "Ontem trabalhei até tarde."},
+            {"sentence": "D'habitude, je travaille chez moi.", "translation": "Normalmente trabalho em casa."},
+            {"sentence": "Elle a appelé, puis elle est partie.", "translation": "Ela ligou, depois saiu."},
+        ],
+        BAND_INTERMEDIATE: [
+            {"sentence": "Quand j'étais petit, je jouais au football.", "translation": "Quando eu era pequeno, eu jogava futebol."},
+            {"sentence": "Hier, j'ai joué au football.", "translation": "Ontem joguei futebol."},
+            {"sentence": "Je travaille ici depuis mars.", "translation": "Trabalho aqui desde março."},
+        ],
+        BAND_UPPER: [
+            {"sentence": "Cela pourrait expliquer le retard.", "translation": "Isso poderia explicar o atraso."},
+            {"sentence": "Si nous avions su, nous aurions attendu.", "translation": "Se soubéssemos, teríamos esperado."},
+            {"sentence": "C'est sans doute la meilleure option.", "translation": "É, sem dúvida, a melhor opção."},
+        ],
+    },
+    "ja": {
+        BAND_BEGINNER: [
+            {"sentence": "お名前（なまえ）は何（なん）ですか。", "translation": "Qual é o seu nome?"},
+            {"sentence": "どこから来（き）ましたか。", "translation": "De onde você veio?"},
+            {"sentence": "お仕事（しごと）は何（なん）ですか。", "translation": "O que você faz?"},
+        ],
+        BAND_ELEMENTARY: [
+            {"sentence": "昨日（きのう）遅（おそ）くまで働（はたら）きました。", "translation": "Ontem trabalhei até tarde."},
+            {"sentence": "いつも家（いえ）で働（はたら）きます。", "translation": "Sempre trabalho em casa."},
+            {"sentence": "電話（でんわ）して、それから帰（かえ）りました。", "translation": "Ligou e depois foi embora."},
+        ],
+        BAND_INTERMEDIATE: [
+            {"sentence": "パリに行（い）ったことがあります。", "translation": "Já estive em Paris."},
+            {"sentence": "二〇一九年（にせんじゅうくねん）にパリに行（い）きました。", "translation": "Fui a Paris em 2019."},
+            {"sentence": "三月（さんがつ）からここで働（はたら）いています。", "translation": "Trabalho aqui desde março."},
+        ],
+        BAND_UPPER: [
+            {"sentence": "それが遅（おく）れの理由（りゆう）かもしれません。", "translation": "Isso talvez explique o atraso."},
+            {"sentence": "知（し）っていたら、待（ま）っていたでしょう。", "translation": "Se soubéssemos, teríamos esperado."},
+            {"sentence": "おそらく、そちらのほうが良（よ）い選択（せんたく）です。", "translation": "Provavelmente essa é a melhor opção."},
+        ],
+    },
+    "zh-CN": {
+        BAND_BEGINNER: [
+            {"sentence": "你叫什么名字？", "translation": "Qual é o seu nome? (Nǐ jiào shénme míngzi?)"},
+            {"sentence": "你是哪里人？", "translation": "De onde você é? (Nǐ shì nǎlǐ rén?)"},
+            {"sentence": "你做什么工作？", "translation": "O que você faz? (Nǐ zuò shénme gōngzuò?)"},
+        ],
+        BAND_ELEMENTARY: [
+            {"sentence": "昨天我工作到很晚。", "translation": "Ontem trabalhei até tarde. (Zuótiān wǒ gōngzuò dào hěn wǎn.)"},
+            {"sentence": "我平时在家工作。", "translation": "Normalmente trabalho em casa. (Wǒ píngshí zài jiā gōngzuò.)"},
+            {"sentence": "她打了电话，然后就走了。", "translation": "Ela ligou e depois foi embora. (Tā dǎle diànhuà, ránhòu jiù zǒule.)"},
+        ],
+        BAND_INTERMEDIATE: [
+            {"sentence": "我去过巴黎三次。", "translation": "Já estive em Paris três vezes. (Wǒ qùguo Bālí sān cì.)"},
+            {"sentence": "我2019年去了巴黎。", "translation": "Fui a Paris em 2019. (Wǒ 2019 nián qùle Bālí.)"},
+            {"sentence": "我从三月起在这里工作。", "translation": "Trabalho aqui desde março. (Wǒ cóng sānyuè qǐ zài zhèlǐ gōngzuò.)"},
+        ],
+        BAND_UPPER: [
+            {"sentence": "这也许可以解释延误。", "translation": "Isso talvez explique o atraso. (Zhè yěxǔ kěyǐ jiěshì yánwù.)"},
+            {"sentence": "要是我们早知道，就会等了。", "translation": "Se soubéssemos, teríamos esperado. (Yàoshi wǒmen zǎo zhīdào, jiù huì děngle.)"},
+            {"sentence": "总的来说，这是更好的选择。", "translation": "De modo geral, é a melhor opção. (Zǒng de láishuō…)"},
+        ],
+    },
+}
+
+#: Um exercício por idioma e faixa. Cada um traz a razão da resposta: marcar
+#: certo/errado sem explicar não ensina a montar a frase sozinho.
+GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
+    "en": {
+        BAND_BEGINNER: [
+            {
+                "prompt": "____ is your name?",
+                "options": ["What", "Where", "Who"],
+                "answer": "What",
+                "rationale": "'What' pergunta pela informação; 'Where' pergunta lugar.",
+            }
+        ],
+        BAND_ELEMENTARY: [
+            {
+                "prompt": "I ____ late yesterday.",
+                "options": ["worked", "work", "am working"],
+                "answer": "worked",
+                "rationale": "'Yesterday' fecha o tempo, então o passado simples é obrigatório.",
+            }
+        ],
+        BAND_INTERMEDIATE: [
+            {
+                "prompt": "I ____ to Paris three times.",
+                "options": ["have been", "went", "was going"],
+                "answer": "have been",
+                "rationale": "Não há momento passado fechado: o que importa é a experiência acumulada.",
+            }
+        ],
+        BAND_UPPER: [
+            {
+                "prompt": "If we ____ earlier, we would have caught the train.",
+                "options": ["had left", "left", "have left"],
+                "answer": "had left",
+                "rationale": "Hipótese contrafactual sobre o passado exige o mais-que-perfeito.",
+            }
+        ],
+    },
+    "es-ES": {
+        BAND_BEGINNER: [
+            {
+                "prompt": "¿____ te llamas?",
+                "options": ["Cómo", "Dónde", "Quién"],
+                "answer": "Cómo",
+                "rationale": "'Cómo' pergunta o nome; 'Dónde' pergunta lugar.",
+            }
+        ],
+        BAND_ELEMENTARY: [
+            {
+                "prompt": "Ayer ____ hasta tarde.",
+                "options": ["trabajé", "trabajo", "estoy trabajando"],
+                "answer": "trabajé",
+                "rationale": "'Ayer' fecha o tempo: pretérito indefinido.",
+            }
+        ],
+        BAND_INTERMEDIATE: [
+            {
+                "prompt": "____ en París tres veces.",
+                "options": ["He estado", "Estuve", "Estaba"],
+                "answer": "He estado",
+                "rationale": "Sem marcador fechado, o pretérito perfecto marca experiência acumulada (uso peninsular).",
+            }
+        ],
+        BAND_UPPER: [
+            {
+                "prompt": "Si lo ____ antes, habríamos cogido el tren.",
+                "options": ["hubiéramos sabido", "supimos", "sabíamos"],
+                "answer": "hubiéramos sabido",
+                "rationale": "Hipótese contrafactual do passado pede pluscuamperfecto de subjuntivo.",
+            }
+        ],
+    },
+    "fr": {
+        BAND_BEGINNER: [
+            {
+                "prompt": "____ vous appelez-vous ?",
+                "options": ["Comment", "Où", "Qui"],
+                "answer": "Comment",
+                "rationale": "'Comment' pergunta o nome; 'Où' pergunta lugar.",
+            }
+        ],
+        BAND_ELEMENTARY: [
+            {
+                "prompt": "Hier, j'____ tard.",
+                "options": ["ai travaillé", "travaille", "travaillerai"],
+                "answer": "ai travaillé",
+                "rationale": "'Hier' fecha o tempo: passé composé.",
+            }
+        ],
+        BAND_INTERMEDIATE: [
+            {
+                "prompt": "Quand j'étais enfant, je ____ souvent à la plage.",
+                "options": ["allais", "suis allé", "irai"],
+                "answer": "allais",
+                "rationale": "Hábito no passado pede imparfait; uma ação pontual pediria passé composé.",
+            }
+        ],
+        BAND_UPPER: [
+            {
+                "prompt": "Si nous ____ plus tôt, nous aurions eu le train.",
+                "options": ["étions partis", "sommes partis", "partions"],
+                "answer": "étions partis",
+                "rationale": "Contrafactual do passado: plus-que-parfait na condição, conditionnel passé no resultado.",
+            }
+        ],
+    },
+    "ja": {
+        BAND_BEGINNER: [
+            {
+                "prompt": "お名前（なまえ）は____ですか。",
+                "options": ["何（なん）", "どこ", "だれ"],
+                "answer": "何（なん）",
+                "rationale": "「何」pergunta pela coisa; 「どこ」pergunta lugar.",
+            }
+        ],
+        BAND_ELEMENTARY: [
+            {
+                "prompt": "昨日（きのう）遅（おそ）くまで____。",
+                "options": ["働（はたら）きました", "働（はたら）きます", "働（はたら）いています"],
+                "answer": "働（はたら）きました",
+                "rationale": "「昨日」fecha o tempo: a forma passada ました é obrigatória.",
+            }
+        ],
+        BAND_INTERMEDIATE: [
+            {
+                "prompt": "パリに行（い）った____があります。",
+                "options": ["こと", "もの", "ところ"],
+                "answer": "こと",
+                "rationale": "「〜たことがある」é a estrutura fixa de experiência acumulada.",
+            }
+        ],
+        BAND_UPPER: [
+            {
+                "prompt": "明日（あした）は雨（あめ）が降（ふ）る____。",
+                "options": ["かもしれません", "ましょう", "てください"],
+                "answer": "かもしれません",
+                "rationale": "「かもしれない」marca possibilidade; grau de certeza menor que 「でしょう」.",
+            }
+        ],
+    },
+    "zh-CN": {
+        BAND_BEGINNER: [
+            {
+                "prompt": "你叫____名字？",
+                "options": ["什么", "哪里", "谁"],
+                "answer": "什么",
+                "rationale": "「什么」pergunta pela coisa; 「哪里」pergunta lugar.",
+            }
+        ],
+        BAND_ELEMENTARY: [
+            {
+                "prompt": "昨天我____到很晚。",
+                "options": ["工作了", "工作", "在工作"],
+                "answer": "工作了",
+                "rationale": "「了」marca ação concluída; com 「昨天」o tempo já está fechado.",
+            }
+        ],
+        BAND_INTERMEDIATE: [
+            {
+                "prompt": "我去____巴黎三次。",
+                "options": ["过", "了", "着"],
+                "answer": "过",
+                "rationale": "「过」marca experiência acumulada; 「了」marcaria um fato pontual.",
+            }
+        ],
+        BAND_UPPER: [
+            {
+                "prompt": "要是我们早知道，____会等。",
+                "options": ["就", "才", "还"],
+                "answer": "就",
+                "rationale": "「要是…就…」é o par condicional padrão do mandarim.",
+            }
+        ],
     },
 }
 
@@ -421,3 +1055,108 @@ PRONUNCIATION_FOCUS: dict[str, list[dict[str, str]]] = {
         {"sound": "zh, ch, sh, r retroflexos", "why_hard": "Exigem língua curvada para trás, movimento ausente no português.", "how_to_produce": "Ponta da língua enrolada em direção ao céu da boca."},
     ],
 }
+
+
+# ---------------------------------------------------------------------------
+# Acessores com fallback explícito
+# ---------------------------------------------------------------------------
+
+#: Idiomas suportados. Vale como contrato: nenhuma célula
+#: idioma × habilidade × faixa pode voltar vazia para nenhum deles.
+SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "es-ES", "fr", "ja", "zh-CN")
+
+#: Idioma usado quando um código desconhecido chega até aqui. Só protege contra
+#: dado inesperado — para os cinco idiomas oficiais o fallback nunca dispara.
+FALLBACK_LANGUAGE = "en"
+
+
+def _by_language(table: dict, language_code: str) -> dict:
+    return table.get(language_code) or table[FALLBACK_LANGUAGE]
+
+
+def vocabulary(language_code: str, band: str) -> list[dict[str, str]]:
+    table = _by_language(VOCABULARY, language_code)
+    return list(table.get(band) or table[BAND_ELEMENTARY])
+
+
+def reading_text(language_code: str, band: str) -> dict[str, object]:
+    table = _by_language(READING_TEXTS, language_code)
+    return dict(table.get(band) or table[BAND_ELEMENTARY])
+
+
+def listening_script(language_code: str, band: str) -> dict[str, object]:
+    table = _by_language(LISTENING_SCRIPTS, language_code)
+    return dict(table.get(band) or table[BAND_ELEMENTARY])
+
+
+def grammar_examples(language_code: str, band: str) -> list[dict[str, str]]:
+    table = _by_language(GRAMMAR_EXAMPLES, language_code)
+    return list(table.get(band) or table[BAND_ELEMENTARY])
+
+
+def grammar_exercises(language_code: str, band: str) -> list[dict]:
+    table = _by_language(GRAMMAR_EXERCISES, language_code)
+    return list(table.get(band) or table[BAND_ELEMENTARY])
+
+
+def pronunciation_focus(language_code: str) -> list[dict[str, str]]:
+    return list(PRONUNCIATION_FOCUS.get(language_code) or PRONUNCIATION_FOCUS[FALLBACK_LANGUAGE])
+
+
+def writing_task(language_code: str, band: str) -> dict[str, object]:
+    """Tarefa de escrita da faixa, com as exigências de escrita do idioma.
+
+    O enunciado é o mesmo entre idiomas (o que se pede escrever não muda); o
+    que muda é a rubrica — em japonês e mandarim o sistema de escrita faz parte
+    do que está sendo avaliado.
+    """
+    task = dict(WRITING_TASKS[band])
+    hints = list(task["rubric_hints"])  # type: ignore[arg-type]
+    hints.extend(WRITING_SCRIPT_HINTS.get(language_code, []))
+    task["rubric_hints"] = hints
+    return task
+
+
+def conversation_situation(language_code: str, band: str) -> dict[str, str]:
+    return dict(CONVERSATION_SITUATIONS[band])
+
+
+def grammar_focus(language_code: str, band: str) -> dict[str, object]:
+    return dict(GRAMMAR_FOCUS[band])
+
+
+#: Habilidade → acessor. Usado pelo relatório de cobertura.
+SKILL_ACCESSORS = {
+    "vocabulary": vocabulary,
+    "grammar": grammar_examples,
+    "grammar_exercises": grammar_exercises,
+    "reading": reading_text,
+    "listening": listening_script,
+    "writing": writing_task,
+    "conversation": conversation_situation,
+    "review": vocabulary,
+}
+
+ALL_BANDS: tuple[str, ...] = (
+    BAND_BEGINNER,
+    BAND_ELEMENTARY,
+    BAND_INTERMEDIATE,
+    BAND_UPPER,
+)
+
+
+def coverage_report() -> list[str]:
+    """Células vazias no formato `idioma/habilidade/faixa`.
+
+    Existe para virar teste: com `AI_MOCK_MODE=true` (o padrão do projeto), uma
+    célula vazia aqui é um bloco do cronograma que abre sem conteúdo nenhum.
+    """
+    gaps: list[str] = []
+    for language_code in SUPPORTED_LANGUAGES:
+        for skill, accessor in SKILL_ACCESSORS.items():
+            for band in ALL_BANDS:
+                if not accessor(language_code, band):
+                    gaps.append(f"{language_code}/{skill}/{band}")
+        if not pronunciation_focus(language_code):
+            gaps.append(f"{language_code}/pronunciation/-")
+    return gaps

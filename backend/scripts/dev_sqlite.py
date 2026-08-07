@@ -20,6 +20,10 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{DB_PATH.as_posix()}")
 os.environ.setdefault("AI_MOCK_MODE", "true")
 os.environ.setdefault("COOKIE_SECURE", "false")
 os.environ.setdefault("FRONTEND_ORIGIN", "http://localhost:3000")
+# Sem isso o `.env` de produção (`COOKIE_DOMAIN=.medquesthub.com.br`) vaza para
+# o servidor local: o navegador descarta o cookie de sessão em `localhost` e o
+# login responde 200 mas toda rota autenticada volta 401.
+os.environ.setdefault("COOKIE_DOMAIN", "")
 
 import uvicorn  # noqa: E402
 

@@ -38,6 +38,11 @@ class TestStatus(StrEnum):
 
 class LevelSource(StrEnum):
     PLACEMENT_TEST = "placement_test"
+    #: Mini-avaliação de checkpoint do cronograma (semanas pares). Mesmo motor do
+    #: nivelamento, amostra menor — por isso é uma origem distinta, não o mesmo
+    #: rótulo: um nível vindo de 14 itens não tem o peso de um vindo do teste
+    #: completo, e a interface precisa poder dizer isso.
+    CHECKPOINT = "checkpoint"
     SELF_DECLARED = "self_declared"
     SELF_DECLARED_BEGINNER = "self_declared_beginner"
     ADMIN = "admin"

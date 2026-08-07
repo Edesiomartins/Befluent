@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import {
   BookOpen,
+  CalendarDays,
   Dumbbell,
   Flame,
   Globe,
@@ -23,6 +24,7 @@ import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 
 const navigation = [
   { href: "/dashboard", label: "Início", icon: Home },
+  { href: "/cronograma", label: "Cronograma", icon: CalendarDays },
   { href: "/learn", label: "Prática", icon: Dumbbell },
   { href: "/languages", label: "Idiomas", icon: Globe },
   { href: "/progress", label: "Progresso", icon: TrendingUp },
@@ -45,7 +47,8 @@ function NavItem({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
-  const active = pathname === href || (href === "/learn" && pathname.startsWith("/learn/"));
+  const active =
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
   return (
     <Link
       href={href}
@@ -204,7 +207,7 @@ export function Header() {
 export function MobileNav() {
   return (
     <nav
-      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface px-2 pb-[env(safe-area-inset-bottom)] lg:hidden"
       aria-label="Navegação móvel"
     >
       {navigation.map((item) => (
@@ -216,7 +219,8 @@ export function MobileNav() {
 
 function MobileNavItem({ href, label, icon: Icon }: { href: string; label: string; icon: typeof Home }) {
   const pathname = usePathname();
-  const active = pathname === href || (href === "/learn" && pathname.startsWith("/learn/"));
+  const active =
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
   return (
     <Link
       href={href}

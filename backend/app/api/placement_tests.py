@@ -37,6 +37,7 @@ from app.models import (
 )
 from app.schemas import PlacementAnswerIn, PlacementTestCreate, PlacementWritingIn
 from app.services import placement_engine as engine
+from app.services.progression import CHECKPOINT_SOURCE, apply_checkpoint_outcome
 from app.services.placement_delivery import (
     approved_active_filter,
     consume_delivery_for_answer,
@@ -182,6 +183,9 @@ def create_test(
             PlacementTest.user_id == user.id,
             PlacementTest.language_code == data.language_code,
             PlacementTest.status.in_([TestStatus.PENDING, TestStatus.IN_PROGRESS]),
+            # Checkpoint do cronograma é outro fluxo: não é retomado aqui nem
+            # bloqueia a abertura de um teste de nivelamento completo.
+            PlacementTest.source != CHECKPOINT_SOURCE,
         )
     )
     if existing:
@@ -194,6 +198,9 @@ def create_test(
             PlacementTest.user_id == user.id,
             PlacementTest.language_code == data.language_code,
             PlacementTest.status == TestStatus.COMPLETED,
+            # O intervalo de 30 dias vale entre nivelamentos completos. Um
+            # checkpoint quinzenal não pode travar o teste de verdade.
+            PlacementTest.source != CHECKPOINT_SOURCE,
         )
         .order_by(PlacementTest.completed_at.desc())
     )
@@ -231,6 +238,7 @@ def current_test(
     query = select(PlacementTest).where(
         PlacementTest.user_id == user.id,
         PlacementTest.status.in_([TestStatus.PENDING, TestStatus.IN_PROGRESS]),
+        PlacementTest.source != CHECKPOINT_SOURCE,
     )
     if language_code:
         query = query.where(PlacementTest.language_code == language_code)
@@ -538,6 +546,10 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
         section.estimated_level = None
 
     _apply_to_profile(db, test, result, user)
+    # Checkpoint do cronograma: corrige a origem do nível e avalia a promoção
+    # das semanas ainda pendentes. Teste comum não passa por aqui.
+    if test.source == CHECKPOINT_SOURCE:
+        apply_checkpoint_outcome(db, test)
     db.commit()
     return _result_payload(db, test)
 

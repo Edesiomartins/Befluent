@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from datetime import date, datetime, timezone
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 def uid(): return str(uuid.uuid4())
@@ -81,6 +81,59 @@ class LearningPlanItem(UUIDMixin, Base):
     position: Mapped[int]=mapped_column(Integer); activity_type: Mapped[str]=mapped_column(String(50)); title: Mapped[str]=mapped_column(String(200))
     status: Mapped[str]=mapped_column(String(20), default="pending"); due_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True)); metadata_json: Mapped[dict]=mapped_column(JSON, default=dict)
+
+class Curriculum(UUIDMixin, Base):
+    """Cronograma estruturado de estudo, gerado a partir do teste de nivelamento.
+
+    Coexiste com `LearningPlan` (lista curta e sem datas, mantida por
+    compatibilidade). A diferença é o eixo temporal: aqui cada dia tem data
+    prevista, tema semanal e blocos por competência, do nível de entrada até a
+    meta. Regenerar não apaga: o currículo anterior vira `regenerated`.
+    """
+    __tablename__="curricula"
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    duration_days: Mapped[int]=mapped_column(Integer, default=90)
+    start_date: Mapped[date]=mapped_column(Date)
+    #: CEFR alvo ao fim do cronograma e CEFR de entrada (mediana das competências).
+    target_level: Mapped[str]=mapped_column(String(10))
+    entry_level: Mapped[str]=mapped_column(String(10))
+    status: Mapped[str]=mapped_column(String(20), default="active", index=True)
+    generated_from: Mapped[str]=mapped_column(String(30), default="placement")
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class CurriculumWeek(UUIDMixin, Base):
+    __tablename__="curriculum_weeks"; __table_args__=(UniqueConstraint("curriculum_id","week_number"),)
+    curriculum_id: Mapped[str]=mapped_column(ForeignKey("curricula.id", ondelete="CASCADE"), index=True)
+    week_number: Mapped[int]=mapped_column(Integer)
+    #: Tema comunicativo da semana (ex.: "Apresentações e rotina").
+    theme: Mapped[str]=mapped_column(String(200))
+    cefr_focus: Mapped[str]=mapped_column(String(10))
+    #: Semanas pares carregam mini-avaliação das quatro competências.
+    is_checkpoint: Mapped[bool]=mapped_column(Boolean, default=False)
+
+class CurriculumDay(UUIDMixin, Base):
+    __tablename__="curriculum_days"; __table_args__=(UniqueConstraint("week_id","day_number"),)
+    week_id: Mapped[str]=mapped_column(ForeignKey("curriculum_weeks.id", ondelete="CASCADE"), index=True)
+    #: 1..duration_days — numeração global do cronograma, não da semana.
+    day_number: Mapped[int]=mapped_column(Integer, index=True)
+    scheduled_date: Mapped[date]=mapped_column(Date, index=True)
+    status: Mapped[str]=mapped_column(String(20), default="pending", index=True)
+    completed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+
+class CurriculumBlock(UUIDMixin, Base):
+    __tablename__="curriculum_blocks"; __table_args__=(UniqueConstraint("day_id","position"),)
+    day_id: Mapped[str]=mapped_column(ForeignKey("curriculum_days.id", ondelete="CASCADE"), index=True)
+    #: `app.core.curriculum.BlockSkill` — oito áreas de estudo.
+    skill: Mapped[str]=mapped_column(String(30), index=True)
+    position: Mapped[int]=mapped_column(Integer)
+    estimated_minutes: Mapped[int]=mapped_column(Integer, default=10)
+    cefr_level: Mapped[str]=mapped_column(String(10))
+    topic: Mapped[str]=mapped_column(String(200), default="")
+    #: Lição gerada ao iniciar o bloco. Nulo enquanto o bloco não foi aberto.
+    lesson_ref: Mapped[str|None]=mapped_column(String(36), index=True)
+    status: Mapped[str]=mapped_column(String(20), default="pending", index=True)
+    score: Mapped[float|None]=mapped_column(Float)
 
 class StudySession(UUIDMixin, Base):
     __tablename__="study_sessions"

@@ -71,6 +71,16 @@ Nem tudo é implementado ao mesmo tempo. Cada fase tem critério de conclusão. 
 - **Dependências:** Fases 3–5.
 - **Riscos:** falsa precisão de pronúncia/nível.
 
+## Fase 6.5 — Cronograma estruturado (currículo)
+
+- **Objetivo:** dar eixo temporal ao estudo — do nível diagnosticado até a meta, com data por dia.
+- **Entregáveis:** tabelas `curricula`/`curriculum_weeks`/`curriculum_days`/`curriculum_blocks` (migration `0006_curriculum`); gerador a partir do nivelamento; rotas `/api/v1/curriculum/...`; checkpoints quinzenais com promoção; recuperação de atraso (comprimir/estender); telas `/cronograma` e `/cronograma/dia/[id]`; banco de temas e cobertura mock nos 5 idiomas.
+- **Testes:** geração em 90/180 dias e níveis de entrada variados nos 5 idiomas; pesos adaptativos; checkpoint e promoção; reagendamento; propriedade nas rotas; cobertura idioma×habilidade×faixa; vitest do cronograma e da conclusão de bloco.
+- **Conclusão:** aluno com nivelamento concluído gera cronograma, executa os blocos do dia e vê o progresso até a meta.
+- **Dependências:** Fases 2–6 (nivelamento, lições por modo, SRS).
+- **Riscos:** prometer fluência em prazo fixo — mitigado por `disclaimer` explícito em toda resposta e tela; heurística de distribuição sem validação pedagógica formal, declarada em [learning-engine.md](learning-engine.md).
+- **Substitui:** `learning_plans` como motor de planejamento (rotas antigas mantidas, marcadas *deprecated*).
+
 ## Fase 7 — Qualidade, segurança, a11y, deploy Coolify
 
 - **Objetivo:** endurecer e publicar.
@@ -93,5 +103,6 @@ flowchart TD
   F3 --> F5[Fase 5]
   F4 --> F6[Fase 6]
   F5 --> F6
-  F6 --> F7[Fase 7]
+  F6 --> F65[Fase 6.5 — Cronograma]
+  F65 --> F7[Fase 7]
 ```

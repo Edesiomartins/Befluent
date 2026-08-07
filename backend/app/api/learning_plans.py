@@ -1,3 +1,11 @@
+"""Planos de estudo — DEPRECATED.
+
+Substituído por `app/api/curriculum.py`: uma lista de três itens sem datas não
+sustenta um cronograma que leva o aluno do nível diagnosticado até a meta. As
+rotas continuam funcionando para clientes antigos e para os planos já criados;
+nenhum código novo deve usá-las.
+"""
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import select

@@ -114,10 +114,7 @@ class MockAIProvider(BaseAIProvider):
         """
         level = context.level_for_skill(MODE_SKILL["conversation"])
         band = lesson_bank.band_for(level)
-        vocab = lesson_bank.VOCABULARY.get(
-            context.language_code, lesson_bank.VOCABULARY["en"]
-        )
-        items = vocab.get(band) or vocab[lesson_bank.BAND_ELEMENTARY]
+        items = lesson_bank.vocabulary(context.language_code, band)
 
         # Uma fala do tutor por turno já ocorrido, dando a volta ao fim do roteiro.
         turn = sum(1 for message in history if message.get("role") == "assistant")
@@ -153,10 +150,7 @@ class MockAIProvider(BaseAIProvider):
 
 
 def _vocabulary(context: LearnerContext, band: str, level: str) -> dict:
-    by_language = lesson_bank.VOCABULARY.get(
-        context.language_code, lesson_bank.VOCABULARY["en"]
-    )
-    items = by_language.get(band) or by_language[lesson_bank.BAND_ELEMENTARY]
+    items = lesson_bank.vocabulary(context.language_code, band)
     return {
         "title": f"Vocabulário essencial · {level}",
         "objective": (
@@ -168,20 +162,19 @@ def _vocabulary(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _grammar(context: LearnerContext, band: str, level: str) -> dict:
-    focus = lesson_bank.GRAMMAR_FOCUS[band]
-    exercises = _GRAMMAR_EXERCISES.get(context.language_code, {}).get(band)
+    focus = lesson_bank.grammar_focus(context.language_code, band)
     return {
         "title": f"{focus['title']} · {level}",
         "objective": focus["objective"],
         "explanation": focus["explanation"],
         "patterns": list(focus["patterns"]),
-        "examples": _GRAMMAR_EXAMPLES.get(context.language_code, {}).get(band, []),
-        "exercises": exercises or [],
+        "examples": lesson_bank.grammar_examples(context.language_code, band),
+        "exercises": lesson_bank.grammar_exercises(context.language_code, band),
     }
 
 
 def _reading(context: LearnerContext, band: str, level: str) -> dict:
-    text = lesson_bank.READING_TEXTS[band]
+    text = lesson_bank.reading_text(context.language_code, band)
     return {
         "title": f"{text['title']} · {level}",
         "objective": "Ler um texto calibrado para o seu nível e verificar a compreensão.",
@@ -203,7 +196,7 @@ def _reading(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _listening(context: LearnerContext, band: str, level: str) -> dict:
-    script = lesson_bank.LISTENING_SCRIPTS[band]
+    script = lesson_bank.listening_script(context.language_code, band)
     return {
         "title": f"Compreensão auditiva · {level}",
         "objective": "Treinar escuta ativa com um objetivo definido, não escuta de fundo.",
@@ -225,7 +218,7 @@ def _listening(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _writing(context: LearnerContext, band: str, level: str) -> dict:
-    task = lesson_bank.WRITING_TASKS[band]
+    task = lesson_bank.writing_task(context.language_code, band)
     return {
         "title": f"Produção escrita · {level}",
         "objective": "Produzir um texto no seu nível e receber correção estruturada.",
@@ -238,9 +231,8 @@ def _writing(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _conversation(context: LearnerContext, band: str, level: str) -> dict:
-    situation = lesson_bank.CONVERSATION_SITUATIONS[band]
-    vocab = lesson_bank.VOCABULARY.get(context.language_code, lesson_bank.VOCABULARY["en"])
-    items = vocab.get(band) or vocab[lesson_bank.BAND_ELEMENTARY]
+    situation = lesson_bank.conversation_situation(context.language_code, band)
+    items = lesson_bank.vocabulary(context.language_code, band)
     return {
         "title": f"Conversação · {level}",
         "objective": f"Praticar {situation['focus']} em uma situação realista.",
@@ -256,11 +248,8 @@ def _conversation(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _pronunciation(context: LearnerContext, band: str, level: str) -> dict:
-    sounds = lesson_bank.PRONUNCIATION_FOCUS.get(
-        context.language_code, lesson_bank.PRONUNCIATION_FOCUS["en"]
-    )
-    vocab = lesson_bank.VOCABULARY.get(context.language_code, lesson_bank.VOCABULARY["en"])
-    items = vocab.get(band) or vocab[lesson_bank.BAND_ELEMENTARY]
+    sounds = lesson_bank.pronunciation_focus(context.language_code)
+    items = lesson_bank.vocabulary(context.language_code, band)
     return {
         "title": f"Pronúncia · {level}",
         "objective": "Treinar os sons que mais comprometem a compreensão.",
@@ -277,8 +266,8 @@ def _pronunciation(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _guided(context: LearnerContext, band: str, level: str) -> dict:
-    focus = lesson_bank.GRAMMAR_FOCUS[band]
-    examples = _GRAMMAR_EXAMPLES.get(context.language_code, {}).get(band, [])
+    focus = lesson_bank.grammar_focus(context.language_code, band)
+    examples = lesson_bank.grammar_examples(context.language_code, band)
     steps = [
         {
             "title": "A lógica",
@@ -309,8 +298,7 @@ def _guided(context: LearnerContext, band: str, level: str) -> dict:
 
 
 def _review(context: LearnerContext, band: str, level: str) -> dict:
-    vocab = lesson_bank.VOCABULARY.get(context.language_code, lesson_bank.VOCABULARY["en"])
-    items = vocab.get(band) or vocab[lesson_bank.BAND_ELEMENTARY]
+    items = lesson_bank.vocabulary(context.language_code, band)
     return {
         "title": f"Revisão ativa · {level}",
         "objective": "Recuperar da memória antes de ver a resposta — é o esforço que fixa.",
@@ -336,71 +324,6 @@ _MOCK_BUILDERS = {
     "pronunciation": _pronunciation,
     "guided": _guided,
     "review": _review,
-}
-
-
-#: Exemplos e exercícios de gramática do banco mock. Só inglês tem cobertura
-#: completa; os demais idiomas caem no vocabulário da faixa, que é multilíngue.
-_GRAMMAR_EXAMPLES: dict[str, dict[str, list[dict[str, str]]]] = {
-    "en": {
-        lesson_bank.BAND_BEGINNER: [
-            {"sentence": "What is your name?", "translation": "Qual é o seu nome?"},
-            {"sentence": "Where are you from?", "translation": "De onde você é?"},
-            {"sentence": "What do you do?", "translation": "O que você faz?"},
-        ],
-        lesson_bank.BAND_ELEMENTARY: [
-            {"sentence": "I worked late yesterday.", "translation": "Eu trabalhei até tarde ontem."},
-            {"sentence": "I usually work from home.", "translation": "Eu normalmente trabalho de casa."},
-            {"sentence": "She called, then she left.", "translation": "Ela ligou, depois saiu."},
-        ],
-        lesson_bank.BAND_INTERMEDIATE: [
-            {"sentence": "I have been to Paris three times.", "translation": "Já estive em Paris três vezes."},
-            {"sentence": "I went to Paris in 2019.", "translation": "Fui a Paris em 2019."},
-            {"sentence": "I have been working here since March.", "translation": "Trabalho aqui desde março."},
-        ],
-        lesson_bank.BAND_UPPER: [
-            {"sentence": "That might explain the delay.", "translation": "Isso talvez explique o atraso."},
-            {"sentence": "If we had known, we would have waited.", "translation": "Se soubéssemos, teríamos esperado."},
-            {"sentence": "It is arguably the better option.", "translation": "É, discutivelmente, a melhor opção."},
-        ],
-    }
-}
-
-_GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
-    "en": {
-        lesson_bank.BAND_BEGINNER: [
-            {
-                "prompt": "____ is your name?",
-                "options": ["What", "Where", "Who"],
-                "answer": "What",
-                "rationale": "'What' pergunta pela informação; 'Where' pergunta lugar.",
-            }
-        ],
-        lesson_bank.BAND_ELEMENTARY: [
-            {
-                "prompt": "I ____ late yesterday.",
-                "options": ["worked", "work", "am working"],
-                "answer": "worked",
-                "rationale": "'Yesterday' fecha o tempo, então o passado simples é obrigatório.",
-            }
-        ],
-        lesson_bank.BAND_INTERMEDIATE: [
-            {
-                "prompt": "I ____ to Paris three times.",
-                "options": ["have been", "went", "was going"],
-                "answer": "have been",
-                "rationale": "Não há momento passado fechado: o que importa é a experiência acumulada.",
-            }
-        ],
-        lesson_bank.BAND_UPPER: [
-            {
-                "prompt": "If we ____ earlier, we would have caught the train.",
-                "options": ["had left", "left", "have left"],
-                "answer": "had left",
-                "rationale": "Hipótese contrafactual sobre o passado exige o mais-que-perfeito.",
-            }
-        ],
-    }
 }
 
 

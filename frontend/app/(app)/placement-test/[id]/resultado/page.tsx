@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
-import { ErrorState, Loading } from "@/components/ui";
+import { Button, ErrorState, Loading } from "@/components/ui";
 import { SKILL_LABELS, levelShortCode } from "@/lib/levels";
+import { createCurriculum } from "@/hooks/use-curriculum";
+import { DURATIONS, type Duration } from "@/types/curriculum";
 import type { PlacementResult, SkillResult } from "@/types/placement";
 
 const STATUS_LABELS: Record<SkillResult["status"], string> = {
@@ -38,6 +40,89 @@ function skillMessage(result: PlacementResult, ranked: SkillResult[] | null): st
   }
   const weakest = ranked[ranked.length - 1];
   return `Seu ponto de maior desenvolvimento no momento é ${SKILL_LABELS[weakest.skill].toLowerCase()}.`;
+}
+
+/** Oferta do cronograma logo após o resultado.
+ *
+ *  É aqui que o nivelamento deixa de ser um número e vira um plano: os níveis
+ *  por competência que acabaram de ser gravados definem o ponto de entrada.
+ */
+function BuildCurriculum({ languageCode }: { languageCode: string }) {
+  const router = useRouter();
+  const [duration, setDuration] = useState<Duration>(90);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function submit() {
+    setSaving(true);
+    setError("");
+    try {
+      await createCurriculum(languageCode, duration);
+      router.push("/cronograma");
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError
+          ? caught.message
+          : "Não foi possível gerar seu cronograma.",
+      );
+      setSaving(false);
+    }
+  }
+
+  return (
+    <section className="panel mt-5 p-6">
+      <h2 className="section-title">Monte seu cronograma</h2>
+      <p className="mt-2 text-sm leading-6 text-text-secondary">
+        Transforme este resultado em um plano diário, com blocos das oito áreas de
+        estudo e checkpoints a cada duas semanas.
+      </p>
+
+      <fieldset className="mt-5">
+        <legend className="sr-only">Duração do cronograma</legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {DURATIONS.map((value) => (
+            <label
+              key={value}
+              className={`cursor-pointer rounded-xl border-2 p-4 transition ${
+                duration === value
+                  ? "border-primary bg-primary-soft"
+                  : "border-border bg-surface hover:border-primary/40"
+              }`}
+            >
+              <input
+                className="sr-only"
+                type="radio"
+                name="curriculum_duration"
+                value={value}
+                checked={duration === value}
+                onChange={() => setDuration(value)}
+              />
+              <span
+                className={`block text-sm font-bold ${duration === value ? "text-primary" : ""}`}
+              >
+                {value} dias
+              </span>
+              <span className="mt-1 block text-sm text-text-secondary">
+                {value === 90
+                  ? "Ritmo intensivo, dois subníveis a partir da sua entrada."
+                  : "Ritmo sustentável, meta B2."}
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      {error && (
+        <p role="alert" className="mt-4 text-sm text-danger">
+          {error}
+        </p>
+      )}
+
+      <Button className="mt-5" loading={saving} disabled={saving} onClick={() => void submit()}>
+        Gerar cronograma
+      </Button>
+    </section>
+  );
 }
 
 export default function PlacementResultPage() {
@@ -171,6 +256,8 @@ export default function PlacementResultPage() {
           </div>
         </section>
       )}
+
+      <BuildCurriculum languageCode={result.language_code} />
 
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
         <Link

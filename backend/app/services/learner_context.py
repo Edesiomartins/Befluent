@@ -12,7 +12,7 @@ vocabulário para PRE_A1 sair diferente de uma para B2.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -34,6 +34,26 @@ from app.models import Language, User, UserLanguage, UserPreference
 #: A2 é o mesmo ponto de partida do teste adaptativo — a faixa que menos
 #: desperdiça itens quando não se sabe nada sobre o aluno.
 DEFAULT_LEVEL = CEFRLevel.A2
+
+#: Regras de escrita/fonologia que o modelo precisa seguir por idioma. Sem
+#: isso, uma lição de japonês volta em romaji e uma de mandarim sem tom marcado
+#: — as duas coisas que `docs/language-strategies.md` proíbe.
+SCRIPT_RULES: dict[str, str] = {
+    "ja": (
+        "Regra de escrita: escreva em japonês real (kana e kanji), com furigana "
+        "em hiragana entre parênteses logo após cada palavra com kanji. Use romaji "
+        "apenas como apoio adicional, nunca como forma principal."
+    ),
+    "zh-CN": (
+        "Regra de escrita: escreva em caracteres simplificados (hanzi) e forneça "
+        "sempre o pinyin com marcação de tom (ā á ǎ à) junto de cada item. "
+        "Explique diferenças de significado causadas pelo tom quando forem relevantes."
+    ),
+    "es-ES": (
+        "Variante: espanhol da Espanha. Use vocabulário peninsular e a forma "
+        "vosotros quando couber; sinalize regionalismos."
+    ),
+}
 
 SKILL_COLUMNS: dict[str, str] = {
     Skill.VOCABULARY_GRAMMAR: "vocabulary_grammar_level",
@@ -66,6 +86,11 @@ class LearnerContext:
     minutes_per_day: int | None = None
     priority_skills: list[str] = field(default_factory=list)
     recommendations: list = field(default_factory=list)
+
+    #: Preenchidos quando a lição vem de um bloco do cronograma. Sem eles o
+    #: modelo geraria "vocabulário B1" genérico em toda semana do plano.
+    topic: str | None = None
+    curriculum_week_theme: str | None = None
 
     @property
     def level_index(self) -> int:
@@ -127,6 +152,18 @@ class LearnerContext:
                 "Competências que o aluno escolheu priorizar: "
                 + ", ".join(self.priority_skills)
             )
+
+        if self.curriculum_week_theme:
+            lines.append(f"Tema da semana no cronograma: {self.curriculum_week_theme}")
+        if self.topic:
+            lines.append(
+                f"Tópico obrigatório desta atividade: {self.topic}. "
+                "A atividade precisa tratar deste tópico, não de um tema genérico."
+            )
+
+        script_rule = SCRIPT_RULES.get(self.language_code)
+        if script_rule:
+            lines.append(script_rule)
 
         return "\n".join(lines)
 
@@ -193,6 +230,28 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
         minutes_per_day=ui_prefs.get("minutes_per_day"),
         priority_skills=list(ui_prefs.get("skills") or []),
         recommendations=list(profile.recommendations_json or []) if profile else [],
+    )
+
+
+def for_curriculum_block(
+    context: LearnerContext,
+    *,
+    assessed_skill: str,
+    cefr_level: str,
+    topic: str | None,
+    week_theme: str | None = None,
+) -> LearnerContext:
+    """Contexto calibrado para um bloco do cronograma.
+
+    O nível do bloco vem do cronograma, não do perfil: depois de uma promoção
+    por checkpoint, o plano avança antes de o perfil ser reavaliado por inteiro.
+    Usar o nível do perfil aqui congelaria o aluno na faixa antiga.
+    """
+    return replace(
+        context,
+        skill_levels={**context.skill_levels, assessed_skill: cefr_level},
+        topic=topic,
+        curriculum_week_theme=week_theme,
     )
 
 
