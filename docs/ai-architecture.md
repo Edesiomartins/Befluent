@@ -9,12 +9,17 @@ Relacionados: [prompt-strategy.md](prompt-strategy.md), [stack.md](stack.md), [s
 - Adaptador de provedor isola SDK/HTTP do domínio pedagógico.
 - Um **modelo principal** e um **modelo de fallback**.
 
-### Decisões pendentes
+### Estado dos modelos
 
-- Modelo principal.
-- Modelo de fallback.
+- Cadeia implementada: `OPENROUTER_MODEL` → `OPENROUTER_FALLBACK_MODEL` (`openrouter_chat_with_fallback`).
+- Em production, esgotar a cadeia → `503 ai_unavailable` (sem mock silencioso).
+- Fora de production, mock ainda cobre indisponibilidade para desenvolvimento.
+
+### Ainda pendente
+
 - Limites de tokens por tarefa.
 - Temperatura por tarefa.
+- Confirmar em deploy os slugs OpenRouter definitivos (hoje tipicamente nos `.env` locais).
 
 ## Abstração por provedor
 

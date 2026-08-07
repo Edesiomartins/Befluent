@@ -311,13 +311,55 @@ class TestExecucaoDeBloco:
         body = client.post(f"/api/v1/curriculum/block/{review.id}/start", headers=auth).json()
         assert body["lesson"]["source"] == "srs_queue"
         assert body["lesson"]["queue_empty"] is False
-        assert body["lesson"]["items"][0]["payload"]["term"] == "water"
+        terms = [item["payload"].get("term") for item in body["lesson"]["items"]]
+        assert "water" in terms
 
-    def test_revisao_com_fila_vazia_declara_em_vez_de_inventar(self, client, auth, db_session):
+    def test_revisao_fecha_o_dia_com_o_lexico_do_proprio_dia(self, client, auth, db_session):
+        """O que foi estudado hoje entra na fila e vem primeiro na consolidação.
+
+        Antes do fio condutor o bloco de revisão abria vazio: `ReviewItem` só
+        nascia quando o aluno salvava vocabulário à mão.
+        """
         profile = setup_profile(db_session)
+        db_session.add(
+            ReviewItem(
+                user_language_id=profile.id,
+                item_type="vocabulary",
+                reference_id="ref-antigo",
+                payload_json={"term": "palavra antiga", "translation_pt": "antiga"},
+            )
+        )
+        db_session.commit()
         curriculum = make_curriculum(db_session, profile)
         day = first_day(db_session, curriculum)
         day_blocks = blocks_of(db_session, day)
+        review = next(b for b in day_blocks if b.skill == BlockSkill.REVIEW)
+        vocabulary = next(b for b in day_blocks if b.skill == BlockSkill.VOCABULARY)
+
+        started = client.post(
+            f"/api/v1/curriculum/block/{vocabulary.id}/start", headers=auth
+        ).json()
+        studied = {item["term"] for item in started["lesson"]["items"]}
+        complete_prior_blocks(client, auth, day_blocks, review)
+
+        body = client.post(f"/api/v1/curriculum/block/{review.id}/start", headers=auth).json()
+        items = body["lesson"]["items"]
+        assert body["lesson"]["from_today_count"] > 0
+        assert items[0]["from_today"] is True
+        assert items[0]["payload"]["term"] in studied
+        # O item antigo não sumiu: só cedeu a frente para o léxico de hoje.
+        assert "palavra antiga" in [item["payload"].get("term") for item in items]
+
+    def test_revisao_com_fila_vazia_declara_em_vez_de_inventar(self, client, auth, db_session):
+        """Domingo é leitura + revisão: nada introduz léxico novo antes da fila."""
+        profile = setup_profile(db_session)
+        curriculum = make_curriculum(db_session, profile)
+        sunday = db_session.scalar(
+            select(CurriculumDay)
+            .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+            .where(CurriculumWeek.curriculum_id == curriculum.id, CurriculumDay.day_number == 7)
+        )
+        day_blocks = blocks_of(db_session, sunday)
         review = next(b for b in day_blocks if b.skill == BlockSkill.REVIEW)
         complete_prior_blocks(client, auth, day_blocks, review)
 

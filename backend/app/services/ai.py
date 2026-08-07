@@ -20,6 +20,7 @@ from abc import ABC, abstractmethod
 import httpx
 
 from app.core.config import get_settings
+from app.core.errors import APIError
 
 logger = logging.getLogger(__name__)
 from app.core.levels import LEVEL_INDEX, SKILL_LABELS, CEFRLevel
@@ -56,7 +57,9 @@ def _needs_translation(level: str) -> bool:
     return LEVEL_INDEX[level] < LEVEL_INDEX[TRANSLATION_THRESHOLD]
 
 
-def _conversation_envelope(context: LearnerContext, payload: dict, provider: str) -> dict:
+def _conversation_envelope(
+    context: LearnerContext, payload: dict, provider: str, model: str | None = None
+) -> dict:
     level = context.level_for_skill(MODE_SKILL["conversation"])
     return {
         "reply": payload.get("reply", ""),
@@ -66,6 +69,7 @@ def _conversation_envelope(context: LearnerContext, payload: dict, provider: str
         "suggestions": payload.get("suggestions") or [],
         "corrections_available": payload.get("corrections_available", True),
         "provider": provider,
+        "model": model,
         "level": level,
         "level_source": context.level_source,
         "level_is_estimated": context.level_is_estimated,
@@ -73,7 +77,9 @@ def _conversation_envelope(context: LearnerContext, payload: dict, provider: str
     }
 
 
-def _envelope(mode: str, context: LearnerContext, payload: dict, provider: str) -> dict:
+def _envelope(
+    mode: str, context: LearnerContext, payload: dict, provider: str, model: str | None = None
+) -> dict:
     """Metadados comuns a toda lição: o que foi adaptado e com base em quê.
 
     O frontend usa isso para mostrar ao aluno por que aquela lição é aquela —
@@ -89,6 +95,7 @@ def _envelope(mode: str, context: LearnerContext, payload: dict, provider: str) 
         **payload,
         "mode": mode,
         "provider": provider,
+        "model": model,
         "language_code": context.language_code,
         "level": context.level_for_skill(skill),
         "overall_level": context.level,
@@ -453,54 +460,121 @@ _MOCK_BUILDERS = {
 }
 
 
+class OpenRouterUnavailableError(RuntimeError):
+    """Nenhum modelo OpenRouter (primário nem fallback) respondeu com um payload válido.
+
+    Reusado fora deste módulo (`app.services.writing_evaluation`) — é o mesmo
+    contrato de falha para toda chamada OpenRouter do backend.
+    """
+
+
+def _openrouter_completion(
+    s, model: str, messages: list[dict], timeout: int
+) -> dict:
+    response = httpx.post(
+        f"{s.openrouter_base_url}/chat/completions",
+        json={
+            "model": model,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+        },
+        headers={"Authorization": f"Bearer {s.openrouter_api_key}"},
+        timeout=timeout,
+    )
+    response.raise_for_status()
+    return json.loads(response.json()["choices"][0]["message"]["content"])
+
+
+def openrouter_chat_with_fallback(
+    s, messages: list[dict], is_valid, timeout: int = 45
+) -> tuple[dict, str]:
+    """Tenta o modelo primário e, se falhar, o modelo de fallback do OpenRouter.
+
+    `is_valid` julga o payload já parseado: uma resposta 200 fora do contrato
+    esperado é tratada como falha para efeito de fallback, não é repassada ao
+    chamador como se fosse válida. Único ponto de chamada OpenRouter do
+    backend — reusado por `conversation_turn`, `generate_lesson` e pela
+    avaliação de escrita (`app.services.writing_evaluation`) para evitar
+    duplicar a lógica de tentativa/registro entre eles.
+    """
+    models = [m for m in (s.openrouter_model, s.openrouter_fallback_model) if m]
+    last_error: Exception | None = None
+    for model in models:
+        try:
+            payload = _openrouter_completion(s, model, messages, timeout)
+        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
+            logger.warning("OpenRouter modelo %s falhou: %s", model, exc)
+            last_error = exc
+            continue
+        if not is_valid(payload):
+            logger.warning("OpenRouter modelo %s respondeu fora do contrato esperado", model)
+            last_error = ValueError("invalid_payload")
+            continue
+        return payload, model
+    raise OpenRouterUnavailableError("Nenhum modelo OpenRouter respondeu.") from last_error
+
+
 class OpenRouterProvider(BaseAIProvider):
     def __init__(self):
         self.s = get_settings()
 
     @property
     def openrouter_ready(self) -> bool:
-        return bool(self.s.openrouter_api_key and self.s.openrouter_model)
+        models = [m for m in (self.s.openrouter_model, self.s.openrouter_fallback_model) if m]
+        return bool(self.s.openrouter_api_key and models)
+
+    def _unavailable_or_dev_mock(self, mock_factory):
+        """Ponto único de decisão em caso de indisponibilidade da IA.
+
+        Em produção uma falha real de IA nunca vira conteúdo simulado — o
+        chamador recebe um erro explícito e recuperável (503). Fora de
+        produção, o mock preserva o fluxo de desenvolvimento sem exigir
+        credenciais reais.
+        """
+        if self.s.environment == "production":
+            raise APIError(
+                503,
+                "ai_unavailable",
+                "O serviço de IA está temporariamente indisponível.",
+                retryable=True,
+            )
+        logger.warning("IA indisponível fora de produção; usando MockAIProvider (desenvolvimento)")
+        return mock_factory()
 
     def conversation(self, text, language_code):
-        if not self.s.openrouter_api_key or not self.s.openrouter_model:
-            return MockAIProvider().conversation(text, language_code)
-        payload = {
-            "model": self.s.openrouter_model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": f"Responda como tutor de {language_code} em JSON.",
-                },
-                {"role": "user", "content": text},
-            ],
-            "response_format": {"type": "json_object"},
-        }
-        try:
-            r = httpx.post(
-                f"{self.s.openrouter_base_url}/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {self.s.openrouter_api_key}"},
-                timeout=30,
+        if not self.openrouter_ready:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().conversation(text, language_code)
             )
-            r.raise_for_status()
-            content = r.json()["choices"][0]["message"]["content"]
-            return {
-                "reply": content,
-                "corrections": [],
-                "suggestions": [],
-                "provider": "openrouter",
-            }
-        except httpx.HTTPError as exc:
-            raise RuntimeError("Falha temporária no serviço de IA.") from exc
+        messages = [
+            {
+                "role": "system",
+                "content": f"Responda como tutor de {language_code} em JSON.",
+            },
+            {"role": "user", "content": text},
+        ]
+        try:
+            payload, model = openrouter_chat_with_fallback(
+                self.s, messages, lambda p: isinstance(p, dict) and bool(p.get("reply"))
+            )
+        except OpenRouterUnavailableError:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().conversation(text, language_code)
+            )
+        return {
+            "reply": payload.get("reply", ""),
+            "corrections": payload.get("corrections") or [],
+            "suggestions": payload.get("suggestions") or [],
+            "provider": "openrouter",
+            "model": model,
+        }
 
     def conversation_turn(self, text, context, history):
-        """Um turno de conversa pelo prompt do documento (Parte II · 3).
-
-        Cai no mock em qualquer falha: o aluno no meio de um diálogo não pode
-        receber um erro no lugar da resposta do tutor.
-        """
+        """Um turno de conversa pelo prompt do documento (Parte II · 3)."""
         if not self.openrouter_ready:
-            return MockAIProvider().conversation_turn(text, context, history)
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().conversation_turn(text, context, history)
+            )
 
         level = context.level_for_skill(MODE_SKILL["conversation"])
         contract = (
@@ -528,73 +602,48 @@ class OpenRouterProvider(BaseAIProvider):
         messages.append({"role": "user", "content": text})
 
         try:
-            response = httpx.post(
-                f"{self.s.openrouter_base_url}/chat/completions",
-                json={
-                    "model": self.s.openrouter_model,
-                    "messages": messages,
-                    "response_format": {"type": "json_object"},
-                },
-                headers={"Authorization": f"Bearer {self.s.openrouter_api_key}"},
-                timeout=45,
+            payload, model = openrouter_chat_with_fallback(
+                self.s,
+                messages,
+                lambda p: isinstance(p, dict) and bool(p.get("reply")),
             )
-            response.raise_for_status()
-            payload = json.loads(response.json()["choices"][0]["message"]["content"])
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
-            logger.warning("OpenRouter conversation_turn falhou; usando mock: %s", exc)
-            return MockAIProvider().conversation_turn(text, context, history)
-
-        if not isinstance(payload, dict) or not payload.get("reply"):
-            logger.warning("OpenRouter conversation_turn sem reply válido; usando mock")
-            return MockAIProvider().conversation_turn(text, context, history)
-        return _conversation_envelope(context, payload, "openrouter")
+        except OpenRouterUnavailableError:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().conversation_turn(text, context, history)
+            )
+        return _conversation_envelope(context, payload, "openrouter", model)
 
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict:
-        """Gera a lição pelo prompt da biblioteca; cai no mock em qualquer falha.
-
-        A lição nunca deve falhar por indisponibilidade do modelo: o aluno
-        recebe o conteúdo do banco, com `provider` indicando a origem.
-        """
+        """Gera a lição pelo prompt da biblioteca, com fallback de modelo OpenRouter."""
         template = get_mode_prompt(mode)
         if not template:
             raise ValueError(mode)
-        if not self.s.openrouter_api_key or not self.s.openrouter_model:
-            return MockAIProvider().generate_lesson(mode, context)
+        if not self.openrouter_ready:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().generate_lesson(mode, context)
+            )
 
         skill = MODE_SKILL.get(mode)
         prompt = template.render(
             context.to_prompt_context(skill), get_output_contract(mode)
         )
-        payload = {
-            "model": self.s.openrouter_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "response_format": {"type": "json_object"},
-        }
+        messages = [{"role": "user", "content": prompt}]
         try:
-            response = httpx.post(
-                f"{self.s.openrouter_base_url}/chat/completions",
-                json=payload,
-                headers={"Authorization": f"Bearer {self.s.openrouter_api_key}"},
-                timeout=45,
+            content, model = openrouter_chat_with_fallback(
+                self.s,
+                messages,
+                lambda p: isinstance(p, dict) and bool(p.get("title")),
             )
-            response.raise_for_status()
-            content = json.loads(response.json()["choices"][0]["message"]["content"])
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
-            logger.warning("OpenRouter generate_lesson(%s) falhou; usando mock: %s", mode, exc)
-            return MockAIProvider().generate_lesson(mode, context)
-
-        if not isinstance(content, dict) or not content.get("title"):
-            logger.warning("OpenRouter generate_lesson(%s) sem title válido; usando mock", mode)
-            return MockAIProvider().generate_lesson(mode, context)
-        return _envelope(mode, context, content, "openrouter")
+        except OpenRouterUnavailableError:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().generate_lesson(mode, context)
+            )
+        return _envelope(mode, context, content, "openrouter", model)
 
 
 def get_ai_provider() -> BaseAIProvider:
     s = get_settings()
     if s.ai_mock_mode:
         logger.info("IA em MockAIProvider (AI_MOCK_MODE=true)")
-        return MockAIProvider()
-    if not s.openrouter_api_key:
-        logger.warning("IA em MockAIProvider (OPENROUTER_API_KEY ausente)")
         return MockAIProvider()
     return OpenRouterProvider()

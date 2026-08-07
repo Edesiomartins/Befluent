@@ -14,8 +14,77 @@ import type {
   BlockLesson,
   CompleteBlockResponse,
   CurriculumBlock,
+  LessonThread,
   StartBlockResponse,
 } from "@/types/curriculum";
+
+/**
+ * O que este bloco herdou dos anteriores. É a peça que torna a sequência
+ * visível: sem ela, cinco blocos sobre o mesmo tema parecem cinco lições
+ * independentes, mesmo quando o conteúdo já vem encadeado do backend.
+ */
+function ThreadBanner({ lesson }: { lesson: BlockLesson }) {
+  const thread = lesson.thread;
+  const carried = thread?.carried_terms ?? [];
+  const recycled = thread?.recycled_terms ?? [];
+  if (carried.length === 0 && recycled.length === 0) return null;
+
+  const origin = thread?.sources?.length ? thread.sources.join(" → ") : "blocos anteriores";
+
+  return (
+    <div className="mb-6 rounded-xl border border-primary/25 bg-primary-soft/40 p-4">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+        Continua de: {origin}
+      </p>
+      {carried.length > 0 && (
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          Você vai reaproveitar aqui:{" "}
+          <span className="font-semibold text-text-primary">{carried.join(", ")}</span>
+        </p>
+      )}
+      {recycled.length > 0 && (
+        <p className="mt-1 text-sm leading-6 text-text-secondary">
+          Retomando da semana: {recycled.join(", ")}
+        </p>
+      )}
+      {thread?.guaranteed === false && (
+        <p className="mt-2 text-xs text-text-secondary">
+          Conteúdo de biblioteca: o reuso destes itens é sugerido, não garantido dentro
+          do material.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Léxico que o dia inteiro já construiu, mostrado na coluna do caminho. */
+function DayThread({ thread }: { thread: LessonThread }) {
+  if (thread.terms.length === 0 && thread.patterns.length === 0) return null;
+  return (
+    <div className="mt-6 rounded-xl border border-border p-3.5">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        Fio do dia
+      </p>
+      {thread.terms.length > 0 && (
+        <ul className="mt-2 grid gap-1">
+          {thread.terms.map((item) => (
+            <li key={item.term} className="text-sm leading-5">
+              <span className="font-semibold">{item.term}</span>
+              {item.translation && (
+                <span className="text-text-secondary"> · {item.translation}</span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {thread.patterns.length > 0 && (
+        <p className="mt-2.5 text-xs leading-5 text-text-secondary">
+          Estruturas: {thread.patterns.join(" · ")}
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Fila de revisão servida pelo bloco `review`, direto do SRS. */
 function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
@@ -85,10 +154,13 @@ function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
       <p className="mb-3 text-sm text-text-secondary">
         {items.length - index}{" "}
         {items.length - index === 1 ? "item restante" : "itens restantes"} na fila
+        {typeof lesson.from_today_count === "number" && lesson.from_today_count > 0 && (
+          <> · {lesson.from_today_count} {lesson.from_today_count === 1 ? "veio" : "vieram"} dos blocos de hoje</>
+        )}
       </p>
       <div className="panel p-7">
         <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-          Recupere da memória
+          {item.from_today ? "Você viu isto hoje — recupere sem olhar" : "Recupere da memória"}
         </p>
         <p className="mt-5 text-2xl font-semibold">{prompt}</p>
         {revealed && (
@@ -206,6 +278,8 @@ function BlockRunner({
           </span>
         )}
       </div>
+
+      <ThreadBanner lesson={lesson} />
 
       {block.skill === "review" ? (
         <ReviewQueue lesson={lesson} />
@@ -366,6 +440,7 @@ export default function CurriculumDayPage() {
               );
             })}
           </ol>
+          {day.thread && <DayThread thread={day.thread} />}
         </nav>
 
         <div>
@@ -376,6 +451,13 @@ export default function CurriculumDayPage() {
                 Você completou a sequência completa: léxico, estrutura, input, produção e
                 revisão.
               </p>
+              {day.thread && day.thread.terms.length > 0 && (
+                <p className="mt-2 text-sm leading-6 text-text-secondary">
+                  {day.thread.terms.length}{" "}
+                  {day.thread.terms.length === 1 ? "item entrou" : "itens entraram"} na sua
+                  fila de revisão espaçada e voltam nos próximos dias.
+                </p>
+              )}
               <Link
                 href="/cronograma"
                 className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"

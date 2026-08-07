@@ -47,6 +47,36 @@ export type CurriculumBlock = {
   is_current?: boolean;
 };
 
+/** Item de léxico que atravessa os blocos do dia. */
+export type ThreadTerm = {
+  term: string;
+  translation: string;
+  example: string;
+  example_translation: string;
+};
+
+/**
+ * Fio condutor — espelha `backend/app/services/lesson_thread.py`.
+ * É o material que um bloco entrega ao seguinte: sem ele o dia seriam cinco
+ * lições soltas debaixo do mesmo tema.
+ */
+export type LessonThread = {
+  terms: ThreadTerm[];
+  patterns: string[];
+  /** Rótulos dos blocos de origem, na ordem estudada. */
+  sources: string[];
+};
+
+/** Continuidade declarada dentro da lição (`ai.py::_envelope`). */
+export type LessonThreadRef = {
+  carried_terms: string[];
+  carried_patterns: string[];
+  sources: string[];
+  recycled_terms: string[];
+  /** `false` em conteúdo curado ou de IA: a continuidade foi pedida, não garantida. */
+  guaranteed: boolean;
+};
+
 export type CurriculumDay = {
   id: string;
   day_number: number;
@@ -58,6 +88,7 @@ export type CurriculumDay = {
   blocks_completed: number;
   sequence_label?: string;
   current_block_id?: string | null;
+  thread?: LessonThread | null;
   blocks: CurriculumBlock[];
 };
 
@@ -135,6 +166,8 @@ export type ReviewQueueItem = {
   item_type: string;
   reference_id: string;
   payload: Record<string, unknown>;
+  /** Item que entrou na fila hoje, pelos blocos anteriores deste dia. */
+  from_today?: boolean;
   next_review_at: string | null;
 };
 
@@ -151,7 +184,10 @@ export type BlockLesson = {
   source?: string;
   queue_empty?: boolean;
   empty_notice?: string | null;
+  from_today_count?: number;
   items?: ReviewQueueItem[];
+  thread?: LessonThreadRef | null;
+  thread_note?: string | null;
   [key: string]: unknown;
 };
 
@@ -164,5 +200,7 @@ export type CompleteBlockResponse = {
   block: CurriculumBlock;
   day: { id: string; status: DayStatus; completed_at: string | null };
   day_completed: boolean;
+  /** Palavras deste bloco que entraram na fila de revisão espaçada. */
+  review_items_added?: number;
   progress: CurriculumProgress;
 };

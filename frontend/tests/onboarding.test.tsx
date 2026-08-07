@@ -46,7 +46,7 @@ describe("OnboardingPage — decisão de nível", () => {
     expect(screen.getByRole("radio", { name: /Fazer o teste depois/ })).toBeInTheDocument();
   });
 
-  it("iniciante absoluto envia PRE_A1 e vai ao dashboard", async () => {
+  it("iniciante absoluto envia PRE_A1 e vai ao cronograma", async () => {
     apiMock.mockResolvedValue({ completed: true });
 
     render(<OnboardingPage />);
@@ -67,7 +67,7 @@ describe("OnboardingPage — decisão de nível", () => {
       }),
     );
 
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/dashboard"), { timeout: 2000 });
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/cronograma"), { timeout: 2000 });
   });
 
   it("nível declarado exibe seletor CEFR e envia o código escolhido", async () => {

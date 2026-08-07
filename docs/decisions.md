@@ -36,12 +36,12 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 
 | ID | Decisão | Status | Motivo de estar pendente | Data | Impacto |
 |---|---|---|---|---|---|
-| P-001 | Modelo principal no OpenRouter | Pendente | Requer testes de qualidade/custo | 2026-07-27 | IA |
-| P-002 | Modelo de fallback | Pendente | Depende do principal | 2026-07-27 | Resiliência |
+| P-001 | Modelo principal no OpenRouter | Em uso via env | Slug em `OPENROUTER_MODEL`; qualidade/custo ainda a monitorar | 2026-08-07 | IA |
+| P-002 | Modelo de fallback | Em uso via env | Slug em `OPENROUTER_FALLBACK_MODEL`; cadeia implementada no backend | 2026-08-07 | Resiliência |
 | P-003 | Limites de tokens por tarefa | Pendente | Medir uso real | 2026-07-27 | Custo/UX |
 | P-004 | Temperatura por tarefa | Pendente | Calibrar criatividade vs precisão | 2026-07-27 | Qualidade |
-| P-005 | Provedor STT | Pendente | Testes de acurácia/idioma | 2026-07-27 | Voz |
-| P-006 | Provedor TTS | Pendente | Qualidade e variantes (ex.: es-ES) | 2026-07-27 | Voz |
+| P-005 | Provedor STT | Em uso via env | Groq primário + OpenRouter fallback; acurácia por idioma ainda a validar | 2026-08-07 | Voz |
+| P-006 | Provedor TTS | Navegador (fase atual) | SpeechSynthesis no frontend; sem TTS pago no servidor | 2026-08-07 | Voz |
 | P-007 | Serviço de avaliação de pronúncia | Pendente | STT ≠ fonética precisa | 2026-07-27 | Pronúncia |
 | P-008 | Paleta definitiva / tokens de cor | Pendente | Validação visual | 2026-07-27 | Design |
 | P-009 | Biblioteca de componentes UI | Pendente | Alinhar a design system | 2026-07-27 | FE |

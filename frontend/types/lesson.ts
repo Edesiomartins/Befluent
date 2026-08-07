@@ -2,7 +2,8 @@
 
 export type LessonEnvelope = {
   mode: string;
-  provider: "mock" | "openrouter";
+  provider: "mock" | "openrouter" | "curated_library" | string;
+  model?: string | null;
   language_code: string;
   /** Nível usado para calibrar esta lição (da competência, quando avaliada). */
   level: string;

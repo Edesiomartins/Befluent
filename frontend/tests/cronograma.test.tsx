@@ -359,7 +359,7 @@ describe("Execução do dia", () => {
 
     expect(await screen.findByText("Dia 1")).toBeInTheDocument();
     expect(screen.getByText(/Semana 1 · Apresentações e rotina/)).toBeInTheDocument();
-    const nav = screen.getByRole("navigation", { name: "Blocos do dia" });
+    const nav = screen.getByRole("navigation", { name: "Caminho do dia" });
     expect(nav).toHaveTextContent("Vocabulário");
     expect(nav).toHaveTextContent("Gramática");
     expect(nav).toHaveTextContent("Revisão");
@@ -400,7 +400,7 @@ describe("Execução do dia", () => {
     ]);
 
     render(<CurriculumDayPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Concluir bloco" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Concluir e avançar" }));
 
     await waitFor(() =>
       expect(apiMock).toHaveBeenCalledWith("/api/v1/curriculum/block/b-1/complete", {

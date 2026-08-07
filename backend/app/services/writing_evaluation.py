@@ -15,13 +15,11 @@ heurística puder ser aplicada (texto vazio), a competência fica
 
 from __future__ import annotations
 
-import json
 import re
-
-import httpx
 
 from app.core.config import get_settings
 from app.core.levels import LEVEL_INDEX, level_at
+from app.services.ai import OpenRouterUnavailableError, openrouter_chat_with_fallback
 
 MAX_WRITING_CHARS = 4000
 
@@ -138,8 +136,16 @@ def _validate_ai_payload(payload: dict, target_level: str) -> dict | None:
 
 
 def _ai_evaluation(text: str, language_code: str, target_level: str) -> dict | None:
+    """IA (primário → fallback do OpenRouter, mesma cadeia de `app.services.ai`).
+
+    Retorna `None` quando a IA está em modo mock ou indisponível — o chamador
+    cai para a heurística nesse caso. Indisponibilidade de IA não pode
+    bloquear a conclusão do teste de nivelamento.
+    """
     settings = get_settings()
-    if settings.ai_mock_mode or not settings.openrouter_api_key or not settings.openrouter_model:
+    if settings.ai_mock_mode or not settings.openrouter_api_key:
+        return None
+    if not settings.openrouter_model and not settings.openrouter_fallback_model:
         return None
 
     instruction = (
@@ -149,34 +155,27 @@ def _ai_evaluation(text: str, language_code: str, target_level: str) -> dict | N
         "criteria (objeto com adequacao_ao_tema, coerencia, vocabulario, gramatica, "
         "clareza, organizacao, cada um de 0 a 1) e feedback (texto curto em português)."
     )
-    payload = {
-        "model": settings.openrouter_model,
-        "messages": [
-            {"role": "system", "content": instruction},
-            {
-                "role": "user",
-                "content": (
-                    f"Idioma avaliado: {language_code}. Nível-alvo da tarefa: {target_level}.\n"
-                    f"Texto do estudante:\n{text[:MAX_WRITING_CHARS]}"
-                ),
-            },
-        ],
-        "response_format": {"type": "json_object"},
-    }
+    messages = [
+        {"role": "system", "content": instruction},
+        {
+            "role": "user",
+            "content": (
+                f"Idioma avaliado: {language_code}. Nível-alvo da tarefa: {target_level}.\n"
+                f"Texto do estudante:\n{text[:MAX_WRITING_CHARS]}"
+            ),
+        },
+    ]
 
     try:
-        response = httpx.post(
-            f"{settings.openrouter_base_url}/chat/completions",
-            json=payload,
-            headers={"Authorization": f"Bearer {settings.openrouter_api_key}"},
+        content, _model = openrouter_chat_with_fallback(
+            settings,
+            messages,
+            lambda p: isinstance(p, dict) and isinstance(p.get("normalized_score"), (int, float)),
             timeout=30,
         )
-        response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
-        return _validate_ai_payload(json.loads(content), target_level)
-    except (httpx.HTTPError, KeyError, ValueError, TypeError):
-        # Indisponibilidade da IA não pode bloquear a conclusão do teste.
+    except OpenRouterUnavailableError:
         return None
+    return _validate_ai_payload(content, target_level)
 
 
 def evaluate_writing(

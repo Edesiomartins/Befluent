@@ -12,13 +12,23 @@ Separar claramente:
 
 **Transcrição comum não equivale a avaliação fonética precisa.**
 
-## Decisões pendentes
+## Estado implementado (2026-08)
 
-- Provedor STT.
-- Provedor TTS.
-- Serviço de avaliação de pronúncia.
+| Peça | Estado |
+|---|---|
+| STT primário | Groq `whisper-large-v3-turbo` (`STT_PROVIDER=groq` + `GROQ_API_KEY`) |
+| STT fallback | OpenRouter multimodal (`STT_FALLBACK_PROVIDER=openrouter` + `STT_FALLBACK_MODEL`) |
+| STT mock | Só com `STT_PROVIDER=mock` explícito; em production, falha → `503 stt_unavailable` (sem transcript fabricado) |
+| TTS servidor | Sem provedor pago; endpoint só serve stub fora de production com `TTS_PROVIDER=mock` |
+| TTS produto | **SpeechSynthesis do navegador** (frontend) |
+| Pronúncia | Sem score fonético; API devolve `status=unavailable` / `score=null` |
+| Duração WebM | Só limite por bytes no backend; duração WAV via `wave`; WebM sem ffprobe (sem mudar Docker) |
+
+## Decisões ainda pendentes
+
+- Serviço de avaliação fonética especializada (P-007).
 - Armazenamento externo de arquivos (preferência: evitar).
-- Limites exatos de duração e bitrate (faixas abaixo são diretrizes).
+- Limites finos de bitrate (hoje: `MAX_AUDIO_BYTES` / `MAX_AUDIO_DURATION_SECONDS`).
 
 ## Gravação no navegador
 
@@ -35,9 +45,9 @@ Separar claramente:
 
 ## Formatos de áudio
 
-- Preferir formatos amplamente suportados no envio (ex.: webm/opus ou wav — escolha final pendente de testes).
-- Backend normaliza antes de enviar ao provedor, se preciso.
-- Validar MIME e tamanho.
+- Frontend: `MediaRecorder` preferindo `audio/webm;codecs=opus` (fallback `audio/webm` / `audio/ogg`).
+- Backend: aceita o `content_type` do upload e escolhe extensão para Groq/OpenRouter.
+- Validar tamanho (`MAX_AUDIO_BYTES`). Duração só é medida com precisão em WAV; WebM/Ogg não passam por ffprobe nesta fase.
 
 ## Limite de duração
 
@@ -52,17 +62,17 @@ Separar claramente:
 
 ## Speech-to-Text
 
-- Adaptador modular `SttProvider`.
-- Timeout e retry controlado.
-- Retornar texto + metadados (confiança se houver, sem exagerar precisão).
-- Em falha: erro amigável + fallback textual.
+- Factory em `app/services/speech.py`: cadeia Groq → OpenRouter.
+- Retorno: `{ text, language_code, provider, model }`.
+- Em falha (production): `503 stt_unavailable` + UI com retry / texto.
+- Em desenvolvimento sem chaves: mock explícito ou fallback mock após falha da cadeia.
 
 ## Text-to-Speech
 
-- Adaptador modular `TtsProvider`.
-- Parâmetros: idioma/variante, velocidade, texto.
-- Respeitar espanhol da Espanha quando a voz/variante estiver disponível; se não houver voz específica, registrar limitação.
-- Cache local temporário opcional; não persistir por padrão.
+- Produto: `window.speechSynthesis` + `SpeechSynthesisUtterance` no frontend.
+- Idioma por `language_code` (`en`→`en-US`, `es-ES`, `fr`, `ja`, `zh-CN`).
+- Velocidade na UI do `AudioPlayer`.
+- Endpoint `/api/v1/speech/synthesize` **não** é o caminho do aluno; em production responde `tts_unavailable`.
 
 ## Reprodução, interrupção, repetição e velocidade
 
@@ -110,10 +120,10 @@ Sempre disponível em:
 
 Fases:
 
-1. **Inicial:** feedback baseado em alvo + transcrição + dicas pedagógicas (limitado).
-2. **Futura:** provedor especializado de scoring fonético (decisão pendente).
+1. **Atual:** prática com frase-alvo + TTS local + STT; UI compara alvo e transcrição **sem nota**.
+2. **Futura:** provedor especializado de scoring fonético (P-007).
 
-UI deve deixar claro o tipo de feedback (aproximado vs. fonético).
+Nunca fabricar `score` (ex.: 85) nem transformar similaridade de STT em “nota de pronúncia”.
 
 ## Fluxo
 

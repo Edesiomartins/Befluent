@@ -211,6 +211,11 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
   const current = lesson.target_phrases[phrase];
   return (
     <div className="grid gap-5">
+      <p className="rounded-xl border border-border bg-surface-elevated/60 px-4 py-3 text-sm leading-6 text-text-secondary">
+        Esta é uma prática de fala com transcrição. Ainda não há avaliação fonética
+        completa — a transcrição ajuda a conferir inteligibilidade, mas não vira nota
+        de pronúncia.
+      </p>
       <div className="grid gap-4 md:grid-cols-3">
         {lesson.focus_sounds.map((sound) => (
           <div key={sound.sound} className="panel p-4">
@@ -230,7 +235,10 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
               <button
                 type="button"
                 className="text-xs font-semibold text-primary hover:underline"
-                onClick={() => setPhrase((p) => (p + 1) % lesson.target_phrases.length)}
+                onClick={() => {
+                  setPhrase((p) => (p + 1) % lesson.target_phrases.length);
+                  setTranscript("");
+                }}
               >
                 Próxima frase
               </button>
@@ -244,11 +252,24 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
       )}
       {transcript && (
         <div className="panel p-5">
-          <h2 className="section-title">Resultado indicativo</h2>
-          <p className="mt-3 text-sm text-text-secondary">Transcrição: {transcript}</p>
-          <p className="mt-2 text-xs text-text-secondary">
-            O reconhecimento de fala atual está em modo mock/simulado e não substitui
-            avaliação fonética especializada.
+          <h2 className="section-title">Sua fala transcrita</h2>
+          <dl className="mt-4 grid gap-3 text-sm">
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                Alvo
+              </dt>
+              <dd className="mt-1">{current?.phrase}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                Transcrição
+              </dt>
+              <dd className="mt-1">{transcript}</dd>
+            </div>
+          </dl>
+          <p className="mt-4 text-xs leading-5 text-text-secondary">
+            Compare o alvo com a transcrição para praticar inteligibilidade. Isso não é
+            uma nota fonética nem um score de pronúncia.
           </p>
         </div>
       )}
@@ -633,7 +654,9 @@ function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
     <div className="mt-6 grid gap-4" role="status">
       <div className="panel p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="section-title">Correção</h2>
+          <h2 className="section-title">
+            {heuristic ? "Análise preliminar" : "Correção"}
+          </h2>
           <span className="text-sm text-text-secondary">
             {feedback.word_count} palavras
             {feedback.within_range ? (
@@ -648,9 +671,14 @@ function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
 
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <span className="text-3xl font-bold tabular-nums">{score}%</span>
-          {feedback.estimated_level && (
+          {feedback.estimated_level && !heuristic && (
             <span className="rounded-md bg-primary-soft px-2.5 py-1.5 text-xs font-semibold text-primary">
               Sustenta {feedback.estimated_level}
+            </span>
+          )}
+          {heuristic && (
+            <span className="rounded-md bg-warning/15 px-2.5 py-1.5 text-xs font-semibold text-warning">
+              Sem correção gramatical completa
             </span>
           )}
         </div>
@@ -663,6 +691,7 @@ function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
           <p className="mt-4 rounded-lg bg-warning/10 p-3 text-xs leading-5 text-warning">
             Avaliação preliminar. Sem a IA conectada, o BeFluent mede extensão, segmentação
             em frases e variedade de palavras — não corrige gramática nem vocabulário.
+            Isto não é uma avaliação linguística completa.
           </p>
         )}
       </div>

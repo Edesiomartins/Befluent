@@ -340,7 +340,7 @@ describe("Resultado", () => {
       "href",
       "/dashboard",
     );
-    expect(screen.getByRole("link", { name: "Começar a praticar" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver painel" })).toBeInTheDocument();
   });
 
   it("com competências empatadas não aponta forte e fraco iguais", async () => {

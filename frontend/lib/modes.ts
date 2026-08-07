@@ -28,7 +28,7 @@ export const MODES: ModeMeta[] = [
   { slug: "guided", title: "Aula guiada", description: "Uma sequência estruturada de explicação e prática.", duration: "20 min", icon: GraduationCap, color: "teal" },
   { slug: "conversation", title: "Conversação", description: "Dialogue por texto com correções no momento certo.", duration: "15 min", icon: MessagesSquare, color: "primary" },
   { slug: "voice", title: "Conversa por voz", description: "Treine fala, transcrição e compreensão oral.", duration: "10 min", icon: Mic, color: "violet" },
-  { slug: "pronunciation", title: "Pronúncia", description: "Compare sua fala e receba orientações objetivas.", duration: "10 min", icon: Volume2, color: "streak" },
+  { slug: "pronunciation", title: "Pronúncia", description: "Pratique fala com modelo e transcrição — sem nota fonética inventada.", duration: "10 min", icon: Volume2, color: "streak" },
   { slug: "vocabulary", title: "Vocabulário", description: "Amplie e consolide palavras em contexto.", duration: "12 min", icon: BookOpen, color: "gold" },
   { slug: "grammar", title: "Gramática", description: "Estude estruturas a partir de situações reais.", duration: "15 min", icon: SpellCheck2, color: "rose" },
   { slug: "listening", title: "Compreensão auditiva", description: "Ouça, interprete e confira seu entendimento.", duration: "12 min", icon: Headphones, color: "success" },
