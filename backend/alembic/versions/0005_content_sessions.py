@@ -2,6 +2,12 @@
 
 Aditiva: sem DROP de dados. Downgrade é no-op seguro (metadados/sessão não
 devem ser removidos automaticamente em ambientes com histórico).
+
+O revision id precisa caber em alembic_version.version_num (VARCHAR(32) no
+Postgres legado). Por isso o id curto `0005_content_sessions` — o nome longo
+`0005_content_library_and_session_hardening` quebrou o deploy no Coolify.
+Esta migration também amplia version_num para VARCHAR(64) para evitar o mesmo
+erro em revisões futuras.
 """
 
 from __future__ import annotations
@@ -10,7 +16,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy import inspect
 
-revision = "0005_content_library_and_session_hardening"
+revision = "0005_content_sessions"
 down_revision = "0004_item_provenance"
 branch_labels = None
 depends_on = None
@@ -26,8 +32,38 @@ def _has_column(inspector, table: str, column: str) -> bool:
     return column in {c["name"] for c in inspector.get_columns(table)}
 
 
+def _widen_alembic_version(bind, inspector) -> None:
+    """Garante que version_num aceite ids > 32 caracteres."""
+    if not _has_table(inspector, "alembic_version"):
+        return
+    cols = {c["name"]: c for c in inspector.get_columns("alembic_version")}
+    col = cols.get("version_num")
+    if not col:
+        return
+    col_type = col.get("type")
+    length = getattr(col_type, "length", None)
+    if length is not None and length >= 64:
+        return
+    dialect = bind.dialect.name
+    if dialect == "postgresql":
+        op.execute(sa.text("ALTER TABLE alembic_version ALTER COLUMN version_num TYPE VARCHAR(64)"))
+    elif dialect == "sqlite":
+        # SQLite ignora length em VARCHAR; noop defensivo.
+        return
+    else:
+        op.alter_column(
+            "alembic_version",
+            "version_num",
+            existing_type=sa.String(length=32),
+            type_=sa.String(length=64),
+            existing_nullable=False,
+        )
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+    inspector = inspect(bind)
+    _widen_alembic_version(bind, inspector)
     inspector = inspect(bind)
 
     if _has_table(inspector, "user_preferences") and not _has_column(

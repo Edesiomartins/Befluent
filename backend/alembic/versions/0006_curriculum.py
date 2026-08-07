@@ -14,7 +14,7 @@ from alembic import op
 from sqlalchemy import inspect
 
 revision = "0006_curriculum"
-down_revision = "0005_content_library_and_session_hardening"
+down_revision = "0005_content_sessions"
 branch_labels = None
 depends_on = None
 
