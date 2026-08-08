@@ -176,11 +176,45 @@ def _blocks_of(db: Session, day_ids: list[str]) -> dict[str, list[CurriculumBloc
     return grouped
 
 
+def _is_open_day(day: CurriculumDay) -> bool:
+    """Dia ainda em aberto na progressão (não usa data civil)."""
+    return day.status not in {DayStatus.COMPLETED, DayStatus.SKIPPED}
+
+
+def _find_next_day(db: Session, curriculum_id: str, day_number: int) -> CurriculumDay | None:
+    return db.scalar(
+        select(CurriculumDay)
+        .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+        .where(
+            CurriculumWeek.curriculum_id == curriculum_id,
+            CurriculumDay.day_number == day_number + 1,
+        )
+    )
+
+
+def _next_day_ref(db: Session, curriculum: Curriculum, day: CurriculumDay) -> dict | None:
+    """Próxima jornada do mesmo currículo. Disponível só após concluir `day`.
+
+    `scheduled_date` do próximo dia é informativa — nunca condição de acesso.
+    """
+    nxt = _find_next_day(db, curriculum.id, day.day_number)
+    if nxt is None:
+        return None
+    return {
+        "id": nxt.id,
+        "day_number": nxt.day_number,
+        "available": day.status == DayStatus.COMPLETED,
+        "scheduled_date": nxt.scheduled_date.isoformat(),
+        "status": nxt.status,
+    }
+
+
 def _day_payload(
     day: CurriculumDay,
     blocks: list[CurriculumBlock],
     *,
     thread: dict | None = None,
+    next_day: dict | None = None,
 ) -> dict:
     ordered = sorted(blocks, key=lambda item: item.position)
     done = [block for block in ordered if block.status == BlockStatus.COMPLETED]
@@ -203,6 +237,8 @@ def _day_payload(
         "sequence_label": "Ativar → Estruturar → Compreender → Produzir → Consolidar",
         "current_block_id": current.id if current else None,
         "blocks": [_block_payload(block, siblings=ordered) for block in ordered],
+        # Jornada seguinte (unidade de progressão). null no último dia.
+        "next_day": next_day,
     }
 
 
@@ -219,6 +255,40 @@ def _week_payload(week: CurriculumWeek, days: list[dict] | None = None) -> dict:
     return payload
 
 
+def _pace_from_days(days: list[CurriculumDay], *, reference: date) -> dict:
+    """Ritmo informativo: jornadas concluídas vs. datas recomendadas.
+
+    Nunca bloqueia acesso. `scheduled_date` só mede adiantamento/atraso.
+    """
+    completed = sum(1 for day in days if day.status == DayStatus.COMPLETED)
+    recommended = sum(1 for day in days if day.scheduled_date <= reference)
+    delta = completed - recommended
+    if delta > 0:
+        status = "ahead"
+        label = (
+            f"Você está {delta} jornada adiantado."
+            if delta == 1
+            else f"Você está {delta} jornadas adiantado."
+        )
+    elif delta < 0:
+        pending = -delta
+        status = "behind"
+        label = (
+            f"Você tem {pending} jornada pendente."
+            if pending == 1
+            else f"Você tem {pending} jornadas pendentes."
+        )
+    else:
+        status = "on_track"
+        label = "Você está no ritmo."
+    return {
+        "pace_status": status,
+        "pace_delta": delta,
+        "pace_label_pt": label,
+        "recommended_by_schedule": recommended,
+    }
+
+
 def _progress_summary(db: Session, curriculum: Curriculum) -> dict:
     days = list(
         db.scalars(
@@ -231,11 +301,15 @@ def _progress_summary(db: Session, curriculum: Curriculum) -> dict:
     total = len(days)
     completed = sum(1 for day in days if day.status == DayStatus.COMPLETED)
     today = _today()
-    late = [day for day in days if day.scheduled_date < today and day.status not in {DayStatus.COMPLETED, DayStatus.SKIPPED}]
-    current = next(
-        (day for day in days if day.status != DayStatus.COMPLETED),
-        days[-1] if days else None,
-    )
+    late = [
+        day
+        for day in days
+        if day.scheduled_date < today
+        and day.status not in {DayStatus.COMPLETED, DayStatus.SKIPPED}
+    ]
+    # Progressão por jornadas: primeiro dia ainda aberto — não a data civil.
+    current = next((day for day in days if _is_open_day(day)), days[-1] if days else None)
+    pace = _pace_from_days(days, reference=today)
 
     next_checkpoint = db.scalar(
         select(CurriculumWeek)
@@ -244,7 +318,6 @@ def _progress_summary(db: Session, curriculum: Curriculum) -> dict:
             CurriculumWeek.is_checkpoint.is_(True),
         )
         .order_by(CurriculumWeek.week_number)
-        .offset(0)
         .limit(1)
     )
     if current is not None:
@@ -269,6 +342,7 @@ def _progress_summary(db: Session, curriculum: Curriculum) -> dict:
         "overdue_days": len(late),
         "needs_reschedule": len(late) >= OVERDUE_THRESHOLD,
         "next_checkpoint_week": next_checkpoint.week_number if next_checkpoint else None,
+        **pace,
     }
 
 
@@ -290,8 +364,9 @@ def _curriculum_payload(db: Session, curriculum: Curriculum, *, with_progress: b
         )
         or 0,
         "disclaimer": (
-            "Cronograma estimado a partir do teste de nivelamento. "
-            "Não é garantia de atingir o nível-meta no prazo."
+            "Cronograma estimado a partir do teste de nivelamento: "
+            f"{curriculum.duration_days} jornadas recomendadas (não dias de calendário "
+            "obrigatórios). Não é garantia de atingir o nível-meta no prazo."
         ),
     }
     if with_progress:
@@ -340,10 +415,11 @@ def today(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    """Dia corrente com seus blocos, mais os dias vencidos ainda em aberto.
+    """Jornada corrente com seus blocos, mais dias com data recomendada atrasada.
 
-    "Dia corrente" é o primeiro dia não concluído, não a data de hoje: quem
-    parou uma semana retoma de onde ficou em vez de perder o conteúdo.
+    "Jornada corrente" = primeiro CurriculumDay ainda aberto (não a data civil).
+    Quem pausa vários dias retoma de onde parou. Concluir Dia N libera Dia N+1
+    imediatamente — `scheduled_date` não bloqueia.
     """
     curriculum = _active_curriculum(db, user, language_code)
     days = list(
@@ -354,7 +430,7 @@ def today(
             .order_by(CurriculumDay.day_number)
         )
     )
-    current = next((day for day in days if day.status != DayStatus.COMPLETED), None)
+    current = next((day for day in days if _is_open_day(day)), None)
     late = overdue_days(days, reference=_today())
 
     blocks = _blocks_of(db, [current.id]) if current else {}
@@ -368,6 +444,7 @@ def today(
                 current,
                 blocks.get(current.id, []),
                 thread=day_thread(db, current, before_position=ALL_POSITIONS).to_payload(),
+                next_day=_next_day_ref(db, curriculum, current),
             )
             if current
             else None
@@ -429,12 +506,13 @@ def day_detail(
     day, week, curriculum = row
     blocks = _blocks_of(db, [day.id])
     return {
-        "curriculum": _curriculum_payload(db, curriculum, with_progress=False),
+        "curriculum": _curriculum_payload(db, curriculum, with_progress=True),
         "week": _week_payload(week),
         "day": _day_payload(
             day,
             blocks.get(day.id, []),
             thread=day_thread(db, day, before_position=ALL_POSITIONS).to_payload(),
+            next_day=_next_day_ref(db, curriculum, day),
         ),
     }
 
@@ -471,10 +549,11 @@ def finish_block(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    """Marca o bloco; concluir o último bloco fecha o dia."""
+    """Marca o bloco; concluir o último bloco fecha o dia e libera a próxima jornada."""
     block, day, curriculum = _owned_block(db, block_id, user)
     result = complete_block(db, block=block, day=day, score=data.score if data else None)
     db.commit()
+    next_day = _next_day_ref(db, curriculum, day)
     return {
         "block": _block_payload(block),
         "day": {
@@ -486,6 +565,7 @@ def finish_block(
         # Quantas palavras deste bloco entraram na fila de revisão espaçada.
         "review_items_added": result.get("review_items_added", 0),
         "progress": _progress_summary(db, curriculum),
+        "next_day": next_day,
     }
 
 

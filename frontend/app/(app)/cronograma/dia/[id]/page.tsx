@@ -97,10 +97,13 @@ function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
   if (lesson.queue_empty || items.length === 0) {
     return (
       <div className="panel p-6">
-        <h2 className="section-title">Nada vencido na fila</h2>
+        <h2 className="section-title">Nenhuma revisão vencida agora</h2>
         <p className="mt-3 text-sm leading-6 text-text-secondary">
           {lesson.empty_notice ??
-            "Nenhum item vencido hoje. Salve vocabulário para alimentar a revisão."}
+            "Nenhuma revisão está vencida agora. Seu próximo conteúdo de revisão aparecerá no momento adequado."}
+        </p>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Você pode concluir esta consolidação e seguir — sem inventar itens na fila.
         </p>
       </div>
     );
@@ -339,7 +342,10 @@ export default function CurriculumDayPage() {
             </span>
           )}
         </p>
-        <h1 className="mt-2 page-title">Dia {day.day_number}</h1>
+        <h1 className="mt-2 page-title">
+          Dia {day.day_number}
+          {curriculum.duration_days ? ` de ${curriculum.duration_days}` : ""}
+        </h1>
         <p className="mt-2 text-text-secondary">
           {day.sequence_label ??
             "Ativar → Estruturar → Compreender → Produzir → Consolidar"}
@@ -347,6 +353,10 @@ export default function CurriculumDayPage() {
         <p className="mt-1 text-sm text-text-secondary">
           {day.blocks_completed} de {day.blocks_total} blocos · {day.total_minutes} min
           estimados
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          Planejado originalmente para{" "}
+          {day.scheduled_date.split("-").reverse().join("/")} (ritmo recomendado)
         </p>
         <div className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated">
           <div
@@ -446,24 +456,40 @@ export default function CurriculumDayPage() {
         <div>
           {finished && !activeBlockId ? (
             <div className="panel p-8 text-center" role="status">
-              <h2 className="text-xl font-semibold">Dia concluído</h2>
+              <h2 className="text-xl font-semibold">
+                Dia {day.day_number} concluído ✓
+              </h2>
               <p className="mt-3 text-sm leading-6 text-text-secondary">
                 Você completou a sequência completa: léxico, estrutura, input, produção e
-                revisão.
+                revisão. A próxima jornada já pode começar — sem esperar o calendário.
               </p>
               {day.thread && day.thread.terms.length > 0 && (
                 <p className="mt-2 text-sm leading-6 text-text-secondary">
                   {day.thread.terms.length}{" "}
                   {day.thread.terms.length === 1 ? "item entrou" : "itens entraram"} na sua
-                  fila de revisão espaçada e voltam nos próximos dias.
+                  fila de revisão espaçada. Revisões futuras continuam no prazo do SRS.
                 </p>
               )}
-              <Link
-                href="/cronograma"
-                className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
-              >
-                Voltar ao cronograma
-              </Link>
+              <div className="mt-6 flex flex-col items-center gap-3">
+                {day.next_day?.available && (
+                  <Link
+                    href={`/cronograma/dia/${day.next_day.id}`}
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+                  >
+                    Continuar para o Dia {day.next_day.day_number}
+                  </Link>
+                )}
+                <Link
+                  href="/cronograma"
+                  className={
+                    day.next_day?.available
+                      ? "text-sm font-semibold text-text-secondary hover:text-primary"
+                      : "inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+                  }
+                >
+                  Voltar ao cronograma
+                </Link>
+              </div>
             </div>
           ) : active ? (
             <BlockRunner

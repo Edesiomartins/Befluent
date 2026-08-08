@@ -77,9 +77,21 @@ export type LessonThreadRef = {
   guaranteed: boolean;
 };
 
+/** Próxima jornada do currículo — liberada ao concluir o dia atual. */
+export type NextDayRef = {
+  id: string;
+  day_number: number;
+  available: boolean;
+  scheduled_date: string;
+  status: DayStatus;
+};
+
+export type PaceStatus = "ahead" | "on_track" | "behind";
+
 export type CurriculumDay = {
   id: string;
   day_number: number;
+  /** Data recomendada de ritmo — nunca bloqueia acesso. */
   scheduled_date: string;
   status: DayStatus;
   completed_at: string | null;
@@ -90,6 +102,7 @@ export type CurriculumDay = {
   current_block_id?: string | null;
   thread?: LessonThread | null;
   blocks: CurriculumBlock[];
+  next_day?: NextDayRef | null;
 };
 
 export type CurriculumWeek = {
@@ -109,6 +122,11 @@ export type CurriculumProgress = {
   overdue_days: number;
   needs_reschedule: boolean;
   next_checkpoint_week: number | null;
+  /** Ritmo vs. datas recomendadas — informativo, nunca bloqueante. */
+  pace_status?: PaceStatus;
+  pace_delta?: number;
+  pace_label_pt?: string;
+  recommended_by_schedule?: number;
 };
 
 export type LevelDetails = {
@@ -203,4 +221,5 @@ export type CompleteBlockResponse = {
   /** Palavras deste bloco que entraram na fila de revisão espaçada. */
   review_items_added?: number;
   progress: CurriculumProgress;
+  next_day?: NextDayRef | null;
 };

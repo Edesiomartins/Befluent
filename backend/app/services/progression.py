@@ -176,7 +176,11 @@ def _review_payload(
         "empty_notice": (
             None
             if ordered
-            else "Nenhum item vencido na fila hoje. Salve vocabulário para alimentar a revisão."
+            else (
+                "Nenhuma revisão está vencida agora. "
+                "Seu próximo conteúdo de revisão aparecerá no momento adequado. "
+                "Você pode concluir esta consolidação e seguir para a próxima jornada."
+            )
         ),
     }
 
@@ -506,6 +510,24 @@ def start_checkpoint(
     """
     if not week.is_checkpoint:
         raise APIError(409, "not_a_checkpoint_week", "Esta semana não tem checkpoint.")
+
+    # Disponibilidade por progresso pedagógico, não por data civil:
+    # todos os CurriculumDays da semana precisam estar concluídos.
+    # Navegar rápido ou "a semana ainda não chegou no calendário" não libera
+    # e também não bloqueia — só a conclusão das jornadas da etapa.
+    week_days = list(
+        db.scalars(
+            select(CurriculumDay)
+            .where(CurriculumDay.week_id == week.id)
+            .order_by(CurriculumDay.day_number)
+        )
+    )
+    if not week_days or any(day.status != DayStatus.COMPLETED for day in week_days):
+        raise APIError(
+            409,
+            "checkpoint_week_incomplete",
+            "Conclua todas as jornadas desta semana antes do checkpoint.",
+        )
 
     existing = checkpoint_test(db, curriculum.id, week.week_number)
     if existing and existing.status != TestStatus.COMPLETED:

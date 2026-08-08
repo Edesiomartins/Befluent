@@ -137,7 +137,7 @@ describe("Página do cronograma", () => {
 
     expect(await screen.findByText("Dia 5 de 90")).toBeInTheDocument();
     expect(screen.getByText("A2 → B2")).toBeInTheDocument();
-    expect(screen.getByText(/4 dias concluídos/)).toBeInTheDocument();
+    expect(screen.getByText(/4 jornadas concluídas/)).toBeInTheDocument();
     expect(screen.getByText("Próximo checkpoint: semana 2")).toBeInTheDocument();
   });
 
@@ -168,7 +168,7 @@ describe("Página do cronograma", () => {
     expect(screen.getAllByText("Checkpoint").length).toBeGreaterThan(0);
   });
 
-  it("destaca o dia de hoje com blocos e minutos", async () => {
+  it("destaca a próxima jornada com blocos e minutos", async () => {
     routeApi([
       ["/api/v1/language-profiles", profiles],
       ["/api/v1/curriculum/active", activeCurriculum],
@@ -177,15 +177,16 @@ describe("Página do cronograma", () => {
 
     render(<CronogramaPage />);
 
-    expect(await screen.findByText(/52 min estimados/)).toBeInTheDocument();
+    expect(await screen.findByText(/Continuar aprendendo/)).toBeInTheDocument();
+    expect(screen.getByText(/52 min estimados/)).toBeInTheDocument();
     expect(screen.getByText("Vocabulário")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Começar o dia/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Começar esta jornada/ })).toHaveAttribute(
       "href",
       "/cronograma/dia/day-1",
     );
   });
 
-  it("oferece a criação de 90 ou 180 dias quando não há cronograma", async () => {
+  it("oferece a criação de 90 ou 180 jornadas quando não há cronograma", async () => {
     routeApi([
       ["/api/v1/language-profiles", profiles],
       ["/api/v1/curriculum/active", new ApiError("Nenhum cronograma ativo.", 404, "curriculum_not_found")],
@@ -195,8 +196,8 @@ describe("Página do cronograma", () => {
     render(<CronogramaPage />);
 
     expect(await screen.findByText("Monte seu cronograma de estudo")).toBeInTheDocument();
-    expect(screen.getByText("90 dias")).toBeInTheDocument();
-    expect(screen.getByText("180 dias")).toBeInTheDocument();
+    expect(screen.getByText("90 jornadas")).toBeInTheDocument();
+    expect(screen.getByText("180 jornadas")).toBeInTheDocument();
   });
 
   it("cria o cronograma na duração escolhida", async () => {
@@ -209,7 +210,7 @@ describe("Página do cronograma", () => {
     render(<CronogramaPage />);
     await screen.findByText("Monte seu cronograma de estudo");
 
-    fireEvent.click(screen.getByRole("radio", { name: /180 dias/ }));
+    fireEvent.click(screen.getByRole("radio", { name: /180 jornadas/ }));
     fireEvent.click(screen.getByRole("button", { name: "Gerar cronograma" }));
 
     await waitFor(() =>
@@ -286,7 +287,7 @@ describe("Atraso e reagendamento", () => {
 
     render(<CronogramaPage />);
 
-    expect(await screen.findByText("7 dias atrasados")).toBeInTheDocument();
+    expect(await screen.findByText(/7 jornadas atrás do ritmo/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Comprimir/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Estender/ })).toBeInTheDocument();
   });
@@ -300,7 +301,7 @@ describe("Atraso e reagendamento", () => {
 
     render(<CronogramaPage />);
     expect(
-      await screen.findByText(/Nenhuma delas apaga o que você já concluiu/),
+      await screen.findByText(/você pode continuar a próxima jornada agora/),
     ).toBeInTheDocument();
   });
 
@@ -357,7 +358,7 @@ describe("Execução do dia", () => {
 
     render(<CurriculumDayPage />);
 
-    expect(await screen.findByText("Dia 1")).toBeInTheDocument();
+    expect(await screen.findByText(/Dia 1/)).toBeInTheDocument();
     expect(screen.getByText(/Semana 1 · Apresentações e rotina/)).toBeInTheDocument();
     const nav = screen.getByRole("navigation", { name: "Caminho do dia" });
     expect(nav).toHaveTextContent("Vocabulário");
@@ -442,7 +443,8 @@ describe("Execução do dia", () => {
             source: "srs_queue",
             queue_empty: true,
             items: [],
-            empty_notice: "Nenhum item vencido na fila hoje.",
+            empty_notice:
+              "Nenhuma revisão está vencida agora. Seu próximo conteúdo de revisão aparecerá no momento adequado.",
           },
         },
       ],
@@ -450,8 +452,8 @@ describe("Execução do dia", () => {
 
     render(<CurriculumDayPage />);
 
-    expect(await screen.findByText("Nada vencido na fila")).toBeInTheDocument();
-    expect(screen.getByText("Nenhum item vencido na fila hoje.")).toBeInTheDocument();
+    expect(await screen.findByText("Nenhuma revisão vencida agora")).toBeInTheDocument();
+    expect(screen.getByText(/aparecerá no momento adequado/)).toBeInTheDocument();
   });
 
   it("serve a fila real do SRS quando há item vencido", async () => {
@@ -501,7 +503,7 @@ describe("Execução do dia", () => {
     );
   });
 
-  it("anuncia o dia concluído quando não resta bloco", async () => {
+  it("anuncia o dia concluído e oferece o próximo dia", async () => {
     routeApi([
       [
         "/api/v1/curriculum/day/day-1",
@@ -512,6 +514,13 @@ describe("Execução do dia", () => {
             status: "completed",
             blocks_completed: 3,
             blocks: day.blocks.map((item) => ({ ...item, status: "completed" })),
+            next_day: {
+              id: "day-2",
+              day_number: 2,
+              available: true,
+              scheduled_date: "2026-08-04",
+              status: "pending",
+            },
           },
         },
       ],
@@ -519,7 +528,11 @@ describe("Execução do dia", () => {
 
     render(<CurriculumDayPage />);
 
-    expect(await screen.findByText("Dia concluído")).toBeInTheDocument();
+    expect(await screen.findByText(/Dia 1 concluído/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Continuar para o Dia 2/ })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-2",
+    );
     expect(screen.getByRole("link", { name: "Voltar ao cronograma" })).toHaveAttribute(
       "href",
       "/cronograma",

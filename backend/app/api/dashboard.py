@@ -79,7 +79,7 @@ def _curriculum_path(db: Session, user_language_id: str) -> dict | None:
         .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
         .where(
             CurriculumWeek.curriculum_id == curriculum.id,
-            CurriculumDay.status != DayStatus.COMPLETED,
+            CurriculumDay.status.notin_([DayStatus.COMPLETED, DayStatus.SKIPPED]),
         )
         .order_by(CurriculumDay.day_number)
     )

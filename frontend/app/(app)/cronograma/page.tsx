@@ -25,12 +25,12 @@ const DAYS_PER_WEEK = 7;
 
 const DURATION_LABELS: Record<Duration, { title: string; hint: string }> = {
   90: {
-    title: "90 dias",
-    hint: "Ritmo intensivo. Meta: subir dois subníveis a partir do seu nível de entrada.",
+    title: "90 jornadas",
+    hint: "Ritmo intensivo recomendado. Você pode avançar mais de uma jornada no mesmo dia.",
   },
   180: {
-    title: "180 dias",
-    hint: "Ritmo sustentável. Meta: B2, com mais tempo em cada nível.",
+    title: "180 jornadas",
+    hint: "Ritmo sustentável recomendado. Meta: B2, com mais tempo em cada nível.",
   },
 };
 
@@ -49,7 +49,7 @@ function weekState(week: CurriculumWeek, currentDay: number | null): WeekState {
 const WEEK_STATE_LABELS: Record<WeekState, string> = {
   done: "Concluída",
   current: "Em andamento",
-  future: "A seguir",
+  future: "Próximas jornadas",
 };
 
 function formatDate(value: string): string {
@@ -117,9 +117,9 @@ function CreateCurriculum({
       <p className="text-sm font-semibold text-primary">Cronograma</p>
       <h1 className="mt-2 page-title">Monte seu cronograma de estudo</h1>
       <p className="mt-3 leading-7 text-text-secondary">
-        O cronograma organiza cada dia com blocos de vocabulário, gramática, pronúncia,
-        escuta, leitura, conversação, escrita e revisão — partindo do nível medido no
-        seu teste de nivelamento.
+        O cronograma organiza jornadas de estudo (não dias de calendário obrigatórios)
+        com blocos de vocabulário, gramática, pronúncia, escuta, leitura, conversação,
+        escrita e revisão — partindo do nível medido no seu teste de nivelamento.
       </p>
 
       <fieldset className="mt-8">
@@ -207,10 +207,12 @@ function OverdueNotice({
     <section className="mt-5 rounded-2xl border border-warning/30 bg-warning/5 p-5" role="alert">
       <h2 className="flex items-center gap-2 font-semibold text-warning">
         <AlertTriangle className="size-5 shrink-0" aria-hidden />
-        {overdueCount} {overdueCount === 1 ? "dia atrasado" : "dias atrasados"}
+        {overdueCount}{" "}
+        {overdueCount === 1 ? "jornada atrás do ritmo" : "jornadas atrás do ritmo"}
       </h2>
       <p className="mt-2 text-sm leading-6 text-text-secondary">
-        Você pode recuperar de duas formas. Nenhuma delas apaga o que você já concluiu.
+        Isso é só ritmo recomendado — você pode continuar a próxima jornada agora. Se
+        quiser realinhar as datas planejadas, escolha uma opção abaixo.
       </p>
       <div className="mt-4 flex flex-wrap gap-3">
         <Button
@@ -293,7 +295,7 @@ export default function CronogramaPage() {
   return (
     <div>
       <p className="text-sm font-semibold text-primary">Cronograma</p>
-      <h1 className="mt-2 page-title">Seu plano de {plan.duration_days} dias</h1>
+      <h1 className="mt-2 page-title">Seu plano de {plan.duration_days} jornadas</h1>
 
       {/* Progresso geral */}
       <section className="panel mt-7 p-6">
@@ -314,7 +316,8 @@ export default function CronogramaPage() {
         </div>
         <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm text-text-secondary">
           <span>
-            {progress.days_completed} {progress.days_completed === 1 ? "dia" : "dias"} concluídos ·{" "}
+            {progress.days_completed}{" "}
+            {progress.days_completed === 1 ? "jornada concluída" : "jornadas concluídas"} ·{" "}
             {progress.percent_complete}%
           </span>
           {progress.next_checkpoint_week && (
@@ -324,6 +327,9 @@ export default function CronogramaPage() {
             </span>
           )}
         </div>
+        {progress.pace_label_pt && (
+          <p className="mt-3 text-sm font-medium text-text-primary">{progress.pace_label_pt}</p>
+        )}
         <p className="mt-4 border-t border-border pt-4 text-xs leading-5 text-text-secondary">
           {plan.disclaimer}
         </p>
@@ -337,10 +343,10 @@ export default function CronogramaPage() {
         />
       )}
 
-      {/* Dia de hoje */}
+      {/* Próxima jornada (progresso, não calendário) */}
       <section className="panel mt-5 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <h2 className="section-title">Hoje</h2>
+          <h2 className="section-title">Continuar aprendendo</h2>
           {currentWeek && (
             <span className="text-sm text-text-secondary">
               Semana {currentWeek.week_number} · {currentWeek.theme}
@@ -353,7 +359,7 @@ export default function CronogramaPage() {
           )}
         </div>
 
-        {today.status === "loading" && <Loading label="Carregando o dia de hoje" />}
+        {today.status === "loading" && <Loading label="Carregando a próxima jornada" />}
         {today.status === "error" && (
           <ErrorState message={today.error} retry={() => void today.reload()} />
         )}
@@ -361,8 +367,12 @@ export default function CronogramaPage() {
         {currentDay ? (
           <>
             <p className="mt-3 text-sm text-text-secondary">
-              Dia {currentDay.day_number} · {formatDate(currentDay.scheduled_date)} ·{" "}
-              {currentDay.total_minutes} min estimados
+              Dia {currentDay.day_number} de {progress.days_total} · {currentDay.total_minutes}{" "}
+              min estimados
+            </p>
+            <p className="mt-1 text-xs text-text-secondary">
+              Planejado originalmente para {formatDate(currentDay.scheduled_date)} (ritmo
+              recomendado — não bloqueia o avanço)
             </p>
             <ul className="mt-4">
               {currentDay.blocks.map((block) => (
@@ -373,14 +383,16 @@ export default function CronogramaPage() {
               href={`/cronograma/dia/${currentDay.id}`}
               className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
             >
-              {currentDay.blocks_completed > 0 ? "Continuar o dia" : "Começar o dia"}
+              {currentDay.blocks_completed > 0
+                ? "Continuar aprendendo"
+                : "Começar esta jornada"}
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           </>
         ) : (
           today.status === "ready" && (
             <p className="mt-3 text-sm text-text-secondary">
-              Você concluiu todos os dias deste cronograma.
+              Você concluiu todas as jornadas deste cronograma.
             </p>
           )
         )}

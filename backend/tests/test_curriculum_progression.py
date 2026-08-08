@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from app.core.curriculum import BlockStatus
+from app.core.curriculum import BlockStatus, DayStatus
 from app.core.errors import APIError
 from app.core.levels import CEFRLevel, LevelSource
 from app.core.levels import TestStatus as PlacementStatus
@@ -60,6 +60,19 @@ def week_of(db, curriculum, number):
     )
 
 
+def complete_week_days(db, week):
+    """Marca todas as jornadas da semana como concluídas (pré-req do checkpoint)."""
+    for day in db.scalars(
+        select(CurriculumDay).where(CurriculumDay.week_id == week.id)
+    ):
+        day.status = DayStatus.COMPLETED
+        for block in db.scalars(
+            select(CurriculumBlock).where(CurriculumBlock.day_id == day.id)
+        ):
+            block.status = BlockStatus.COMPLETED
+    db.flush()
+
+
 def record_checkpoint(db, curriculum, user, *, week_number, band, accuracy, minutes_ago=0):
     """Checkpoint concluído com o acerto informado."""
     test = PlacementTest(
@@ -99,6 +112,8 @@ class TestAberturaDoCheckpoint:
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
         week = week_of(db_session, curriculum, 2)
+        complete_week_days(db_session, week)
+        db_session.commit()
 
         test = start_checkpoint(db_session, user=user, curriculum=curriculum, week=week)
         db_session.commit()
@@ -108,11 +123,22 @@ class TestAberturaDoCheckpoint:
         assert test.result_json["curriculum_id"] == curriculum.id
         assert test.result_json["week_number"] == 2
 
+    def test_checkpoint_exige_jornadas_da_semana(self, db_session):
+        profile, user = setup_profile(db_session)
+        curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+        week = week_of(db_session, curriculum, 2)
+        with pytest.raises(APIError) as exc:
+            start_checkpoint(db_session, user=user, curriculum=curriculum, week=week)
+        assert exc.value.code == "checkpoint_week_incomplete"
+
     def test_reabrir_retoma_o_mesmo_teste(self, db_session):
         profile, user = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
         week = week_of(db_session, curriculum, 2)
+        complete_week_days(db_session, week)
+        db_session.commit()
 
         first = start_checkpoint(db_session, user=user, curriculum=curriculum, week=week)
         db_session.commit()
@@ -141,9 +167,10 @@ class TestAberturaDoCheckpoint:
         profile, user = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
-        start_checkpoint(
-            db_session, user=user, curriculum=curriculum, week=week_of(db_session, curriculum, 2)
-        )
+        week = week_of(db_session, curriculum, 2)
+        complete_week_days(db_session, week)
+        db_session.commit()
+        start_checkpoint(db_session, user=user, curriculum=curriculum, week=week)
         db_session.commit()
 
         body = client.get("/api/v1/placement-tests/current?language_code=en", headers=auth).json()
@@ -152,6 +179,8 @@ class TestAberturaDoCheckpoint:
     def test_rota_abre_o_checkpoint(self, client, auth, db_session):
         profile, _ = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+        complete_week_days(db_session, week_of(db_session, curriculum, 2))
         db_session.commit()
 
         response = client.post(

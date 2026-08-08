@@ -53,6 +53,17 @@ Respostas legadas e V2 passam por `memory_engine.record_review` / `answer_review
 `GET /api/v1/teaching/slice/en-a1-can-001/active` restaura fase, cursor e remediação.
 Frontend `/learn/objetivo` consulta o backend no mount (sem localStorage pedagógico).
 
+## Cronograma flexível (jornadas)
+
+`CurriculumDay` = unidade de progressão (jornada), não dia civil obrigatório.
+
+- `current_day` = primeiro dia aberto (`pending` / `in_progress`), nunca “hoje no calendário”.
+- Concluir Dia N libera Dia N+1 imediatamente (`next_day.available`), mesmo com `scheduled_date` futura.
+- `scheduled_date` = ritmo recomendado / atraso / adiantamento (`pace_status`), **nunca** gate de acesso.
+- Ordem de blocos **dentro** do dia permanece obrigatória.
+- SRS (`ReviewItem` / `MemorySchedule`) continua temporal — avançar jornadas não antecipa `due_at`.
+- Checkpoint: exige todas as jornadas da semana concluídas (progresso), não a data civil da semana.
+
 ## Fora desta iteração
 
 - Currículo A1 completo / todos os idiomas
