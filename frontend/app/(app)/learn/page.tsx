@@ -53,6 +53,25 @@ export default function LearnPage() {
             : "Escolha uma habilidade para trabalhar agora. Faça o teste de nível para receber recomendações personalizadas."}
       </p>
 
+      <Link
+        href="/learn/objetivo"
+        className="mt-6 flex flex-col gap-2 rounded-2xl border border-border bg-surface p-5 transition hover:border-primary/40 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div>
+          <p className="text-sm font-semibold text-primary">Teaching Engine V2</p>
+          <p className="mt-1 font-semibold text-text-primary">
+            Objetivo EN-A1-CAN-001 — apresentar-se
+          </p>
+          <p className="mt-1 text-sm text-text-secondary">
+            Fluxo com evidência, remediação, retry, transfer e mastery (sem “só concluir”).
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary">
+          Abrir objetivo
+          <ArrowRight className="size-4" aria-hidden />
+        </span>
+      </Link>
+
       {pathDay && (
         <Link
           href={`/cronograma/dia/${pathDay.id}`}

@@ -22,7 +22,9 @@ from app.models import (
     LearningError,
     LearningObjective,
     Lesson,
+    MemorySchedule,
     Remediation,
+    TeachingFlowSession,
     User,
     UserLanguage,
     UserObjectiveProgress,
@@ -30,11 +32,28 @@ from app.models import (
 from app.schemas import (
     AttemptCreateIn,
     AttemptEvaluateIn,
+    DeterministicEvaluateIn,
     ErrorCreateIn,
+    FlowStartIn,
+    FlowTransitionIn,
+    IntelligibilityIn,
+    MemoryReviewIn,
     RemediationCreateIn,
     RetryIn,
+    SliceAnswerIn,
+    SliceRetryIn,
+    SliceStartIn,
 )
-from app.services import teaching_engine as engine
+from app.services import (
+    activity_generator,
+    deterministic_evaluator,
+    memory_engine,
+    speech_intelligibility,
+    teaching_engine as engine,
+    teaching_flow,
+    teaching_slice,
+)
+from app.services.objective_seed import ensure_en_a1_can_001
 
 router = APIRouter(prefix="/teaching", tags=["teaching"])
 
@@ -128,13 +147,37 @@ def _objective_payload(objective: LearningObjective) -> dict:
         "can_do": objective.can_do,
         "description": objective.description,
         "skill_focus": objective.skill_focus,
-        "prerequisites": objective.prerequisites_json,
-        "target_vocabulary": objective.target_vocabulary_json,
-        "target_patterns": objective.target_patterns_json,
-        "pronunciation_focus": objective.pronunciation_focus_json,
-        "mastery_policy": objective.mastery_policy_json,
+        "prerequisites": objective.prerequisites_json or [],
+        "target_vocabulary": objective.target_vocabulary_json or [],
+        "target_expressions": objective.target_expressions_json or [],
+        "target_patterns": objective.target_patterns_json or [],
+        "pronunciation_focus": objective.pronunciation_focus_json or [],
+        "pedagogy": objective.pedagogy_json or {},
+        "mastery_policy": objective.mastery_policy_json or {},
         "version": objective.version,
     }
+
+
+def _owned_flow(db: Session, flow_id: str, user: User) -> TeachingFlowSession:
+    row = db.scalar(
+        select(TeachingFlowSession)
+        .join(UserLanguage, UserLanguage.id == TeachingFlowSession.user_language_id)
+        .where(TeachingFlowSession.id == flow_id, UserLanguage.user_id == user.id)
+    )
+    if not row:
+        raise APIError(404, "flow_not_found", "Sessão de ensino não encontrada.")
+    return row
+
+
+def _owned_memory(db: Session, schedule_id: str, user: User) -> MemorySchedule:
+    row = db.scalar(
+        select(MemorySchedule)
+        .join(UserLanguage, UserLanguage.id == MemorySchedule.user_language_id)
+        .where(MemorySchedule.id == schedule_id, UserLanguage.user_id == user.id)
+    )
+    if not row:
+        raise APIError(404, "memory_not_found", "Item de memória não encontrado.")
+    return row
 
 
 def _progress_payload(progress: UserObjectiveProgress) -> dict:
@@ -363,3 +406,242 @@ def retry_remediation(
     )
     db.commit()
     return _attempt_payload(attempt)
+
+
+# ------------------------------------------------------------- Teaching Flow V2
+
+
+@router.post("/flows")
+def start_flow_endpoint(
+    data: FlowStartIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    objective = _get_objective_or_404(db, data.objective_id)
+    owner = _owned_objective_language(db, user, objective)
+    _validate_reference(
+        db,
+        curriculum_block_id=data.curriculum_block_id,
+        lesson_id=None,
+        user_language_id=owner.id,
+    )
+    engine.start_objective(db, user_language_id=owner.id, objective_id=objective.id)
+    session = teaching_flow.start_flow(
+        db,
+        user_language_id=owner.id,
+        objective_id=objective.id,
+        curriculum_block_id=data.curriculum_block_id,
+    )
+    db.commit()
+    return {
+        "id": session.id,
+        "phase": session.phase,
+        "phase_label_pt": teaching_flow.phase_label_pt(session.phase),
+        "status": session.status,
+        "activity_cursor": session.activity_cursor,
+        "current_activity": teaching_flow.current_activity(session),
+        "activities_total": len((session.payload_json or {}).get("activities") or []),
+    }
+
+
+@router.get("/flows/{flow_id}")
+def get_flow_endpoint(
+    flow_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    session = _owned_flow(db, flow_id, user)
+    return {
+        "id": session.id,
+        "phase": session.phase,
+        "phase_label_pt": teaching_flow.phase_label_pt(session.phase),
+        "status": session.status,
+        "objective_id": session.objective_id,
+        "activity_cursor": session.activity_cursor,
+        "remediation_cycles": session.remediation_cycles,
+        "current_activity": teaching_flow.current_activity(session),
+        "activities_total": len((session.payload_json or {}).get("activities") or []),
+    }
+
+
+@router.post("/flows/{flow_id}/transition")
+def transition_flow_endpoint(
+    flow_id: str,
+    data: FlowTransitionIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    session = _owned_flow(db, flow_id, user)
+    teaching_flow.transition(
+        db, session, target_phase=data.target_phase, reason=data.reason
+    )
+    db.commit()
+    return {
+        "id": session.id,
+        "phase": session.phase,
+        "phase_label_pt": teaching_flow.phase_label_pt(session.phase),
+        "status": session.status,
+    }
+
+
+@router.post("/objectives/{objective_id}/activities")
+def generate_activities_endpoint(
+    objective_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    objective = _get_objective_or_404(db, objective_id)
+    _owned_objective_language(db, user, objective)
+    activities = activity_generator.generate_activities(objective)
+    return {"objective_id": objective.id, "activities": activities, "ai_called": False}
+
+
+@router.post("/evaluate-deterministic")
+def evaluate_deterministic_endpoint(
+    data: DeterministicEvaluateIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    _ = (db, user)  # autenticação obrigatória; sem estado
+    return deterministic_evaluator.evaluate_response(
+        student_response=data.student_response,
+        activity=data.activity,
+        canonical_answer=data.canonical_answer,
+        accepted_variants=data.accepted_variants,
+        required_features=data.required_features,
+    )
+
+
+@router.post("/intelligibility")
+def intelligibility_endpoint(
+    data: IntelligibilityIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    _ = (db, user)
+    return speech_intelligibility.assess_intelligibility(
+        target_text=data.target_text,
+        transcript=data.transcript,
+        provider=data.provider,
+    )
+
+
+@router.get("/memory/due")
+def memory_due_endpoint(
+    language_code: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    owner = user_language(db, user.id, language_code)
+    rows = memory_engine.list_due(db, user_language_id=owner.id)
+    return [
+        {
+            "id": row.id,
+            "subject_type": row.subject_type,
+            "subject_key": row.subject_key,
+            "state": row.state,
+            "due_at": row.due_at.isoformat(),
+            "payload": row.payload_json,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/memory/{schedule_id}/review")
+def memory_review_endpoint(
+    schedule_id: str,
+    data: MemoryReviewIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    schedule = _owned_memory(db, schedule_id, user)
+    event = memory_engine.record_review(
+        db,
+        schedule,
+        rating=data.rating,
+        result=data.result,
+        response_time_ms=data.response_time_ms,
+    )
+    db.commit()
+    return {
+        "schedule_id": schedule.id,
+        "event_id": event.id,
+        "due_at": schedule.due_at.isoformat(),
+        "state": schedule.state,
+        "review_count": schedule.review_count,
+    }
+
+
+# ------------------------------------------------------------- vertical slice
+
+
+@router.get("/slice/en-a1-can-001/active")
+def get_active_vertical_slice(
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Restaura flow ativo/recente sem criar sessão. 404 se ainda não houver."""
+    objective = ensure_en_a1_can_001(db)
+    owner = _owned_objective_language(db, user, objective)
+    payload = teaching_slice.get_active_slice(db, user_language_id=owner.id)
+    if payload is None:
+        raise APIError(404, "no_active_flow", "Não há fluxo ativo para este objetivo.")
+    return payload
+
+
+@router.post("/slice/en-a1-can-001/start")
+def start_vertical_slice(
+    data: SliceStartIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    objective = ensure_en_a1_can_001(db)
+    owner = _owned_objective_language(db, user, objective)
+    if data.curriculum_block_id:
+        _validate_reference(
+            db,
+            curriculum_block_id=data.curriculum_block_id,
+            lesson_id=None,
+            user_language_id=owner.id,
+        )
+    payload = teaching_slice.start_slice(
+        db, user_language_id=owner.id, curriculum_block_id=data.curriculum_block_id
+    )
+    db.commit()
+    return payload
+
+
+@router.post("/slice/flows/{flow_id}/answer")
+def slice_answer(
+    flow_id: str,
+    data: SliceAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    session = _owned_flow(db, flow_id, user)
+    payload = teaching_slice.submit_slice_answer(
+        db,
+        session,
+        student_response=data.student_response,
+        activity_index=data.activity_index,
+    )
+    db.commit()
+    return payload
+
+
+@router.post("/slice/flows/{flow_id}/retry")
+def slice_retry(
+    flow_id: str,
+    data: SliceRetryIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    session = _owned_flow(db, flow_id, user)
+    payload = teaching_slice.retry_slice(
+        db,
+        session,
+        remediation_id=data.remediation_id,
+        student_response=data.student_response,
+    )
+    db.commit()
+    return payload

@@ -469,8 +469,13 @@ class LearningObjective(UUIDMixin, Base):
     skill_focus: Mapped[str]=mapped_column(String(30), index=True)
     prerequisites_json: Mapped[list]=mapped_column(JSON, default=list)
     target_vocabulary_json: Mapped[list]=mapped_column(JSON, default=list)
+    target_expressions_json: Mapped[list]=mapped_column(JSON, default=list)
     target_patterns_json: Mapped[list]=mapped_column(JSON, default=list)
     pronunciation_focus_json: Mapped[list]=mapped_column(JSON, default=list)
+    #: Dados pedagógicos declarativos: examples, accepted_variants,
+    #: required_features, transfer_prompts, activation, etc. O QUE ensinar ≠
+    #: COMO praticar — atividades vêm do Activity Generator.
+    pedagogy_json: Mapped[dict]=mapped_column(JSON, default=dict)
     #: Override de `app.core.teaching.DEFAULT_MASTERY_POLICY`. Vazio = padrão.
     mastery_policy_json: Mapped[dict]=mapped_column(JSON, default=dict)
     is_active: Mapped[bool]=mapped_column(Boolean, default=True, index=True)
@@ -554,3 +559,79 @@ class Remediation(UUIDMixin, Base):
     reason: Mapped[str|None]=mapped_column(Text)
     next_attempt_id: Mapped[str|None]=mapped_column(ForeignKey("learning_attempts.id", ondelete="SET NULL"))
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+
+class TeachingFlowSession(UUIDMixin, Base):
+    """Sessão da Teaching Flow — máquina de estados pedagógica (V2).
+
+    Ortogonal a `UserObjectiveProgress.state` (domínio) e a
+    `CurriculumBlock.status` (conclusão administrativa).
+    """
+    __tablename__="teaching_flow_sessions"
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    curriculum_block_id: Mapped[str|None]=mapped_column(ForeignKey("curriculum_blocks.id", ondelete="SET NULL"), index=True)
+    #: `app.core.teaching.FlowPhase`
+    phase: Mapped[str]=mapped_column(String(30), default="not_started", index=True)
+    activity_cursor: Mapped[int]=mapped_column(Integer, default=0)
+    remediation_cycles: Mapped[int]=mapped_column(Integer, default=0)
+    #: Snapshot das atividades geradas + metadados do passo atual.
+    payload_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    status: Mapped[str]=mapped_column(String(20), default="active", index=True)
+    started_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+    closed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+
+
+class MemorySchedule(UUIDMixin, Base):
+    """Memória universal substituível (SRS abstrato) — fonte da verdade V2.
+
+    `subject_type`+`subject_key` identificam o que revisar (vocabulário,
+    expressão, padrão gramatical, erro do aluno, objetivo).
+    `ReviewItem` é projeção de compatibilidade com a fila legada `/reviews`.
+    """
+    __tablename__="memory_schedules"; __table_args__=(UniqueConstraint("user_language_id","subject_type","subject_key"),)
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    #: `app.core.teaching.MemorySubjectType`
+    subject_type: Mapped[str]=mapped_column(String(40), index=True)
+    subject_key: Mapped[str]=mapped_column(String(160))
+    state: Mapped[str]=mapped_column(String(20), default="learning")
+    interval_days: Mapped[int]=mapped_column(Integer, default=1)
+    due_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, index=True)
+    last_reviewed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    review_count: Mapped[int]=mapped_column(Integer, default=0)
+    lapse_count: Mapped[int]=mapped_column(Integer, default=0)
+    strength: Mapped[float]=mapped_column(Float, default=0.0)
+    payload_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    review_item_id: Mapped[str|None]=mapped_column(ForeignKey("review_items.id", ondelete="SET NULL"), index=True)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+
+class MemoryReviewEvent(UUIDMixin, Base):
+    """Evento de revisão da memória universal — auditoria do agendamento."""
+    __tablename__="memory_review_events"
+    memory_schedule_id: Mapped[str]=mapped_column(ForeignKey("memory_schedules.id", ondelete="CASCADE"), index=True)
+    rating: Mapped[str]=mapped_column(String(20))
+    result: Mapped[str|None]=mapped_column(String(20))
+    due_before: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    due_after: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    response_time_ms: Mapped[int|None]=mapped_column(Integer)
+    reviewed_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+
+class AiResponseCache(UUIDMixin, Base):
+    """Cache pedagógico global — nunca deve conter respostas personalizadas
+    do aluno. Chave determinística (capability + language + level + hashes)."""
+    __tablename__="ai_response_cache"; __table_args__=(UniqueConstraint("cache_key"),)
+    cache_key: Mapped[str]=mapped_column(String(64), index=True)
+    capability: Mapped[str]=mapped_column(String(40), index=True)
+    language_code: Mapped[str|None]=mapped_column(String(10))
+    level: Mapped[str|None]=mapped_column(String(10))
+    provider: Mapped[str|None]=mapped_column(String(30))
+    model: Mapped[str|None]=mapped_column(String(80))
+    prompt_version: Mapped[str]=mapped_column(String(40), default="v1")
+    response_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    hit_count: Mapped[int]=mapped_column(Integer, default=0)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    last_hit_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))

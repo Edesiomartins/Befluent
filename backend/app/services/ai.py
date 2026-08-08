@@ -90,27 +90,17 @@ def _envelope(
     abaixo; no OpenRouter é uma instrução do prompt, então o campo diz o que foi
     **pedido**, não o que o modelo comprovadamente usou.
     """
-    skill = MODE_SKILL.get(mode)
-    return {
-        **payload,
-        "mode": mode,
-        "provider": provider,
-        "model": model,
-        "language_code": context.language_code,
-        "level": context.level_for_skill(skill),
-        "overall_level": context.level,
-        "skill": skill,
-        "skill_label": SKILL_LABELS.get(skill) if skill else None,
-        "level_source": context.level_source,
-        "level_is_estimated": context.level_is_estimated,
-        "thread": {
-            "carried_terms": context.carryover_terms,
-            "carried_patterns": list(context.carryover_patterns),
-            "sources": list(context.carryover_sources),
-            "recycled_terms": context.recycled_terms,
-            "guaranteed": provider == "mock",
-        },
-    }
+    from app.services.lesson_envelope import apply_lesson_envelope
+
+    return apply_lesson_envelope(
+        payload,
+        context=context,
+        mode=mode,
+        provider=provider,
+        content_origin=provider,
+        model=model,
+        thread_guaranteed=provider == "mock",
+    )
 
 
 # --------------------------------------------------------------------- o fio
@@ -471,18 +461,42 @@ class OpenRouterUnavailableError(RuntimeError):
 def _openrouter_completion(
     s, model: str, messages: list[dict], timeout: int
 ) -> dict:
-    response = httpx.post(
-        f"{s.openrouter_base_url}/chat/completions",
-        json={
-            "model": model,
-            "messages": messages,
-            "response_format": {"type": "json_object"},
-        },
-        headers={"Authorization": f"Bearer {s.openrouter_api_key}"},
-        timeout=timeout,
+    from app.services.provider_resilience import call_with_policy
+
+    def _once() -> dict:
+        response = httpx.post(
+            f"{s.openrouter_base_url}/chat/completions",
+            json={
+                "model": model,
+                "messages": messages,
+                "response_format": {"type": "json_object"},
+            },
+            headers={"Authorization": f"Bearer {s.openrouter_api_key}"},
+            timeout=timeout,
+        )
+        response.raise_for_status()
+        return json.loads(response.json()["choices"][0]["message"]["content"])
+
+    # max_retries=0: uma tentativa no modelo; falha → fallback de modelo
+    # (evita primary×2 + fallback×2). 429 ainda pode ter 1 retry interno.
+    result = call_with_policy(
+        provider_name=f"openrouter:{model}",
+        operation=_once,
+        max_retries=0,
+        base_backoff=0.4,
     )
-    response.raise_for_status()
-    return json.loads(response.json()["choices"][0]["message"]["content"])
+    logger.info(
+        "ai_capability=chat provider=openrouter model=%s attempts=%s rate_limited=%s circuit=%s",
+        model,
+        result.attempts,
+        result.rate_limited,
+        result.circuit_state,
+    )
+    if not result.ok:
+        if result.error is not None:
+            raise result.error
+        raise OpenRouterUnavailableError("OpenRouter indisponível.")
+    return result.value  # type: ignore[return-value]
 
 
 def openrouter_chat_with_fallback(
@@ -496,13 +510,27 @@ def openrouter_chat_with_fallback(
     backend — reusado por `conversation_turn`, `generate_lesson` e pela
     avaliação de escrita (`app.services.writing_evaluation`) para evitar
     duplicar a lógica de tentativa/registro entre eles.
+
+    401/403/404 não entram em retry infinito (ver `provider_resilience`).
+    429 respeita Retry-After quando disponível.
     """
     models = [m for m in (s.openrouter_model, s.openrouter_fallback_model) if m]
     last_error: Exception | None = None
-    for model in models:
+    for index, model in enumerate(models):
         try:
             payload = _openrouter_completion(s, model, messages, timeout)
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError) as exc:
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            logger.warning("OpenRouter modelo %s falhou HTTP %s", model, status)
+            last_error = exc
+            # Auth / not found: não martelar o próximo com a mesma chave inválida
+            # em loop; ainda assim tenta o fallback de modelo uma vez.
+            if status in (401, 403) and index == 0 and len(models) > 1:
+                continue
+            if status in (401, 403, 404):
+                break
+            continue
+        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError, RuntimeError) as exc:
             logger.warning("OpenRouter modelo %s falhou: %s", model, exc)
             last_error = exc
             continue
@@ -510,6 +538,8 @@ def openrouter_chat_with_fallback(
             logger.warning("OpenRouter modelo %s respondeu fora do contrato esperado", model)
             last_error = ValueError("invalid_payload")
             continue
+        if index > 0:
+            logger.info("ai_fallback_used provider=openrouter model=%s", model)
         return payload, model
     raise OpenRouterUnavailableError("Nenhum modelo OpenRouter respondeu.") from last_error
 

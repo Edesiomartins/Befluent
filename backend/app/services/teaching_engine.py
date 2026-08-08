@@ -27,6 +27,7 @@ from app.core.teaching import (
     AttemptResult,
     MasteryState,
     default_remediation_action,
+    escalated_remediation_action,
     mastery_policy,
 )
 from app.models import (
@@ -37,6 +38,7 @@ from app.models import (
     Remediation,
     UserObjectiveProgress,
 )
+from app.services import memory_engine
 
 
 def _now() -> datetime:
@@ -175,6 +177,7 @@ def evaluate_attempt(
         )
         db.add(evidence)
 
+    repaired_error: LearningError | None = None
     if result == AttemptResult.CORRECT:
         remediation = db.scalar(
             select(Remediation).where(Remediation.next_attempt_id == attempt.id)
@@ -184,8 +187,20 @@ def evaluate_attempt(
             if error is not None and not error.resolved:
                 error.resolved = True
                 error.last_seen = _now()
+                repaired_error = error
+                if evidence is None:
+                    evidence = LearningEvidence(
+                        user_language_id=attempt.user_language_id,
+                        objective_id=attempt.objective_id,
+                        attempt_id=attempt.id,
+                        evidence_type="error_repaired",
+                    )
+                    db.add(evidence)
 
     db.flush()
+    if repaired_error is not None:
+        memory_engine.schedule_learner_error(db, error=repaired_error)
+
     mastery = evaluate_mastery(
         db, user_language_id=attempt.user_language_id, objective_id=attempt.objective_id
     )
@@ -211,24 +226,36 @@ def record_error(
     → retry, independentemente da gravidade (a gravidade só decide depois se o
     erro *bloqueia* domínio — ver `evaluate_mastery`).
 
-    Deduplica por (usuário, objetivo, categoria, texto original) ainda não
-    resolvido: um erro repetido antes da correção vira reincidência, não uma
-    entrada nova a cada tentativa igual.
+    Deduplica por feature linguística (quando houver) ou por texto original:
+    reincidência não exige string idêntica se `language_feature` coincidir.
     """
-    existing = db.scalar(
-        select(LearningError).where(
-            LearningError.user_language_id == attempt.user_language_id,
-            LearningError.objective_id == attempt.objective_id,
-            LearningError.category == category,
-            LearningError.original == original,
-            LearningError.resolved.is_(False),
+    existing = None
+    if language_feature:
+        existing = db.scalar(
+            select(LearningError).where(
+                LearningError.user_language_id == attempt.user_language_id,
+                LearningError.objective_id == attempt.objective_id,
+                LearningError.language_feature == language_feature,
+                LearningError.resolved.is_(False),
+            )
         )
-    )
+    if existing is None:
+        existing = db.scalar(
+            select(LearningError).where(
+                LearningError.user_language_id == attempt.user_language_id,
+                LearningError.objective_id == attempt.objective_id,
+                LearningError.category == category,
+                LearningError.original == original,
+                LearningError.resolved.is_(False),
+            )
+        )
     if existing is not None:
         existing.occurrences += 1
         existing.recurring = True
         existing.last_seen = _now()
         existing.attempt_id = attempt.id
+        if expected and not existing.expected:
+            existing.expected = expected
         error = existing
     else:
         error = LearningError(
@@ -257,14 +284,24 @@ def record_error(
 
 
 def choose_remediation(
-    db: Session, error: LearningError, *, action: str | None = None, reason: str | None = None
+    db: Session,
+    error: LearningError,
+    *,
+    action: str | None = None,
+    reason: str | None = None,
+    escalate: bool = False,
 ) -> Remediation:
     """Escolhe (ou recebe) a ação de remediação para um erro.
 
-    Sem `action` explícito, usa a tabela fixa `DEFAULT_REMEDIATION_BY_CATEGORY`
-    — heurística declarada, não a IA decidindo por conta própria.
+    Sem `action` explícito: tabela por categoria. Com `escalate=True`:
+    1ª ocorrência → hint; 2ª → explain; recorrente → contraste/controlado.
     """
-    chosen = action or default_remediation_action(error.category)
+    if action:
+        chosen = action
+    elif escalate:
+        chosen = escalated_remediation_action(error.occurrences, error.category)
+    else:
+        chosen = default_remediation_action(error.category)
     remediation = Remediation(error_id=error.id, action=chosen, reason=reason)
     db.add(remediation)
     db.flush()
@@ -285,7 +322,23 @@ def record_retry(
     Estado vai direto para `RETRYING` — um sinal de processo (avaliação
     pendente), não algo que `evaluate_mastery` derivaria sozinho, já que o
     erro que originou a remediação ainda está `resolved=False` neste ponto.
+
+    Idempotente: se `next_attempt_id` já existe, devolve a tentativa ligada
+    (não cria segunda tentativa no double-click).
     """
+    if remediation.next_attempt_id:
+        existing = db.get(LearningAttempt, remediation.next_attempt_id)
+        if existing is not None:
+            if existing.result != AttemptResult.PENDING:
+                raise APIError(
+                    409,
+                    "retry_already_evaluated",
+                    "Esta remediação já possui retry avaliado.",
+                )
+            if student_response is not None:
+                existing.student_response = student_response
+            return existing
+
     error = db.get(LearningError, remediation.error_id)
     if error is None:
         raise APIError(404, "error_not_found", "Erro associado à remediação não encontrado.")
@@ -422,11 +475,22 @@ def evaluate_mastery(
     progress.state = state
     progress.last_evaluated_at = _now()
     progress.last_reasons_json = reasons
+    memory_schedule_id = None
     if state == MasteryState.MASTERED and progress.mastered_at is None:
         progress.mastered_at = _now()
+        schedule = memory_engine.schedule_objective_review(
+            db, user_language_id=user_language_id, objective=objective
+        )
+        memory_schedule_id = schedule.id
+        reasons.append("Objetivo agendado na memória universal para revisão futura.")
     db.flush()
 
-    return {"state": state, "reasons": reasons, "progress_id": progress.id}
+    return {
+        "state": state,
+        "reasons": reasons,
+        "progress_id": progress.id,
+        "memory_schedule_id": memory_schedule_id,
+    }
 
 
 # ------------------------------------------------------------ recommendation

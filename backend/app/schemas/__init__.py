@@ -375,3 +375,63 @@ class RetryIn(BaseModel):
     activity_type: str | None = Field(default=None, max_length=50)
     curriculum_block_id: str | None = Field(default=None, max_length=36)
     lesson_id: str | None = Field(default=None, max_length=36)
+
+
+class FlowStartIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    objective_id: str = Field(min_length=1, max_length=36)
+    curriculum_block_id: str | None = Field(default=None, max_length=36)
+
+
+class FlowTransitionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_phase: str = Field(min_length=1, max_length=30)
+    reason: str | None = Field(default=None, max_length=500)
+
+
+class SliceStartIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    curriculum_block_id: str | None = Field(default=None, max_length=36)
+
+
+class SliceAnswerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    student_response: str = Field(default="", max_length=4000)
+    activity_index: int | None = Field(default=None, ge=0)
+
+
+class SliceRetryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    remediation_id: str = Field(min_length=1, max_length=36)
+    student_response: str = Field(min_length=1, max_length=4000)
+
+
+class DeterministicEvaluateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    student_response: str = Field(min_length=1, max_length=4000)
+    canonical_answer: str | None = None
+    accepted_variants: list[str] = Field(default_factory=list)
+    required_features: list[str] = Field(default_factory=list)
+    activity: dict | None = None
+
+
+class IntelligibilityIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    target_text: str = Field(min_length=1, max_length=2000)
+    transcript: str = Field(min_length=1, max_length=4000)
+    provider: str | None = Field(default=None, max_length=30)
+
+
+class MemoryReviewIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    rating: str = Field(min_length=1, max_length=20)
+    result: str | None = Field(default=None, max_length=20)
+    response_time_ms: int | None = Field(default=None, ge=0)

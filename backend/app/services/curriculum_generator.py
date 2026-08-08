@@ -298,7 +298,9 @@ def choose_from_pair(
     """
     lagging = _lagging(candidates, skill_levels, entry_level)
     if lagging is None:
-        return candidates[day_number % len(candidates)]
+        # day_number é 1-based: dia 1 deve pegar o primeiro candidato do par
+        # (conversation/listening), não o segundo (off-by-one clássico).
+        return candidates[(day_number - 1) % len(candidates)]
 
     other = next(skill for skill in candidates if skill != lagging)
     return other if day_number % 3 == 2 else lagging

@@ -18,6 +18,7 @@ from app.schemas import LessonGenerateIn
 from app.services.ai import get_ai_provider
 from app.services.content_repository import fetch_approved_unit, record_lesson_usage
 from app.services.learner_context import build_context, recommended_modes
+from app.services.lesson_envelope import apply_lesson_envelope
 from app.services.progress import aggregate_progress
 from app.services.study_sessions import abandon_session, complete_session
 
@@ -119,23 +120,40 @@ def generate(
 
     if curated_unit is not None:
         unit_payload = dict(curated_unit.payload_json or {})
-        payload = {
+        raw = {
             **unit_payload,
-            "mode": data.mode,
             "title": curated_unit.title or unit_payload.get("title", data.mode),
             "objective": unit_payload.get("objective", curated_unit.topic or ""),
-            "language_code": data.language_code,
             "level": curated_unit.cefr_level,
-            "content_origin": "curated_library",
-            "provider": "curated_library",
         }
         if curated_unit.attribution_text:
-            payload["attribution_text"] = curated_unit.attribution_text
+            raw["attribution_text"] = curated_unit.attribution_text
+        payload = apply_lesson_envelope(
+            raw,
+            context=context,
+            mode=data.mode,
+            provider="curated_library",
+            content_origin="curated_library",
+            model=None,
+            thread_guaranteed=False,
+        )
     else:
         try:
             payload = get_ai_provider().generate_lesson(data.mode, context)
         except ValueError:
             raise APIError(400, "unsupported_mode", "Modo de estudo não suportado.")
+        # Garantir contrato mesmo se o provider omitir campos novos.
+        payload = apply_lesson_envelope(
+            payload,
+            context=context,
+            mode=data.mode,
+            provider=str(payload.get("provider") or "unknown"),
+            content_origin=str(payload.get("content_origin") or payload.get("provider") or "ai"),
+            model=payload.get("model"),
+            thread_guaranteed=payload.get("thread", {}).get("guaranteed")
+            if isinstance(payload.get("thread"), dict)
+            else None,
+        )
 
     if data.persist:
         try:

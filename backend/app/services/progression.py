@@ -264,37 +264,49 @@ def _generate_payload(
             topic=block.topic,
         )
     if curated is not None:
+        from app.services.lesson_envelope import apply_lesson_envelope
+
         unit_payload = dict(curated.payload_json or {})
-        payload = {
+        raw = {
             **unit_payload,
-            "mode": mode,
             "title": curated.title or unit_payload.get("title", mode),
             "objective": unit_payload.get("objective", curated.topic or block.topic or ""),
-            "language_code": language_code,
             "level": curated.cefr_level,
-            "content_origin": "curated_library",
-            "provider": "curated_library",
             "topic": block.topic,
-            # Unidade curada é texto fixo: ela não pode ser reescrita para
-            # encaixar o léxico do dia. O fio vai como material de apoio, com
-            # `guaranteed=False` dizendo que a continuidade aqui é sugerida,
-            # não construída dentro do conteúdo.
-            "thread": {
-                "carried_terms": context.carryover_terms,
-                "carried_patterns": list(context.carryover_patterns),
-                "sources": list(context.carryover_sources),
-                "recycled_terms": context.recycled_terms,
-                "guaranteed": False,
-            },
         }
         if curated.attribution_text:
-            payload["attribution_text"] = curated.attribution_text
+            raw["attribution_text"] = curated.attribution_text
+        # Unidade curada não é reescrita pela IA; o envelope aplica metadados e
+        # overlays de continuidade (apply_to_terms / target_expressions) a partir
+        # do fio do dia, com guaranteed=False.
+        payload = apply_lesson_envelope(
+            raw,
+            context=context,
+            mode=mode,
+            provider="curated_library",
+            content_origin="curated_library",
+            model=None,
+            thread_guaranteed=False,
+        )
         return payload, curated
 
     try:
         payload = get_ai_provider().generate_lesson(mode, context)
     except ValueError:
         raise APIError(400, "unsupported_mode", "Modo de estudo não suportado.")
+    from app.services.lesson_envelope import apply_lesson_envelope
+
+    payload = apply_lesson_envelope(
+        payload,
+        context=context,
+        mode=mode,
+        provider=str(payload.get("provider") or "unknown"),
+        content_origin=str(payload.get("content_origin") or payload.get("provider") or "ai"),
+        model=payload.get("model"),
+        thread_guaranteed=payload.get("thread", {}).get("guaranteed")
+        if isinstance(payload.get("thread"), dict)
+        else None,
+    )
     return payload, None
 
 

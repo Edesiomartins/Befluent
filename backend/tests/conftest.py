@@ -8,6 +8,7 @@ from app.core.security import hash_password
 from app.main import app
 from app.models import Base,User,UserPreference
 from app.services.content_seed import seed_starter_content
+from app.services.objective_seed import seed_teaching_objectives
 from app.services.placement_seed import seed_placement_items
 from app.services.seed import seed_languages
 engine=create_engine("sqlite://",connect_args={"check_same_thread":False},poolclass=StaticPool)
@@ -24,6 +25,7 @@ def reset_db():
         seed_languages(db)
         seed_placement_items(db)
         seed_starter_content(db, language_codes={"en"})
+        seed_teaching_objectives(db)
         user=User(email="admin@befluent.local",name="Admin",password_hash=hash_password("senha-segura"))
         db.add(user); db.flush(); db.add(UserPreference(user_id=user.id)); db.commit()
     yield
