@@ -273,3 +273,105 @@ class LessonWritingIn(BaseModel):
         if not level:
             raise ValueError("Nível inválido.")
         return level
+
+
+# ------------------------------------------------------------ Teaching Engine
+
+
+class AttemptCreateIn(BaseModel):
+    """Registra uma produção do aluno para um objetivo. Sem áudio bruto —
+    `student_response` é sempre texto (transcrição, resposta, redação)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    objective_id: str = Field(min_length=1, max_length=36)
+    activity_type: str = Field(min_length=1, max_length=50)
+    student_response: str | None = Field(default=None, max_length=4000)
+    curriculum_block_id: str | None = Field(default=None, max_length=36)
+    lesson_id: str | None = Field(default=None, max_length=36)
+
+
+class AttemptEvaluateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    result: str
+    score: float | None = Field(default=None, ge=0, le=1)
+    provider: str | None = Field(default=None, max_length=30)
+    evidence_type: str | None = None
+    is_transfer: bool = False
+
+    @field_validator("result")
+    @classmethod
+    def validate_result(cls, value: str) -> str:
+        from app.core.teaching import AttemptResult
+
+        if value not in {AttemptResult.CORRECT, AttemptResult.PARTIAL, AttemptResult.INCORRECT}:
+            raise ValueError("Resultado deve ser correct, partial ou incorrect.")
+        return value
+
+    @field_validator("evidence_type")
+    @classmethod
+    def validate_evidence_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.core.teaching import EvidenceType
+
+        if value not in set(EvidenceType):
+            raise ValueError("Tipo de evidência inválido.")
+        return value
+
+
+class ErrorCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str
+    original: str = Field(min_length=1, max_length=2000)
+    expected: str | None = Field(default=None, max_length=2000)
+    explanation: str | None = Field(default=None, max_length=1000)
+    severity: str = "moderate"
+    language_feature: str | None = Field(default=None, max_length=120)
+
+    @field_validator("category")
+    @classmethod
+    def validate_category(cls, value: str) -> str:
+        from app.core.teaching import ErrorCategory
+
+        if value not in set(ErrorCategory):
+            raise ValueError("Categoria de erro inválida.")
+        return value
+
+    @field_validator("severity")
+    @classmethod
+    def validate_severity(cls, value: str) -> str:
+        from app.core.teaching import ErrorSeverity
+
+        if value not in set(ErrorSeverity):
+            raise ValueError("Gravidade de erro inválida.")
+        return value
+
+
+class RemediationCreateIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: str | None = None
+    reason: str | None = Field(default=None, max_length=500)
+
+    @field_validator("action")
+    @classmethod
+    def validate_action(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        from app.core.teaching import RemediationAction
+
+        if value not in set(RemediationAction):
+            raise ValueError("Ação de remediação inválida.")
+        return value
+
+
+class RetryIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    student_response: str | None = Field(default=None, max_length=4000)
+    activity_type: str | None = Field(default=None, max_length=50)
+    curriculum_block_id: str | None = Field(default=None, max_length=36)
+    lesson_id: str | None = Field(default=None, max_length=36)

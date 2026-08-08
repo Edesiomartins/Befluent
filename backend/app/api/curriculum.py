@@ -151,6 +151,10 @@ def _block_payload(
         "lesson_ref": block.lesson_ref,
         "status": block.status,
         "score": block.score,
+        # Ponte com o Teaching Engine (`/teaching/objectives/{id}/mastery`).
+        # Nulo em todo bloco hoje: bloco concluído continua sem implicar
+        # domínio enquanto não houver objetivo associado.
+        "objective_id": block.objective_id,
         "phase": block_phase(block.skill),
         "phase_label": block_phase_label(block.skill),
         "phase_why": block_phase_why(block.skill),

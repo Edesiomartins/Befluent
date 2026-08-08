@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(python -m pytest -q --tb=no)",
-      "Bash(echo \"EXIT:$?\")"
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(python -c \"import app.models\")",
+      "Bash(python -c ' *)",
+      "Bash(DATABASE_URL=\"sqlite:////tmp/teaching_engine_migration_test.db\" python -m alembic downgrade 0006_curriculum)",
+      "Bash(rm -f /tmp/teaching_engine_migration_test.db)"
     ]
   }
 }

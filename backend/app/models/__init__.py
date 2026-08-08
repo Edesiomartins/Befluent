@@ -134,6 +134,10 @@ class CurriculumBlock(UUIDMixin, Base):
     lesson_ref: Mapped[str|None]=mapped_column(String(36), index=True)
     status: Mapped[str]=mapped_column(String(20), default="pending", index=True)
     score: Mapped[float|None]=mapped_column(Float)
+    #: Ponte opcional com o Teaching Engine (migration 0007). Nulo em todo
+    #: bloco existente: `block.status == "completed"` continua sendo só sinal
+    #: de atividade concluída, nunca de domínio — ver `app.core.teaching`.
+    objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="SET NULL"), index=True)
 
 class StudySession(UUIDMixin, Base):
     __tablename__="study_sessions"
@@ -438,3 +442,115 @@ class Session(UUIDMixin, Base):
     token_hash: Mapped[str]=mapped_column(String(64), unique=True, index=True)
     expires_at: Mapped[datetime]=mapped_column(DateTime(timezone=True)); created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
     revoked_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+
+# ------------------------------------------------------------ Teaching Engine
+#
+# Núcleo pedagógico entre currículo e atividades (migration 0007). Distingue
+# atividade concluída (CurriculumBlock/Lesson, acima) de aprendizagem
+# demonstrada. `LearningObjective` é catálogo versionado por idioma+nível —
+# mesma separação de `GrammarTopic`/`UserGrammarProgress`: o objetivo não
+# pertence a um usuário, o progresso sim (`UserObjectiveProgress`).
+
+class LearningObjective(UUIDMixin, Base):
+    """Aquilo que o aluno precisa ser capaz de **fazer** — observável.
+
+    `code` segue o padrão `EN-A1-CAN-001`. `can_do` é a descrição observável
+    ("diz nome, origem, profissão"), não um tópico de estudo ("verbo to be").
+    """
+    __tablename__="learning_objectives"; __table_args__=(UniqueConstraint("language_id","code"),)
+    language_id: Mapped[str]=mapped_column(ForeignKey("languages.id"), index=True)
+    level: Mapped[str]=mapped_column(String(10), index=True)
+    code: Mapped[str]=mapped_column(String(40))
+    title: Mapped[str]=mapped_column(String(200))
+    can_do: Mapped[str]=mapped_column(Text)
+    description: Mapped[str|None]=mapped_column(Text)
+    #: `app.core.curriculum.BlockSkill` ou `app.core.levels.Skill` — o que este
+    #: objetivo treina, não uma competência CEFR isolada necessariamente.
+    skill_focus: Mapped[str]=mapped_column(String(30), index=True)
+    prerequisites_json: Mapped[list]=mapped_column(JSON, default=list)
+    target_vocabulary_json: Mapped[list]=mapped_column(JSON, default=list)
+    target_patterns_json: Mapped[list]=mapped_column(JSON, default=list)
+    pronunciation_focus_json: Mapped[list]=mapped_column(JSON, default=list)
+    #: Override de `app.core.teaching.DEFAULT_MASTERY_POLICY`. Vazio = padrão.
+    mastery_policy_json: Mapped[dict]=mapped_column(JSON, default=dict)
+    is_active: Mapped[bool]=mapped_column(Boolean, default=True, index=True)
+    version: Mapped[int]=mapped_column(Integer, default=1)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class UserObjectiveProgress(UUIDMixin, Base):
+    """Estado de domínio (`app.core.teaching.MasteryState`) de um aluno sobre
+    um objetivo. Nunca setado a `mastered` diretamente por request — só
+    `evaluate_mastery` decide, a partir de evidência registrada."""
+    __tablename__="user_objective_progress"; __table_args__=(UniqueConstraint("user_language_id","objective_id"),)
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    state: Mapped[str]=mapped_column(String(30), default="not_started", index=True)
+    started_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    mastered_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    last_evaluated_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+    last_reasons_json: Mapped[list]=mapped_column(JSON, default=list)
+    updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class LearningAttempt(UUIDMixin, Base):
+    """Uma produção relevante do aluno para um objetivo. Não guarda áudio bruto
+    — `student_response` é sempre texto (transcrição, resposta, texto)."""
+    __tablename__="learning_attempts"
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    curriculum_block_id: Mapped[str|None]=mapped_column(ForeignKey("curriculum_blocks.id", ondelete="SET NULL"), index=True)
+    lesson_id: Mapped[str|None]=mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"))
+    activity_type: Mapped[str]=mapped_column(String(50))
+    attempt_number: Mapped[int]=mapped_column(Integer, default=1)
+    student_response: Mapped[str|None]=mapped_column(Text)
+    result: Mapped[str]=mapped_column(String(20), default="pending")
+    score: Mapped[float|None]=mapped_column(Float)
+    #: Quem avaliou: "heuristic", "openrouter", "groq", "self" etc. Rastreável,
+    #: mas nunca autoridade para marcar mastery sozinho — ver `evaluate_mastery`.
+    provider: Mapped[str|None]=mapped_column(String(30))
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    evaluated_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
+
+class LearningEvidence(UUIDMixin, Base):
+    """Evidência de aprendizagem — o que faz `evaluate_mastery` mover o estado
+    além de LEARNING/PRACTICING. "Clicou em concluir" nunca gera isto."""
+    __tablename__="learning_evidence"
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    attempt_id: Mapped[str]=mapped_column(ForeignKey("learning_attempts.id", ondelete="CASCADE"), index=True)
+    #: `app.core.teaching.EvidenceType`.
+    evidence_type: Mapped[str]=mapped_column(String(40))
+    is_transfer: Mapped[bool]=mapped_column(Boolean, default=False)
+    weight: Mapped[float]=mapped_column(Float, default=1.0)
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+
+class LearningError(UUIDMixin, Base):
+    """Erro real do aluno. `resolved` só vira True quando um retry decorrente
+    de uma `Remediation` volta correto — ver `teaching_engine.evaluate_attempt`."""
+    __tablename__="learning_errors"
+    user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="SET NULL"), index=True)
+    attempt_id: Mapped[str|None]=mapped_column(ForeignKey("learning_attempts.id", ondelete="SET NULL"))
+    #: `app.core.teaching.ErrorCategory`.
+    category: Mapped[str]=mapped_column(String(40), index=True)
+    original: Mapped[str]=mapped_column(Text)
+    expected: Mapped[str|None]=mapped_column(Text)
+    explanation: Mapped[str|None]=mapped_column(Text)
+    severity: Mapped[str]=mapped_column(String(20), default="moderate")
+    language_feature: Mapped[str|None]=mapped_column(String(120))
+    recurring: Mapped[bool]=mapped_column(Boolean, default=False)
+    resolved: Mapped[bool]=mapped_column(Boolean, default=False, index=True)
+    occurrences: Mapped[int]=mapped_column(Integer, default=1)
+    first_seen: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
+    last_seen: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)
+
+class Remediation(UUIDMixin, Base):
+    """Ação recomendada após um erro. `next_attempt_id` é preenchido quando o
+    retry decorrente é registrado — liga o ciclo erro → remediação → retry."""
+    __tablename__="remediations"
+    error_id: Mapped[str]=mapped_column(ForeignKey("learning_errors.id", ondelete="CASCADE"), index=True)
+    #: `app.core.teaching.RemediationAction`.
+    action: Mapped[str]=mapped_column(String(30))
+    reason: Mapped[str|None]=mapped_column(Text)
+    next_attempt_id: Mapped[str|None]=mapped_column(ForeignKey("learning_attempts.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
