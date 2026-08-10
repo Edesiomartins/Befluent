@@ -38,6 +38,7 @@ from app.schemas import (
     FlowTransitionIn,
     IntelligibilityIn,
     MemoryReviewIn,
+    SpeechCoachIn,
     RemediationCreateIn,
     RetryIn,
     SliceAnswerIn,
@@ -48,6 +49,7 @@ from app.services import (
     activity_generator,
     deterministic_evaluator,
     memory_engine,
+    speech_coach,
     speech_intelligibility,
     teaching_engine as engine,
     teaching_flow,
@@ -524,6 +526,40 @@ def intelligibility_endpoint(
         transcript=data.transcript,
         provider=data.provider,
     )
+
+
+@router.post("/speech-coach")
+def speech_coach_endpoint(
+    data: SpeechCoachIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Feedback pedagógico de inteligibilidade a partir do transcript STT.
+
+    Não inventa pronunciation score. Transcript vazio = issue técnica.
+    Evidência TE só se `record_evidence` + `objective_id` + sucesso.
+    """
+    result = speech_coach.coach_from_transcript(
+        target_text=data.target_text,
+        transcript=data.transcript,
+        provider=data.provider,
+        attempt_number=data.attempt_number,
+        previous_missed=list(data.previous_missed or []),
+        mode=data.mode if data.mode in {"repetition", "guided"} else "repetition",
+    )
+    evidence = None
+    if data.record_evidence and data.objective_id and data.language_code:
+        owner = user_language(db, user.id, data.language_code)
+        evidence = speech_coach.maybe_record_spoken_evidence(
+            db,
+            user_language_id=owner.id,
+            objective_id=data.objective_id,
+            coach_result=result,
+        )
+        if evidence:
+            db.commit()
+    return {**result, "te_evidence": evidence}
+
 
 
 @router.get("/memory/due")

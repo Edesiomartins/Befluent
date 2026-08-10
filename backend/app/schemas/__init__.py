@@ -429,6 +429,23 @@ class IntelligibilityIn(BaseModel):
     provider: str | None = Field(default=None, max_length=30)
 
 
+class SpeechCoachIn(BaseModel):
+    """Speech Coach V1 — feedback de inteligibilidade (não fonético)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_text: str = Field(min_length=1, max_length=2000)
+    #: Pode ser vazio (silêncio / STT falhou) — tratado como issue técnica.
+    transcript: str = Field(default="", max_length=4000)
+    provider: str | None = Field(default=None, max_length=30)
+    attempt_number: int = Field(default=1, ge=1, le=20)
+    previous_missed: list[str] = Field(default_factory=list, max_length=40)
+    mode: str = Field(default="repetition", max_length=30)
+    language_code: str | None = Field(default=None, max_length=10)
+    objective_id: str | None = Field(default=None, max_length=36)
+    record_evidence: bool = False
+
+
 class MemoryReviewIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

@@ -12,6 +12,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
+import { SpeechCoach } from "@/components/speech-coach";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -207,71 +208,76 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
 }
 
 function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
-  const [transcript, setTranscript] = useState("");
   const [phrase, setPhrase] = useState(0);
+  const [phraseDone, setPhraseDone] = useState(false);
   const current = lesson.target_phrases[phrase];
+  const last = phrase >= lesson.target_phrases.length - 1;
+
+  const transferPrompt =
+    lesson.language_code === "en"
+      ? "Agora diga algo parecido com as suas palavras — por exemplo, discorde de uma ideia e diga o motivo."
+      : "Agora diga algo parecido com as suas palavras, usando a mesma ideia da frase-modelo.";
+
   return (
     <div className="grid gap-5">
       <p className="rounded-xl border border-border bg-surface-elevated/60 px-4 py-3 text-sm leading-6 text-text-secondary">
-        Esta é uma prática de fala com transcrição. Ainda não há avaliação fonética
-        completa — a transcrição ajuda a conferir inteligibilidade, mas não vira nota
-        de pronúncia.
+        Speech Coach: o BeFluent usa a transcrição para estimar inteligibilidade — o que
+        ficou claro na fala. Isso <strong>não</strong> é nota de pronúncia nem análise
+        fonética.
       </p>
-      <div className="grid gap-4 md:grid-cols-3">
-        {lesson.focus_sounds.map((sound) => (
-          <div key={sound.sound} className="panel p-4">
-            <p className="font-semibold text-primary">{sound.sound}</p>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">{sound.why_hard}</p>
-            <p className="mt-2 text-sm leading-6">{sound.how_to_produce}</p>
-          </div>
-        ))}
-      </div>
-      {current && (
-        <div className="grid gap-5 md:grid-cols-2">
-          <div className="panel p-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-                Frase-alvo · {phrase + 1}/{lesson.target_phrases.length}
-              </p>
-              <button
-                type="button"
-                className="text-xs font-semibold text-primary hover:underline"
-                onClick={() => {
-                  setPhrase((p) => (p + 1) % lesson.target_phrases.length);
-                  setTranscript("");
-                }}
-              >
-                Próxima frase
-              </button>
+      {lesson.focus_sounds.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-3">
+          {lesson.focus_sounds.map((sound) => (
+            <div key={sound.sound} className="panel p-4">
+              <p className="font-semibold text-primary">{sound.sound}</p>
+              <p className="mt-2 text-sm leading-6 text-text-secondary">{sound.why_hard}</p>
+              <p className="mt-2 text-sm leading-6">{sound.how_to_produce}</p>
             </div>
-            <p className="my-5 text-2xl font-medium">{current.phrase}</p>
-            <p className="mb-4 text-sm text-text-secondary">{current.translation}</p>
-            <AudioPlayer text={current.phrase} languageCode={lesson.language_code} />
-          </div>
-          <Recorder onTranscript={setTranscript} languageCode={lesson.language_code} />
+          ))}
         </div>
       )}
-      {transcript && (
-        <div className="panel p-5">
-          <h2 className="section-title">Sua fala transcrita</h2>
-          <dl className="mt-4 grid gap-3 text-sm">
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-                Alvo
-              </dt>
-              <dd className="mt-1">{current?.phrase}</dd>
-            </div>
-            <div>
-              <dt className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-                Transcrição
-              </dt>
-              <dd className="mt-1">{transcript}</dd>
-            </div>
-          </dl>
-          <p className="mt-4 text-xs leading-5 text-text-secondary">
-            Compare o alvo com a transcrição para praticar inteligibilidade. Isso não é
-            uma nota fonética nem um score de pronúncia.
-          </p>
+      {current && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+              Frase {phrase + 1} de {lesson.target_phrases.length}
+            </p>
+            <button
+              type="button"
+              className="text-xs font-semibold text-primary hover:underline"
+              onClick={() => {
+                if (last) {
+                  void completeLesson(lesson.lesson_id);
+                  return;
+                }
+                setPhrase((p) => p + 1);
+                setPhraseDone(false);
+              }}
+            >
+              {last ? "Concluir prática" : "Próxima frase"}
+            </button>
+          </div>
+          <SpeechCoach
+            key={`${lesson.lesson_id}-${phrase}-${current.phrase}`}
+            targetText={current.phrase}
+            translation={current.translation}
+            languageCode={lesson.language_code}
+            transferPrompt={transferPrompt}
+            onSuccess={() => setPhraseDone(true)}
+            onContinue={() => {
+              if (last) {
+                void completeLesson(lesson.lesson_id);
+                return;
+              }
+              setPhrase((p) => p + 1);
+              setPhraseDone(false);
+            }}
+          />
+          {phraseDone && (
+            <p className="mt-3 text-sm text-success" role="status">
+              Frase compreensível nesta tentativa. Você pode seguir ou praticar de novo.
+            </p>
+          )}
         </div>
       )}
     </div>
