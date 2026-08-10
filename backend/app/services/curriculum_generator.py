@@ -44,7 +44,10 @@ from app.models import (
     UserLanguage,
 )
 from app.services.curriculum_bank import block_topic, weekly_theme
+from app.services.curriculum_teaching import PEDAGOGICAL_SKILLS
 from app.services.learner_context import SKILL_COLUMNS
+from app.services.objective_seed import ensure_theme_objective
+from app.services.objective_seed_b2_week1 import resolve_pilot_objective
 
 #: Teto do cronograma. C1/C2 não têm banco de itens validado (ver
 #: `levels.TESTABLE_LEVELS`): prometer C1 em 180 dias seria promessa sem lastro.
@@ -357,6 +360,7 @@ def build_blocks_for_day(
     weekday: int,
     skill_levels: dict[str, str],
     entry_level: str,
+    day_in_week: int | None = None,
 ) -> list[CurriculumBlock]:
     skills = day_block_skills(
         language_code=language_code,
@@ -365,8 +369,45 @@ def build_blocks_for_day(
         skill_levels=skill_levels,
         entry_level=entry_level,
     )
+
+    # Piloto Semana 1 B2: um Can-Do real por jornada; blocos pedagógicos
+    # compartilham o mesmo objective_id. Review fica sem objetivo.
+    pilot_objective = None
+    if day_in_week is not None:
+        pilot_objective = resolve_pilot_objective(
+            db,
+            language_code=language_code,
+            cefr_level=cefr_level,
+            theme=theme,
+            week_number=week_number,
+            day_in_week=day_in_week,
+        )
+
+    # Fora do piloto: âncora leve só no vocabulary B2+ (compatível).
+    theme_objective_id = None
+    if (
+        pilot_objective is None
+        and cefr_level in {CEFRLevel.B2, CEFRLevel.C1, CEFRLevel.C2}
+        and BlockSkill.VOCABULARY in skills
+    ):
+        objective = ensure_theme_objective(
+            db,
+            language_code=language_code,
+            level=cefr_level,
+            theme=theme,
+        )
+        theme_objective_id = objective.id if objective else None
+
     blocks: list[CurriculumBlock] = []
     for position, skill in enumerate(skills, start=1):
+        if pilot_objective is not None:
+            objective_id = (
+                pilot_objective.id if skill in PEDAGOGICAL_SKILLS else None
+            )
+        else:
+            objective_id = (
+                theme_objective_id if skill == BlockSkill.VOCABULARY else None
+            )
         block = CurriculumBlock(
             day_id=day.id,
             skill=skill,
@@ -375,6 +416,7 @@ def build_blocks_for_day(
             cefr_level=cefr_level,
             topic=block_topic(language_code, skill, theme, week_number),
             status=BlockStatus.PENDING,
+            objective_id=objective_id,
         )
         db.add(block)
         blocks.append(block)
@@ -465,7 +507,7 @@ def generate_curriculum(
         db.add(week)
         db.flush()
 
-        for _ in range(DAYS_PER_WEEK):
+        for day_in_week in range(1, DAYS_PER_WEEK + 1):
             day_number += 1
             if day_number > duration_days:
                 break
@@ -488,6 +530,7 @@ def generate_curriculum(
                 weekday=scheduled.weekday(),
                 skill_levels=skill_levels,
                 entry_level=entry_level,
+                day_in_week=day_in_week,
             )
 
     db.flush()

@@ -37,6 +37,7 @@ export type GrammarLesson = LessonEnvelope & {
     options: string[];
     answer: string;
     rationale: string;
+    option_rationales?: Record<string, string>;
   }>;
 };
 

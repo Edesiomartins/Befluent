@@ -12,6 +12,17 @@ export type TeachingFlowPhase =
   | "mastered"
   | "needs_review";
 
+export type AnswerFeedback = {
+  is_correct: boolean;
+  selected: string;
+  correct_option: string;
+  selected_label?: string;
+  correct_label?: string;
+  why_selected?: string | null;
+  why_correct?: string | null;
+  remember?: string | null;
+};
+
 export type TeachingActivity = {
   index?: number;
   type: string;
@@ -31,6 +42,8 @@ export type TeachingActivity = {
   required_features?: string[];
   scaffold_pt?: string;
   ai_required?: boolean;
+  post_reveal?: boolean;
+  is_retry_variant?: boolean;
 };
 
 export type SliceSession = {
@@ -70,7 +83,10 @@ export type SliceSession = {
     explanation?: string | null;
     contrast?: { incorrect: string; correct?: string | null };
     hint_pt?: string;
+    answer_feedback?: AnswerFeedback | null;
   } | null;
+  answer_feedback?: AnswerFeedback | null;
+  activity_locked?: boolean;
   mastery?: {
     state: string;
     reasons: string[];

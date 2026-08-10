@@ -24,4 +24,4 @@ def test_heads_is_single_linear_chain():
     scripts = ScriptDirectory.from_config(cfg)
     heads = scripts.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0008_teaching_engine_v2"
+    assert heads[0] == "0009_lesson_activity_attempts"

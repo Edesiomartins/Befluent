@@ -159,6 +159,45 @@ class LessonActivity(UUIDMixin, Base):
     activity_type: Mapped[str]=mapped_column(String(50)); prompt: Mapped[str]=mapped_column(Text); payload_json: Mapped[dict]=mapped_column(JSON, default=dict)
     status: Mapped[str]=mapped_column(String(20), default="pending")
 
+class LessonActivityAttempt(UUIDMixin, Base):
+    """Tentativa imutável de atividade objetiva em lição legada.
+
+    Não exige LearningObjective e NÃO gera mastery/evidence de TE V2.
+    Distinto de LearningAttempt (Teaching Engine).
+    """
+    __tablename__ = "lesson_activity_attempts"
+    __table_args__ = (
+        UniqueConstraint(
+            "lesson_id",
+            "activity_key",
+            "attempt_number",
+            name="uq_lesson_activity_attempt_gen",
+        ),
+    )
+    lesson_id: Mapped[str] = mapped_column(
+        ForeignKey("lessons.id", ondelete="CASCADE"), index=True
+    )
+    user_language_id: Mapped[str] = mapped_column(
+        ForeignKey("user_languages.id", ondelete="CASCADE"), index=True
+    )
+    activity_key: Mapped[str] = mapped_column(String(120), index=True)
+    attempt_number: Mapped[int] = mapped_column(Integer, default=1)
+    activity_type: Mapped[str] = mapped_column(String(50), default="multiple_choice")
+    answer_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False)
+    revealed_correct_answer: Mapped[bool] = mapped_column(Boolean, default=False)
+    feedback_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    question_snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20), default="submitted")
+    retry_of_id: Mapped[str | None] = mapped_column(
+        ForeignKey("lesson_activity_attempts.id", ondelete="SET NULL")
+    )
+    pedagogical_effect: Mapped[str] = mapped_column(
+        String(40), default="completion_only"
+    )
+    submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
 class Exercise(UUIDMixin, Base):
     __tablename__="exercises"
     lesson_activity_id: Mapped[str|None]=mapped_column(ForeignKey("lesson_activities.id", ondelete="SET NULL"))

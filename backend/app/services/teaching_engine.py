@@ -161,6 +161,14 @@ def evaluate_attempt(
     if result not in (AttemptResult.CORRECT, AttemptResult.PARTIAL, AttemptResult.INCORRECT):
         raise APIError(422, "invalid_result", "Resultado da tentativa inválido.")
 
+    # LearningAttempt é append-only após avaliação — sem sobrescrever resposta.
+    if attempt.evaluated_at is not None or attempt.result != AttemptResult.PENDING:
+        raise APIError(
+            409,
+            "attempt_already_submitted",
+            "Esta tentativa já foi avaliada e não pode ser alterada.",
+        )
+
     attempt.result = result
     attempt.score = score
     attempt.provider = provider

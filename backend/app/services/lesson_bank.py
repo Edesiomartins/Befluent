@@ -12,14 +12,36 @@ modo padrão do projeto.
 
 LIMITAÇÃO DECLARADA: banco inicial de desenvolvimento, escrito para validar o
 fluxo técnico de ponta a ponta. Não passou por validação pedagógica nem por
-revisão de falante nativo; a cobertura é mínima (3 a 6 itens por célula) e não
-substitui material didático. Com uma chave OpenRouter configurada, `ai.py` gera
-conteúdo por prompt e este banco passa a ser apenas fallback.
+revisão de falante nativo. A faixa UPPER (B2) do inglês foi expandida com
+etiquetas de tema semanal para permitir subconjuntos diários (ver
+`vocabulary_selection.py`); ainda não substitui material didático certificado.
+Com uma chave OpenRouter configurada, `ai.py` gera conteúdo por prompt e este
+banco passa a ser apenas fallback.
 """
 
 from __future__ import annotations
 
 from app.core.levels import LEVEL_INDEX, CEFRLevel
+
+
+def _vocab_item(
+    term: str,
+    translation: str,
+    example: str,
+    example_translation: str,
+    usage_note: str,
+    themes: list[str] | None = None,
+) -> dict:
+    item = {
+        "term": term,
+        "translation": translation,
+        "example": example,
+        "example_translation": example_translation,
+        "usage_note": usage_note,
+    }
+    if themes:
+        item["themes"] = list(themes)
+    return item
 
 #: Faixas de conteúdo. Agrupar níveis vizinhos evita manter sete versões de cada
 #: lição num banco que é declaradamente provisório.
@@ -71,12 +93,96 @@ VOCABULARY: dict[str, dict[str, list[dict[str, str]]]] = {
             {"term": "as far as I know", "translation": "até onde eu sei", "example": "As far as I know, the meeting is still on.", "example_translation": "Até onde eu sei, a reunião continua de pé.", "usage_note": "Sinaliza informação não confirmada."},
         ],
         BAND_UPPER: [
-            {"term": "to bring about", "translation": "provocar, ocasionar", "example": "The policy brought about significant change.", "example_translation": "A política provocou mudanças significativas.", "usage_note": "Registro formal, comum em textos analíticos."},
-            {"term": "for the time being", "translation": "por ora, no momento", "example": "For the time being, we'll keep the current process.", "example_translation": "Por ora, manteremos o processo atual.", "usage_note": "Marca uma decisão explicitamente provisória."},
-            {"term": "to account for", "translation": "explicar, corresponder a", "example": "This accounts for most of the delay.", "example_translation": "Isso explica a maior parte do atraso.", "usage_note": "Dois sentidos: justificar ou representar uma proporção."},
-            {"term": "notwithstanding", "translation": "apesar de", "example": "Notwithstanding the risks, they moved forward.", "example_translation": "Apesar dos riscos, eles seguiram em frente.", "usage_note": "Bastante formal; em fala prefira 'despite'."},
-            {"term": "to be inclined to", "translation": "tender a, inclinar-se a", "example": "I'm inclined to agree with that view.", "example_translation": "Tendo a concordar com essa visão.", "usage_note": "Suaviza uma opinião sem torná-la vaga."},
-            {"term": "by and large", "translation": "de modo geral", "example": "By and large, the results were positive.", "example_translation": "De modo geral, os resultados foram positivos.", "usage_note": "Generaliza admitindo exceções."},
+            # Argumentar e refutar
+            _vocab_item("to bring about", "provocar, ocasionar", "The policy brought about significant change.", "A política provocou mudanças significativas.", "Registro formal, comum em textos analíticos.", ["Argumentar e refutar", "Sociedade e políticas públicas"]),
+            _vocab_item("to call into question", "colocar em xeque", "The report calls into question the official figures.", "O relatório coloca as cifras oficiais em xeque.", "Útil para refutar com evidência.", ["Argumentar e refutar"]),
+            _vocab_item("to hold that", "sustentar que", "Many experts hold that the reform is overdue.", "Muitos especialistas sustentam que a reforma está atrasada.", "Introduz posição argumentativa.", ["Argumentar e refutar", "Apresentar e defender uma ideia"]),
+            _vocab_item("on the contrary", "pelo contrário", "On the contrary, the data suggest the opposite.", "Pelo contrário, os dados sugerem o oposto.", "Contraste forte em debate.", ["Argumentar e refutar"]),
+            _vocab_item("to concede that", "admitir que", "I concede that the first draft was weak.", "Admito que o primeiro rascunho era fraco.", "Concede um ponto sem abandonar a tese.", ["Argumentar e refutar"]),
+            _vocab_item("a compelling argument", "um argumento convincente", "She made a compelling argument for transparency.", "Ela apresentou um argumento convincente a favor da transparência.", "Avalia força retórica.", ["Argumentar e refutar", "Apresentar e defender uma ideia"]),
+            _vocab_item("to rebut", "refutar", "He rebutted the claim with three case studies.", "Ele refutou a alegação com três estudos de caso.", "Mais formal que 'disagree'.", ["Argumentar e refutar"]),
+            _vocab_item("for the sake of argument", "para fins de discussão", "For the sake of argument, assume costs stay flat.", "Para fins de discussão, assume que os custos ficam estáveis.", "Hipotético em debate.", ["Argumentar e refutar"]),
+            # Negociação e mercado de trabalho
+            _vocab_item("to bargain for", "negociar / contar com", "We didn't bargain for such a long delay.", "Não contávamos com um atraso tão longo.", "Dois sentidos: barganhar ou esperar.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("leverage", "alavancagem; influência", "They used market data as leverage in talks.", "Usaram dados de mercado como alavancagem nas conversas.", "Comum em negócios.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("to meet halfway", "chegar a um meio-termo", "Both sides agreed to meet halfway on the fee.", "Os dois lados concordaram em um meio-termo na taxa.", "Negociação cooperativa.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("a sticking point", "ponto de atrito", "Remote work remains a sticking point.", "O trabalho remoto continua sendo um ponto de atrito.", "Obstáculo em acordo.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("to turn down", "recusar", "She turned down the offer after reviewing the contract.", "Ela recusou a oferta após revisar o contrato.", "Recusa consciente.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("to back up", "apoiar; fazer backup", "Can you back up that claim with figures?", "Você pode apoiar essa alegação com números?", "Em debate = sustentar com prova.", ["Negociação e mercado de trabalho", "Argumentar e refutar"]),
+            _vocab_item("in good faith", "de boa-fé", "They negotiated in good faith for weeks.", "Eles negociaram de boa-fé por semanas.", "Registro jurídico/negociável.", ["Negociação e mercado de trabalho"]),
+            _vocab_item("to settle for", "aceitar (menos do que queria)", "We may have to settle for a smaller raise.", "Talvez tenhamos de aceitar um aumento menor.", "Compromisso.", ["Negociação e mercado de trabalho"]),
+            # Ciência, dados e evidência
+            _vocab_item("to account for", "explicar, corresponder a", "This accounts for most of the delay.", "Isso explica a maior parte do atraso.", "Justificar ou representar proporção.", ["Ciência, dados e evidência", "Argumentar e refutar"]),
+            _vocab_item("to bear out", "confirmar (dados)", "The trial results bear out the hypothesis.", "Os resultados do ensaio confirmam a hipótese.", "Evidência apoia tese.", ["Ciência, dados e evidência"]),
+            _vocab_item("a confounding factor", "fator de confusão", "Age was a confounding factor in the study.", "A idade foi um fator de confusão no estudo.", "Vocabulário de pesquisa.", ["Ciência, dados e evidência"]),
+            _vocab_item("to extrapolate", "extrapolar", "We shouldn't extrapolate from such a small sample.", "Não devemos extrapolar a partir de uma amostra tão pequena.", "Cuidado metodológico.", ["Ciência, dados e evidência"]),
+            _vocab_item("peer-reviewed", "revisado por pares", "Only peer-reviewed sources were cited.", "Só foram citadas fontes revisadas por pares.", "Credibilidade acadêmica.", ["Ciência, dados e evidência", "Mídia, fontes e desinformação"]),
+            _vocab_item("statistically significant", "estatisticamente significativo", "The difference was statistically significant.", "A diferença foi estatisticamente significativa.", "Não confundir com 'importante'.", ["Ciência, dados e evidência"]),
+            _vocab_item("to control for", "controlar (variável)", "The model controls for income and education.", "O modelo controla renda e educação.", "Método quantitativo.", ["Ciência, dados e evidência"]),
+            _vocab_item("an outlier", "ponto fora da curva", "One outlier skewed the average.", "Um outlier distorceu a média.", "Análise de dados.", ["Ciência, dados e evidência"]),
+            # Mídia, fontes e desinformação
+            _vocab_item("to fact-check", "checar fatos", "Journalists fact-checked the viral post.", "Jornalistas checaram os fatos do post viral.", "Hábito midiático.", ["Mídia, fontes e desinformação"]),
+            _vocab_item("clickbait", "isca de cliques", "The headline was pure clickbait.", "A manchete era pura isca de cliques.", "Crítica de mídia.", ["Mídia, fontes e desinformação"]),
+            _vocab_item("to go viral", "viralizar", "The clip went viral within hours.", "O clipe viralizou em poucas horas.", "Dinâmica de redes.", ["Mídia, fontes e desinformação"]),
+            _vocab_item("a primary source", "fonte primária", "Always prefer a primary source when possible.", "Prefira sempre uma fonte primária quando possível.", "Letramento informacional.", ["Mídia, fontes e desinformação", "Ciência, dados e evidência"]),
+            _vocab_item("to take with a grain of salt", "receber com ceticismo", "Take anonymous tips with a grain of salt.", "Receba denúncias anônimas com ceticismo.", "Idiomático e útil.", ["Mídia, fontes e desinformação"]),
+            _vocab_item("echo chamber", "bolha de eco", "Social feeds can become an echo chamber.", "Os feeds podem virar uma bolha de eco.", "Crítica de polarização.", ["Mídia, fontes e desinformação", "Mudanças sociais e gerações"]),
+            _vocab_item("to verify", "verificar", "Verify the date before sharing.", "Verifique a data antes de compartilhar.", "Ação concreta anti-desinformação.", ["Mídia, fontes e desinformação"]),
+            _vocab_item("biased coverage", "cobertura enviesada", "The channel was accused of biased coverage.", "O canal foi acusado de cobertura enviesada.", "Avaliação crítica.", ["Mídia, fontes e desinformação"]),
+            # Sociedade e políticas públicas
+            _vocab_item("notwithstanding", "apesar de", "Notwithstanding the risks, they moved forward.", "Apesar dos riscos, eles seguiram em frente.", "Formal; em fala prefira 'despite'.", ["Sociedade e políticas públicas", "Argumentar e refutar"]),
+            _vocab_item("public interest", "interesse público", "The inquiry was held in the public interest.", "A investigação foi feita no interesse público.", "Discurso cívico.", ["Sociedade e políticas públicas"]),
+            _vocab_item("to roll out", "implementar gradualmente", "The city will roll out the new fare system.", "A cidade implementará gradualmente o novo sistema de tarifas.", "Políticas e produtos.", ["Sociedade e políticas públicas", "Economia pessoal e global"]),
+            _vocab_item("a safety net", "rede de proteção", "Unemployment benefits are a basic safety net.", "O seguro-desemprego é uma rede de proteção básica.", "Política social.", ["Sociedade e políticas públicas"]),
+            _vocab_item("to crack down on", "reprimir com rigor", "Authorities cracked down on tax evasion.", "As autoridades reprimiram a evasão fiscal.", "Ação estatal.", ["Sociedade e políticas públicas"]),
+            _vocab_item("grassroots", "de base (movimento)", "It started as a grassroots campaign.", "Começou como uma campanha de base.", "Mobilização social.", ["Sociedade e políticas públicas", "Mudanças sociais e gerações"]),
+            _vocab_item("to phase out", "eliminar gradualmente", "They plan to phase out single-use plastics.", "Planejam eliminar gradualmente os plásticos de uso único.", "Transição de política.", ["Sociedade e políticas públicas"]),
+            _vocab_item("red tape", "burocracia", "Small firms struggle with red tape.", "Pequenas empresas sofrem com a burocracia.", "Crítica administrativa.", ["Sociedade e políticas públicas", "Negociação e mercado de trabalho"]),
+            # Ética e dilemas
+            _vocab_item("to be inclined to", "tender a", "I'm inclined to agree with that view.", "Tendo a concordar com essa visão.", "Suaviza opinião.", ["Ética e dilemas", "Argumentar e refutar"]),
+            _vocab_item("a trade-off", "trade-off, troca", "There is a trade-off between privacy and convenience.", "Há um trade-off entre privacidade e conveniência.", "Dilema típico.", ["Ética e dilemas", "Ciência, dados e evidência"]),
+            _vocab_item("to draw the line", "estabelecer um limite", "Where do we draw the line on surveillance?", "Onde estabelecemos o limite da vigilância?", "Limite ético.", ["Ética e dilemas"]),
+            _vocab_item("unintended consequences", "consequências não intencionais", "The ban had unintended consequences.", "A proibição teve consequências não intencionais.", "Análise ética de política.", ["Ética e dilemas", "Sociedade e políticas públicas"]),
+            _vocab_item("to turn a blind eye", "fazer vista grossa", "Managers turned a blind eye to the risk.", "Gestores fizeram vista grossa ao risco.", "Omissão ética.", ["Ética e dilemas"]),
+            _vocab_item("informed consent", "consentimento informado", "Patients must give informed consent.", "Pacientes devem dar consentimento informado.", "Ética profissional.", ["Ética e dilemas"]),
+            _vocab_item("to outweigh", "superar (em peso/importância)", "The benefits outweigh the costs.", "Os benefícios superam os custos.", "Balanço moral/prático.", ["Ética e dilemas", "Argumentar e refutar"]),
+            _vocab_item("a slippery slope", "ladeira escorregadia", "Critics warn of a slippery slope.", "Críticos alertam para uma ladeira escorregadia.", "Argumento clássico.", ["Ética e dilemas", "Argumentar e refutar"]),
+            # Economia pessoal e global
+            _vocab_item("for the time being", "por ora", "For the time being, we'll keep the current process.", "Por ora, manteremos o processo atual.", "Decisão provisória.", ["Economia pessoal e global", "Negociação e mercado de trabalho"]),
+            _vocab_item("to hedge against", "proteger-se contra", "Investors hedge against currency swings.", "Investidores se protegem contra oscilações cambiais.", "Finanças.", ["Economia pessoal e global"]),
+            _vocab_item("purchasing power", "poder de compra", "Inflation erodes purchasing power.", "A inflação corrói o poder de compra.", "Macro/pessoal.", ["Economia pessoal e global"]),
+            _vocab_item("to break even", "empatar custos/receita", "The shop hopes to break even this year.", "A loja espera empatar custos e receita este ano.", "Negócios.", ["Economia pessoal e global"]),
+            _vocab_item("a downturn", "queda, retração", "The downturn hit small exporters hardest.", "A retração atingiu mais os pequenos exportadores.", "Ciclo econômico.", ["Economia pessoal e global"]),
+            _vocab_item("to cut back on", "reduzir (gastos)", "Households cut back on dining out.", "As famílias reduziram refeições fora.", "Economia pessoal.", ["Economia pessoal e global"]),
+            _vocab_item("supply chain", "cadeia de suprimentos", "Storms disrupted the supply chain.", "Tempestades atrapalharam a cadeia de suprimentos.", "Economia global.", ["Economia pessoal e global"]),
+            _vocab_item("to write off", "dar como prejuízo; descartar", "The bank wrote off the bad loan.", "O banco deu o empréstimo ruim como prejuízo.", "Contábil/metafórico.", ["Economia pessoal e global"]),
+            # Arte, crítica e interpretação
+            _vocab_item("by and large", "de modo geral", "By and large, the results were positive.", "De modo geral, os resultados foram positivos.", "Generaliza com exceções.", ["Arte, crítica e interpretação", "Argumentar e refutar"]),
+            _vocab_item("to convey", "transmitir (ideia/emoção)", "The film conveys quiet grief.", "O filme transmite um luto silencioso.", "Crítica cultural.", ["Arte, crítica e interpretação"]),
+            _vocab_item("a nuanced reading", "leitura nuançada", "She offers a nuanced reading of the novel.", "Ela oferece uma leitura nuançada do romance.", "Interpretação.", ["Arte, crítica e interpretação"]),
+            _vocab_item("to fall flat", "fracassar / não funcionar", "The joke fell flat with the audience.", "A piada não funcionou com a plateia.", "Recepção.", ["Arte, crítica e interpretação"]),
+            _vocab_item("to resonate with", "fazer sentido / ecoar em", "The speech resonated with younger voters.", "O discurso ecoou nos eleitores mais jovens.", "Impacto.", ["Arte, crítica e interpretação", "Mudanças sociais e gerações"]),
+            _vocab_item("derivative", "derivativo, pouco original", "Critics called the plot derivative.", "Críticos chamaram o enredo de pouco original.", "Juízo estético.", ["Arte, crítica e interpretação"]),
+            _vocab_item("to shed light on", "lançar luz sobre", "The essay sheds light on colonial memory.", "O ensaio lança luz sobre a memória colonial.", "Análise.", ["Arte, crítica e interpretação", "Ciência, dados e evidência"]),
+            _vocab_item("understated", "discreto, contido", "The performance was powerful yet understated.", "A atuação foi poderosa e ainda assim contida.", "Estilo.", ["Arte, crítica e interpretação"]),
+            # Mudanças sociais e gerações
+            _vocab_item("a generational shift", "mudança geracional", "Remote work marks a generational shift.", "O trabalho remoto marca uma mudança geracional.", "Sociedade.", ["Mudanças sociais e gerações"]),
+            _vocab_item("to come of age", "atingir a maioridade; amadurecer", "The movement came of age online.", "O movimento amadureceu online.", "Metáfora social.", ["Mudanças sociais e gerações"]),
+            _vocab_item("out of touch", "desconectado (da realidade)", "The ad felt out of touch with Gen Z.", "O anúncio parecia desconectado da Gen Z.", "Crítica geracional.", ["Mudanças sociais e gerações", "Mídia, fontes e desinformação"]),
+            _vocab_item("to bridge the gap", "estreitar a lacuna", "Mentoring can bridge the gap between cohorts.", "Mentoria pode estreitar a lacuna entre coortes.", "Inclusão.", ["Mudanças sociais e gerações"]),
+            _vocab_item("social mobility", "mobilidade social", "Education still shapes social mobility.", "A educação ainda molda a mobilidade social.", "Tema estrutural.", ["Mudanças sociais e gerações", "Sociedade e políticas públicas"]),
+            _vocab_item("to push back against", "resistir a", "Workers pushed back against longer hours.", "Trabalhadores resistiram a jornadas maiores.", "Agência coletiva.", ["Mudanças sociais e gerações", "Negociação e mercado de trabalho"]),
+            _vocab_item("the status quo", "o status quo", "Few want to defend the status quo.", "Poucos querem defender o status quo.", "Mudança vs permanência.", ["Mudanças sociais e gerações", "Ética e dilemas"]),
+            _vocab_item("to catch on", "pegar (moda/ideia)", "The habit caught on among students.", "O hábito pegou entre estudantes.", "Difusão cultural.", ["Mudanças sociais e gerações"]),
+            # Apresentar e defender uma ideia
+            _vocab_item("to put forward", "apresentar (proposta)", "She put forward a clearer framework.", "Ela apresentou um quadro mais claro.", "Proposta formal.", ["Apresentar e defender uma ideia"]),
+            _vocab_item("to spell out", "deixar explícito", "Please spell out the assumptions.", "Por favor, deixe as premissas explícitas.", "Clareza.", ["Apresentar e defender uma ideia"]),
+            _vocab_item("to stand by", "manter (posição)", "I stand by my earlier conclusion.", "Mantenho minha conclusão anterior.", "Defesa.", ["Apresentar e defender uma ideia", "Argumentar e refutar"]),
+            _vocab_item("a working hypothesis", "hipótese de trabalho", "Treat this as a working hypothesis.", "Trate isto como hipótese de trabalho.", "Provisório e científico.", ["Apresentar e defender uma ideia", "Ciência, dados e evidência"]),
+            _vocab_item("to boil down to", "resumir-se a", "The dispute boils down to funding.", "A disputa se resume a financiamento.", "Síntese.", ["Apresentar e defender uma ideia"]),
+            _vocab_item("in a nutshell", "em síntese", "In a nutshell, we need clearer rules.", "Em síntese, precisamos de regras mais claras.", "Fechamento oral.", ["Apresentar e defender uma ideia"]),
+            _vocab_item("to flesh out", "detalhar, desenvolver", "Can you flesh out the second point?", "Você pode detalhar o segundo ponto?", "Desenvolvimento de ideia.", ["Apresentar e defender uma ideia"]),
+            _vocab_item("the crux of the matter", "o cerne da questão", "The crux of the matter is trust.", "O cerne da questão é a confiança.", "Foco argumentativo.", ["Apresentar e defender uma ideia", "Argumentar e refutar"]),
         ],
     },
     "es-ES": {
@@ -862,7 +968,12 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "prompt": "____ is your name?",
                 "options": ["What", "Where", "Who"],
                 "answer": "What",
-                "rationale": "'What' pergunta pela informação; 'Where' pergunta lugar.",
+                "rationale": "'What' pergunta pela informação pedida (o nome).",
+                "option_rationales": {
+                    "What": "'What' pergunta pela informação pedida (o nome).",
+                    "Where": "'Where' pergunta por lugar, não por nome.",
+                    "Who": "'Who' pergunta por pessoa/identidade, não pelo nome em si neste padrão.",
+                },
             }
         ],
         BAND_ELEMENTARY: [
@@ -871,6 +982,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["worked", "work", "am working"],
                 "answer": "worked",
                 "rationale": "'Yesterday' fecha o tempo, então o passado simples é obrigatório.",
+                "option_rationales": {
+                    "worked": "Passado simples: combina com 'yesterday'.",
+                    "work": "Presente simples não combina com um tempo passado fechado.",
+                    "am working": "Presente contínuo descreve agora, não ontem.",
+                },
             }
         ],
         BAND_INTERMEDIATE: [
@@ -879,6 +995,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["have been", "went", "was going"],
                 "answer": "have been",
                 "rationale": "Não há momento passado fechado: o que importa é a experiência acumulada.",
+                "option_rationales": {
+                    "have been": "Present perfect: experiência até agora, sem data fechada.",
+                    "went": "Passado simples pede um momento específico (ex.: last year).",
+                    "was going": "Passado contínuo descreve ação em progresso, não contagem de visitas.",
+                },
             }
         ],
         BAND_UPPER: [
@@ -887,6 +1008,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["had left", "left", "have left"],
                 "answer": "had left",
                 "rationale": "Hipótese contrafactual sobre o passado exige o mais-que-perfeito.",
+                "option_rationales": {
+                    "had left": "3ª condicional: if + past perfect + would have.",
+                    "left": "Passado simples aqui formaria uma condicional de outro tipo, não contrafactual passado.",
+                    "have left": "Present perfect não entra na estrutura contrafactual do passado.",
+                },
             }
         ],
     },
@@ -897,6 +1023,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["Cómo", "Dónde", "Quién"],
                 "answer": "Cómo",
                 "rationale": "'Cómo' pergunta o nome; 'Dónde' pergunta lugar.",
+                "option_rationales": {
+                    "Cómo": "En '¿Cómo te llamas?' pergunta o nome.",
+                    "Dónde": "Pergunta lugar, não o nome.",
+                    "Quién": "Pergunta identidade de pessoa, não o padrão de nome.",
+                },
             }
         ],
         BAND_ELEMENTARY: [
@@ -905,6 +1036,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["trabajé", "trabajo", "estoy trabajando"],
                 "answer": "trabajé",
                 "rationale": "'Ayer' fecha o tempo: pretérito indefinido.",
+                "option_rationales": {
+                    "trabajé": "Pretérito indefinido com marcador 'ayer'.",
+                    "trabajo": "Presente não combina com 'ayer'.",
+                    "estoy trabajando": "Estar + gerundio descreve agora, não ontem.",
+                },
             }
         ],
         BAND_INTERMEDIATE: [
@@ -913,6 +1049,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["He estado", "Estuve", "Estaba"],
                 "answer": "He estado",
                 "rationale": "Sem marcador fechado, o pretérito perfecto marca experiência acumulada (uso peninsular).",
+                "option_rationales": {
+                    "He estado": "Pretérito perfecto: experiência até o presente (peninsular).",
+                    "Estuve": "Indefinido sugere um episódio pontual/fechado.",
+                    "Estaba": "Imperfecto descreve hábito ou pano de fundo, não contagem de visitas.",
+                },
             }
         ],
         BAND_UPPER: [
@@ -921,6 +1062,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["hubiéramos sabido", "supimos", "sabíamos"],
                 "answer": "hubiéramos sabido",
                 "rationale": "Hipótese contrafactual do passado pede pluscuamperfecto de subjuntivo.",
+                "option_rationales": {
+                    "hubiéramos sabido": "Si + pluscuamperfecto de subjuntivo + condicional compuesto.",
+                    "supimos": "Pretérito indefinido não forma a condicional contrafactual do passado.",
+                    "sabíamos": "Imperfecto descreve estado, não a hipótese 'se tivéssemos sabido'.",
+                },
             }
         ],
     },
@@ -931,6 +1077,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["Comment", "Où", "Qui"],
                 "answer": "Comment",
                 "rationale": "'Comment' pergunta o nome; 'Où' pergunta lugar.",
+                "option_rationales": {
+                    "Comment": "Em 'Comment vous appelez-vous ?' pergunta o nome.",
+                    "Où": "Pergunta lugar, não o nome.",
+                    "Qui": "Pergunta identidade, não o padrão de nome.",
+                },
             }
         ],
         BAND_ELEMENTARY: [
@@ -939,6 +1090,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["ai travaillé", "travaille", "travaillerai"],
                 "answer": "ai travaillé",
                 "rationale": "'Hier' fecha o tempo: passé composé.",
+                "option_rationales": {
+                    "ai travaillé": "Passé composé com 'hier'.",
+                    "travaille": "Présent não combina com 'hier'.",
+                    "travaillerai": "Futur aponta para depois, não para ontem.",
+                },
             }
         ],
         BAND_INTERMEDIATE: [
@@ -947,6 +1103,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["allais", "suis allé", "irai"],
                 "answer": "allais",
                 "rationale": "Hábito no passado pede imparfait; uma ação pontual pediria passé composé.",
+                "option_rationales": {
+                    "allais": "Imparfait: hábito repetido no passado.",
+                    "suis allé": "Passé composé marca um evento pontual, não 'souvent'.",
+                    "irai": "Futur não descreve infância passada.",
+                },
             }
         ],
         BAND_UPPER: [
@@ -955,6 +1116,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["étions partis", "sommes partis", "partions"],
                 "answer": "étions partis",
                 "rationale": "Contrafactual do passado: plus-que-parfait na condição, conditionnel passé no resultado.",
+                "option_rationales": {
+                    "étions partis": "Si + plus-que-parfait para hipótese passada irreal.",
+                    "sommes partis": "Passé composé não forma essa condicional irreal.",
+                    "partions": "Imparfait sozinho não basta para o contrafactual com 'aurions eu'.",
+                },
             }
         ],
     },
@@ -965,6 +1131,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["何（なん）", "どこ", "だれ"],
                 "answer": "何（なん）",
                 "rationale": "「何」pergunta pela coisa; 「どこ」pergunta lugar.",
+                "option_rationales": {
+                    "何（なん）": "「お名前は何ですか」é o padrão para perguntar o nome.",
+                    "どこ": "Pergunta lugar, não o nome.",
+                    "だれ": "Pergunta 'quem', não o padrão de nome.",
+                },
             }
         ],
         BAND_ELEMENTARY: [
@@ -973,6 +1144,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["働（はたら）きました", "働（はたら）きます", "働（はたら）いています"],
                 "answer": "働（はたら）きました",
                 "rationale": "「昨日」fecha o tempo: a forma passada ました é obrigatória.",
+                "option_rationales": {
+                    "働（はたら）きました": "Forma passada com 「昨日」.",
+                    "働（はたら）きます": "Não-passado não combina com 「昨日」.",
+                    "働（はたら）いています": "Progressivo descreve agora, não ontem.",
+                },
             }
         ],
         BAND_INTERMEDIATE: [
@@ -981,6 +1157,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["こと", "もの", "ところ"],
                 "answer": "こと",
                 "rationale": "「〜たことがある」é a estrutura fixa de experiência acumulada.",
+                "option_rationales": {
+                    "こと": "「たことがある」marca experiência.",
+                    "もの": "Não forma a expressão de experiência.",
+                    "ところ": "「ところ」marca momento/lugar relativo, não experiência.",
+                },
             }
         ],
         BAND_UPPER: [
@@ -989,6 +1170,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["かもしれません", "ましょう", "てください"],
                 "answer": "かもしれません",
                 "rationale": "「かもしれない」marca possibilidade; grau de certeza menor que 「でしょう」.",
+                "option_rationales": {
+                    "かもしれません": "Possibilidade / incerteza sobre o futuro.",
+                    "ましょう": "Convite ('vamos…'), não previsão.",
+                    "てください": "Pedido cortês, não hipótese sobre o tempo.",
+                },
             }
         ],
     },
@@ -999,6 +1185,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["什么", "哪里", "谁"],
                 "answer": "什么",
                 "rationale": "「什么」pergunta pela coisa; 「哪里」pergunta lugar.",
+                "option_rationales": {
+                    "什么": "「你叫什么名字？」é o padrão para o nome.",
+                    "哪里": "Pergunta lugar, não o nome.",
+                    "谁": "Pergunta 'quem', não este padrão de nome.",
+                },
             }
         ],
         BAND_ELEMENTARY: [
@@ -1007,6 +1198,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["工作了", "工作", "在工作"],
                 "answer": "工作了",
                 "rationale": "「了」marca ação concluída; com 「昨天」o tempo já está fechado.",
+                "option_rationales": {
+                    "工作了": "「了」+ 「昨天」marca ação concluída.",
+                    "工作": "Sem 「了」fica genérico/presente, não o evento de ontem.",
+                    "在工作": "Progressivo descreve agora, não ontem.",
+                },
             }
         ],
         BAND_INTERMEDIATE: [
@@ -1015,6 +1211,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["过", "了", "着"],
                 "answer": "过",
                 "rationale": "「过」marca experiência acumulada; 「了」marcaria um fato pontual.",
+                "option_rationales": {
+                    "过": "「过」= experiência (já ter ido).",
+                    "了": "Marca mudança/conclusão pontual, não contagem de experiência.",
+                    "着": "Marca estado durativo, não experiência.",
+                },
             }
         ],
         BAND_UPPER: [
@@ -1023,6 +1224,11 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
                 "options": ["就", "才", "还"],
                 "answer": "就",
                 "rationale": "「要是…就…」é o par condicional padrão do mandarim.",
+                "option_rationales": {
+                    "就": "Par 「要是…就…」para condição → resultado.",
+                    "才": "「才」marca 'só então/apenas', não este par condicional.",
+                    "还": "「还」marca 'ainda/também', não a condição.",
+                },
             }
         ],
     },

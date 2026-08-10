@@ -20,12 +20,17 @@ from app.core.teaching import (
     FlowPhase,
     RemediationAction,
 )
-from app.models import LearningObjective, TeachingFlowSession
+from app.models import LearningAttempt, LearningObjective, TeachingFlowSession
 from app.services import (
     activity_generator,
     deterministic_evaluator,
     teaching_engine,
     teaching_flow,
+)
+from app.services.answer_feedback import (
+    build_answer_feedback,
+    build_retry_variant,
+    option_texts,
 )
 from app.services.objective_seed import ensure_en_a1_can_001
 
@@ -153,17 +158,25 @@ def submit_slice_answer(
         raise APIError(409, "flow_closed", "Esta sessão de ensino já foi encerrada.")
 
     activities = (session.payload_json or {}).get("activities") or []
-    index = session.activity_cursor if activity_index is None else activity_index
+    # Só a atividade do cursor — impedir mirar índice futuro/passado.
+    if activity_index is not None and activity_index != session.activity_cursor:
+        raise APIError(
+            409,
+            "attempt_already_submitted",
+            "Só é possível responder a atividade atual do fluxo.",
+        )
+    index = session.activity_cursor
     if index < 0 or index >= len(activities):
         raise APIError(409, "no_current_activity", "Não há atividade atual nesta sessão.")
 
     payload = dict(session.payload_json or {})
     completed = set(payload.get("completed_indices") or [])
-    if index in completed:
+    submitted = set(payload.get("submitted_indices") or [])
+    if index in completed or index in submitted:
         raise APIError(
             409,
-            "activity_already_completed",
-            "Esta atividade já foi concluída nesta sessão.",
+            "attempt_already_submitted",
+            "Esta tentativa já foi enviada e não pode ser alterada.",
         )
     activity = activities[index]
 
@@ -177,6 +190,15 @@ def submit_slice_answer(
     # Atividades de input/ativação/noticing/matching: "continuar" sem produção.
     if activity.get("type") in {"listen", "recognition", "matching"} and not student_response.strip():
         student_response = "__ack__"
+
+    if activity.get("type") == "multiple_choice" and student_response != "__ack__":
+        allowed = {deterministic_evaluator.normalize_text(t) for t in option_texts(activity)}
+        if deterministic_evaluator.normalize_text(student_response) not in allowed:
+            raise APIError(
+                422,
+                "invalid_option",
+                "A resposta deve ser uma das alternativas da atividade.",
+            )
 
     evaluation = None
     result = AttemptResult.CORRECT
@@ -216,14 +238,23 @@ def submit_slice_answer(
         is_transfer=is_transfer and result == AttemptResult.CORRECT,
     )
 
-    remediation_payload = None
+    # Trava a atividade na hora — certo ou errado. Retry cria nova tentativa.
+    submitted.add(index)
+    payload["submitted_indices"] = sorted(submitted)
     if result != AttemptResult.INCORRECT:
-        # Marca índice concluído só em sucesso/ack — evita double-submit
-        # gerar evidência duplicada no mesmo passo.
         completed.add(index)
         payload["completed_indices"] = sorted(completed)
-        session.payload_json = payload
-        db.flush()
+    session.payload_json = payload
+    db.flush()
+
+    remediation_payload = None
+    answer_feedback = None
+    if student_response != "__ack__":
+        answer_feedback = build_answer_feedback(
+            activity=activity,
+            student_response=student_response,
+            is_correct=result == AttemptResult.CORRECT,
+        )
 
     if result == AttemptResult.INCORRECT:
         error = teaching_engine.record_error(
@@ -235,7 +266,10 @@ def submit_slice_answer(
             original=student_response,
             expected=activity.get("canonical_answer")
             or (activity.get("accepted_variants") or [None])[0],
-            explanation=_contrast_explanation(activity),
+            explanation=(
+                (answer_feedback or {}).get("why_correct")
+                or _contrast_explanation(activity)
+            ),
             severity=ErrorSeverity.CRITICAL
             if activity.get("type") in {"guided_production", "transfer_question"}
             else ErrorSeverity.MODERATE,
@@ -260,12 +294,22 @@ def submit_slice_answer(
                 "correct": error.expected,
             },
             "hint_pt": _hint_for(remediation.action, activity),
+            "answer_feedback": answer_feedback,
         }
+        # Variante para o retry — não reabrir a mesma questão já revelada.
+        patterns = list(objective.target_patterns_json or [])
         payload = dict(session.payload_json or {})
         payload["pending_remediation"] = remediation_payload
+        payload["last_answer_feedback"] = answer_feedback
+        payload["retry_activity"] = build_retry_variant(activity, patterns)
         session.payload_json = payload
         db.flush()
     else:
+        payload = dict(session.payload_json or {})
+        payload["last_answer_feedback"] = answer_feedback
+        payload.pop("retry_activity", None)
+        session.payload_json = payload
+        db.flush()
         _advance_after_success(db, session, activity)
 
     mastery = eval_out["mastery"]
@@ -281,6 +325,7 @@ def submit_slice_answer(
             "attempt_number": attempt.attempt_number,
         },
         "evaluation": evaluation,
+        "answer_feedback": answer_feedback,
         "remediation": remediation_payload,
         "mastery": mastery,
         "ai_called": False,
@@ -309,32 +354,78 @@ def retry_slice(
             "Retry só é permitido em remediação ou retry pendente.",
         )
 
+    # Se a remediação já tem retry avaliado, rejeitar (nova remediação vem no payload).
+    if remediation.next_attempt_id:
+        existing = db.get(LearningAttempt, remediation.next_attempt_id)
+        if existing is not None and existing.result != AttemptResult.PENDING:
+            raise APIError(
+                409,
+                "attempt_already_submitted",
+                "Esta remediação já foi respondida. Use a nova remediação pendente.",
+            )
+
+    activity = teaching_flow.current_activity(session) or {}
+    # Fallback sem variante: recognition/ack — não reabre MCQ revelada.
+    if activity.get("type") in {"listen", "recognition", "matching"} and not student_response.strip():
+        student_response = "__ack__"
+
     attempt = teaching_engine.record_retry(
         db,
         remediation,
-        student_response=student_response,
+        student_response=None if student_response == "__ack__" else student_response,
         curriculum_block_id=session.curriculum_block_id,
     )
-    activity = teaching_flow.current_activity(session) or {}
-    evaluation = deterministic_evaluator.evaluate_response(
-        student_response=student_response, activity=activity
-    )
+    if activity.get("type") == "multiple_choice" and student_response != "__ack__":
+        allowed = {deterministic_evaluator.normalize_text(t) for t in option_texts(activity)}
+        if deterministic_evaluator.normalize_text(student_response) not in allowed:
+            raise APIError(
+                422,
+                "invalid_option",
+                "A resposta deve ser uma das alternativas da atividade.",
+            )
+
+    if student_response == "__ack__":
+        evaluation = {
+            "result": AttemptResult.CORRECT,
+            "score": 1.0,
+            "matched": None,
+            "notes": "fallback_continue_ack",
+        }
+    else:
+        evaluation = deterministic_evaluator.evaluate_response(
+            student_response=student_response, activity=activity
+        )
+    # Retry pós-revelação: só ERROR_REPAIRED — nunca CORRECT_RESPONSE “forte”.
+    evidence_type = None
+    if evaluation["result"] == AttemptResult.CORRECT:
+        evidence_type = EvidenceType.ERROR_REPAIRED
+
     eval_out = teaching_engine.evaluate_attempt(
         db,
         attempt,
         result=evaluation["result"],
         score=1.0 if evaluation["result"] == AttemptResult.CORRECT else 0.0,
         provider="deterministic",
-        evidence_type=EvidenceType.ERROR_REPAIRED
-        if evaluation["result"] == AttemptResult.CORRECT
-        else None,
+        evidence_type=evidence_type,
     )
+    answer_feedback = None
+    if student_response != "__ack__":
+        answer_feedback = build_answer_feedback(
+            activity=activity,
+            student_response=student_response,
+            is_correct=evaluation["result"] == AttemptResult.CORRECT,
+        )
+    objective = db.get(LearningObjective, session.objective_id)
+    remediation_payload = None
+
     if evaluation["result"] == AttemptResult.CORRECT:
         payload = dict(session.payload_json or {})
         completed = set(payload.get("completed_indices") or [])
         completed.add(session.activity_cursor)
         payload["completed_indices"] = sorted(completed)
         payload.pop("pending_remediation", None)
+        payload.pop("retry_activity", None)
+        payload["last_answer_feedback"] = answer_feedback
         session.payload_json = payload
         teaching_flow.transition(
             db, session, target_phase=FlowPhase.EVALUATING, reason="retry_correct"
@@ -344,11 +435,48 @@ def retry_slice(
         )
         teaching_flow.advance_activity_cursor(db, session)
     else:
+        # Nova tentativa errada → novo LearningError + nova Remediation (histórico).
+        error = teaching_engine.record_error(
+            db,
+            attempt,
+            category=ErrorCategory.COMPREHENSION,
+            original=student_response,
+            expected=activity.get("canonical_answer")
+            or (activity.get("accepted_variants") or [None])[0],
+            explanation=(answer_feedback or {}).get("why_correct")
+            or _contrast_explanation(activity),
+            severity=ErrorSeverity.MODERATE,
+            language_feature=_feature_key(activity),
+        )
+        new_remediation = teaching_engine.choose_remediation(
+            db,
+            error,
+            escalate=True,
+            reason="Retry incorreto — nova remediação; tentativa anterior permanece.",
+        )
         teaching_flow.transition(
             db, session, target_phase=FlowPhase.NEEDS_REMEDIATION, reason="retry_incorrect"
         )
+        remediation_payload = {
+            "id": new_remediation.id,
+            "action": new_remediation.action,
+            "error_id": error.id,
+            "explanation": error.explanation,
+            "contrast": {
+                "incorrect": error.original,
+                "correct": error.expected,
+            },
+            "hint_pt": _hint_for(new_remediation.action, activity),
+            "answer_feedback": answer_feedback,
+        }
+        patterns = list((objective.target_patterns_json if objective else None) or [])
+        payload = dict(session.payload_json or {})
+        payload["pending_remediation"] = remediation_payload
+        payload["last_answer_feedback"] = answer_feedback
+        payload["retry_activity"] = build_retry_variant(activity, patterns)
+        session.payload_json = payload
+        db.flush()
 
-    objective = db.get(LearningObjective, session.objective_id)
     return {
         **_session_payload(db, session, objective, eval_out["mastery"]["state"]),
         "attempt": {
@@ -357,6 +485,9 @@ def retry_slice(
             "attempt_number": attempt.attempt_number,
         },
         "evaluation": evaluation,
+        "answer_feedback": answer_feedback,
+        "remediation": remediation_payload
+        or (session.payload_json or {}).get("pending_remediation"),
         "mastery": eval_out["mastery"],
         "ai_called": False,
     }
@@ -484,6 +615,12 @@ def _session_payload(
     progress_state: str,
 ) -> dict[str, Any]:
     activity = teaching_flow.current_activity(session)
+    payload = session.payload_json or {}
+    # Normalizar options tipadas → textos para o frontend legado.
+    current = dict(activity) if isinstance(activity, dict) else activity
+    if isinstance(current, dict) and current.get("options"):
+        texts = option_texts(current)
+        current = {**current, "options": texts or current.get("options")}
     return {
         "flow": {
             "id": session.id,
@@ -501,6 +638,11 @@ def _session_payload(
             "level": objective.level if objective else None,
         },
         "progress_state": progress_state,
-        "current_activity": activity,
-        "activities_total": len((session.payload_json or {}).get("activities") or []),
+        "current_activity": current,
+        "activities_total": len(payload.get("activities") or []),
+        "answer_feedback": payload.get("last_answer_feedback"),
+        # Em remediação/retry a UI mostra variante nova — desbloqueada.
+        "activity_locked": session.phase
+        not in {FlowPhase.NEEDS_REMEDIATION, FlowPhase.RETRYING}
+        and session.activity_cursor in set(payload.get("submitted_indices") or []),
     }

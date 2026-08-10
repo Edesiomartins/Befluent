@@ -14,9 +14,12 @@ import type {
   BlockLesson,
   CompleteBlockResponse,
   CurriculumBlock,
+  DayLearningObjective,
   LessonThread,
   StartBlockResponse,
 } from "@/types/curriculum";
+import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
+import type { SliceSession } from "@/types/teaching";
 
 /**
  * O que este bloco herdou dos anteriores. É a peça que torna a sequência
@@ -203,6 +206,146 @@ function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
   );
 }
 
+function DayObjectiveBanner({
+  objective,
+}: {
+  objective: DayLearningObjective;
+}) {
+  return (
+    <div className="mt-6 rounded-xl border border-primary/25 bg-primary-soft/30 p-5">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+        Objetivo da jornada
+      </p>
+      <p className="mt-2 text-base font-semibold leading-7 text-text-primary">
+        {objective.learner_goal}
+      </p>
+      <p className="mt-3 text-sm text-text-secondary">
+        Status: <span className="font-semibold text-text-primary">{objective.status_label}</span>
+      </p>
+      {objective.status_label !== "Demonstrado" && (
+        <p className="mt-1 text-xs leading-5 text-text-secondary">
+          Concluir os blocos do dia não significa domínio — o domínio exige evidência e
+          transferência.
+        </p>
+      )}
+    </div>
+  );
+}
+
+function MiniTeachingPractice({
+  blockId,
+  initial,
+}: {
+  blockId: string;
+  initial: SliceSession | null;
+}) {
+  const [session, setSession] = useState<SliceSession | null>(initial);
+  const [response, setResponse] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  if (!session?.current_activity) return null;
+  const activity = session.current_activity;
+  const inRemediation =
+    session.flow.phase === "needs_remediation" ||
+    session.flow.phase === "retrying" ||
+    Boolean(session.remediation);
+  const locked = Boolean(session.activity_locked) && !inRemediation;
+  const needsChoice =
+    activity.type !== "listen" &&
+    activity.type !== "recognition" &&
+    activity.type !== "matching";
+
+  async function submit() {
+    if (busy || (locked && !inRemediation)) return;
+    if (needsChoice && !response.trim()) {
+      setError(
+        activity.type === "multiple_choice"
+          ? "Escolha uma alternativa antes de enviar."
+          : "Escreva uma resposta antes de continuar.",
+      );
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const path = inRemediation
+        ? `/api/v1/curriculum/block/${blockId}/teaching/retry`
+        : `/api/v1/curriculum/block/${blockId}/teaching/answer`;
+      const body = inRemediation
+        ? {
+            remediation_id: session?.remediation?.id,
+            student_response: response,
+          }
+        : { student_response: response || "__ack__" };
+      const next = await api<SliceSession>(path, { method: "POST", body });
+      setSession(next);
+      setResponse("");
+    } catch (caught) {
+      setError(
+        caught instanceof ApiError ? caught.message : "Não foi possível enviar a resposta.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mb-6 rounded-xl border border-border bg-surface-elevated/40 p-5">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        Prática do objetivo · {session.flow.phase_label_pt}
+      </p>
+      <div className="mt-4">
+        <TeachingActivityBody
+          activity={activity}
+          response={response}
+          onResponse={setResponse}
+          locked={locked}
+        />
+      </div>
+      <TeachingAnswerFeedback
+        feedback={session.answer_feedback ?? session.remediation?.answer_feedback}
+      />
+      {session.remediation && (
+        <p className="mt-3 text-sm text-warning">
+          {session.remediation.hint_pt ||
+            "A tentativa anterior ficou registrada. Responda a nova atividade."}
+        </p>
+      )}
+      {session.mastery?.state === "mastered" && (
+        <p className="mt-3 text-sm font-semibold text-primary">Objetivo demonstrado.</p>
+      )}
+      {error && (
+        <p role="alert" className="mt-2 text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <div className="mt-4">
+        <Button
+          loading={busy}
+          disabled={
+            busy ||
+            (locked && !inRemediation) ||
+            (needsChoice &&
+              !response.trim() &&
+              inRemediation &&
+              !["listen", "recognition", "matching"].includes(activity.type))
+          }
+          onClick={() => void submit()}
+        >
+          {inRemediation
+            ? ["listen", "recognition", "matching"].includes(activity.type)
+              ? "Continuar"
+              : "Tentar novamente"
+            : needsChoice
+              ? "Enviar tentativa"
+              : "Continuar"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function BlockRunner({
   block,
   onCompleted,
@@ -211,6 +354,7 @@ function BlockRunner({
   onCompleted: () => void;
 }) {
   const [lesson, setLesson] = useState<BlockLesson | null>(null);
+  const [teaching, setTeaching] = useState<SliceSession | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
@@ -224,6 +368,7 @@ function BlockRunner({
         { method: "POST", body: {} },
       );
       setLesson(payload.lesson);
+      setTeaching(payload.teaching ?? null);
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -283,6 +428,10 @@ function BlockRunner({
       </div>
 
       <ThreadBanner lesson={lesson} />
+
+      {teaching && block.skill !== "review" && (
+        <MiniTeachingPractice blockId={block.id} initial={teaching} />
+      )}
 
       {block.skill === "review" ? (
         <ReviewQueue lesson={lesson} />
@@ -365,6 +514,10 @@ export default function CurriculumDayPage() {
           />
         </div>
       </header>
+
+      {day.learning_objective && (
+        <DayObjectiveBanner objective={day.learning_objective} />
+      )}
 
       {week.is_checkpoint && finished && (
         <div className="mt-6 rounded-xl border border-[var(--gold)]/30 bg-[var(--gold-soft)]/40 p-5">

@@ -167,7 +167,21 @@ def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> Teachi
 
 
 def current_activity(session: TeachingFlowSession) -> dict | None:
-    activities = (session.payload_json or {}).get("activities") or []
+    """Atividade atual. Em remediação/retry, preferir variante pós-revelação.
+
+    Se `retry_safe` for False, NÃO reapresenta o item revelado como se fosse novo —
+    mantém a atividade original bloqueada e a UI deve oferecer Continuar.
+    """
+    payload = session.payload_json or {}
+    if session.phase in {FlowPhase.NEEDS_REMEDIATION, FlowPhase.RETRYING}:
+        retry_activity = payload.get("retry_activity")
+        if (
+            isinstance(retry_activity, dict)
+            and retry_activity.get("type")
+            and retry_activity.get("retry_safe", True) is not False
+        ):
+            return retry_activity
+    activities = payload.get("activities") or []
     if 0 <= session.activity_cursor < len(activities):
         return activities[session.activity_cursor]
     return None

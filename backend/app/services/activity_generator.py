@@ -136,15 +136,38 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
             "I am a student.",
             "I like coffee.",
         ]
+        option_entries = [
+            {
+                "id": "A",
+                "text": canonical,
+                "rationale": f"Esta forma expressa o padrão alvo: «{canonical}».",
+            }
+        ]
+        for offset, distractor in enumerate(distractors[:3]):
+            option_entries.append(
+                {
+                    "id": chr(ord("B") + offset),
+                    "text": distractor,
+                    "rationale": (
+                        f"«{distractor}» é gramatical em outros contextos, "
+                        "mas não corresponde ao padrão pedido nesta atividade."
+                    ),
+                }
+            )
         activities.append(
             {
                 "type": ActivityType.MULTIPLE_CHOICE,
                 "phase_hint": "practicing",
-                "prompt_pt": "Qual frase significa que você mora em Goiânia?",
-                "prompt": "Which sentence means you live in Goiânia?",
-                "options": [canonical, *distractors][:4],
+                "prompt_pt": "Qual frase corresponde ao padrão trabalhado?",
+                "prompt": "Which sentence matches the target pattern?",
+                "options": option_entries,
                 "canonical_answer": canonical,
                 "accepted_variants": accepted,
+                "correct_explanation": (
+                    f"A resposta adequada é «{canonical}», que realiza o padrão "
+                    "desta atividade."
+                ),
+                "remember_pt": "Compare a estrutura da opção com o modelo do noticing.",
                 "ai_required": False,
             }
         )

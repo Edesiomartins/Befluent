@@ -33,6 +33,7 @@ from app.prompts.library import (
 )
 from app.services import lesson_bank
 from app.services.learner_context import LearnerContext
+from app.services.vocabulary_selection import select_daily_vocabulary
 
 
 #: Abaixo deste nível, o tutor acompanha cada fala com tradução — é a regra do
@@ -137,9 +138,18 @@ def _target_items(context: LearnerContext, band: str, count: int = 4) -> list[di
         return carried[:count]
 
     known = {item["term"].casefold() for item in carried}
+    selected = select_daily_vocabulary(
+        context.language_code,
+        band,
+        day_number=context.day_number,
+        week_theme=context.curriculum_week_theme,
+        recycled_items=context.recycled_items,
+        exposed_items=context.exposed_items,
+        count=count,
+    )
     extra = [
         item
-        for item in _rotate(lesson_bank.vocabulary(context.language_code, band), context)
+        for item in selected["new_items"]
         if item["term"].casefold() not in known
     ]
     return [*carried, *extra[: count - len(carried)]]
@@ -209,20 +219,27 @@ class MockAIProvider(BaseAIProvider):
 def _vocabulary(context: LearnerContext, band: str, level: str) -> dict:
     """Bloco que **abre** o dia: é ele que define o léxico dos blocos seguintes.
 
-    Os itens saem girados pelo número do dia, e o léxico dos dias anteriores da
-    semana entra separado, marcado como retomada — misturar os dois faria o
-    aluno achar que está aprendendo palavra nova quando está revendo.
+    `items` = léxico **novo** do dia (subconjunto do banco, preferindo o tema
+    da semana). `revisited_items` = spiral da semana (não misturar com SRS).
     """
-    items = _rotate(lesson_bank.vocabulary(context.language_code, band), context)
-    revisited = [item for item in context.recycled_items if item.get("term")]
+    selected = select_daily_vocabulary(
+        context.language_code,
+        band,
+        day_number=context.day_number,
+        week_theme=context.curriculum_week_theme,
+        recycled_items=context.recycled_items,
+        exposed_items=context.exposed_items,
+    )
     return {
         "title": f"Vocabulário essencial · {level}",
         "objective": (
             "Ampliar o vocabulário de alta frequência que você já consegue usar "
             "no seu nível atual. Estas palavras voltam nos próximos blocos de hoje."
         ),
-        "items": list(items),
-        "revisited_items": revisited[:3],
+        "items": list(selected["new_items"]),
+        "revisited_items": list(selected["revisited_items"]),
+        "selection_policy": selected["selection_policy"],
+        "content_roles": dict(selected["content_roles"]),
         "thread_note": (
             "As palavras deste bloco são o material dos blocos seguintes: você vai "
             "reencontrá-las na estrutura, no texto ou áudio, na produção e na revisão."
@@ -274,6 +291,21 @@ def _reading(context: LearnerContext, band: str, level: str) -> dict:
                     "Um diálogo entre duas pessoas.",
                 ],
                 "answer": "Uma descrição de rotina ou situação concreta.",
+                "rationale": (
+                    "O texto do banco apresenta uma situação concreta ou rotina "
+                    "calibrada ao nível — não um manual técnico nem um diálogo."
+                ),
+                "option_rationales": {
+                    "Uma descrição de rotina ou situação concreta.": (
+                        "Corresponde ao tipo de texto usado nesta faixa."
+                    ),
+                    "Uma lista de instruções técnicas.": (
+                        "O texto não é um passo a passo técnico."
+                    ),
+                    "Um diálogo entre duas pessoas.": (
+                        "Não há turnos de fala entre personagens."
+                    ),
+                },
             }
         ],
     }
@@ -303,6 +335,21 @@ def _listening(context: LearnerContext, band: str, level: str) -> dict:
                     "Uma receita de cozinha.",
                 ],
                 "answer": "Uma informação prática sobre uma situação concreta.",
+                "rationale": (
+                    "Os scripts do banco trazem informação prática de uma situação "
+                    "cotidiana, não opinião política nem receita."
+                ),
+                "option_rationales": {
+                    "Uma informação prática sobre uma situação concreta.": (
+                        "Alinha com o objetivo de escuta desta faixa."
+                    ),
+                    "Uma opinião sobre política internacional.": (
+                        "O áudio não discute política."
+                    ),
+                    "Uma receita de cozinha.": (
+                        "Não há passos de preparo de comida no script."
+                    ),
+                },
             }
         ],
     }

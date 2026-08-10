@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, storeCsrfToken } from "@/lib/api";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, PasswordInput } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { BRAND } from "@/lib/brand";
 
@@ -13,7 +13,6 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const success = searchParams.get("cadastro") === "ok";
@@ -100,23 +99,13 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@exemplo.com"
             />
-            <div className="grid gap-2">
-              <Input
-                label="Senha"
-                name="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                className="justify-self-start text-sm font-medium text-primary hover:underline"
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? "Ocultar senha" : "Mostrar senha"}
-              </button>
-            </div>
+            <PasswordInput
+              label="Senha"
+              name="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
             {error && (
               <p
                 className="rounded-lg border border-danger/25 bg-danger/5 p-3 text-sm text-danger"

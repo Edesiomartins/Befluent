@@ -54,6 +54,7 @@ from app.services.learner_context import build_context, for_curriculum_block
 from app.services.lesson_thread import (
     EMPTY_THREAD,
     LessonThread,
+    curriculum_exposed_terms,
     day_thread,
     enroll,
     extract,
@@ -232,6 +233,7 @@ def _generate_payload(
     week_theme, previous_theme = _week_context(db, day)
 
     context = build_context(db, user, language_code)
+    exposed = curriculum_exposed_terms(db, day)
     context = for_curriculum_block(
         context,
         assessed_skill=assessed_skill,
@@ -246,6 +248,7 @@ def _generate_payload(
         carryover_patterns=list(thread.patterns),
         carryover_sources=list(thread.sources),
         recycled=[term.to_payload() for term in recycled.terms],
+        exposed=[term.to_payload() for term in exposed.terms],
     )
 
     curated = fetch_approved_unit(

@@ -1,10 +1,11 @@
 import {
   forwardRef,
+  useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff } from "lucide-react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "success" | "danger" | "ghost";
@@ -67,6 +68,53 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
     </label>
   );
 });
+
+type PasswordInputProps = Omit<InputProps, "type">;
+
+/** Campo de senha com botão de olho para mostrar/ocultar. */
+export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
+  function PasswordInput({ label, error, id, className = "", ...props }, ref) {
+    const [visible, setVisible] = useState(false);
+    const inputId = id ?? props.name;
+    const toggleLabel = visible ? "Ocultar senha" : "Mostrar senha";
+
+    return (
+      <div className="grid gap-2 text-sm font-medium">
+        <label htmlFor={inputId}>{label}</label>
+        <div className="relative">
+          <input
+            ref={ref}
+            id={inputId}
+            type={visible ? "text" : "password"}
+            className={`min-h-11 w-full rounded-xl border-2 bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${inputId}-error` : undefined}
+            {...props}
+          />
+          <button
+            type="button"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            onClick={() => setVisible((value) => !value)}
+            aria-label={toggleLabel}
+            aria-pressed={visible}
+            title={toggleLabel}
+          >
+            {visible ? (
+              <EyeOff className="size-5" aria-hidden />
+            ) : (
+              <Eye className="size-5" aria-hidden />
+            )}
+          </button>
+        </div>
+        {error && (
+          <span id={`${inputId}-error`} className="text-sm font-normal text-danger">
+            {error}
+          </span>
+        )}
+      </div>
+    );
+  },
+);
 
 export function Loading({ label = "Carregando" }: { label?: string }) {
   return (

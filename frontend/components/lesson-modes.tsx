@@ -8,9 +8,10 @@
  * e duplicar estes componentes faria as duas telas divergirem com o tempo.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
+import { ObjectiveChoice } from "@/components/objective-choice";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -412,8 +413,6 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
 }
 
 function Grammar({ lesson }: { lesson: GrammarLesson }) {
-  const [answer, setAnswer] = useState("");
-  const [checked, setChecked] = useState(false);
   const exercise = lesson.exercises[0];
   return (
     <div className="max-w-3xl">
@@ -445,51 +444,24 @@ function Grammar({ lesson }: { lesson: GrammarLesson }) {
       )}
       {exercise && (
         <div className="mt-7 panel p-6">
-          <p className="text-sm text-text-secondary">Complete a frase:</p>
-          <p className="mt-3 text-xl font-medium">{exercise.prompt}</p>
-          <div className="mt-5 grid gap-2">
-            {exercise.options.map((option) => (
-              <label
-                key={option}
-                className={`rounded-lg border p-3 ${
-                  answer === option ? "border-primary bg-primary/5" : "border-border"
-                }`}
-              >
-                <input
-                  className="mr-3 accent-[var(--primary)]"
-                  type="radio"
-                  name="answer"
-                  checked={answer === option}
-                  onChange={() => {
-                    setAnswer(option);
-                    setChecked(false);
-                  }}
-                />
-                {option}
-              </label>
-            ))}
-          </div>
-          <Button className="mt-5" disabled={!answer} onClick={() => {
-            setChecked(true);
-            if (answer === exercise.answer) {
-              void completeLesson(lesson.lesson_id);
-            }
-          }}>
-            Verificar resposta
-          </Button>
-          {checked && (
-            <p
-              role="status"
-              className={`mt-4 rounded-lg p-3 text-sm ${
-                answer === exercise.answer
-                  ? "bg-success/10 text-success"
-                  : "bg-danger/10 text-danger"
-              }`}
-            >
-              {answer === exercise.answer ? "Correto. " : "Quase. "}
-              {exercise.rationale}
-            </p>
-          )}
+          <ObjectiveChoice
+            lessonId={lesson.lesson_id}
+            index={0}
+            surface="grammar"
+            kind="exercise"
+            question={{
+              prompt: exercise.prompt,
+              options: exercise.options,
+              answer: exercise.answer,
+              rationale: exercise.rationale,
+              option_rationales: exercise.option_rationales,
+            }}
+            onEvaluated={(feedback) => {
+              if (feedback.is_correct) {
+                void completeLesson(lesson.lesson_id);
+              }
+            }}
+          />
         </div>
       )}
     </div>
@@ -499,67 +471,41 @@ function Grammar({ lesson }: { lesson: GrammarLesson }) {
 function Questions({
   questions,
   lessonId,
+  surface = "reading",
 }: {
-  questions: Array<{ prompt: string; options: string[]; answer: string }>;
+  questions: Array<{
+    prompt: string;
+    options: string[];
+    answer: string;
+    rationale?: string;
+    option_rationales?: Record<string, string>;
+  }>;
   lessonId?: string;
+  surface?: string;
 }) {
-  const [answers, setAnswers] = useState<Record<number, string>>({});
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
-  const allChecked =
-    questions.length > 0 && questions.every((_, index) => checked[index]);
-
-  useEffect(() => {
-    if (allChecked) {
-      void completeLesson(lessonId);
-    }
-  }, [allChecked, lessonId]);
+  const [resolvedCount, setResolvedCount] = useState(0);
+  const seen = useState(() => new Set<number>())[0];
 
   return (
     <div className="grid gap-5">
       {questions.map((question, index) => (
-        <div key={question.prompt} className="panel p-6">
-          <h2 className="section-title">{question.prompt}</h2>
-          <div className="mt-4 grid gap-2">
-            {question.options.map((option) => (
-              <label
-                key={option}
-                className={`rounded-lg border p-3 ${
-                  answers[index] === option ? "border-primary bg-primary/5" : "border-border"
-                }`}
-              >
-                <input
-                  className="mr-3 accent-[var(--primary)]"
-                  type="radio"
-                  name={`question-${index}`}
-                  checked={answers[index] === option}
-                  onChange={() => {
-                    setAnswers((current) => ({ ...current, [index]: option }));
-                    setChecked((current) => ({ ...current, [index]: false }));
-                  }}
-                />
-                {option}
-              </label>
-            ))}
-          </div>
-          <Button
-            className="mt-5"
-            disabled={!answers[index]}
-            onClick={() => setChecked((current) => ({ ...current, [index]: true }))}
-          >
-            Responder
-          </Button>
-          {checked[index] && (
-            <p
-              role="status"
-              className={`mt-4 text-sm font-medium ${
-                answers[index] === question.answer ? "text-success" : "text-danger"
-              }`}
-            >
-              {answers[index] === question.answer
-                ? "Correto."
-                : `A resposta esperada é: ${question.answer}`}
-            </p>
-          )}
+        <div key={`${question.prompt}-${index}`} className="panel p-6">
+          <ObjectiveChoice
+            lessonId={lessonId}
+            index={index}
+            surface={surface}
+            kind="question"
+            question={question}
+            onEvaluated={() => {
+              if (seen.has(index)) return;
+              seen.add(index);
+              const next = resolvedCount + 1;
+              setResolvedCount(next);
+              if (next >= questions.length) {
+                void completeLesson(lessonId);
+              }
+            }}
+          />
         </div>
       ))}
     </div>
@@ -574,7 +520,11 @@ function Listening({ lesson }: { lesson: ListeningLesson }) {
         Velocidade de fala: {lesson.speaking_rate}
       </p>
       <div className="mt-7">
-        <Questions questions={lesson.questions} lessonId={lesson.lesson_id} />
+        <Questions
+          questions={lesson.questions}
+          lessonId={lesson.lesson_id}
+          surface="listening"
+        />
       </div>
     </div>
   );
@@ -610,7 +560,11 @@ function Reading({ lesson }: { lesson: ReadingLesson }) {
           </>
         )}
         <div className="mt-5">
-          <Questions questions={lesson.questions} lessonId={lesson.lesson_id} />
+          <Questions
+            questions={lesson.questions}
+            lessonId={lesson.lesson_id}
+            surface="reading"
+          />
         </div>
       </aside>
     </div>

@@ -188,7 +188,84 @@ def ensure_en_a1_can_001(db: Session) -> LearningObjective:
     return existing
 
 
+def _theme_slug(theme: str) -> str:
+    """Slug estável e curto para códigos de objetivo por tema."""
+    import re
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKD", theme)
+    ascii_text = normalized.encode("ascii", "ignore").decode("ascii")
+    slug = re.sub(r"[^a-zA-Z0-9]+", "-", ascii_text).strip("-").upper()
+    return (slug or "THEME")[:24]
+
+
+def ensure_theme_objective(
+    db: Session,
+    *,
+    language_code: str,
+    level: str,
+    theme: str,
+) -> LearningObjective | None:
+    """Objetivo leve por tema/nível — ancora `CurriculumBlock.objective_id`.
+
+    Não substitui o vertical slice EN-A1-CAN-001; só liga o cronograma a um
+    can-do observável por semana. Retorna None se o idioma não existir.
+    """
+    language = db.scalar(select(Language).where(Language.code == language_code))
+    if language is None or not theme.strip():
+        return None
+
+    code = f"{language_code.upper().replace('-', '')}-{level}-TH-{_theme_slug(theme)}"[:40]
+    existing = db.scalar(
+        select(LearningObjective).where(
+            LearningObjective.language_id == language.id,
+            LearningObjective.code == code,
+        )
+    )
+    title = f"{theme} · {level}"
+    can_do = (
+        f"O aluno consegue usar vocabulário e estruturas de {level} "
+        f"para tratar o tema «{theme}» com clareza e coerência."
+    )
+    if existing is None:
+        objective = LearningObjective(
+            language_id=language.id,
+            level=level,
+            code=code,
+            title=title,
+            can_do=can_do,
+            description=(
+                "Objetivo gerado a partir do tema semanal do cronograma. "
+                "Ancora pedagógica leve; pedagogia detalhada fica no Teaching Engine."
+            ),
+            skill_focus="vocabulary",
+            prerequisites_json=[],
+            target_vocabulary_json=[],
+            target_expressions_json=[],
+            target_patterns_json=[],
+            pronunciation_focus_json=[],
+            pedagogy_json={"theme": theme, "source": "curriculum_theme"},
+            mastery_policy_json={},
+            version=1,
+            is_active=True,
+        )
+        db.add(objective)
+        db.flush()
+        return objective
+
+    existing.title = title
+    existing.can_do = can_do
+    existing.skill_focus = "vocabulary"
+    existing.pedagogy_json = {"theme": theme, "source": "curriculum_theme"}
+    existing.is_active = True
+    db.flush()
+    return existing
+
+
 def seed_teaching_objectives(db: Session) -> int:
     ensure_en_a1_can_001(db)
+    from app.services.objective_seed_b2_week1 import ensure_en_b2_week1_objectives
+
+    b2 = ensure_en_b2_week1_objectives(db)
     db.commit()
-    return 1
+    return 1 + len(b2)

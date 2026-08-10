@@ -106,6 +106,9 @@ class LearnerContext:
     carryover_sources: list[str] = field(default_factory=list)
     #: Léxico dos dias anteriores da semana — reforço em espiral.
     recycled_items: list[dict[str, str]] = field(default_factory=list)
+    #: Histórico curricular de exposição (jornadas anteriores com lesson_ref).
+    #: Usado para impedir que termo já visto volte como `items` (new).
+    exposed_items: list[dict[str, str]] = field(default_factory=list)
 
     @property
     def carryover_terms(self) -> list[str]:
@@ -319,6 +322,7 @@ def for_curriculum_block(
     carryover_patterns: list[str] | None = None,
     carryover_sources: list[str] | None = None,
     recycled: list[dict[str, str]] | None = None,
+    exposed: list[dict[str, str]] | None = None,
 ) -> LearnerContext:
     """Contexto calibrado para um bloco do cronograma.
 
@@ -328,6 +332,7 @@ def for_curriculum_block(
 
     O fio (`carryover`, `recycled`) é o que liga esta atividade às anteriores.
     Sem ele o bloco sabe o tema, mas não sabe o que o aluno acabou de estudar.
+    `exposed` é o histórico curricular completo para semântica new vs revisited.
     """
     return replace(
         context,
@@ -342,6 +347,7 @@ def for_curriculum_block(
         carryover_patterns=list(carryover_patterns or []),
         carryover_sources=list(carryover_sources or []),
         recycled_items=list(recycled or []),
+        exposed_items=list(exposed or []),
     )
 
 

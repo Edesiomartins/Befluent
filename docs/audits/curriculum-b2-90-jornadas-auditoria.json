@@ -1,0 +1,175 @@
+{
+  "classification": "A",
+  "label": "Progressão adequada",
+  "days": 90,
+  "unique_terms": 80,
+  "term_occurrences": 80,
+  "avg_consecutive_jaccard": 0.0,
+  "objective_linked_blocks": 100,
+  "total_blocks": 453,
+  "week1_objective_blocks": 28,
+  "week1_blocks": 35,
+  "week1_can_dos": [
+    "EN-B2-CAN-001",
+    "EN-B2-CAN-002",
+    "EN-B2-CAN-003",
+    "EN-B2-CAN-004",
+    "EN-B2-CAN-005",
+    "EN-B2-CAN-006",
+    "EN-B2-CAN-007"
+  ],
+  "first_exposures": 80,
+  "revisits_total": 267,
+  "avg_exposures_per_term": 4.3375,
+  "new_as_exposed_violations": 0,
+  "top_repeated_terms": [
+    [
+      "a compelling argument",
+      36
+    ],
+    [
+      "a slippery slope",
+      36
+    ],
+    [
+      "by and large",
+      36
+    ],
+    [
+      "a confounding factor",
+      7
+    ],
+    [
+      "a downturn",
+      7
+    ],
+    [
+      "a generational shift",
+      7
+    ],
+    [
+      "a nuanced reading",
+      7
+    ],
+    [
+      "a primary source",
+      7
+    ],
+    [
+      "a safety net",
+      7
+    ],
+    [
+      "a sticking point",
+      7
+    ]
+  ],
+  "mean_repeat_interval_days": 1.6067415730337078,
+  "bank_upper": [
+    "to bring about",
+    "to call into question",
+    "to hold that",
+    "on the contrary",
+    "to concede that",
+    "a compelling argument",
+    "to rebut",
+    "for the sake of argument",
+    "to bargain for",
+    "leverage",
+    "to meet halfway",
+    "a sticking point",
+    "to turn down",
+    "to back up",
+    "in good faith",
+    "to settle for",
+    "to account for",
+    "to bear out",
+    "a confounding factor",
+    "to extrapolate",
+    "peer-reviewed",
+    "statistically significant",
+    "to control for",
+    "an outlier",
+    "to fact-check",
+    "clickbait",
+    "to go viral",
+    "a primary source",
+    "to take with a grain of salt",
+    "echo chamber",
+    "to verify",
+    "biased coverage",
+    "notwithstanding",
+    "public interest",
+    "to roll out",
+    "a safety net",
+    "to crack down on",
+    "grassroots",
+    "to phase out",
+    "red tape",
+    "to be inclined to",
+    "a trade-off",
+    "to draw the line",
+    "unintended consequences",
+    "to turn a blind eye",
+    "informed consent",
+    "to outweigh",
+    "a slippery slope",
+    "for the time being",
+    "to hedge against",
+    "purchasing power",
+    "to break even",
+    "a downturn",
+    "to cut back on",
+    "supply chain",
+    "to write off",
+    "by and large",
+    "to convey",
+    "a nuanced reading",
+    "to fall flat",
+    "to resonate with",
+    "derivative",
+    "to shed light on",
+    "understated",
+    "a generational shift",
+    "to come of age",
+    "out of touch",
+    "to bridge the gap",
+    "social mobility",
+    "to push back against",
+    "the status quo",
+    "to catch on",
+    "to put forward",
+    "to spell out",
+    "to stand by",
+    "a working hypothesis",
+    "to boil down to",
+    "in a nutshell",
+    "to flesh out",
+    "the crux of the matter"
+  ],
+  "day1_terms": [
+    "a compelling argument",
+    "a slippery slope",
+    "by and large",
+    "for the sake of argument",
+    "notwithstanding"
+  ],
+  "day2_terms": [
+    "on the contrary",
+    "the crux of the matter",
+    "to account for",
+    "to back up",
+    "to be inclined to"
+  ],
+  "day1_day2_shared": [],
+  "day2_new": [
+    "on the contrary",
+    "the crux of the matter",
+    "to account for",
+    "to back up",
+    "to be inclined to"
+  ],
+  "max_term": "a compelling argument",
+  "max_count": 1,
+  "multiset_same_as_full_bank_days": 0
+}

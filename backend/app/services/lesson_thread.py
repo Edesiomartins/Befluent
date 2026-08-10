@@ -273,6 +273,80 @@ def week_thread(db: Session, day: CurriculumDay, *, limit_days: int = 2) -> Less
     return merge(threads)
 
 
+def curriculum_exposed_terms(db: Session, day: CurriculumDay) -> LessonThread:
+    """Léxico já **exposto ao aluno** em jornadas anteriores deste currículo.
+
+    Definição adotada (preferência produto): termo que apareceu em `items` (ou
+    outro campo extraível) de uma lição com `lesson_ref` em um dia anterior —
+    ou seja, o aluno já abriu aquele conteúdo. Não usa a fila SRS para decidir
+    novidade curricular.
+
+    Usado para classificar `items` (primeira exposição) vs `revisited_items`
+    (já visto). O spiral da semana (`week_thread`) continua sendo a fonte
+    preferida para *quais* revisitados mostrar; este histórico impede que um
+    termo já visto volte a ser marcado como novo.
+    """
+    from app.models import CurriculumWeek
+
+    week = db.get(CurriculumWeek, day.week_id)
+    if week is None:
+        return EMPTY_THREAD
+
+    previous_days = list(
+        db.scalars(
+            select(CurriculumDay)
+            .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+            .where(
+                CurriculumWeek.curriculum_id == week.curriculum_id,
+                CurriculumDay.day_number < day.day_number,
+            )
+            .order_by(CurriculumDay.day_number)
+        )
+    )
+    threads: list[LessonThread] = []
+    for earlier in previous_days:
+        blocks = db.scalars(
+            select(CurriculumBlock)
+            .where(
+                CurriculumBlock.day_id == earlier.id,
+                CurriculumBlock.lesson_ref.is_not(None),
+            )
+            .order_by(CurriculumBlock.position)
+        )
+        for block in blocks:
+            # Preferir só o léxico de vocabulário (`items`) para exposição A.
+            payload = _lesson_payload(db, block)
+            mode = str(payload.get("mode") or block.skill)
+            if mode == "vocabulary" or block.skill == "vocabulary":
+                thread = extract("vocabulary", payload)
+            else:
+                continue
+            if thread:
+                threads.append(
+                    LessonThread(
+                        terms=thread.terms,
+                        patterns=(),
+                        sources=(block_skill_label(block.skill),),
+                    )
+                )
+    # Sem teto MAX_THREAD_TERMS aqui: histórico precisa ser completo para a regra
+    # "nunca de novo como new". Merge local sem truncar.
+    seen: dict[str, ThreadTerm] = {}
+    sources: list[str] = []
+    for thread in threads:
+        for term in thread.terms:
+            key = term.term.casefold()
+            current = seen.get(key)
+            if current is None:
+                seen[key] = term
+            elif not current.translation and term.translation:
+                seen[key] = term
+        for source in thread.sources:
+            if source not in sources:
+                sources.append(source)
+    return LessonThread(terms=tuple(seen.values()), patterns=(), sources=tuple(sources))
+
+
 # --------------------------------------------------------------- fio → memória
 
 

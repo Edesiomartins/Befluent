@@ -39,6 +39,14 @@ from app.models import (
     UserLanguage,
 )
 from app.services.curriculum_generator import generate_curriculum
+from app.services.curriculum_teaching import (
+    day_learning_objective_payload,
+    ensure_block_teaching,
+    get_block_teaching,
+    retry_block_answer,
+    skill_flow_hint,
+    submit_block_answer,
+)
 from app.services.lesson_thread import day_thread
 from app.services.progression import (
     OVERDUE_THRESHOLD,
@@ -64,6 +72,16 @@ class CurriculumCreate(BaseModel):
 
 class BlockCompleteIn(BaseModel):
     score: float | None = Field(default=None, ge=0, le=1)
+
+
+class BlockTeachingAnswerIn(BaseModel):
+    student_response: str = Field(default="", max_length=4000)
+    activity_index: int | None = Field(default=None, ge=0)
+
+
+class BlockTeachingRetryIn(BaseModel):
+    remediation_id: str = Field(min_length=1, max_length=36)
+    student_response: str = Field(min_length=1, max_length=4000)
 
 
 class RescheduleIn(BaseModel):
@@ -155,6 +173,7 @@ def _block_payload(
         # Nulo em todo bloco hoje: bloco concluído continua sem implicar
         # domínio enquanto não houver objetivo associado.
         "objective_id": block.objective_id,
+        "teaching_flow_hint": skill_flow_hint(block.skill),
         "phase": block_phase(block.skill),
         "phase_label": block_phase_label(block.skill),
         "phase_why": block_phase_why(block.skill),
@@ -215,6 +234,7 @@ def _day_payload(
     *,
     thread: dict | None = None,
     next_day: dict | None = None,
+    learning_objective: dict | None = None,
 ) -> dict:
     ordered = sorted(blocks, key=lambda item: item.position)
     done = [block for block in ordered if block.status == BlockStatus.COMPLETED]
@@ -239,6 +259,8 @@ def _day_payload(
         "blocks": [_block_payload(block, siblings=ordered) for block in ordered],
         # Jornada seguinte (unidade de progressão). null no último dia.
         "next_day": next_day,
+        # Can-Do da jornada (piloto TE V2). Null = fluxo legado.
+        "learning_objective": learning_objective,
     }
 
 
@@ -436,15 +458,21 @@ def today(
     blocks = _blocks_of(db, [current.id]) if current else {}
     week = db.get(CurriculumWeek, current.week_id) if current else None
 
+    current_blocks = blocks.get(current.id, []) if current else []
     return {
         "curriculum": _curriculum_payload(db, curriculum),
         "week": _week_payload(week) if week else None,
         "day": (
             _day_payload(
                 current,
-                blocks.get(current.id, []),
+                current_blocks,
                 thread=day_thread(db, current, before_position=ALL_POSITIONS).to_payload(),
                 next_day=_next_day_ref(db, curriculum, current),
+                learning_objective=day_learning_objective_payload(
+                    db,
+                    blocks=current_blocks,
+                    user_language_id=curriculum.user_language_id,
+                ),
             )
             if current
             else None
@@ -485,7 +513,21 @@ def week_detail(
         )
     )
     blocks = _blocks_of(db, [day.id for day in days])
-    return _week_payload(week, [_day_payload(day, blocks.get(day.id, [])) for day in days])
+    return _week_payload(
+        week,
+        [
+            _day_payload(
+                day,
+                blocks.get(day.id, []),
+                learning_objective=day_learning_objective_payload(
+                    db,
+                    blocks=blocks.get(day.id, []),
+                    user_language_id=curriculum.user_language_id,
+                ),
+            )
+            for day in days
+        ],
+    )
 
 
 @router.get("/day/{day_id}")
@@ -505,14 +547,20 @@ def day_detail(
         raise APIError(404, "curriculum_day_not_found", "Dia de estudo não encontrado.")
     day, week, curriculum = row
     blocks = _blocks_of(db, [day.id])
+    day_blocks = blocks.get(day.id, [])
     return {
         "curriculum": _curriculum_payload(db, curriculum, with_progress=True),
         "week": _week_payload(week),
         "day": _day_payload(
             day,
-            blocks.get(day.id, []),
+            day_blocks,
             thread=day_thread(db, day, before_position=ALL_POSITIONS).to_payload(),
             next_day=_next_day_ref(db, curriculum, day),
+            learning_objective=day_learning_objective_payload(
+                db,
+                blocks=day_blocks,
+                user_language_id=curriculum.user_language_id,
+            ),
         ),
     }
 
@@ -524,9 +572,12 @@ def start_block(
     user: User = Depends(current_user),
 ):
     """Gera (ou recupera) a lição do bloco e vincula em `lesson_ref`."""
-    block, day, _ = _owned_block(db, block_id, user)
+    block, day, curriculum = _owned_block(db, block_id, user)
     ensure_block_unlocked(db, block, day)
     payload = build_block_lesson(db, user=user, block=block, day=day)
+    teaching = ensure_block_teaching(
+        db, user_language_id=curriculum.user_language_id, block=block
+    )
 
     if day.status == DayStatus.PENDING:
         day.status = DayStatus.IN_PROGRESS
@@ -539,7 +590,71 @@ def start_block(
             .order_by(CurriculumBlock.position)
         )
     )
-    return {"block": _block_payload(block, siblings=siblings), "lesson": payload}
+    return {
+        "block": _block_payload(block, siblings=siblings),
+        "lesson": payload,
+        "teaching": teaching,
+    }
+
+
+@router.get("/block/{block_id}/teaching")
+def block_teaching_state(
+    block_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Restaura flow TE do bloco (piloto). 404 se não houver integração."""
+    block, _day, curriculum = _owned_block(db, block_id, user)
+    payload = get_block_teaching(
+        db, user_language_id=curriculum.user_language_id, block=block
+    )
+    if payload is None:
+        raise APIError(
+            404,
+            "teaching_not_available",
+            "Este bloco não possui fluxo Teaching Engine ativo.",
+        )
+    return payload
+
+
+@router.post("/block/{block_id}/teaching/answer")
+def block_teaching_answer(
+    block_id: str,
+    data: BlockTeachingAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    block, day, curriculum = _owned_block(db, block_id, user)
+    ensure_block_unlocked(db, block, day)
+    payload = submit_block_answer(
+        db,
+        user_language_id=curriculum.user_language_id,
+        block=block,
+        student_response=data.student_response,
+        activity_index=data.activity_index,
+    )
+    db.commit()
+    return payload
+
+
+@router.post("/block/{block_id}/teaching/retry")
+def block_teaching_retry(
+    block_id: str,
+    data: BlockTeachingRetryIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    block, day, curriculum = _owned_block(db, block_id, user)
+    ensure_block_unlocked(db, block, day)
+    payload = retry_block_answer(
+        db,
+        user_language_id=curriculum.user_language_id,
+        block=block,
+        remediation_id=data.remediation_id,
+        student_response=data.student_response,
+    )
+    db.commit()
+    return payload
 
 
 @router.post("/block/{block_id}/complete")

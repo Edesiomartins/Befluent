@@ -4,7 +4,7 @@ import Link from "next/link";
 import { FormEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, PasswordInput } from "@/components/ui";
 import { Logo } from "@/components/logo";
 import { BRAND } from "@/lib/brand";
 
@@ -35,7 +35,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [passwordConfirmation, setPasswordConfirmation] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -155,29 +154,20 @@ export default function RegisterPage() {
               placeholder="voce@exemplo.com"
             />
             <div className="grid gap-2">
-              <Input
+              <PasswordInput
                 ref={passwordRef}
                 label="Senha"
                 name="password"
-                type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
               <PasswordHints password={password} />
-              <button
-                type="button"
-                className="justify-self-start text-sm font-medium text-primary hover:underline"
-                onClick={() => setShowPassword((v) => !v)}
-              >
-                {showPassword ? "Ocultar senha" : "Mostrar senha"}
-              </button>
             </div>
-            <Input
+            <PasswordInput
               ref={confirmRef}
               label="Confirmar senha"
               name="password_confirmation"
-              type={showPassword ? "text" : "password"}
               autoComplete="new-password"
               value={passwordConfirmation}
               onChange={(e) => setPasswordConfirmation(e.target.value)}

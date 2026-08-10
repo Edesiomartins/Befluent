@@ -154,11 +154,15 @@ def test_slice_error_remediation_retry(db_session):
     )
     assert wrong["remediation"] is not None
     assert session.phase == FlowPhase.NEEDS_REMEDIATION
-    correct = activity.get("canonical_answer") or " ".join(activity.get("tokens") or ["ok"])
-    if activity.get("type") == ActivityType.WORD_ORDER:
-        correct = " ".join(activity["tokens"])
-    elif activity.get("type") == ActivityType.MULTIPLE_CHOICE:
-        correct = activity["canonical_answer"]
+    # Retry usa variante pós-revelação (current_activity), não a questão original.
+    retry_activity = teaching_flow.current_activity(session) or {}
+    if retry_activity.get("type") == ActivityType.WORD_ORDER:
+        correct = " ".join(retry_activity.get("tokens") or [])
+    else:
+        correct = (
+            retry_activity.get("canonical_answer")
+            or (retry_activity.get("accepted_variants") or ["ok"])[0]
+        )
     retried = teaching_slice.retry_slice(
         db_session,
         session,

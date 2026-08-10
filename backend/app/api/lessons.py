@@ -18,6 +18,12 @@ from app.schemas import LessonGenerateIn
 from app.services.ai import get_ai_provider
 from app.services.content_repository import fetch_approved_unit, record_lesson_usage
 from app.services.learner_context import build_context, recommended_modes
+from app.services.lesson_attempts import (
+    attempt_to_dict,
+    list_attempts_for_lesson,
+    prepare_retry,
+    submit_objective_answer,
+)
 from app.services.lesson_envelope import apply_lesson_envelope
 from app.services.progress import aggregate_progress
 from app.services.study_sessions import abandon_session, complete_session
@@ -31,6 +37,20 @@ class Create(BaseModel):
 
 class SessionActionIn(BaseModel):
     summary: str | None = Field(default=None, max_length=500)
+
+
+class ObjectiveAnswerIn(BaseModel):
+    activity_key: str = Field(min_length=3, max_length=120)
+    selected_answer: str = Field(min_length=1, max_length=500)
+    request_retry: bool = False
+    # Campos que o cliente NÃO pode usar para autoridade — ignorados se enviados.
+    correct: bool | None = None
+    correct_answer: str | None = None
+    is_correct: bool | None = None
+
+
+class ObjectiveRetryIn(BaseModel):
+    activity_key: str = Field(min_length=3, max_length=120)
 
 
 router = APIRouter(prefix="/lessons", tags=["lessons"])
@@ -235,6 +255,56 @@ def one(lesson_id: str, db: Session = Depends(get_db), user: User = Depends(curr
         "objective": lesson.objective,
         "content": lesson.content_json,
     }
+
+
+@router.get("/{lesson_id}/objective-attempts")
+def list_objective_attempts(
+    lesson_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
+):
+    """Restaura tentativas objetivas da lição (fonte de verdade no backend)."""
+    lesson, _ = _owned_lesson(db, user, lesson_id)
+    attempts = list_attempts_for_lesson(db, lesson_id=lesson.id)
+    return {
+        "lesson_id": lesson.id,
+        "attempts": [attempt_to_dict(a) for a in attempts],
+    }
+
+
+@router.post("/{lesson_id}/objective-answers")
+def post_objective_answer(
+    lesson_id: str,
+    data: ObjectiveAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Submete resposta objetiva. Backend avalia e persiste; cliente não é autoridade."""
+    lesson, owner = _owned_lesson(db, user, lesson_id)
+    # Ignorar flags de acerto/gabarito enviadas pelo cliente (segurança).
+    _ = data.correct, data.correct_answer, data.is_correct
+    result = submit_objective_answer(
+        db,
+        lesson=lesson,
+        owner=owner,
+        activity_key=data.activity_key,
+        selected_answer=data.selected_answer,
+        request_retry=data.request_retry,
+    )
+    db.commit()
+    return result
+
+
+@router.post("/{lesson_id}/objective-retries")
+def post_objective_retry(
+    lesson_id: str,
+    data: ObjectiveRetryIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Oferece variante de retry sem reabrir a tentativa anterior."""
+    lesson, _ = _owned_lesson(db, user, lesson_id)
+    result = prepare_retry(db, lesson=lesson, activity_key=data.activity_key)
+    db.commit()
+    return result
 
 
 @router.post("/{lesson_id}/complete")

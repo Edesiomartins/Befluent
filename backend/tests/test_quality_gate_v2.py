@@ -206,7 +206,7 @@ def test_double_answer_rejected(db_session):
     session.activity_cursor = index
     with pytest.raises(APIError) as exc:
         teaching_slice.submit_slice_answer(db_session, session, student_response="")
-    assert exc.value.code == "activity_already_completed"
+    assert exc.value.code == "attempt_already_submitted"
 
 
 def test_memory_schedule_not_duplicated(db_session):
@@ -467,10 +467,15 @@ def test_vertical_slice_happy_and_error_path(db_session):
     assert wrong["remediation"] is not None
     assert session.phase == FlowPhase.NEEDS_REMEDIATION
 
-    if activity["type"] == ActivityType.WORD_ORDER:
-        correct = " ".join(activity["tokens"])
+    # Retry responde a variante pós-revelação, não a questão original.
+    retry_activity = teaching_flow.current_activity(session) or {}
+    if retry_activity.get("type") == ActivityType.WORD_ORDER:
+        correct = " ".join(retry_activity.get("tokens") or [])
     else:
-        correct = activity.get("canonical_answer") or activity.get("accepted_variants", ["x"])[0]
+        correct = (
+            retry_activity.get("canonical_answer")
+            or (retry_activity.get("accepted_variants") or ["x"])[0]
+        )
 
     retried = teaching_slice.retry_slice(
         db_session,

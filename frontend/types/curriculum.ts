@@ -40,11 +40,30 @@ export type CurriculumBlock = {
   lesson_ref: string | null;
   status: BlockStatus;
   score: number | null;
+  /** Ponte Teaching Engine — null no fluxo legado. */
+  objective_id?: string | null;
+  teaching_flow_hint?: string | null;
   phase?: LessonPhase;
   phase_label?: string;
   phase_why?: string;
   locked?: boolean;
   is_current?: boolean;
+};
+
+/** Can-Do da jornada (piloto TE V2). Null = fluxo legado. */
+export type DayLearningObjective = {
+  id: string;
+  code: string;
+  title: string;
+  can_do: string;
+  /** Texto principal para o aluno (sem código técnico). */
+  learner_goal: string;
+  level: string;
+  state: string;
+  status_label: string;
+  reasons: string[];
+  is_pilot?: boolean;
+  transfer_day?: boolean;
 };
 
 /** Item de léxico que atravessa os blocos do dia. */
@@ -103,6 +122,7 @@ export type CurriculumDay = {
   thread?: LessonThread | null;
   blocks: CurriculumBlock[];
   next_day?: NextDayRef | null;
+  learning_objective?: DayLearningObjective | null;
 };
 
 export type CurriculumWeek = {
@@ -212,6 +232,8 @@ export type BlockLesson = {
 export type StartBlockResponse = {
   block: CurriculumBlock;
   lesson: BlockLesson;
+  /** Flow TE quando o bloco pertence ao piloto Can-Do. */
+  teaching?: import("@/types/teaching").SliceSession | null;
 };
 
 export type CompleteBlockResponse = {
