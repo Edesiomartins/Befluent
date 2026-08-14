@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowRight, Clock, Route, Sparkles } from "lucide-react";
-import { MODES, modeColorClasses } from "@/lib/modes";
+import { ArrowRight, Route, Sparkles } from "lucide-react";
+import { MODES } from "@/lib/modes";
+import { ModeCard } from "@/components/mode-card";
 import { api } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import { useTodayInCurriculum } from "@/hooks/use-curriculum";
@@ -141,39 +142,14 @@ export default function LearnPage() {
       </Link>
 
       <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ordered.map((mode) => {
-          const Icon = mode.icon;
-          const colors = modeColorClasses[mode.color];
-          const isRecommended = recommended.includes(mode.slug);
-          return (
-            <Link
-              href={`/learn/${mode.slug}`}
-              key={mode.slug}
-              className={`panel group flex items-start gap-3 p-4 transition hover:-translate-y-0.5 ${colors.ring} ${
-                isRecommended ? "border-primary" : ""
-              }`}
-            >
-              <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
-                <Icon className="size-5" aria-hidden />
-              </span>
-              <div className="min-w-0 flex-1">
-                <h2 className="font-semibold group-hover:text-primary">
-                  {mode.title}
-                  {isRecommended && (
-                    <span className="ml-2 rounded-full bg-primary-soft px-2 py-0.5 text-[.65rem] font-bold uppercase tracking-wide text-primary">
-                      Recomendado
-                    </span>
-                  )}
-                </h2>
-                <p className="mt-1 text-sm leading-6 text-text-secondary">{mode.description}</p>
-                <p className="mt-2 flex items-center gap-1 text-xs font-medium text-text-secondary">
-                  <Clock className="size-3.5" aria-hidden />
-                  {mode.duration}
-                </p>
-              </div>
-            </Link>
-          );
-        })}
+        {ordered.map((mode) => (
+          <ModeCard
+            key={mode.slug}
+            mode={mode}
+            recommended={recommended.includes(mode.slug)}
+            titleAs="h2"
+          />
+        ))}
       </div>
     </div>
   );

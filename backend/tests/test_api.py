@@ -334,6 +334,38 @@ def test_conversation_mock(client, auth):
     assert response.json()["provider"] == "mock"
 
 
+def test_tutor_chat_mock(client, auth):
+    activate(client, auth)
+    response = client.post(
+        "/api/v1/tutor-chat",
+        json={"language_code": "en", "text": "Como uso o present perfect?", "history": []},
+        headers=auth,
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["provider"] == "mock"
+    assert body["reply"]
+    assert body["corrections_available"] is False
+
+
+def test_tutor_chat_unknown_language(client, auth):
+    response = client.post(
+        "/api/v1/tutor-chat",
+        json={"language_code": "xx", "text": "Oi", "history": []},
+        headers=auth,
+    )
+    assert response.status_code == 404
+
+
+def test_health_ai(client):
+    response = client.get("/health/ai")
+    assert response.status_code == 200
+    body = response.json()
+    assert "ai_mock_mode" in body
+    assert "openrouter_configured" in body
+    assert "openrouter_api_key" not in body
+
+
 def test_speech_mocks(client, auth):
     stt = client.post(
         "/api/v1/speech/transcribe",

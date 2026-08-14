@@ -14,7 +14,8 @@ import {
 import { api, ApiError } from "@/lib/api";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState } from "@/components/ui";
-import { getMode, modeColorClasses } from "@/lib/modes";
+import { ModeCard } from "@/components/mode-card";
+import { getMode } from "@/lib/modes";
 import { LEVEL_SOURCE_LABELS, levelShortCode } from "@/lib/levels";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import { useTodayInCurriculum } from "@/hooks/use-curriculum";
@@ -511,23 +512,7 @@ export default function DashboardPage() {
           {practiceSlugs.map((slug) => {
             const mode = getMode(slug);
             if (!mode) return null;
-            const Icon = mode.icon;
-            const colors = modeColorClasses[mode.color];
-            return (
-              <Link
-                key={slug}
-                href={`/learn/${slug}`}
-                className={`panel group flex items-start gap-3 p-4 opacity-90 transition hover:-translate-y-0.5 hover:opacity-100 ${colors.ring}`}
-              >
-                <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
-                  <Icon className="size-5" aria-hidden />
-                </span>
-                <div>
-                  <h3 className="font-semibold group-hover:text-primary">{mode.title}</h3>
-                  <p className="mt-1 text-sm text-text-secondary">{mode.description}</p>
-                </div>
-              </Link>
-            );
+            return <ModeCard key={slug} mode={mode} compact />;
           })}
         </div>
       </section>

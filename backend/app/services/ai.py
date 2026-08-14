@@ -28,6 +28,7 @@ from app.core.levels import Skill
 from app.prompts.library import (
     CONVERSATION,
     MODE_SKILL,
+    TUTOR_CHAT,
     get_mode_prompt,
     get_output_contract,
 )
@@ -51,6 +52,11 @@ class BaseAIProvider(ABC):
     ) -> dict: ...
 
     @abstractmethod
+    def tutor_chat_turn(
+        self, text: str, context: LearnerContext, history: list[dict]
+    ) -> dict: ...
+
+    @abstractmethod
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict: ...
 
 
@@ -59,9 +65,13 @@ def _needs_translation(level: str) -> bool:
 
 
 def _conversation_envelope(
-    context: LearnerContext, payload: dict, provider: str, model: str | None = None
+    context: LearnerContext,
+    payload: dict,
+    provider: str,
+    model: str | None = None,
+    skill: str | None = MODE_SKILL["conversation"],
 ) -> dict:
-    level = context.level_for_skill(MODE_SKILL["conversation"])
+    level = context.level_for_skill(skill)
     return {
         "reply": payload.get("reply", ""),
         "reply_translation": payload.get("reply_translation"),
@@ -209,6 +219,31 @@ class MockAIProvider(BaseAIProvider):
         if not builder:
             raise ValueError(mode)
         return _envelope(mode, context, builder(context, band, level), "mock")
+
+    def tutor_chat_turn(self, text, context, history):
+        """Sem IA conectada, o tutor de apoio não inventa resposta a uma pergunta livre.
+
+        Diferente do roteiro de `conversation_turn` (que tem um script de prática
+        para seguir), uma dúvida livre não tem conteúdo determinístico correto no
+        banco — fabricar uma explicação seria o mesmo erro que a heurística de
+        escrita evita: parecer resposta quando não houve análise nenhuma.
+        """
+        return _conversation_envelope(
+            context,
+            {
+                "reply": (
+                    "Estou em modo local (sem IA conectada) e não consigo responder "
+                    "perguntas livres agora. Assim que a IA estiver ativa, posso "
+                    "explicar dúvidas de gramática, vocabulário e tradução aqui."
+                ),
+                "reply_translation": None,
+                "corrections": [],
+                "corrections_available": False,
+                "suggestions": [],
+            },
+            "mock",
+            skill=None,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -689,6 +724,48 @@ class OpenRouterProvider(BaseAIProvider):
                 lambda: MockAIProvider().conversation_turn(text, context, history)
             )
         return _conversation_envelope(context, payload, "openrouter", model)
+
+    def tutor_chat_turn(self, text, context, history):
+        """Um turno do chat de apoio livre — mesmo contrato de `conversation_turn`,
+        prompt diferente (`TUTOR_CHAT`): tira dúvida, não conduz roleplay."""
+        if not self.openrouter_ready:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().tutor_chat_turn(text, context, history)
+            )
+
+        contract = (
+            '{"reply": str, "reply_translation": str|null, '
+            '"corrections": [{"original": str, "corrected": str, "explanation": str}], '
+            '"natural_alternative": str|null, "suggestions": [str]}'
+        )
+        instruction = TUTOR_CHAT.render(context.to_prompt_context(None), contract)
+        instruction += (
+            "\n\nDeixe `corrections` vazio e `natural_alternative` nulo a menos que "
+            "o aluno peça explicitamente para corrigir algo que ele escreveu — este "
+            "chat é para tirar dúvidas, não para praticar produção livre."
+        )
+
+        messages = [{"role": "system", "content": instruction}]
+        for message in history[-10:]:
+            messages.append(
+                {
+                    "role": "assistant" if message.get("role") == "assistant" else "user",
+                    "content": message.get("content", ""),
+                }
+            )
+        messages.append({"role": "user", "content": text})
+
+        try:
+            payload, model = openrouter_chat_with_fallback(
+                self.s,
+                messages,
+                lambda p: isinstance(p, dict) and bool(p.get("reply")),
+            )
+        except OpenRouterUnavailableError:
+            return self._unavailable_or_dev_mock(
+                lambda: MockAIProvider().tutor_chat_turn(text, context, history)
+            )
+        return _conversation_envelope(context, payload, "openrouter", model, skill=None)
 
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict:
         """Gera a lição pelo prompt da biblioteca, com fallback de modelo OpenRouter."""
