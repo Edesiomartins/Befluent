@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from app.core import rate_limit
 from app.core.database import get_db
 from app.core.security import hash_password
 from app.main import app
@@ -20,6 +21,7 @@ def override_db():
 app.dependency_overrides[get_db]=override_db
 @pytest.fixture(autouse=True)
 def reset_db():
+    rate_limit.reset()  # o rate limiter é estado global; sem isto, testes de login se acumulam entre casos
     Base.metadata.drop_all(engine); Base.metadata.create_all(engine)
     with TestingSession() as db:
         seed_languages(db)

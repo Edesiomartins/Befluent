@@ -115,6 +115,40 @@ def test_register_rejects_admin_fields(client):
     assert response.status_code == 422
 
 
+def test_login_rate_limited(client):
+    payload = {"email": "admin@befluent.local", "password": "senha-errada"}
+    for _ in range(10):
+        assert client.post("/api/v1/auth/login", json=payload).status_code == 401
+    response = client.post("/api/v1/auth/login", json=payload)
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"
+
+
+def test_register_rate_limited(client):
+    base = {"password": "senha-forte-1", "password_confirmation": "senha-forte-1"}
+    for i in range(5):
+        response = client.post(
+            "/api/v1/auth/register",
+            json={**base, "name": "Teste", "email": f"user{i}@befluent.local"},
+        )
+        assert response.status_code == 201
+    response = client.post(
+        "/api/v1/auth/register",
+        json={**base, "name": "Teste", "email": "user5@befluent.local"},
+    )
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"
+
+
+def test_security_headers_present(client):
+    response = client.get("/health")
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "same-origin"
+    # HSTS só faz sentido servido por HTTPS; ambiente de teste não é produção
+    assert "strict-transport-security" not in response.headers
+
+
 def test_auth_and_me(client):
     assert client.get("/api/v1/auth/me").status_code == 401
     response = client.post(

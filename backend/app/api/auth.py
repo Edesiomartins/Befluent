@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
+from app.core.rate_limit import enforce_rate_limit
 from app.core.security import hash_password, token_hash, verify_password
 from app.models import Session, User, UserPreference
 from app.schemas import LoginIn, RegisterIn
@@ -75,8 +76,9 @@ def _public_user(user: User) -> dict:
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
-def register(data: RegisterIn, db: DB = Depends(get_db)):
+def register(data: RegisterIn, request: Request, db: DB = Depends(get_db)):
     """Cadastro público. Não inicia sessão — o usuário deve fazer login depois."""
+    enforce_rate_limit(request, "register", limit=5, window_seconds=3600)
     email = data.email  # já normalizado no schema
     name = data.name.strip()
 
@@ -107,7 +109,8 @@ def register(data: RegisterIn, db: DB = Depends(get_db)):
 
 
 @router.post("/login")
-def login(data: LoginIn, response: Response, db: DB = Depends(get_db)):
+def login(data: LoginIn, request: Request, response: Response, db: DB = Depends(get_db)):
+    enforce_rate_limit(request, "login", limit=10, window_seconds=300)
     user = db.scalar(select(User).where(User.email == data.email.lower()))
     if not user or not verify_password(data.password, user.password_hash):
         raise APIError(401, "invalid_credentials", "E-mail ou senha inválidos.")

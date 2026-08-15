@@ -25,6 +25,15 @@ app.exception_handler(HTTPException)(http_error_handler); app.exception_handler(
 async def request_context(request:Request,call_next):
     request.state.request_id=request.headers.get("X-Request-ID",str(uuid.uuid4()))
     response=await call_next(request); response.headers["X-Request-ID"]=request.state.request_id; return response
+@app.middleware("http")
+async def security_headers(request:Request,call_next):
+    response=await call_next(request)
+    response.headers["X-Content-Type-Options"]="nosniff"
+    response.headers["X-Frame-Options"]="DENY"
+    response.headers["Referrer-Policy"]="same-origin"
+    if _is_prod:
+        response.headers["Strict-Transport-Security"]="max-age=63072000; includeSubDomains"
+    return response
 app.middleware("http")(csrf_guard)
 app.include_router(health_router)
 for router in [auth.router,profile.router,languages.router,levels.router,onboarding.router,dashboard.router,placement_tests.router,language_profiles.router,assessments.router,curriculum.router,learning_plans.router,lessons.router,study_sessions.router,conversations.router,speech.router,vocabulary.router,reviews.router,grammar.router,listening.router,pronunciation.router,writing.router,progress.router,settings.router,teaching.router,tutor_chat.router]:
