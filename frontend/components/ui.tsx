@@ -6,6 +6,15 @@ import {
   type ReactNode,
 } from "react";
 import { AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { ApiError } from "@/lib/api";
+import { useCooldown } from "@/hooks/use-cooldown";
+
+/** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
+const AI_RETRY_COOLDOWN_SECONDS = 30;
+
+export function isAiUnavailableError(error: unknown): error is ApiError {
+  return error instanceof ApiError && (error.code === "ai_unavailable" || error.status === 503);
+}
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "success" | "danger" | "ghost";
@@ -148,18 +157,39 @@ export function EmptyState({
 export function ErrorState({
   retry,
   message = "Não foi possível carregar este conteúdo.",
+  error,
 }: {
   retry?: () => void;
   message?: string;
+  /** Erro original, se veio de `api()`. Detecta indisponibilidade de IA para
+   * mostrar o cooldown real em vez de um botão que falha na hora. */
+  error?: unknown;
 }) {
+  const aiUnavailable = isAiUnavailableError(error);
+  const remaining = useCooldown(AI_RETRY_COOLDOWN_SECONDS, error, aiUnavailable);
+  const waiting = aiUnavailable && remaining > 0;
+
   return (
     <div className="rounded-2xl border border-danger/25 bg-danger/5 p-5" role="alert">
       <h2 className="flex items-center gap-2 font-semibold text-danger">
         <AlertTriangle className="size-5 shrink-0" aria-hidden />
-        Algo não saiu como esperado
+        {aiUnavailable ? "IA temporariamente indisponível" : "Algo não saiu como esperado"}
       </h2>
-      <p className="mt-1 text-sm text-text-secondary">{message}</p>
-      {retry && <Button variant="secondary" className="mt-4" onClick={retry}>Tentar novamente</Button>}
+      <p className="mt-1 text-sm text-text-secondary">
+        {aiUnavailable
+          ? "O provedor de IA está sobrecarregado ou indisponível no momento. Isso costuma se resolver sozinho em pouco tempo."
+          : message}
+      </p>
+      {retry && (
+        <Button
+          variant="secondary"
+          className="mt-4"
+          onClick={retry}
+          disabled={waiting}
+        >
+          {waiting ? `Tentar novamente em ${remaining}s` : "Tentar novamente"}
+        </Button>
+      )}
     </div>
   );
 }

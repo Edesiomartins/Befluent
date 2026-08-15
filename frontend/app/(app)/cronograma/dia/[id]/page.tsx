@@ -356,12 +356,14 @@ function BlockRunner({
   const [lesson, setLesson] = useState<BlockLesson | null>(null);
   const [teaching, setTeaching] = useState<SliceSession | null>(null);
   const [error, setError] = useState("");
+  const [rawError, setRawError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
 
   const start = useCallback(async () => {
     setLoading(true);
     setError("");
+    setRawError(null);
     try {
       const payload = await api<StartBlockResponse>(
         `/api/v1/curriculum/block/${block.id}/start`,
@@ -375,6 +377,7 @@ function BlockRunner({
           ? caught.message
           : "Não foi possível abrir este bloco.",
       );
+      setRawError(caught);
     } finally {
       setLoading(false);
     }
@@ -405,7 +408,9 @@ function BlockRunner({
   }
 
   if (loading) return <Loading label={`Preparando ${block.skill_label}`} />;
-  if (error && !lesson) return <ErrorState message={error} retry={() => void start()} />;
+  if (error && !lesson) {
+    return <ErrorState message={error} retry={() => void start()} error={rawError} />;
+  }
   if (!lesson) return null;
 
   return (

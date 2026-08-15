@@ -60,6 +60,7 @@ export class ApiError extends Error {
     message: string,
     public status: number,
     public code?: string,
+    public retryable?: boolean,
   ) {
     super(message);
     this.name = "ApiError";
@@ -99,6 +100,7 @@ export async function api<T>(
       payload?.error?.message ?? "Não foi possível concluir a solicitação.",
       response.status,
       payload?.error?.code,
+      payload?.error?.retryable,
     );
   }
   if (response.status === 204) return undefined as T;

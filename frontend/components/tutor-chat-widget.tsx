@@ -4,6 +4,10 @@ import { useEffect, useId, useRef, useState } from "react";
 import { Bot, Send, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
+import { useCooldown } from "@/hooks/use-cooldown";
+
+/** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
+const AI_RETRY_COOLDOWN_SECONDS = 30;
 
 type Correction = { original?: string; corrected?: string; explanation?: string };
 
@@ -42,6 +46,8 @@ export function TutorChatWidget() {
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serviceDown, setServiceDown] = useState(false);
+  const [serviceDownAt, setServiceDownAt] = useState(0);
+  const cooldownRemaining = useCooldown(AI_RETRY_COOLDOWN_SECONDS, serviceDownAt, serviceDown);
   const [demoMode, setDemoMode] = useState(false);
   const panelId = useId();
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -90,6 +96,7 @@ export function TutorChatWidget() {
       const unavailable =
         err instanceof ApiError && (err.code === "ai_unavailable" || err.status === 503);
       setServiceDown(unavailable);
+      if (unavailable) setServiceDownAt(Date.now());
       setError(
         err instanceof ApiError ? err.message : "Não foi possível obter resposta do tutor.",
       );
@@ -141,7 +148,9 @@ export function TutorChatWidget() {
           )}
           {serviceDown && (
             <p className="border-b border-border bg-danger/10 px-4 py-2 text-xs leading-5 text-danger">
-              Serviço de IA temporariamente indisponível. Tente enviar de novo em instantes.
+              {cooldownRemaining > 0
+                ? `Serviço de IA temporariamente indisponível. Tente enviar de novo em ${cooldownRemaining}s.`
+                : "Serviço de IA temporariamente indisponível. Você já pode tentar enviar de novo."}
             </p>
           )}
 
@@ -197,7 +206,9 @@ export function TutorChatWidget() {
             <button
               type="button"
               onClick={() => void send()}
-              disabled={!text.trim() || thinking || !resolved}
+              disabled={
+                !text.trim() || thinking || !resolved || (serviceDown && cooldownRemaining > 0)
+              }
               aria-label="Enviar pergunta"
               className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary text-white transition hover:bg-[var(--primary-hover)] disabled:cursor-not-allowed disabled:opacity-55"
             >

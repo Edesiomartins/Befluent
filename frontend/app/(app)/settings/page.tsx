@@ -1,8 +1,35 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
+import { Clock, MessagesSquare, Shield, Volume2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { Button, Loading, Toggle } from "@/components/ui";
+import { modeColorClasses, type ModeColor } from "@/lib/modes";
+
+function SettingsSection({
+  icon: Icon,
+  color,
+  title,
+  children,
+}: {
+  icon: typeof Volume2;
+  color: ModeColor;
+  title: string;
+  children: ReactNode;
+}) {
+  const colors = modeColorClasses[color];
+  return (
+    <section className="panel mt-5 p-6">
+      <div className="flex items-center gap-3">
+        <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
+          <Icon className="size-5" aria-hidden />
+        </span>
+        <h2 className="section-title">{title}</h2>
+      </div>
+      <div className="mt-5">{children}</div>
+    </section>
+  );
+}
 
 type UiPrefs = {
   translation?: boolean;
@@ -117,9 +144,8 @@ export default function SettingsPage() {
       </p>
 
       <form onSubmit={save}>
-        <section className="mt-9 border-t border-border py-7">
-          <h2 className="section-title">Voz e áudio</h2>
-          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+        <SettingsSection icon={Volume2} color="primary" title="Voz e áudio">
+          <label className="grid max-w-sm gap-2 text-sm font-medium">
             Velocidade padrão da voz
             <select
               value={speed}
@@ -127,7 +153,7 @@ export default function SettingsPage() {
                 setSpeed(e.target.value);
                 setSaved(false);
               }}
-              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+              className="min-h-11 rounded-xl border-2 border-border bg-surface px-3.5"
             >
               <option value="0.75">0,75× — mais lenta</option>
               <option value="1">1× — normal</option>
@@ -143,11 +169,10 @@ export default function SettingsPage() {
               onChange={(value) => updatePref("autoplay", value)}
             />
           </div>
-        </section>
+        </SettingsSection>
 
-        <section className="border-t border-border py-7">
-          <h2 className="section-title">Fuso horário</h2>
-          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+        <SettingsSection icon={Clock} color="teal" title="Fuso horário">
+          <label className="grid max-w-sm gap-2 text-sm font-medium">
             Seu fuso (streak e minutos de hoje)
             <select
               value={timezone}
@@ -155,7 +180,7 @@ export default function SettingsPage() {
                 setTimezone(e.target.value);
                 setSaved(false);
               }}
-              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+              className="min-h-11 rounded-xl border-2 border-border bg-surface px-3.5"
             >
               <option value="America/Sao_Paulo">Brasília (America/Sao_Paulo)</option>
               <option value="America/Manaus">Manaus (America/Manaus)</option>
@@ -163,16 +188,15 @@ export default function SettingsPage() {
               <option value="UTC">UTC</option>
             </select>
           </label>
-        </section>
+        </SettingsSection>
 
-        <section className="border-t border-border py-7">
-          <h2 className="section-title">Apoio durante o estudo</h2>
-          <label className="mt-5 grid max-w-sm gap-2 text-sm font-medium">
+        <SettingsSection icon={MessagesSquare} color="violet" title="Apoio durante o estudo">
+          <label className="grid max-w-sm gap-2 text-sm font-medium">
             Momento das correções
             <select
               value={prefs.correction_mode}
               onChange={(e) => updatePref("correction_mode", e.target.value)}
-              className="min-h-11 rounded-lg border border-border bg-surface px-3"
+              className="min-h-11 rounded-xl border-2 border-border bg-surface px-3.5"
             >
               <option value="each">Após cada resposta</option>
               <option value="end">Ao final da atividade</option>
@@ -187,33 +211,30 @@ export default function SettingsPage() {
               onChange={(value) => updatePref("translation", value)}
             />
           </div>
-        </section>
+        </SettingsSection>
 
-        <section className="border-t border-border py-7">
-          <h2 className="section-title">Privacidade</h2>
-          <div className="mt-3">
-            <Toggle
-              label="Salvar gravações de voz"
-              description="Desativado: o áudio é descartado após o processamento."
-              checked={prefs.save_audio}
-              onChange={(value) => updatePref("save_audio", value)}
-            />
-            <Toggle
-              label="Compartilhar dados de uso anônimos"
-              description="Ajuda a identificar falhas sem incluir o conteúdo das suas atividades."
-              checked={prefs.analytics}
-              onChange={(value) => updatePref("analytics", value)}
-            />
-          </div>
-        </section>
+        <SettingsSection icon={Shield} color="rose" title="Privacidade">
+          <Toggle
+            label="Salvar gravações de voz"
+            description="Desativado: o áudio é descartado após o processamento."
+            checked={prefs.save_audio}
+            onChange={(value) => updatePref("save_audio", value)}
+          />
+          <Toggle
+            label="Compartilhar dados de uso anônimos"
+            description="Ajuda a identificar falhas sem incluir o conteúdo das suas atividades."
+            checked={prefs.analytics}
+            onChange={(value) => updatePref("analytics", value)}
+          />
+        </SettingsSection>
 
         {error && (
-          <p role="alert" className="mb-4 text-sm text-danger">
+          <p role="alert" className="mt-5 text-sm text-danger">
             {error}
           </p>
         )}
 
-        <div className="flex items-center justify-end gap-4 border-t border-border pt-6">
+        <div className="mt-6 flex items-center justify-end gap-4">
           {saved && (
             <span className="text-sm font-medium text-success" role="status">
               Preferências salvas.

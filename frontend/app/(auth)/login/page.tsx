@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, storeCsrfToken } from "@/lib/api";
 import { Button, Input, PasswordInput } from "@/components/ui";
 import { Logo } from "@/components/logo";
+import { AuthHeroHighlights } from "@/components/auth-hero-highlights";
 import { BRAND } from "@/lib/brand";
 
 function LoginForm() {
@@ -67,6 +68,7 @@ function LoginForm() {
           <p className="mt-7 max-w-md text-lg leading-8 text-white/70">
             {BRAND.description}
           </p>
+          <AuthHeroHighlights />
         </div>
         <p className="relative text-sm text-white/45">{BRAND.institutional}</p>
       </section>

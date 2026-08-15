@@ -267,13 +267,13 @@ function Assessment() {
 
 function AdaptiveLesson({ mode }: { mode: string }) {
   const { code } = useActiveLanguage();
-  const { status, lesson, error, reload } = useLesson(mode, code);
+  const { status, lesson, error, rawError, reload } = useLesson(mode, code);
   return (
     <div>
       <PageHeader mode={mode} lesson={lesson} />
       {status === "loading" && <Loading label={`Preparando ${meta[mode].title}`} />}
       {status === "error" && (
-        <ErrorState message={error ?? undefined} retry={() => void reload()} />
+        <ErrorState message={error ?? undefined} retry={() => void reload()} error={rawError} />
       )}
       {status === "ready" && lesson && <LessonContent mode={mode} lesson={lesson} />}
     </div>

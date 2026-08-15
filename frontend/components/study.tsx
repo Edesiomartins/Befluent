@@ -3,6 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { useCooldown } from "@/hooks/use-cooldown";
+
+/** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
+const AI_RETRY_COOLDOWN_SECONDS = 30;
 
 const SPEECH_LANGS: Record<string, string> = {
   en: "en-US",
@@ -305,6 +309,8 @@ export function Chat({
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [serviceDown, setServiceDown] = useState(false);
+  const [serviceDownAt, setServiceDownAt] = useState(0);
+  const cooldownRemaining = useCooldown(AI_RETRY_COOLDOWN_SECONDS, serviceDownAt, serviceDown);
   // null = ainda não houve turno; só avisamos mock após resposta com provider=mock
   const [demoMode, setDemoMode] = useState<boolean | null>(null);
   const [correctionsOff, setCorrectionsOff] = useState(false);
@@ -414,6 +420,7 @@ export function Chat({
         err instanceof ApiError &&
         (err.code === "ai_unavailable" || err.status === 503);
       setServiceDown(unavailable);
+      if (unavailable) setServiceDownAt(Date.now());
       setError(
         err instanceof ApiError
           ? err.message
@@ -435,8 +442,9 @@ export function Chat({
       )}
       {serviceDown && (
         <p className="border-b border-border bg-danger/10 px-4 py-2 text-xs leading-5 text-danger">
-          Serviço de IA temporariamente indisponível. Seu histórico foi preservado — tente
-          enviar de novo em instantes.
+          {cooldownRemaining > 0
+            ? `Serviço de IA temporariamente indisponível. Seu histórico foi preservado — tente enviar de novo em ${cooldownRemaining}s.`
+            : "Serviço de IA temporariamente indisponível. Você já pode tentar enviar de novo."}
         </p>
       )}
       <div className="min-h-80 space-y-5 p-5 sm:p-6" aria-live="polite">
@@ -518,7 +526,10 @@ export function Chat({
           className="min-h-12 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2.5 text-sm disabled:opacity-60"
         />
         <div className="flex flex-col gap-2">
-          <Button onClick={() => void send()} disabled={!text.trim() || thinking || closed}>
+          <Button
+            onClick={() => void send()}
+            disabled={!text.trim() || thinking || closed || (serviceDown && cooldownRemaining > 0)}
+          >
             Enviar
           </Button>
           <Button

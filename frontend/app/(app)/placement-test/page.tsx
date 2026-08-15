@@ -3,10 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { CircleAlert, Clock, Headphones, Save } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { Button, ErrorState } from "@/components/ui";
 import { LANGUAGES } from "@/lib/brand";
+import { modeColorClasses, type ModeColor } from "@/lib/modes";
 import type { PlacementTest } from "@/types/placement";
+
+const CHECKLIST: Array<{ icon: typeof Clock; color: ModeColor; text: string }> = [
+  { icon: Clock, color: "primary", text: "Duração aproximada: 15 a 20 minutos." },
+  { icon: Headphones, color: "violet", text: "Use fones de ouvido: há atividades de compreensão auditiva." },
+  { icon: Save, color: "teal", text: "Você pode sair e retomar depois — suas respostas ficam salvas." },
+  { icon: CircleAlert, color: "gold", text: "O resultado é um nível estimado, não uma certificação oficial." },
+];
 
 export default function PlacementTestIntroPage() {
   const router = useRouter();
@@ -60,6 +69,10 @@ export default function PlacementTestIntroPage() {
         Responda a atividades de vocabulário, leitura, escuta e produção. O resultado
         ajudará o BeFluent a personalizar seus estudos.
       </p>
+      <span className="stat-pill mt-4 bg-primary-soft text-primary">
+        <Clock className="size-3.5" aria-hidden />
+        15–20 min
+      </span>
 
       {existing && !checking && (
         <div className="mt-6 rounded-2xl border border-primary/25 bg-primary-soft/50 p-5" role="status">
@@ -78,13 +91,23 @@ export default function PlacementTestIntroPage() {
 
       <section className="panel mt-6 p-6">
         <h2 className="section-title">Antes de começar</h2>
-        <ul className="mt-4 grid gap-3 text-sm leading-6 text-text-secondary">
-          <li>Duração aproximada: 15 a 20 minutos.</li>
-          <li>Use fones de ouvido: há atividades de compreensão auditiva.</li>
-          <li>Você pode sair e retomar depois — suas respostas ficam salvas.</li>
-          <li>O resultado é um <strong className="text-text-primary">nível estimado</strong>, não uma certificação oficial.</li>
-          <li>A avaliação de fala ainda não está disponível e não será cobrada neste teste.</li>
+        <ul className="mt-4 grid gap-4">
+          {CHECKLIST.map((item) => {
+            const Icon = item.icon;
+            const colors = modeColorClasses[item.color];
+            return (
+              <li key={item.text} className="flex items-start gap-3 text-sm leading-6 text-text-secondary">
+                <span className={`grid size-8 shrink-0 place-items-center rounded-lg ${colors.bg} ${colors.text}`}>
+                  <Icon className="size-4" aria-hidden />
+                </span>
+                <span className="pt-1">{item.text}</span>
+              </li>
+            );
+          })}
         </ul>
+        <p className="mt-4 rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-3 text-sm leading-6 text-text-secondary">
+          A avaliação de fala ainda não está disponível e não será cobrada neste teste.
+        </p>
 
         <label className="mt-6 grid max-w-sm gap-2 text-sm font-medium">
           Idioma do teste

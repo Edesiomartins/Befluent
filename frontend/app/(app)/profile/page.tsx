@@ -1,9 +1,11 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { BookOpen, Clock, Flame, Target } from "lucide-react";
 import { Button, Input, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { levelShortCode } from "@/lib/levels";
+import { modeColorClasses } from "@/lib/modes";
 
 type ProfileData = {
   id: string;
@@ -106,75 +108,89 @@ export default function ProfilePage() {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("") || "?";
 
+  const stats = [
+    { label: "Idioma principal", value: languageLabel, icon: BookOpen, color: "primary" as const },
+    { label: "Tempo estudado", value: timeLabel, icon: Clock, color: "streak" as const },
+    { label: "Sessões", value: String(sessions), icon: Flame, color: "gold" as const },
+  ];
+
   return (
     <div className="max-w-3xl">
       <p className="text-sm font-semibold text-primary">Sua conta</p>
       <h1 className="mt-2 page-title">Perfil</h1>
 
-      <div className="mt-9 flex items-center gap-5 border-y border-border py-6">
-        <span className="grid size-16 place-items-center rounded-full bg-primary text-xl font-semibold text-white">
-          {initials}
-        </span>
-        <div>
-          <h2 className="text-lg font-semibold">{name || "Sem nome"}</h2>
-          <p className="mt-1 text-sm text-text-secondary">{email}</p>
+      <section className="panel mt-8 p-6">
+        <div className="flex items-center gap-5">
+          <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-white">
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold">{name || "Sem nome"}</h2>
+            <p className="mt-1 truncate text-sm text-text-secondary">{email}</p>
+          </div>
         </div>
-      </div>
 
-      <form className="grid gap-5 py-7 sm:grid-cols-2" onSubmit={save}>
-        <Input
-          label="Nome"
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setSaved(false);
-          }}
-        />
-        <Input label="E-mail" value={email} disabled />
-        {goal && (
-          <label className="grid gap-2 text-sm font-medium sm:col-span-2">
-            Objetivo do plano
-            <input
-              className="min-h-11 rounded-lg border border-border bg-surface-elevated px-3 text-text-secondary"
-              value={goal}
-              disabled
-              readOnly
-            />
-          </label>
-        )}
-        {error && (
-          <p role="alert" className="text-sm text-danger sm:col-span-2">
-            {error}
-          </p>
-        )}
-        <div className="flex items-center justify-end gap-4 sm:col-span-2">
-          {saved && (
-            <span role="status" className="text-sm font-medium text-success">
-              Perfil atualizado.
-            </span>
+        <form className="mt-7 grid gap-5 border-t border-border pt-7 sm:grid-cols-2" onSubmit={save}>
+          <Input
+            label="Nome"
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <Input label="E-mail" value={email} disabled />
+          {goal && (
+            <label className="grid gap-2 text-sm font-medium sm:col-span-2">
+              <span className="flex items-center gap-1.5">
+                <Target className="size-4 text-text-secondary" aria-hidden />
+                Objetivo do plano
+              </span>
+              <input
+                className="min-h-11 rounded-xl border-2 border-border bg-surface-elevated px-3.5 text-text-secondary"
+                value={goal}
+                disabled
+                readOnly
+              />
+            </label>
           )}
-          <Button type="submit" loading={saving}>
-            Salvar perfil
-          </Button>
-        </div>
-      </form>
+          {error && (
+            <p role="alert" className="text-sm text-danger sm:col-span-2">
+              {error}
+            </p>
+          )}
+          <div className="flex items-center justify-end gap-4 sm:col-span-2">
+            {saved && (
+              <span role="status" className="text-sm font-medium text-success">
+                Perfil atualizado.
+              </span>
+            )}
+            <Button type="submit" loading={saving}>
+              Salvar perfil
+            </Button>
+          </div>
+        </form>
+      </section>
 
-      <section className="border-y border-border py-7">
+      <section className="mt-6">
         <h2 className="section-title">Resumo do aprendizado</h2>
-        <dl className="mt-5 grid gap-5 sm:grid-cols-3">
-          <div>
-            <dt className="text-xs text-text-secondary">Idioma principal</dt>
-            <dd className="mt-1 font-semibold">{languageLabel}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-text-secondary">Tempo estudado</dt>
-            <dd className="mt-1 font-semibold">{timeLabel}</dd>
-          </div>
-          <div>
-            <dt className="text-xs text-text-secondary">Sessões</dt>
-            <dd className="mt-1 font-semibold">{sessions}</dd>
-          </div>
-        </dl>
+        <div className="mt-4 grid gap-4 sm:grid-cols-3">
+          {stats.map((stat) => {
+            const Icon = stat.icon;
+            const colors = modeColorClasses[stat.color];
+            return (
+              <div key={stat.label} className="panel flex items-center gap-3 p-4">
+                <span className={`grid size-11 shrink-0 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
+                  <Icon className="size-5" aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xs text-text-secondary">{stat.label}</p>
+                  <p className="mt-0.5 truncate font-semibold">{stat.value}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </section>
     </div>
   );
