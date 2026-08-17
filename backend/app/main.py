@@ -3,7 +3,7 @@ from fastapi import FastAPI,Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException
-from app.api import assessments,auth,conversations,curriculum,dashboard,grammar,language_profiles,languages,learning_plans,lessons,levels,listening,onboarding,placement_tests,profile,progress,pronunciation,reviews,settings,speech,study_sessions,teaching,tutor_chat,vocabulary,writing
+from app.api import assessments,auth,conversations,curriculum,dashboard,grammar,language_profiles,languages,learning_plans,lessons,levels,listening,onboarding,placement_tests,profile,progress,pronunciation,reviews,settings,speech,study_sessions,teaching,tts_lab,tutor_chat,vocabulary,writing
 from app.api.health import router as health_router
 from app.core.config import get_settings
 from app.core.csrf import csrf_guard
@@ -36,5 +36,5 @@ async def security_headers(request:Request,call_next):
     return response
 app.middleware("http")(csrf_guard)
 app.include_router(health_router)
-for router in [auth.router,profile.router,languages.router,levels.router,onboarding.router,dashboard.router,placement_tests.router,language_profiles.router,assessments.router,curriculum.router,learning_plans.router,lessons.router,study_sessions.router,conversations.router,speech.router,vocabulary.router,reviews.router,grammar.router,listening.router,pronunciation.router,writing.router,progress.router,settings.router,teaching.router,tutor_chat.router]:
+for router in [auth.router,profile.router,languages.router,levels.router,onboarding.router,dashboard.router,placement_tests.router,language_profiles.router,assessments.router,curriculum.router,learning_plans.router,lessons.router,study_sessions.router,conversations.router,speech.router,vocabulary.router,reviews.router,grammar.router,listening.router,pronunciation.router,writing.router,progress.router,settings.router,teaching.router,tutor_chat.router,tts_lab.router]:
     app.include_router(router,prefix="/api/v1")
