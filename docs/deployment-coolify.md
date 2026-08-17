@@ -112,7 +112,8 @@ Grupos:
 - Database
 - Auth/session
 - OpenRouter
-- STT/TTS (quando definidos)
+- STT (`STT_PROVIDER`, `GROQ_API_KEY`, etc.)
+- TTS (`TTS_PROVIDER=openrouter` ativa Kokoro-82M reaproveitando `OPENROUTER_API_KEY`; sem isso, endpoint de servidor fica indisponível)
 - CORS / URLs públicas
 - Flags de ambiente (`production`)
 

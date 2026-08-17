@@ -36,6 +36,16 @@ class FakeResponse:
         return self._payload
 
 
+class FakeBinaryResponse:
+    """Dublê de `httpx.Response` para respostas binárias (síntese de TTS)."""
+
+    def __init__(self, content: bytes):
+        self.content = content
+
+    def raise_for_status(self):
+        return None
+
+
 def _chat_payload(url: str, kwargs: dict) -> dict:
     return kwargs.get("json") or {}
 
@@ -256,8 +266,123 @@ def test_tts_mock_provider_never_returns_fake_riff_in_production(monkeypatch, _s
 def test_tts_mock_provider_allowed_outside_production(monkeypatch, _settings):
     monkeypatch.setattr(_settings, "environment", "development")
     monkeypatch.setattr(_settings, "tts_provider", "mock")
-    audio = speech_service.synthesize_audio("Hello", "en")
+    audio, content_type = speech_service.synthesize_audio("Hello", "en")
     assert audio.startswith(b"RIFF")
+    assert content_type == "audio/wav"
+
+
+def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(_settings, "tts_model", "hexgrad/kokoro-82m")
+    monkeypatch.setattr(_settings, "tts_voice", "")
+    monkeypatch.setattr(_settings, "tts_speed", 1.0)
+
+    def fake_post(url, **kwargs):
+        assert url == "https://openrouter.ai/api/v1/audio/speech"
+        assert kwargs["headers"]["Authorization"] == "Bearer sk-secret-key"
+        body = kwargs["json"]
+        assert body["model"] == "hexgrad/kokoro-82m"
+        assert body["input"] == "Hello there"
+        assert body["voice"] == "af_heart"
+        assert body["response_format"] == "mp3"
+        assert body["speed"] == 1.0
+        return FakeBinaryResponse(b"fake-mp3-bytes")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    audio, content_type = speech_service.synthesize_audio("Hello there", "en")
+    assert audio == b"fake-mp3-bytes"
+    assert content_type == "audio/mpeg"
+
+
+def test_tts_openrouter_picks_voice_by_language(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "")
+
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["voice"] = kwargs["json"]["voice"]
+        return FakeBinaryResponse(b"audio")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    speech_service.synthesize_audio("Bonjour", "fr")
+    assert captured["voice"] == "ff_siwis"
+
+
+def test_tts_openrouter_voice_override(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "am_michael")
+
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["voice"] = kwargs["json"]["voice"]
+        return FakeBinaryResponse(b"audio")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    speech_service.synthesize_audio("Hi", "en")
+    assert captured["voice"] == "am_michael"
+
+
+def test_tts_openrouter_failure_in_production_returns_503(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+
+    def fake_post(url, **kwargs):
+        raise httpx.HTTPError("falha simulada")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("Hello", "en")
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.code == "tts_unavailable"
+    assert exc_info.value.retryable is True
+
+
+def test_tts_openrouter_failure_outside_production_falls_back_to_mock(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "development")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+
+    def fake_post(url, **kwargs):
+        raise httpx.HTTPError("falha simulada")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    audio, content_type = speech_service.synthesize_audio("Hello", "en")
+    assert audio.startswith(b"RIFF")
+    assert content_type == "audio/wav"
+
+
+def test_tts_no_response_or_log_leaks_api_keys(monkeypatch, _settings, caplog):
+    secret = "sk-super-secret-tts-key-should-never-leak"
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", secret)
+
+    def fake_post(url, **kwargs):
+        assert kwargs["headers"]["Authorization"] == f"Bearer {secret}"
+        raise httpx.HTTPError("falha simulada")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with caplog.at_level(logging.DEBUG):
+        with pytest.raises(APIError) as exc_info:
+            speech_service.synthesize_audio("Hello", "en")
+
+    assert secret not in str(exc_info.value.message)
+    assert secret not in caplog.text
 
 
 # ------------------------------------------------------------- Pronúncia

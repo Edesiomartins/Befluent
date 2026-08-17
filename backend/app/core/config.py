@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     groq_stt_model: str = "whisper-large-v3-turbo"
     tts_provider: str = "mock"
     tts_api_key: str = ""
+    tts_model: str = "hexgrad/kokoro-82m"
     tts_voice: str = ""
     tts_speed: float = 1.0
     initial_admin_name: str = ""

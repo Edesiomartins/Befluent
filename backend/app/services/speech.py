@@ -7,9 +7,9 @@ resultado real. Mock só roda quando explicitamente selecionado
 
 STT: Groq (`whisper-large-v3-turbo`) como primário, OpenRouter
 (`input_audio` multimodal, contrato documentado pela OpenRouter) como
-fallback. TTS: nenhum provedor real pago foi integrado nesta etapa — o
-frontend usa o SpeechSynthesis do navegador; o endpoint de servidor só
-existe para o caminho de desenvolvimento.
+fallback. TTS: Kokoro-82M (`hexgrad/kokoro-82m`) via `/audio/speech` da
+OpenRouter (`TTS_PROVIDER=openrouter`), com a mesma `OPENROUTER_API_KEY`;
+o frontend cai no SpeechSynthesis do navegador só se essa chamada falhar.
 """
 
 import base64
@@ -198,21 +198,89 @@ def transcribe_audio(path: str, language_code: str, content_type: str | None = N
 
 class BaseTTSProvider(ABC):
     @abstractmethod
-    def synthesize(self, text: str, language_code: str) -> bytes: ...
+    def synthesize(self, text: str, language_code: str) -> tuple[bytes, str]: ...
 
 
 class MockTTSProvider(BaseTTSProvider):
     def synthesize(self, text, language_code):
-        return b"RIFF\x24\x00\x00\x00WAVEfmt "
+        return b"RIFF\x24\x00\x00\x00WAVEfmt ", "audio/wav"
 
 
-def synthesize_audio(text: str, language_code: str) -> bytes:
-    """Nenhum provedor de TTS real foi integrado nesta etapa (o frontend usa o
-    SpeechSynthesis do navegador). O endpoint de servidor só serve áudio
-    fabricado fora de produção, e só quando `TTS_PROVIDER=mock` explicitamente."""
+# Voz padrão (melhor nota disponível em VOICES.md) por idioma ISO-639-1,
+# usada quando `TTS_VOICE` não força uma voz específica.
+_KOKORO_VOICE_BY_LANGUAGE = {
+    "en": "af_heart",
+    "es": "ef_dora",
+    "fr": "ff_siwis",
+    "ja": "jf_alpha",
+    "zh": "zf_xiaoxiao",
+}
+
+
+def _voice_for_language(language_code: str, s) -> str:
+    if s.tts_voice:
+        return s.tts_voice
+    return _KOKORO_VOICE_BY_LANGUAGE.get(_language_hint(language_code), "af_heart")
+
+
+class OpenRouterTTSProvider(BaseTTSProvider):
+    """Kokoro-82M (`hexgrad/kokoro-82m`) via `/audio/speech` da OpenRouter."""
+
+    def __init__(self):
+        self.s = get_settings()
+
+    def synthesize(self, text, language_code):
+        response = httpx.post(
+            f"{self.s.openrouter_base_url}/audio/speech",
+            headers={"Authorization": f"Bearer {self.s.openrouter_api_key}"},
+            json={
+                "model": self.s.tts_model,
+                "input": text,
+                "voice": _voice_for_language(language_code, self.s),
+                "response_format": "mp3",
+                "speed": self.s.tts_speed,
+            },
+            timeout=30,
+        )
+        response.raise_for_status()
+        return response.content, "audio/mpeg"
+
+
+def synthesize_audio(text: str, language_code: str) -> tuple[bytes, str]:
+    """Ponto único de síntese: seleciona o provedor pela configuração.
+
+    Mesma regra do STT: `TTS_PROVIDER=mock` é um interruptor explícito que só
+    vale fora de produção. Com `TTS_PROVIDER=openrouter`, tenta o Kokoro-82M
+    (mesma `OPENROUTER_API_KEY` já usada por IA/STT); se falhar, produção
+    recebe erro explícito (503) e nunca áudio fabricado — só fora de produção
+    a falha cai no mock.
+    """
     s = get_settings()
-    if s.tts_provider == "mock" and s.environment != "production":
+    if s.tts_provider == "mock":
+        if s.environment == "production":
+            raise APIError(
+                503,
+                "tts_unavailable",
+                "Síntese de voz em servidor não está disponível nesta implantação.",
+                retryable=False,
+            )
         return MockTTSProvider().synthesize(text, language_code)
+
+    if s.tts_provider == "openrouter" and s.openrouter_api_key:
+        try:
+            return OpenRouterTTSProvider().synthesize(text, language_code)
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            logger.warning("TTS provider openrouter falhou: %s", exc)
+            if s.environment == "production":
+                raise APIError(
+                    503,
+                    "tts_unavailable",
+                    "O serviço de síntese de voz está temporariamente indisponível.",
+                    retryable=True,
+                ) from exc
+            logger.warning("TTS indisponível fora de produção; usando MockTTSProvider (desenvolvimento)")
+            return MockTTSProvider().synthesize(text, language_code)
+
     raise APIError(
         503,
         "tts_unavailable",

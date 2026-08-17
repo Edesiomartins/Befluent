@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
-import { api, ApiError } from "@/lib/api";
+import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
@@ -31,30 +31,45 @@ function pickRecorderMimeType(): string {
   return "audio/webm";
 }
 
-/** TTS oficial desta fase: SpeechSynthesis do navegador (sem serviço externo). */
+/**
+ * TTS: Kokoro-82M via backend (`/speech/synthesize`) como voz principal;
+ * se a chamada falhar, cai no SpeechSynthesis do navegador como rede de
+ * segurança (nunca deixa o aluno sem áudio nenhum).
+ */
 export function AudioPlayer({
   text = "Áudio da atividade",
   languageCode = "en",
 }: {
   text?: string;
-  /** @deprecated Mantido por compatibilidade; TTS sempre é voz local do navegador. */
+  /** @deprecated Mantido por compatibilidade; sem efeito. */
   demo?: boolean;
   languageCode?: string;
 }) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [unsupported, setUnsupported] = useState(false);
+  const [usingBrowserVoice, setUsingBrowserVoice] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
 
-  function play() {
+  useEffect(() => {
+    return () => {
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    };
+  }, []);
+
+  function playBrowserFallback() {
     if (
       typeof window === "undefined" ||
       !("speechSynthesis" in window) ||
       typeof SpeechSynthesisUtterance === "undefined"
     ) {
       setUnsupported(true);
+      setPlaying(false);
       return;
     }
     setUnsupported(false);
+    setUsingBrowserVoice(true);
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = SPEECH_LANGS[languageCode] ?? "en-US";
@@ -68,18 +83,49 @@ export function AudioPlayer({
     setPlaying(true);
   }
 
+  async function play() {
+    setUnsupported(false);
+    setUsingBrowserVoice(false);
+    try {
+      const blob = await apiBlob("/api/v1/speech/synthesize", {
+        method: "POST",
+        body: { text, language_code: languageCode, speed },
+      });
+      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      objectUrlRef.current = url;
+      const audio = audioRef.current;
+      if (!audio) throw new Error("elemento de áudio indisponível");
+      audio.src = url;
+      await audio.play();
+      setPlaying(true);
+    } catch {
+      playBrowserFallback();
+    }
+  }
+
+  function stop() {
+    audioRef.current?.pause();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setPlaying(false);
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-4">
+      <audio
+        ref={audioRef}
+        className="hidden"
+        onEnded={() => setPlaying(false)}
+        onError={() => {
+          setPlaying(false);
+          playBrowserFallback();
+        }}
+      />
       <button
         type="button"
-        onClick={
-          playing
-            ? () => {
-                if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-                setPlaying(false);
-              }
-            : play
-        }
+        onClick={playing ? stop : play}
         className="grid size-11 place-items-center rounded-full bg-primary text-white"
         aria-label={playing ? "Pausar áudio" : "Reproduzir áudio"}
       >
@@ -89,7 +135,9 @@ export function AudioPlayer({
         <div className="h-1.5 rounded-full bg-surface-elevated">
           <div className="h-full w-1/3 rounded-full bg-primary" />
         </div>
-        <p className="mt-2 text-xs text-text-secondary">Voz do navegador</p>
+        <p className="mt-2 text-xs text-text-secondary">
+          {usingBrowserVoice ? "Voz do navegador" : "Voz do BeFluent"}
+        </p>
       </div>
       <label className="text-xs text-text-secondary">
         Velocidade{" "}

@@ -6,6 +6,7 @@ const apiMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   api: (...args: unknown[]) => apiMock(...args),
+  apiBlob: vi.fn(),
   ApiError: class ApiError extends Error {
     status: number;
     constructor(message: string, status = 400) {

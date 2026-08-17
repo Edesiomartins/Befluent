@@ -67,10 +67,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(
-  path: string,
-  options: ApiOptions = {},
-): Promise<T> {
+async function request(path: string, options: ApiOptions = {}): Promise<Response> {
   const method = (options.method ?? "GET").toUpperCase();
   const headers = new Headers(options.headers);
   const hasBody = options.body !== undefined;
@@ -82,7 +79,7 @@ export async function api<T>(
     if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
   }
 
-  const response = await fetch(`${API_URL}${path}`, {
+  return fetch(`${API_URL}${path}`, {
     ...options,
     method,
     headers,
@@ -93,16 +90,35 @@ export async function api<T>(
         : JSON.stringify(options.body)
       : undefined,
   });
+}
 
-  if (!response.ok) {
-    const payload = await response.json().catch(() => null);
-    throw new ApiError(
-      payload?.error?.message ?? "Não foi possível concluir a solicitação.",
-      response.status,
-      payload?.error?.code,
-      payload?.error?.retryable,
-    );
-  }
+async function throwIfError(response: Response): Promise<void> {
+  if (response.ok) return;
+  const payload = await response.json().catch(() => null);
+  throw new ApiError(
+    payload?.error?.message ?? "Não foi possível concluir a solicitação.",
+    response.status,
+    payload?.error?.code,
+    payload?.error?.retryable,
+  );
+}
+
+export async function api<T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
+  const response = await request(path, options);
+  await throwIfError(response);
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+/** Como `api()`, mas para respostas binárias (ex.: áudio de TTS). */
+export async function apiBlob(
+  path: string,
+  options: ApiOptions = {},
+): Promise<Blob> {
+  const response = await request(path, options);
+  await throwIfError(response);
+  return response.blob();
 }

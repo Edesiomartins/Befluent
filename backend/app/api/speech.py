@@ -17,7 +17,9 @@ async def transcribe(language_code:str=Form(...),file:UploadFile=File(...),user:
         if os.path.exists(path): os.unlink(path)
 class TTSIn(BaseModel): text:str; language_code:str
 @router.post("/synthesize")
-def synthesize(data:TTSIn,user:User=Depends(current_user)): return Response(synthesize_audio(data.text,data.language_code),media_type="audio/wav")
+def synthesize(data:TTSIn,user:User=Depends(current_user)):
+    audio,content_type=synthesize_audio(data.text,data.language_code)
+    return Response(audio,media_type=content_type)
 class PronunciationIn(BaseModel): target_text:str; transcript:str
 @router.post("/pronunciation")
 def pronunciation(data:PronunciationIn,user:User=Depends(current_user)): return assess_pronunciation(data.target_text,data.transcript)

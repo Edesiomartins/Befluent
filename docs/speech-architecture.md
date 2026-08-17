@@ -19,8 +19,8 @@ Separar claramente:
 | STT primário | Groq `whisper-large-v3-turbo` (`STT_PROVIDER=groq` + `GROQ_API_KEY`) |
 | STT fallback | OpenRouter multimodal (`STT_FALLBACK_PROVIDER=openrouter` + `STT_FALLBACK_MODEL`) |
 | STT mock | Só com `STT_PROVIDER=mock` explícito; em production, falha → `503 stt_unavailable` (sem transcript fabricado) |
-| TTS servidor | Sem provedor pago; endpoint só serve stub fora de production com `TTS_PROVIDER=mock` |
-| TTS produto | **SpeechSynthesis do navegador** (frontend) |
+| TTS servidor | Kokoro-82M (`hexgrad/kokoro-82m`) via `/audio/speech` da OpenRouter (`TTS_PROVIDER=openrouter`, mesma `OPENROUTER_API_KEY`); mock só fora de production com `TTS_PROVIDER=mock` |
+| TTS produto | Kokoro-82M (backend) como voz principal; **SpeechSynthesis do navegador** só como fallback se a chamada ao backend falhar |
 | Pronúncia | Sem score fonético; API devolve `status=unavailable` / `score=null` |
 | Duração WebM | Só limite por bytes no backend; duração WAV via `wave`; WebM sem ffprobe (sem mudar Docker) |
 
@@ -69,10 +69,11 @@ Separar claramente:
 
 ## Text-to-Speech
 
-- Produto: `window.speechSynthesis` + `SpeechSynthesisUtterance` no frontend.
-- Idioma por `language_code` (`en`→`en-US`, `es-ES`, `fr`, `ja`, `zh-CN`).
-- Velocidade na UI do `AudioPlayer`.
-- Endpoint `/api/v1/speech/synthesize` **não** é o caminho do aluno; em production responde `tts_unavailable`.
+- Produto: `AudioPlayer` chama `POST /api/v1/speech/synthesize`, que sintetiza com Kokoro-82M (`hexgrad/kokoro-82m`) via OpenRouter e devolve mp3.
+- Voz escolhida por idioma (`_KOKORO_VOICE_BY_LANGUAGE` em `app/services/speech.py`; melhor nota disponível em cada idioma do projeto: en→`af_heart`, es→`ef_dora`, fr→`ff_siwis`, ja→`jf_alpha`, zh→`zf_xiaoxiao`). `TTS_VOICE` força uma voz única, se definido.
+- Velocidade da UI do `AudioPlayer` é enviada no corpo da requisição (`speed`) e renderizada nativamente pelo Kokoro.
+- Se a chamada ao backend falhar (rede ou `tts_unavailable`), o `AudioPlayer` cai automaticamente no `window.speechSynthesis` do navegador — fallback, não mais o caminho principal.
+- Fora de production, sem `TTS_PROVIDER=openrouter` configurado, o endpoint segue as mesmas regras de mock do resto do projeto (`TTS_PROVIDER=mock`).
 
 ## Reprodução, interrupção, repetição e velocidade
 

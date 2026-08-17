@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 
 const apiMock = vi.fn();
+const apiBlobMock = vi.fn();
 
 vi.mock("@/lib/api", () => ({
   api: (...args: unknown[]) => apiMock(...args),
+  apiBlob: (...args: unknown[]) => apiBlobMock(...args),
   ApiError: class ApiError extends Error {
     status: number;
     code?: string;
@@ -17,8 +19,52 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-describe("AudioPlayer (TTS local)", () => {
-  it("usa SpeechSynthesis e não chama API externa", () => {
+describe("AudioPlayer (Kokoro-82M com fallback local)", () => {
+  beforeEach(() => {
+    apiMock.mockReset();
+    apiBlobMock.mockReset();
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: vi.fn(() => "blob:fake-url"),
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: vi.fn(),
+    });
+    Object.defineProperty(window.HTMLMediaElement.prototype, "play", {
+      configurable: true,
+      value: vi.fn().mockResolvedValue(undefined),
+    });
+    Object.defineProperty(window.HTMLMediaElement.prototype, "pause", {
+      configurable: true,
+      value: vi.fn(),
+    });
+  });
+
+  it("toca o áudio do backend (Kokoro) quando a síntese funciona", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+
+    await waitFor(() =>
+      expect(apiBlobMock).toHaveBeenCalledWith(
+        "/api/v1/speech/synthesize",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.objectContaining({ text: "Hello", language_code: "en" }),
+        }),
+      ),
+    );
+    expect(await screen.findByText("Voz do BeFluent")).toBeInTheDocument();
+    expect(apiMock).not.toHaveBeenCalled();
+  });
+
+  it("cai para SpeechSynthesis do navegador quando o backend de TTS falha", async () => {
+    const { ApiError } = await import("@/lib/api");
+    apiBlobMock.mockRejectedValue(
+      new ApiError("O serviço de síntese de voz está temporariamente indisponível.", 503, "tts_unavailable"),
+    );
     const speak = vi.fn();
     class FakeUtterance {
       text: string;
@@ -40,13 +86,15 @@ describe("AudioPlayer (TTS local)", () => {
     });
 
     render(<AudioPlayer text="Hello" languageCode="en" />);
-    expect(screen.getByText("Voz do navegador")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
-    expect(speak).toHaveBeenCalled();
-    expect(apiMock).not.toHaveBeenCalled();
+
+    await waitFor(() => expect(speak).toHaveBeenCalled());
+    expect(await screen.findByText("Voz do navegador")).toBeInTheDocument();
   });
 
-  it("avisa quando SpeechSynthesis não existe", () => {
+  it("avisa quando backend falha e o navegador não oferece SpeechSynthesis", async () => {
+    const { ApiError } = await import("@/lib/api");
+    apiBlobMock.mockRejectedValue(new ApiError("indisponível", 503, "tts_unavailable"));
     Object.defineProperty(globalThis, "SpeechSynthesisUtterance", {
       configurable: true,
       value: undefined,
@@ -54,7 +102,8 @@ describe("AudioPlayer (TTS local)", () => {
 
     render(<AudioPlayer text="Bonjour" languageCode="fr" />);
     fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
-    expect(screen.getByRole("alert")).toHaveTextContent(/não oferece leitura em voz alta/i);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não oferece leitura em voz alta/i);
   });
 });
 
