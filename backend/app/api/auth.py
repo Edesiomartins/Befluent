@@ -1,5 +1,5 @@
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy import select, update
@@ -10,10 +10,11 @@ from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.rate_limit import enforce_rate_limit
-from app.core.security import hash_password, token_hash, verify_password
-from app.models import Session, User, UserPreference
-from app.schemas import LoginIn, RegisterIn
+from app.core.security import hash_password, new_token, token_hash, verify_password
+from app.models import PasswordResetToken, Session, User, UserPreference
+from app.schemas import ForgotPasswordIn, LoginIn, RegisterIn, ResetPasswordIn
 from app.services.auth import create_session
+from app.services.email import EmailSendError, password_reset_email_html, send_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -117,6 +118,77 @@ def login(data: LoginIn, request: Request, response: Response, db: DB = Depends(
     if not user.is_active:
         raise APIError(403, "inactive_user", "Usuário inativo.")
     return _issue_session(response, db, user)
+
+
+@router.post("/forgot-password")
+def forgot_password(data: ForgotPasswordIn, request: Request, db: DB = Depends(get_db)):
+    """Sempre responde com sucesso genérico — não revela se o e-mail existe."""
+    enforce_rate_limit(request, "forgot_password", limit=5, window_seconds=3600)
+    generic = {
+        "message": "Se este e-mail estiver cadastrado, você receberá um link para redefinir sua senha."
+    }
+    user = db.scalar(select(User).where(User.email == data.email))
+    if not user or not user.is_active:
+        return generic
+
+    s = get_settings()
+    token = new_token()
+    db.add(
+        PasswordResetToken(
+            user_id=user.id,
+            token_hash=token_hash(token),
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(minutes=s.password_reset_token_minutes),
+        )
+    )
+    db.commit()
+
+    reset_url = f"{s.frontend_origin}/reset-senha?token={token}"
+    try:
+        send_email(
+            to=user.email,
+            subject="Redefinição de senha — BeFluent",
+            html=password_reset_email_html(
+                name=user.name,
+                reset_url=reset_url,
+                expire_minutes=s.password_reset_token_minutes,
+            ),
+        )
+    except EmailSendError:
+        pass  # não revela falha de envio ao cliente; já logado no serviço de e-mail
+    return generic
+
+
+@router.post("/reset-password")
+def reset_password(data: ResetPasswordIn, request: Request, db: DB = Depends(get_db)):
+    enforce_rate_limit(request, "reset_password", limit=10, window_seconds=3600)
+    invalid = APIError(
+        400, "invalid_token", "Link inválido ou expirado. Solicite uma nova redefinição."
+    )
+    reset_token = db.scalar(
+        select(PasswordResetToken).where(PasswordResetToken.token_hash == token_hash(data.token))
+    )
+    now = datetime.now(timezone.utc)
+    if (
+        not reset_token
+        or reset_token.used_at is not None
+        or reset_token.expires_at.replace(tzinfo=timezone.utc) <= now
+    ):
+        raise invalid
+
+    user = db.get(User, reset_token.user_id)
+    if not user or not user.is_active:
+        raise invalid
+
+    user.password_hash = hash_password(data.password)
+    reset_token.used_at = now
+    db.execute(
+        update(Session)
+        .where(Session.user_id == user.id, Session.revoked_at.is_(None))
+        .values(revoked_at=now)
+    )
+    db.commit()
+    return {"message": "Senha redefinida com sucesso. Faça login com a nova senha."}
 
 
 @router.post("/logout")

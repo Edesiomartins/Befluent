@@ -54,6 +54,31 @@ class RegisterIn(BaseModel):
         return self
 
 
+class ForgotPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    email: str
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return _normalize_email(value)
+
+
+class ResetPasswordIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    token: str = Field(min_length=1, max_length=200)
+    password: str = Field(min_length=8, max_length=128)
+    password_confirmation: str = Field(min_length=8, max_length=128)
+
+    @model_validator(mode="after")
+    def passwords_match(self):
+        if self.password != self.password_confirmation:
+            raise ValueError("As senhas não coincidem.")
+        return self
+
+
 class LanguageActivate(BaseModel):
     code: str
 

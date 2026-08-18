@@ -142,6 +142,123 @@ def test_register_rate_limited(client):
     assert response.json()["error"]["code"] == "rate_limited"
 
 
+def test_forgot_password_generic_response_unknown_email(client):
+    response = client.post(
+        "/api/v1/auth/forgot-password", json={"email": "ninguem@befluent.local"}
+    )
+    assert response.status_code == 200
+    assert "e-mail estiver cadastrado" in response.json()["message"]
+
+
+def test_forgot_password_sends_email_for_known_user(client, monkeypatch):
+    sent = {}
+
+    def fake_send_email(*, to, subject, html):
+        sent["to"] = to
+        sent["subject"] = subject
+        sent["html"] = html
+
+    monkeypatch.setattr("app.api.auth.send_email", fake_send_email)
+    monkeypatch.setattr("app.api.auth.new_token", lambda: "fixed-reset-token")
+
+    response = client.post(
+        "/api/v1/auth/forgot-password", json={"email": "admin@befluent.local"}
+    )
+    assert response.status_code == 200
+    assert sent["to"] == "admin@befluent.local"
+    assert "fixed-reset-token" in sent["html"]
+
+
+def test_forgot_password_rate_limited(client, monkeypatch):
+    monkeypatch.setattr("app.api.auth.send_email", lambda **kw: None)
+    payload = {"email": "admin@befluent.local"}
+    for _ in range(5):
+        assert client.post("/api/v1/auth/forgot-password", json=payload).status_code == 200
+    response = client.post("/api/v1/auth/forgot-password", json=payload)
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "rate_limited"
+
+
+def test_reset_password_success(client, monkeypatch):
+    monkeypatch.setattr("app.api.auth.send_email", lambda **kw: None)
+    monkeypatch.setattr("app.api.auth.new_token", lambda: "fixed-reset-token")
+    assert client.post(
+        "/api/v1/auth/forgot-password", json={"email": "admin@befluent.local"}
+    ).status_code == 200
+
+    reset = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": "fixed-reset-token",
+            "password": "nova-senha-1",
+            "password_confirmation": "nova-senha-1",
+        },
+    )
+    assert reset.status_code == 200
+
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@befluent.local", "password": "senha-segura"},
+    )
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@befluent.local", "password": "nova-senha-1"},
+    )
+    assert new_login.status_code == 200
+
+
+def test_reset_password_token_cannot_be_reused(client, monkeypatch):
+    monkeypatch.setattr("app.api.auth.send_email", lambda **kw: None)
+    monkeypatch.setattr("app.api.auth.new_token", lambda: "fixed-reset-token")
+    client.post("/api/v1/auth/forgot-password", json={"email": "admin@befluent.local"})
+    payload = {
+        "token": "fixed-reset-token",
+        "password": "nova-senha-1",
+        "password_confirmation": "nova-senha-1",
+    }
+    assert client.post("/api/v1/auth/reset-password", json=payload).status_code == 200
+    second = client.post("/api/v1/auth/reset-password", json=payload)
+    assert second.status_code == 400
+    assert second.json()["error"]["code"] == "invalid_token"
+
+
+def test_reset_password_invalid_token(client):
+    response = client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": "token-que-nao-existe",
+            "password": "nova-senha-1",
+            "password_confirmation": "nova-senha-1",
+        },
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "invalid_token"
+
+
+def test_reset_password_revokes_existing_sessions(client, monkeypatch):
+    login = client.post(
+        "/api/v1/auth/login",
+        json={"email": "admin@befluent.local", "password": "senha-segura"},
+    )
+    assert login.status_code == 200
+    assert client.get("/api/v1/auth/me").status_code == 200
+
+    monkeypatch.setattr("app.api.auth.send_email", lambda **kw: None)
+    monkeypatch.setattr("app.api.auth.new_token", lambda: "fixed-reset-token")
+    client.post("/api/v1/auth/forgot-password", json={"email": "admin@befluent.local"})
+    client.post(
+        "/api/v1/auth/reset-password",
+        json={
+            "token": "fixed-reset-token",
+            "password": "nova-senha-1",
+            "password_confirmation": "nova-senha-1",
+        },
+    )
+    assert client.get("/api/v1/auth/me").status_code == 401
+
+
 def test_security_headers_present(client):
     response = client.get("/health")
     assert response.headers["x-content-type-options"] == "nosniff"

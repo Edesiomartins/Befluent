@@ -39,6 +39,9 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("COOKIE_DOMAIN", "SESSION_COOKIE_DOMAIN"),
     )
     session_days: int = 30
+    resend_api_key: str = ""
+    resend_from_email: str = "no-reply@medquesthub.com.br"
+    password_reset_token_minutes: int = 30
     ai_mock_mode: bool = True
     openrouter_api_key: str = ""
     openrouter_model: str = ""

@@ -2,7 +2,12 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from app.core.errors import error_payload
 SAFE={"GET","HEAD","OPTIONS"}
-EXEMPT={"/api/v1/auth/login","/api/v1/auth/register"}
+EXEMPT={
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/forgot-password",
+    "/api/v1/auth/reset-password",
+}
 async def csrf_guard(request:Request, call_next):
     if request.method not in SAFE and request.url.path not in EXEMPT:
         cookie=request.cookies.get("csrf_token"); header=request.headers.get("X-CSRF-Token")

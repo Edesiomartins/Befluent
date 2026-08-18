@@ -101,13 +101,21 @@ function LoginForm() {
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@exemplo.com"
             />
-            <PasswordInput
-              label="Senha"
-              name="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="grid gap-2">
+              <PasswordInput
+                label="Senha"
+                name="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Link
+                href="/esqueci-senha"
+                className="justify-self-end text-sm font-medium text-primary underline-offset-2 hover:underline"
+              >
+                Esqueceu a senha?
+              </Link>
+            </div>
             {error && (
               <p
                 className="rounded-lg border border-danger/25 bg-danger/5 p-3 text-sm text-danger"
