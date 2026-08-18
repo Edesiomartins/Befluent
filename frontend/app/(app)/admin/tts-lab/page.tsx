@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Play } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import { base64ToBlob } from "@/lib/audio";
 import { Button } from "@/components/ui";
+import { KokoroVoiceLab } from "@/components/kokoro-voice-lab";
 
 type ModelCapability = {
   id: string;
@@ -79,13 +81,6 @@ const PRESETS = [
 const SPEED_OPTIONS = [0.85, 0.9, 1.0, 1.1];
 const PAUSE_OPTIONS = [0, 250, 500, 750];
 const BLIND_LETTERS = ["A", "B", "C", "D", "E", "F"];
-
-function base64ToBlob(base64: string, contentType: string): Blob {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: contentType });
-}
 
 /** Heurística de espaçamento textual — nenhum suporte a SSML foi confirmado
  * para os modelos deste laboratório, então a "pausa" é só espaçamento entre
@@ -477,6 +472,10 @@ export default function TTSLabPage() {
           </table>
         </div>
       )}
+
+      <hr className="border-border" />
+
+      <KokoroVoiceLab />
     </div>
   );
 }

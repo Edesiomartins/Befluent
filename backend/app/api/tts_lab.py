@@ -17,9 +17,12 @@ from app.core.config import get_settings
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.models import User
+from app.services import kokoro_voices
 from app.services import tts_lab as service
 
 router = APIRouter(prefix="/tts-lab", tags=["tts-lab"])
+
+KOKORO_MODEL_ID = "hexgrad/kokoro-82m"
 
 
 def require_tts_lab_access(user: User = Depends(current_user)) -> User:
@@ -55,6 +58,56 @@ def generate(data: TTSLabGenerateIn, user: User = Depends(require_tts_lab_access
 
     return {
         "model": result.model,
+        "audio_base64": base64.b64encode(result.audio_bytes).decode("ascii"),
+        "content_type": result.content_type,
+        "latency_ms": result.latency_ms,
+        "audio_size_bytes": result.audio_size_bytes,
+        "free_model": result.free_model,
+        "cost_available": result.cost_available,
+        "estimated_cost": result.estimated_cost,
+    }
+
+
+# ------------------------------------------------------ Kokoro Voice Lab
+#
+# Comparação de vozes do Kokoro-82M por idioma. Reaproveita `service.generate`
+# (mesmo client OpenRouter do TTS Lab genérico) — só adiciona validação de
+# idioma/voz antes de chamar, usando `kokoro_voices.py` como fonte única dos
+# voice IDs. Não altera `/models` nem `/generate` acima.
+
+
+@router.get("/kokoro/voices")
+def get_kokoro_voices(user: User = Depends(require_tts_lab_access)):
+    return {"model": KOKORO_MODEL_ID, "languages": kokoro_voices.list_languages()}
+
+
+class KokoroVoiceGenerateIn(BaseModel):
+    language: str
+    voice: str
+    text: str = Field(min_length=1, max_length=2000)
+    speed: float | None = Field(default=None, ge=0.5, le=2.0)
+
+
+@router.post("/kokoro/generate")
+def generate_kokoro_voice(data: KokoroVoiceGenerateIn, user: User = Depends(require_tts_lab_access)):
+    if kokoro_voices.get_language(data.language) is None:
+        raise APIError(400, "tts_lab_kokoro_invalid_language", "Idioma não suportado no Kokoro Voice Lab.")
+    if not kokoro_voices.is_valid_voice_for_language(data.language, data.voice):
+        raise APIError(
+            400,
+            "tts_lab_kokoro_invalid_voice",
+            "Essa voz não pertence ao idioma selecionado, ou não é uma voz Kokoro válida.",
+        )
+
+    try:
+        result = service.generate(KOKORO_MODEL_ID, data.text, data.speed, data.voice)
+    except service.TTSLabError as exc:
+        raise APIError(exc.status_code, exc.code, exc.message, exc.retryable) from exc
+
+    return {
+        "model": result.model,
+        "language": data.language,
+        "voice": data.voice,
         "audio_base64": base64.b64encode(result.audio_bytes).decode("ascii"),
         "content_type": result.content_type,
         "latency_ms": result.latency_ms,
