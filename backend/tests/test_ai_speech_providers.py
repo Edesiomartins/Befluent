@@ -285,7 +285,7 @@ def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
         body = kwargs["json"]
         assert body["model"] == "hexgrad/kokoro-82m"
         assert body["input"] == "Hello there"
-        assert body["voice"] == "af_heart"
+        assert body["voice"] == "af_sky"
         assert body["response_format"] == "mp3"
         assert body["speed"] == 1.0
         return FakeBinaryResponse(b"fake-mp3-bytes")
@@ -297,7 +297,24 @@ def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
     assert content_type == "audio/mpeg"
 
 
-def test_tts_openrouter_picks_voice_by_language(monkeypatch, _settings):
+@pytest.mark.parametrize(
+    "language_code,expected_voice",
+    [
+        ("en", "af_sky"),
+        ("en-US", "af_sky"),  # alias válido: prefixo ISO-639-1 antes do "-"
+        ("es-ES", "em_alex"),
+        ("fr", "ff_siwis"),
+        ("fr-FR", "ff_siwis"),
+        ("ja", "jf_nezumi"),
+        ("ja-JP", "jf_nezumi"),
+        ("zh-CN", "zf_xiaoxiao"),
+    ],
+)
+def test_tts_openrouter_picks_voice_by_language(monkeypatch, _settings, language_code, expected_voice):
+    """Mapeamento oficial das vozes Kokoro escolhidas no Kokoro Voice Lab —
+    ver docs/TTS.md. Cobre também aliases de locale (`en-US`, `fr-FR`,
+    `ja-JP`) resolvidos pelo mesmo `_language_hint` (split em "-", sem
+    `startsWith`/substring matching que pudesse casar idioma errado)."""
     monkeypatch.setattr(_settings, "environment", "production")
     monkeypatch.setattr(_settings, "tts_provider", "openrouter")
     monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
@@ -311,8 +328,51 @@ def test_tts_openrouter_picks_voice_by_language(monkeypatch, _settings):
 
     monkeypatch.setattr(httpx, "post", fake_post)
 
-    speech_service.synthesize_audio("Bonjour", "fr")
-    assert captured["voice"] == "ff_siwis"
+    speech_service.synthesize_audio("texto de teste", language_code)
+    assert captured["voice"] == expected_voice
+
+
+def test_tts_openrouter_unsupported_language_never_guesses_a_voice(monkeypatch, _settings):
+    """Idioma sem entrada no mapa (ex. alemão, fora dos 5 idiomas do
+    BeFluent) nunca cai numa voz "parecida" nem na voz default — mandar
+    texto de idioma desconhecido para af_sky (voz de inglês) produziria
+    fala errada. Devolve erro explícito (400) para o frontend cair no
+    SpeechSynthesis do navegador, sem sequer chamar a OpenRouter."""
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "")
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("idioma sem voz Kokoro não deve chegar a chamar a OpenRouter")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("some text", "de")  # alemão: sem voz Kokoro mapeada
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.code == "tts_unsupported_language"
+
+
+def test_tts_voice_override_bypasses_language_allowlist(monkeypatch, _settings):
+    """`TTS_VOICE` é uma escolha explícita do operador — continua valendo
+    mesmo para um idioma fora do allowlist, porque não é mais uma decisão
+    automática por idioma."""
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "am_michael")
+
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["voice"] = kwargs["json"]["voice"]
+        return FakeBinaryResponse(b"audio")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    speech_service.synthesize_audio("some text", "de")
+    assert captured["voice"] == "am_michael"
 
 
 def test_tts_openrouter_voice_override(monkeypatch, _settings):
@@ -363,6 +423,26 @@ def test_tts_openrouter_failure_outside_production_falls_back_to_mock(monkeypatc
     audio, content_type = speech_service.synthesize_audio("Hello", "en")
     assert audio.startswith(b"RIFF")
     assert content_type == "audio/wav"
+
+
+def test_tts_provider_web_speech_forces_unavailable_without_calling_openrouter(monkeypatch, _settings):
+    """Rollback por configuração (seção "Rollback" de docs/TTS.md): setar
+    `TTS_PROVIDER=web_speech` desativa o Kokoro de servidor sem remover
+    código — o endpoint sempre falha, e o `AudioPlayer` do frontend já cai
+    no SpeechSynthesis do navegador nesse caso."""
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "web_speech")
+    monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")  # mesmo com chave válida
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("web_speech não deve chamar a OpenRouter")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("Hello", "en")
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.code == "tts_unavailable"
 
 
 def test_tts_no_response_or_log_leaks_api_keys(monkeypatch, _settings, caplog):

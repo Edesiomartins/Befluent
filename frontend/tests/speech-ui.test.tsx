@@ -105,6 +105,91 @@ describe("AudioPlayer (Kokoro-82M com fallback local)", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/não oferece leitura em voz alta/i);
   });
+
+  it("mostra 'Gerando áudio…' enquanto aguarda o backend, sem bloquear a página", async () => {
+    let resolveBlob!: (blob: Blob) => void;
+    apiBlobMock.mockReturnValue(new Promise<Blob>((resolve) => (resolveBlob = resolve)));
+
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+
+    expect(await screen.findByText("Gerando áudio…")).toBeInTheDocument();
+
+    resolveBlob(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+    expect(await screen.findByText("Voz do BeFluent")).toBeInTheDocument();
+  });
+
+  it("envia a velocidade selecionada no corpo da requisição", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.change(screen.getByLabelText("Velocidade"), { target: { value: "1.25" } });
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+
+    await waitFor(() =>
+      expect(apiBlobMock).toHaveBeenCalledWith(
+        "/api/v1/speech/synthesize",
+        expect.objectContaining({ body: expect.objectContaining({ speed: 1.25 }) }),
+      ),
+    );
+  });
+
+  it("libera a URL do áudio anterior ao gerar um novo, sem vazar memória", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+    const revoke = vi.fn();
+    Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revoke });
+
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+    await screen.findByText("Voz do BeFluent");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pausar áudio" })); // stop
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" })); // gera de novo
+    await waitFor(() => expect(apiBlobMock).toHaveBeenCalledTimes(2));
+
+    expect(revoke).toHaveBeenCalledWith("blob:fake-url");
+  });
+
+  it("cancela a geração em andamento ao clicar em parar, sem acionar o fallback do navegador", async () => {
+    const speak = vi.fn();
+    Object.defineProperty(window, "speechSynthesis", {
+      configurable: true,
+      value: { cancel: vi.fn(), speak },
+    });
+
+    let capturedSignal: AbortSignal | undefined;
+    apiBlobMock.mockImplementation(
+      (_path: string, options: { signal?: AbortSignal }) =>
+        new Promise((_resolve, reject) => {
+          capturedSignal = options.signal;
+          options.signal?.addEventListener("abort", () => {
+            const err = new DOMException("aborted", "AbortError");
+            reject(err);
+          });
+        }),
+    );
+
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+    await screen.findByText("Gerando áudio…");
+
+    fireEvent.click(screen.getByRole("button", { name: "Pausar áudio" })); // stop cancela o fetch em voo
+
+    await waitFor(() => expect(capturedSignal?.aborted).toBe(true));
+    expect(speak).not.toHaveBeenCalled(); // cancelamento não é falha do provedor — sem fallback
+    expect(screen.getByRole("button", { name: "Reproduzir áudio" })).toBeInTheDocument();
+  });
+
+  it("nenhuma chamada é feita diretamente à OpenRouter — só ao backend do BeFluent", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+    render(<AudioPlayer text="Hello" languageCode="en" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+
+    await waitFor(() => expect(apiBlobMock).toHaveBeenCalled());
+    const [path] = apiBlobMock.mock.calls[0];
+    expect(path).toBe("/api/v1/speech/synthesize");
+    expect(path).not.toMatch(/openrouter/i);
+  });
 });
 
 describe("Recorder / STT", () => {

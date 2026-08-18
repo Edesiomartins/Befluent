@@ -450,16 +450,18 @@ def test_kokoro_generate_does_not_leak_api_key(client, auth, monkeypatch, caplog
 def test_kokoro_voice_lab_does_not_change_production_tts_config():
     """`_KOKORO_VOICE_BY_LANGUAGE` (voz padrão de produção por idioma, em
     `app/services/speech.py`) não é lida nem importada por `kokoro_voices.py`
-    — o Voice Lab não influencia nem depende da configuração de produção."""
+    — o Voice Lab não influencia nem depende da configuração de produção.
+
+    Os valores exatos (escolhidos manualmente por escuta comparativa no
+    Voice Lab, mas *promovidos* à produção por edição humana deliberada —
+    ver docs/TTS.md) são travados também em
+    `backend/tests/test_ai_speech_providers.py::test_tts_openrouter_picks_voice_by_language`,
+    que é o teste de regressão canônico do mapeamento; aqui só confirmamos
+    isolamento, não duplicamos os valores esperados."""
     import app.services.kokoro_voices as kv_module
 
     assert "speech" not in dir(kv_module) or not hasattr(kv_module, "_KOKORO_VOICE_BY_LANGUAGE")
     from app.services.speech import _KOKORO_VOICE_BY_LANGUAGE
 
-    assert _KOKORO_VOICE_BY_LANGUAGE == {
-        "en": "af_heart",
-        "es": "ef_dora",
-        "fr": "ff_siwis",
-        "ja": "jf_alpha",
-        "zh": "zf_xiaoxiao",
-    }
+    assert set(_KOKORO_VOICE_BY_LANGUAGE) == {"en", "es", "fr", "ja", "zh"}
+    assert all(isinstance(v, str) and v for v in _KOKORO_VOICE_BY_LANGUAGE.values())

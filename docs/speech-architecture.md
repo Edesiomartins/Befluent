@@ -69,11 +69,14 @@ Separar claramente:
 
 ## Text-to-Speech
 
+Documentação completa (arquitetura, voice mapping, fallback, rollback,
+troubleshooting): [TTS.md](TTS.md). Resumo:
+
 - Produto: `AudioPlayer` chama `POST /api/v1/speech/synthesize`, que sintetiza com Kokoro-82M (`hexgrad/kokoro-82m`) via OpenRouter e devolve mp3.
-- Voz escolhida por idioma (`_KOKORO_VOICE_BY_LANGUAGE` em `app/services/speech.py`; melhor nota disponível em cada idioma do projeto: en→`af_heart`, es→`ef_dora`, fr→`ff_siwis`, ja→`jf_alpha`, zh→`zf_xiaoxiao`). `TTS_VOICE` força uma voz única, se definido.
-- Velocidade da UI do `AudioPlayer` é enviada no corpo da requisição (`speed`) e renderizada nativamente pelo Kokoro.
-- Se a chamada ao backend falhar (rede ou `tts_unavailable`), o `AudioPlayer` cai automaticamente no `window.speechSynthesis` do navegador — fallback, não mais o caminho principal.
-- Fora de production, sem `TTS_PROVIDER=openrouter` configurado, o endpoint segue as mesmas regras de mock do resto do projeto (`TTS_PROVIDER=mock`).
+- Voz escolhida por idioma (`_KOKORO_VOICE_BY_LANGUAGE` em `app/services/speech.py`), fixada manualmente após escuta comparativa no Kokoro Voice Lab (`/admin/tts-lab`) — não é ranking automático: en→`af_sky`, es→`em_alex`, fr→`ff_siwis`, ja→`jf_nezumi`, zh→`zf_xiaoxiao`. Idioma fora desse allowlist devolve `400 tts_unsupported_language` (nunca "adivinha" uma voz). `TTS_VOICE` força uma voz única para qualquer idioma, se definido.
+- Velocidade da UI do `AudioPlayer` é enviada no corpo da requisição (`speed`) e renderizada nativamente pelo Kokoro (não é `playbackRate` do navegador).
+- Se a chamada ao backend falhar (rede, timeout, `tts_unavailable`, `tts_unsupported_language`, ou o `<audio>` disparar `onError`), o `AudioPlayer` cai automaticamente no `window.speechSynthesis` do navegador — fallback, não mais o caminho principal. O aluno nunca vê o erro técnico; a falha só fica registrada nos logs do backend.
+- Fora de production, sem `TTS_PROVIDER=openrouter` configurado, o endpoint segue as mesmas regras de mock do resto do projeto (`TTS_PROVIDER=mock`). `TTS_PROVIDER=web_speech` desativa o Kokoro de servidor por configuração (rollback), sem remover código.
 
 ## Reprodução, interrupção, repetição e velocidade
 

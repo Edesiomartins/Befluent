@@ -46,19 +46,26 @@ export function AudioPlayer({
   languageCode?: string;
 }) {
   const [playing, setPlaying] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [unsupported, setUnsupported] = useState(false);
   const [usingBrowserVoice, setUsingBrowserVoice] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  /** Cancela uma geração Kokoro ainda em voo ao parar, trocar de áudio, ou
+   * desmontar — evita que uma resposta tardia comece a tocar depois que o
+   * aluno já saiu da tela ou pediu outro áudio. */
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     return () => {
+      abortRef.current?.abort();
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
     };
   }, []);
 
   function playBrowserFallback() {
+    setLoading(false);
     if (
       typeof window === "undefined" ||
       !("speechSynthesis" in window) ||
@@ -84,13 +91,20 @@ export function AudioPlayer({
   }
 
   async function play() {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
     setUnsupported(false);
     setUsingBrowserVoice(false);
+    setLoading(true);
+    setPlaying(true);
     try {
       const blob = await apiBlob("/api/v1/speech/synthesize", {
         method: "POST",
         body: { text, language_code: languageCode, speed },
+        signal: controller.signal,
       });
+      if (controller.signal.aborted) return;
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       const url = URL.createObjectURL(blob);
       objectUrlRef.current = url;
@@ -98,17 +112,25 @@ export function AudioPlayer({
       if (!audio) throw new Error("elemento de áudio indisponível");
       audio.src = url;
       await audio.play();
-      setPlaying(true);
+      setLoading(false);
     } catch {
+      if (controller.signal.aborted) {
+        // Cancelamento intencional (stop/nova reprodução) — não é falha do
+        // provedor, então não aciona o fallback do navegador.
+        setLoading(false);
+        return;
+      }
       playBrowserFallback();
     }
   }
 
   function stop() {
+    abortRef.current?.abort();
     audioRef.current?.pause();
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       window.speechSynthesis.cancel();
     }
+    setLoading(false);
     setPlaying(false);
   }
 
@@ -120,6 +142,7 @@ export function AudioPlayer({
         onEnded={() => setPlaying(false)}
         onError={() => {
           setPlaying(false);
+          setLoading(false);
           playBrowserFallback();
         }}
       />
@@ -136,7 +159,7 @@ export function AudioPlayer({
           <div className="h-full w-1/3 rounded-full bg-primary" />
         </div>
         <p className="mt-2 text-xs text-text-secondary">
-          {usingBrowserVoice ? "Voz do navegador" : "Voz do BeFluent"}
+          {loading ? "Gerando áudio…" : usingBrowserVoice ? "Voz do navegador" : "Voz do BeFluent"}
         </p>
       </div>
       <label className="text-xs text-text-secondary">

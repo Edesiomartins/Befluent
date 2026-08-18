@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StudyModePage from "@/app/(app)/learn/[mode]/page";
 import LearnPage from "@/app/(app)/learn/page";
@@ -264,6 +264,247 @@ describe("Lista de práticas", () => {
     expect(
       await screen.findByText(/Faça o teste de nível para receber recomendações/),
     ).toBeInTheDocument();
+  });
+});
+
+describe("Hub de Prática — seções", () => {
+  const neutralModes = {
+    language_code: "en",
+    level: "B1",
+    level_source: "placement_test",
+    level_is_estimated: true,
+    weakest_skills: [],
+    recommended_modes: [],
+    modes: [],
+  };
+
+  it("organiza os cards em três seções: Recomendado, Pratique uma habilidade e Avaliação", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+
+    render(<LearnPage />);
+    await screen.findByText("O que vamos praticar?");
+
+    expect(screen.getByRole("heading", { name: "Recomendado" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pratique uma habilidade" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Avaliação" })).toBeInTheDocument();
+  });
+
+  it("Recomendado contém Aula guiada e Revisão", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+    render(<LearnPage />);
+    const heading = await screen.findByRole("heading", { name: "Recomendado" });
+    const section = heading.closest("section") as HTMLElement;
+    expect(within(section).getByRole("link", { name: /Aula guiada/ })).toHaveAttribute(
+      "href",
+      "/learn/guided",
+    );
+    expect(within(section).getByRole("link", { name: /Revisão/ })).toHaveAttribute(
+      "href",
+      "/learn/review",
+    );
+  });
+
+  it("Pratique uma habilidade contém as sete habilidades, com Vocabulário e Conversação (voz)", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+    render(<LearnPage />);
+    const heading = await screen.findByRole("heading", { name: "Pratique uma habilidade" });
+    const section = heading.closest("section") as HTMLElement;
+    const expected: Array<[RegExp, string]> = [
+      [/Vocabulário/, "/learn/vocabulary"],
+      [/Gramática/, "/learn/grammar"],
+      [/Conversação/, "/learn/voice"],
+      [/Pronúncia/, "/learn/pronunciation"],
+      [/Compreensão auditiva/, "/learn/listening"],
+      [/Leitura/, "/learn/reading"],
+      [/Escrita/, "/learn/writing"],
+    ];
+    for (const [name, href] of expected) {
+      expect(within(section).getByRole("link", { name })).toHaveAttribute("href", href);
+    }
+  });
+
+  it("Avaliação contém só o Diagnóstico", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+    render(<LearnPage />);
+    const heading = await screen.findByRole("heading", { name: "Avaliação" });
+    const section = heading.closest("section") as HTMLElement;
+    expect(within(section).getByRole("link", { name: /Diagnóstico/ })).toHaveAttribute(
+      "href",
+      "/learn/assessment",
+    );
+    expect(within(section).getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("não existe mais 'Conversa por voz'; existe só um card 'Conversação'", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+    render(<LearnPage />);
+    await screen.findByText("O que vamos praticar?");
+    expect(screen.queryByText("Conversa por voz")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Conversação")).toHaveLength(1);
+  });
+
+  it("todos os cards do hub apontam para uma rota /learn/<slug> válida", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes,
+    });
+    render(<LearnPage />);
+    await screen.findByText("O que vamos praticar?");
+    const expectedHrefs = [
+      "/learn/guided",
+      "/learn/review",
+      "/learn/vocabulary",
+      "/learn/grammar",
+      "/learn/voice",
+      "/learn/pronunciation",
+      "/learn/listening",
+      "/learn/reading",
+      "/learn/writing",
+      "/learn/assessment",
+    ];
+    for (const href of expectedHrefs) {
+      const matches = screen.getAllByRole("link").filter((a) => a.getAttribute("href") === href);
+      expect(matches.length).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it("Gramática só mostra o selo Recomendado quando o backend recomenda, nunca de forma permanente", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": neutralModes, // recommended_modes: []
+    });
+    render(<LearnPage />);
+    const heading = await screen.findByRole("heading", { name: "Pratique uma habilidade" });
+    const section = heading.closest("section") as HTMLElement;
+    const grammarCard = within(section).getByRole("link", { name: /Gramática/ });
+    expect(within(grammarCard).queryByText("Recomendado")).not.toBeInTheDocument();
+  });
+
+  it("recomendação de 'conversation' do backend destaca e aponta para o card Conversação (slug voice)", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/modes": {
+        ...neutralModes,
+        weakest_skills: [{ skill: "speaking", label: "Fala" }],
+        recommended_modes: ["conversation"],
+      },
+    });
+    render(<LearnPage />);
+
+    const hero = await screen.findByText("Recomendado para você");
+    expect(hero.closest("a")).toHaveAttribute("href", "/learn/voice");
+
+    const heading = await screen.findByRole("heading", { name: "Pratique uma habilidade" });
+    const section = heading.closest("section") as HTMLElement;
+    const conversationCard = within(section).getByRole("link", { name: /Conversação/ });
+    expect(within(conversationCard).getByText("Recomendado")).toBeInTheDocument();
+  });
+});
+
+describe("Conversação por voz", () => {
+  const voiceLesson = {
+    ...vocabularyLesson,
+    mode: "voice",
+    skill: "speaking",
+    skill_label: "Fala",
+    level: "A1",
+    title: "Conversação",
+    objective: "Praticar cumprimentos.",
+    situation: "Apresentar-se a alguém que você acabou de conhecer",
+    opening: "Good morning! How are you?",
+    opening_translation: "Bom dia! Como você está?",
+    suggested_replies: [],
+    target_expressions: [],
+  };
+
+  beforeEach(() => {
+    currentMode = "voice";
+  });
+
+  it("mostra a situação e um player de áudio, mas nunca o texto da fala do tutor", async () => {
+    routeApi({
+      "/api/v1/language-profiles": profiles,
+      "/api/v1/lessons/generate": voiceLesson,
+      "/api/v1/conversations": { id: "conv-1" },
+    });
+
+    render(<StudyModePage />);
+
+    expect(
+      await screen.findByText("Apresentar-se a alguém que você acabou de conhecer"),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Good morning! How are you?")).not.toBeInTheDocument();
+    expect(screen.queryByText("Bom dia! Como você está?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Reproduzir áudio" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Iniciar gravação" })).toBeInTheDocument();
+  });
+
+  it("ao transcrever a fala do aluno, avança o turno da conversa sem nunca mostrar a resposta do tutor em texto", async () => {
+    class FakeMediaRecorder {
+      mimeType = "audio/webm";
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onstop: (() => void) | null = null;
+      constructor(_stream: unknown, _options?: { mimeType?: string }) {}
+      start() {}
+      stop() {
+        this.ondataavailable?.({ data: new Blob(["audio"], { type: "audio/webm" }) });
+        this.onstop?.();
+      }
+      static isTypeSupported() {
+        return true;
+      }
+    }
+    Object.defineProperty(globalThis, "MediaRecorder", { writable: true, value: FakeMediaRecorder });
+    Object.defineProperty(navigator, "mediaDevices", {
+      writable: true,
+      value: {
+        getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: vi.fn() }] }),
+      },
+    });
+
+    apiMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/language-profiles")) return Promise.resolve(profiles);
+      if (path.startsWith("/api/v1/lessons/generate")) return Promise.resolve(voiceLesson);
+      if (path === "/api/v1/speech/transcribe") {
+        return Promise.resolve({ text: "Good morning, I'm fine", provider: "groq" });
+      }
+      if (path === "/api/v1/conversations") return Promise.resolve({ id: "conv-1" });
+      if (path === "/api/v1/conversations/conv-1/messages") {
+        return Promise.resolve({ reply: "Nice to meet you. Where are you from?" });
+      }
+      return Promise.reject(new Error(`sem handler: ${path}`));
+    });
+
+    render(<StudyModePage />);
+    await screen.findByRole("button", { name: "Iniciar gravação" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Iniciar gravação" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Parar gravação" }));
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith("/api/v1/conversations/conv-1/messages", {
+        method: "POST",
+        body: { text: "Good morning, I'm fine" },
+      }),
+    );
+
+    expect(await screen.findByText(/Você disse/)).toBeInTheDocument();
+    expect(screen.queryByText("Nice to meet you. Where are you from?")).not.toBeInTheDocument();
   });
 });
 

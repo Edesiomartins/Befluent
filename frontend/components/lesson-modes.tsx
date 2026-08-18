@@ -8,7 +8,7 @@
  * e duplicar estes componentes faria as duas telas divergirem com o tempo.
  */
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
@@ -148,58 +148,111 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
   );
 }
 
+type TutorTurn = { reply: string };
+
+/**
+ * Conversação por voz: o aluno ouve o tutor (nunca lê a resposta dele),
+ * fala, e a transcrição vira o próximo turno — mesmo backend de conversa
+ * multi-turno do modo por texto (`Chat`, em `study.tsx`), só a superfície é
+ * diferente. A resposta em texto do tutor (`turnText`) fica só em memória
+ * do componente, usada unicamente para gerar o áudio (`AudioPlayer`); nunca
+ * é renderizada como `<p>`/texto na tela — ver docs do Practice Hub sobre
+ * por que a experiência é "ouça e responda", não "leia e responda".
+ */
 function Voice({ lesson }: { lesson: ConversationLesson }) {
-  const [transcript, setTranscript] = useState("");
+  const [turnText, setTurnText] = useState(lesson.opening);
+  const [turnCount, setTurnCount] = useState(0);
+  const [lastHeard, setLastHeard] = useState("");
+  const [thinking, setThinking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [ending, setEnding] = useState(false);
+  const [closed, setClosed] = useState(false);
+  const conversationId = useRef<string | null>(null);
+
+  async function ensureConversation() {
+    if (conversationId.current) return conversationId.current;
+    const started = await api<{ id: string }>("/api/v1/conversations", {
+      method: "POST",
+      body: {
+        language_code: lesson.language_code,
+        topic: lesson.situation,
+        opening: lesson.opening,
+        study_session_id: lesson.study_session_id,
+      },
+    });
+    conversationId.current = started.id;
+    return started.id;
+  }
+
+  async function respond(spokenText: string) {
+    const said = spokenText.trim();
+    if (!said || closed || thinking) return;
+    setLastHeard(said);
+    setThinking(true);
+    setError(null);
+    try {
+      const id = await ensureConversation();
+      const result = await api<TutorTurn>(`/api/v1/conversations/${id}/messages`, {
+        method: "POST",
+        body: { text: said },
+      });
+      setTurnText(result.reply);
+      setTurnCount((count) => count + 1);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Não foi possível continuar a conversa.",
+      );
+    } finally {
+      setThinking(false);
+    }
+  }
+
   return (
-    <div className="grid gap-5 md:grid-cols-[.85fr_1.15fr]">
-      <div>
-        <Recorder onTranscript={setTranscript} languageCode={lesson.language_code} />
-        <div className="mt-3 panel p-4">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-            Situação
-          </p>
-          <p className="mt-2 text-sm">{lesson.situation}</p>
-        </div>
-      </div>
+    <div className="grid gap-5 md:grid-cols-[1.1fr_.9fr]">
       <div className="panel p-5">
-        <h2 className="section-title">Abertura do tutor</h2>
-        <p className="mt-3 font-medium">{lesson.opening}</p>
-        <p className="mt-1 text-sm text-text-secondary">{lesson.opening_translation}</p>
-        <div className="mt-4">
-          <AudioPlayer text={lesson.opening} languageCode={lesson.language_code} />
+        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          Situação
+        </p>
+        <p className="mt-2 font-medium">{lesson.situation}</p>
+
+        <div className="mt-6 rounded-xl bg-surface-elevated p-5 text-center">
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            {turnCount === 0 ? "O tutor começou" : "O tutor respondeu"}
+          </p>
+          <div className="mt-4 flex justify-center">
+            <AudioPlayer text={turnText} languageCode={lesson.language_code} />
+          </div>
+          {thinking && (
+            <p className="mt-3 text-sm text-text-secondary">Preparando a resposta…</p>
+          )}
         </div>
-        <h3 className="mt-6 text-sm font-semibold">Sua transcrição</h3>
-        <label className="sr-only" htmlFor="voice-transcript">
-          Sua transcrição
-        </label>
-        <textarea
-          id="voice-transcript"
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          placeholder="Sua fala aparecerá aqui. Você também pode digitar como alternativa."
-          className="mt-2 min-h-28 w-full resize-y rounded-lg border border-border p-3 text-sm"
-        />
-        {lesson.suggested_replies.length > 0 && (
-          <>
-            <h3 className="mt-5 text-sm font-semibold">Respostas possíveis</h3>
-            <ul className="mt-2 grid gap-1.5 text-sm text-text-secondary">
-              {lesson.suggested_replies.map((reply) => (
-                <li key={reply}>· {reply}</li>
-              ))}
-            </ul>
-          </>
+
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-danger">
+            {error}
+          </p>
         )}
-        <div className="mt-6">
+      </div>
+
+      <div>
+        <Recorder onTranscript={(text) => void respond(text)} languageCode={lesson.language_code} />
+        {lastHeard && (
+          <p className="mt-3 text-center text-xs text-text-secondary">
+            Você disse: <span className="italic">“{lastHeard}”</span>
+          </p>
+        )}
+        <div className="mt-6 flex justify-end">
           <Button
             variant="secondary"
             loading={ending}
+            disabled={closed}
             onClick={() => {
               setEnding(true);
+              setClosed(true);
               void completeLesson(lesson.lesson_id).finally(() => setEnding(false));
             }}
           >
-            Encerrar prática
+            {closed ? "Encerrada" : "Encerrar prática"}
           </Button>
         </div>
       </div>

@@ -1,5 +1,7 @@
+import httpx
 from fastapi.testclient import TestClient
 
+from app.core.config import get_settings
 from app.main import app
 
 
@@ -419,6 +421,75 @@ def test_speech_mocks(client, auth):
     )
     assert tts.status_code == 200
     assert tts.headers["content-type"] == "audio/wav"
+
+
+def test_speech_synthesize_rejects_text_over_limit(client, auth):
+    response = client.post(
+        "/api/v1/speech/synthesize",
+        json={"text": "a" * 2001, "language_code": "en"},
+        headers=auth,
+    )
+    assert response.status_code == 422
+
+
+def test_speech_synthesize_rejects_empty_text(client, auth):
+    response = client.post(
+        "/api/v1/speech/synthesize",
+        json={"text": "", "language_code": "en"},
+        headers=auth,
+    )
+    assert response.status_code == 422
+
+
+def test_speech_synthesize_sends_ui_speed_to_provider(client, auth, monkeypatch):
+    """O seletor de velocidade do `AudioPlayer` (frontend) precisa chegar de
+    verdade ao Kokoro — não pode ser silenciosamente ignorado pelo backend."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(settings, "openrouter_api_key", "sk-secret-key")
+
+    captured = {}
+
+    class FakeResponse:
+        content = b"fake-mp3-bytes"
+
+        def raise_for_status(self):
+            return None
+
+    def fake_post(url, **kwargs):
+        captured["body"] = kwargs["json"]
+        return FakeResponse()
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    response = client.post(
+        "/api/v1/speech/synthesize",
+        json={"text": "Hello", "language_code": "en", "speed": 1.25},
+        headers=auth,
+    )
+    assert response.status_code == 200
+    assert captured["body"]["speed"] == 1.25
+
+
+def test_speech_synthesize_unsupported_language_returns_controlled_error(client, auth, monkeypatch):
+    """Idioma fora do allowlist Kokoro (`_KOKORO_VOICE_BY_LANGUAGE`) nunca
+    chega a chamar a OpenRouter — o frontend cai no Web Speech com esse erro."""
+    settings = get_settings()
+    monkeypatch.setattr(settings, "tts_provider", "openrouter")
+    monkeypatch.setattr(settings, "openrouter_api_key", "sk-secret-key")
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("não deveria chamar a OpenRouter para idioma sem voz Kokoro")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    response = client.post(
+        "/api/v1/speech/synthesize",
+        json={"text": "Hallo", "language_code": "de"},
+        headers=auth,
+    )
+    assert response.status_code == 400
+    assert response.json()["error"]["code"] == "tts_unsupported_language"
 
 
 def test_assessment_and_plan_ownership(client, auth, other_user):

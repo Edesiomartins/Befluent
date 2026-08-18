@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { ArrowRight, Route, Sparkles } from "lucide-react";
-import { MODES } from "@/lib/modes";
+import { MODE_SECTION_LABEL, MODES, resolveRecommendedSlug, type ModeSection } from "@/lib/modes";
 import { ModeCard } from "@/components/mode-card";
 import { api } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -30,12 +30,13 @@ export default function LearnPage() {
     };
   }, [code, resolved]);
 
-  const recommended = plan?.recommended_modes ?? [];
+  // O backend recomenda por slug técnico e nunca recomenda "voice" (ver
+  // lib/modes.ts); o alias só casa essa recomendação com o card certo do
+  // hub, sem alterar a lista que vem do backend.
+  const recommended = (plan?.recommended_modes ?? []).map(resolveRecommendedSlug);
   const suggestion = MODES.find((mode) => mode.slug === recommended[0]) ?? MODES[0];
-  const ordered = [
-    ...MODES.filter((mode) => recommended.includes(mode.slug) && mode.slug !== suggestion.slug),
-    ...MODES.filter((mode) => !recommended.includes(mode.slug) && mode.slug !== suggestion.slug),
-  ];
+
+  const SECTIONS: ModeSection[] = ["recommended", "skill", "assessment"];
 
   const weakest = plan?.weakest_skills ?? [];
   const SuggestionIcon = suggestion.icon;
@@ -141,16 +142,30 @@ export default function LearnPage() {
         </span>
       </Link>
 
-      <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {ordered.map((mode) => (
-          <ModeCard
-            key={mode.slug}
-            mode={mode}
-            recommended={recommended.includes(mode.slug)}
-            titleAs="h2"
-          />
-        ))}
-      </div>
+      {SECTIONS.map((section) => {
+        const modes = MODES.filter((mode) => mode.section === section);
+        if (modes.length === 0) return null;
+        return (
+          <section key={section} className="mt-9">
+            <h2 className="text-xs font-semibold uppercase tracking-[.14em] text-text-secondary">
+              {MODE_SECTION_LABEL[section]}
+            </h2>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {modes.map((mode) => (
+                <ModeCard
+                  key={mode.slug}
+                  mode={mode}
+                  // Só o grupo "Pratique uma habilidade" mostra o selo dinâmico
+                  // de recomendação — nos outros dois grupos ele duplicaria o
+                  // que o próprio título da seção já diz (Recomendado/Avaliação).
+                  recommended={section === "skill" && recommended.includes(mode.slug)}
+                  titleAs="h3"
+                />
+              ))}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }

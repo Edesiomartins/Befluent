@@ -13,7 +13,7 @@ import type { LessonEnvelope } from "@/types/lesson";
 const meta: Record<string, { title: string }> = {
   guided: { title: "Aula guiada" },
   conversation: { title: "Conversação por texto" },
-  voice: { title: "Conversa por voz" },
+  voice: { title: "Conversação" },
   pronunciation: { title: "Pronúncia" },
   vocabulary: { title: "Vocabulário" },
   grammar: { title: "Gramática" },

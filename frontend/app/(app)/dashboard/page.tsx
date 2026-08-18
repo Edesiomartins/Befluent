@@ -75,7 +75,9 @@ type DashboardData = {
   }>;
 };
 
-const practiceSlugs = ["conversation", "vocabulary", "review", "guided", "listening", "writing"];
+// "voice" é o card "Conversação" do hub (ver lib/modes.ts) — o slug antigo
+// "conversation" (diálogo só por texto) não é mais exibido como atalho aqui.
+const practiceSlugs = ["voice", "vocabulary", "review", "guided", "listening", "writing"];
 
 /** Nível do idioma ativo. Nunca inventa nível: pendente vira convite ao teste. */
 function LevelBlock({
