@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { AlertTriangle, ArrowRight, CalendarCheck, Check, Circle, Target } from "lucide-react";
+import { ArrowRight, CalendarCheck, Check, Circle, Target } from "lucide-react";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { ApiError } from "@/lib/api";
 import { levelShortCode } from "@/lib/levels";
@@ -114,8 +114,7 @@ function CreateCurriculum({
 
   return (
     <div className="mx-auto max-w-2xl">
-      <p className="text-sm font-semibold text-primary">Cronograma</p>
-      <h1 className="mt-2 page-title">Monte seu cronograma de estudo</h1>
+      <h1 className="page-title">Monte seu cronograma de estudo</h1>
       <p className="mt-3 leading-7 text-text-secondary">
         O cronograma organiza jornadas de estudo (não dias de calendário obrigatórios)
         com blocos de vocabulário, gramática, pronúncia, escuta, leitura, conversação,
@@ -128,7 +127,7 @@ function CreateCurriculum({
           {DURATIONS.map((value) => (
             <label
               key={value}
-              className={`cursor-pointer rounded-xl border-2 p-5 transition ${
+              className={`cursor-pointer rounded-xl border p-5 transition ${
                 duration === value
                   ? "border-primary bg-primary-soft"
                   : "border-border bg-surface hover:border-primary/40"
@@ -203,14 +202,22 @@ function OverdueNotice({
     }
   }
 
+  // Atraso não é erro: o aluno pode seguir normalmente. Por isso fica como uma
+  // linha calma com as opções recolhidas, e não como alerta laranja.
   return (
-    <section className="mt-5 rounded-2xl border border-warning/30 bg-warning/5 p-5" role="alert">
-      <h2 className="flex items-center gap-2 font-semibold text-warning">
-        <AlertTriangle className="size-5 shrink-0" aria-hidden />
-        {overdueCount}{" "}
-        {overdueCount === 1 ? "jornada atrás do ritmo" : "jornadas atrás do ritmo"}
-      </h2>
-      <p className="mt-2 text-sm leading-6 text-text-secondary">
+    <details className="disclosure group mt-4 rounded-xl border border-border bg-surface px-5 py-4">
+      <summary className="flex flex-wrap items-baseline justify-between gap-2 !text-text-primary after:!content-none">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <span className="size-2 rounded-full bg-[var(--streak)]" aria-hidden />
+          {overdueCount}{" "}
+          {overdueCount === 1 ? "jornada atrás do ritmo" : "jornadas atrás do ritmo"}
+        </span>
+        <span className="text-sm font-semibold text-primary">
+          <span className="group-open:hidden">Reorganizar datas</span>
+          <span className="hidden group-open:inline">Fechar</span>
+        </span>
+      </summary>
+      <p className="mt-3 text-sm leading-6 text-text-secondary">
         Isso é só ritmo recomendado — você pode continuar a próxima jornada agora. Se
         quiser realinhar as datas planejadas, escolha uma opção abaixo.
       </p>
@@ -237,8 +244,12 @@ function OverdueNotice({
         restantes e descarta o resto daqueles dias. Estender mantém tudo e adia o fim do
         cronograma em {overdueCount} {overdueCount === 1 ? "dia" : "dias"}.
       </p>
-      {error && <p className="mt-3 text-sm text-danger">{error}</p>}
-    </section>
+      {error && (
+        <p role="alert" className="mt-3 text-sm text-danger">
+          {error}
+        </p>
+      )}
+    </details>
   );
 }
 
@@ -277,7 +288,7 @@ export default function CronogramaPage() {
           <p className="mt-4 leading-7 text-text-secondary">{curriculum.error}</p>
           <Link
             href={nextStep.href}
-            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+            className="mt-6 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
           >
             {nextStep.cta}
           </Link>
@@ -294,23 +305,34 @@ export default function CronogramaPage() {
 
   return (
     <div>
-      <p className="text-sm font-semibold text-primary">Cronograma</p>
-      <h1 className="mt-2 page-title">Seu plano de {plan.duration_days} jornadas</h1>
+      <header className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+        <div>
+          <h1 className="page-title">Seu plano de {plan.duration_days} jornadas</h1>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
+            <span className="flex items-center gap-1.5">
+              <Target className="size-4" aria-hidden />
+              <span>
+                {levelShortCode(plan.entry_level)} → {levelShortCode(plan.target_level)}
+              </span>
+            </span>
+            {progress.next_checkpoint_week && (
+              <span className="flex items-center gap-1.5">
+                <CalendarCheck className="size-4" aria-hidden />
+                <span>Próximo checkpoint: semana {progress.next_checkpoint_week}</span>
+              </span>
+            )}
+          </div>
+        </div>
+        <p className="display-number text-3xl leading-none md:text-right">
+          Dia {progress.current_day_number ?? progress.days_total} de {progress.days_total}
+        </p>
+      </header>
 
       {/* Progresso geral */}
-      <section className="panel mt-7 p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <p className="text-lg font-semibold">
-            Dia {progress.current_day_number ?? progress.days_total} de {progress.days_total}
-          </p>
-          <p className="flex items-center gap-2 text-sm text-text-secondary">
-            <Target className="size-4" aria-hidden />
-            {levelShortCode(plan.entry_level)} → {levelShortCode(plan.target_level)}
-          </p>
-        </div>
-        <div className="mt-3 h-2.5 rounded-full bg-surface-elevated">
+      <section className="mt-6">
+        <div className="h-1.5 rounded-full bg-surface-elevated">
           <div
-            className="h-full rounded-full bg-success transition-[width]"
+            className="h-full rounded-full bg-primary transition-[width]"
             style={{ width: `${progress.percent_complete}%` }}
           />
         </div>
@@ -320,19 +342,16 @@ export default function CronogramaPage() {
             {progress.days_completed === 1 ? "jornada concluída" : "jornadas concluídas"} ·{" "}
             {progress.percent_complete}%
           </span>
-          {progress.next_checkpoint_week && (
-            <span className="flex items-center gap-1.5">
-              <CalendarCheck className="size-4" aria-hidden />
-              Próximo checkpoint: semana {progress.next_checkpoint_week}
-            </span>
-          )}
+          {progress.pace_label_pt && <span>{progress.pace_label_pt}</span>}
         </div>
-        {progress.pace_label_pt && (
-          <p className="mt-3 text-sm font-medium text-text-primary">{progress.pace_label_pt}</p>
+        {plan.disclaimer && (
+          <details className="disclosure mt-3">
+            <summary>Sobre este cronograma</summary>
+            <p className="mt-2 max-w-2xl text-xs leading-5 text-text-secondary">
+              {plan.disclaimer}
+            </p>
+          </details>
         )}
-        <p className="mt-4 border-t border-border pt-4 text-xs leading-5 text-text-secondary">
-          {plan.disclaimer}
-        </p>
       </section>
 
       {progress.overdue_days > 0 && (
@@ -344,14 +363,14 @@ export default function CronogramaPage() {
       )}
 
       {/* Próxima jornada (progresso, não calendário) */}
-      <section className="panel mt-5 p-6">
+      <section className="panel mt-6 p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-3">
           <h2 className="section-title">Continuar aprendendo</h2>
           {currentWeek && (
             <span className="text-sm text-text-secondary">
               Semana {currentWeek.week_number} · {currentWeek.theme}
               {currentWeek.is_checkpoint && (
-                <span className="ml-2 rounded-md bg-[var(--gold-soft)] px-2 py-1 text-xs font-semibold text-[var(--gold-ink)]">
+                <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">
                   Checkpoint
                 </span>
               )}
@@ -366,13 +385,12 @@ export default function CronogramaPage() {
 
         {currentDay ? (
           <>
-            <p className="mt-3 text-sm text-text-secondary">
+            <p
+              className="mt-2 text-sm text-text-secondary"
+              title={`Planejado originalmente para ${formatDate(currentDay.scheduled_date)} (ritmo recomendado — não bloqueia o avanço)`}
+            >
               Dia {currentDay.day_number} de {progress.days_total} · {currentDay.total_minutes}{" "}
               min estimados
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
-              Planejado originalmente para {formatDate(currentDay.scheduled_date)} (ritmo
-              recomendado — não bloqueia o avanço)
             </p>
             <ul className="mt-4">
               {currentDay.blocks.map((block) => (
@@ -381,7 +399,7 @@ export default function CronogramaPage() {
             </ul>
             <Link
               href={`/cronograma/dia/${currentDay.id}`}
-              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+              className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
             >
               {currentDay.blocks_completed > 0
                 ? "Continuar aprendendo"
@@ -401,43 +419,46 @@ export default function CronogramaPage() {
       {/* Semanas */}
       <section className="mt-8">
         <h2 className="section-title">Semanas</h2>
-        <ul className="mt-4 grid gap-2">
+        <ul className="panel mt-4 divide-y divide-border overflow-hidden">
           {plan.weeks.map((week) => {
             const state = weekState(week, progress.current_day_number);
             return (
               <li
                 key={week.id}
-                className={`panel flex flex-wrap items-center justify-between gap-3 p-4 ${
-                  state === "current" ? "border-primary" : ""
+                className={`grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-baseline gap-3 px-5 py-3 text-sm ${
+                  state === "current" ? "bg-primary-soft/40" : ""
                 }`}
+                aria-current={state === "current" ? "step" : undefined}
               >
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold">
-                    Semana {week.week_number}
-                    {week.is_checkpoint && (
-                      <span className="ml-2 rounded-md bg-[var(--gold-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--gold-ink)]">
-                        Checkpoint
-                      </span>
-                    )}
-                  </p>
-                  <p className="mt-0.5 text-sm text-text-secondary">{week.theme}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-3 text-sm">
-                  <span className="font-semibold text-primary">
-                    {levelShortCode(week.cefr_focus)}
-                  </span>
+                <span
+                  className={`display-number text-lg leading-none ${
+                    state === "future" ? "text-text-secondary" : "text-text-primary"
+                  }`}
+                >
+                  {week.week_number}
+                </span>
+                <span className="min-w-0">
+                  <span className={state === "current" ? "font-semibold" : ""}>{week.theme}</span>
+                  {week.is_checkpoint && (
+                    <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">
+                      Checkpoint
+                    </span>
+                  )}
+                </span>
+                <span className="flex shrink-0 items-baseline gap-3 text-xs">
+                  <span className="font-semibold tabular-nums">{levelShortCode(week.cefr_focus)}</span>
                   <span
-                    className={
+                    className={`hidden w-28 text-right sm:inline ${
                       state === "done"
                         ? "text-success"
                         : state === "current"
-                          ? "font-semibold"
+                          ? "font-semibold text-primary"
                           : "text-text-secondary"
-                    }
+                    }`}
                   >
                     {WEEK_STATE_LABELS[state]}
                   </span>
-                </div>
+                </span>
               </li>
             );
           })}

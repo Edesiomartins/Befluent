@@ -505,7 +505,7 @@ export function Chat({
   return (
     <div className="panel overflow-hidden">
       {demoMode === true && (
-        <p className="border-b border-border bg-warning/10 px-4 py-2 text-xs leading-5 text-warning">
+        <p className="note border-b border-border bg-surface-soft px-4 py-2">
           {correctionsOff
             ? "Prática guiada por roteiro (modo local). Sem a IA conectada, o tutor propõe frases no seu nível mas não corrige o que você escreve."
             : "Resposta em modo local (mock de desenvolvimento). Não é o tutor de IA."}
@@ -542,7 +542,7 @@ export function Chat({
             {message.corrections?.map((correction, position) => (
               <div
                 key={position}
-                className="mt-2 border-l-2 border-warning pl-3 text-sm text-text-secondary"
+                className="mt-2 border-l-2 border-primary/40 pl-3 text-sm text-text-secondary"
               >
                 {correction.corrected && (
                   <p>

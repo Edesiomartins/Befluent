@@ -13,13 +13,13 @@ import {
   LogOut,
   Menu,
   Settings,
+  SlidersHorizontal,
   TrendingUp,
   User,
   X,
 } from "lucide-react";
 import { api, clearCsrfToken } from "@/lib/api";
 import { Logo } from "@/components/logo";
-import { BRAND } from "@/lib/brand";
 import { useDashboardSummary } from "@/hooks/use-dashboard-summary";
 
 const navigation = [
@@ -31,6 +31,7 @@ const navigation = [
 ];
 
 const secondary = [
+  { href: "/onboarding", label: "Ajustar plano", icon: SlidersHorizontal },
   { href: "/settings", label: "Configurações", icon: Settings },
   { href: "/profile", label: "Perfil", icon: User },
 ];
@@ -53,14 +54,14 @@ function NavItem({
     <Link
       href={href}
       onClick={onNavigate}
-      className={`flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-sm font-semibold transition ${
+      className={`relative flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors ${
         active
-          ? "bg-primary text-white shadow-[0_3px_0_var(--primary-shadow)]"
-          : "text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
+          ? "bg-surface font-semibold text-text-primary shadow-[inset_0_0_0_1px_var(--border)] before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
+          : "font-medium text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
       }`}
       aria-current={active ? "page" : undefined}
     >
-      <Icon className="size-5 shrink-0" aria-hidden />
+      <Icon className={`size-[1.1rem] shrink-0 ${active ? "text-primary" : ""}`} aria-hidden />
       {label}
     </Link>
   );
@@ -82,25 +83,24 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <>
-      <Link href="/dashboard" className="mb-8 block px-1" onClick={onNavigate}>
+      <Link href="/dashboard" className="mb-7 block px-2" onClick={onNavigate}>
         <Logo />
-        <span className="mt-1 block px-0.5 text-xs text-text-secondary">{BRAND.slogan}</span>
       </Link>
-      <nav className="grid gap-1.5" aria-label="Navegação principal">
+      <nav className="grid gap-1" aria-label="Navegação principal">
         {navigation.map((item) => (
           <NavItem key={item.href} {...item} onNavigate={onNavigate} />
         ))}
       </nav>
-      <nav className="mt-auto grid gap-1.5 border-t border-border pt-4" aria-label="Conta">
+      <nav className="mt-auto grid gap-1 border-t border-border pt-4" aria-label="Conta">
         {secondary.map((item) => (
           <NavItem key={item.href} {...item} onNavigate={onNavigate} />
         ))}
         <button
           type="button"
           onClick={logout}
-          className="flex min-h-11 items-center gap-3 rounded-xl px-3 py-2 text-left text-sm font-semibold text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
+          className="flex min-h-10 items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium text-text-secondary hover:bg-surface-elevated hover:text-text-primary"
         >
-          <LogOut className="size-5 shrink-0" aria-hidden />
+          <LogOut className="size-[1.1rem] shrink-0" aria-hidden />
           Sair
         </button>
       </nav>
@@ -110,7 +110,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function Sidebar() {
   return (
-    <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-border bg-[var(--surface-soft)] p-5 lg:flex">
+    <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-[var(--surface-soft)] px-4 py-5 lg:flex">
       <SidebarContent />
     </aside>
   );
@@ -120,20 +120,19 @@ function StatsBar() {
   const summary = useDashboardSummary();
   if (!summary) return null;
   return (
-    <div className="flex items-center gap-2">
-      <span
-        className="stat-pill border-[var(--streak-soft)] bg-[var(--streak-soft)] text-[var(--streak-shadow)]"
-        title="Sequência de dias estudando"
-      >
-        <Flame className="size-4 fill-current" aria-hidden />
-        {summary.streak_days}
+    <div className="flex items-center gap-4 text-sm text-text-secondary">
+      <span className="inline-flex items-center gap-1.5" title="Sequência de dias estudando">
+        <Flame
+          className={`size-4 ${summary.streak_days > 0 ? "fill-[var(--streak)] text-[var(--streak)]" : ""}`}
+          aria-hidden
+        />
+        <span className="font-semibold tabular-nums text-text-primary">{summary.streak_days}</span>
+        <span className="sr-only">dias seguidos</span>
       </span>
-      <span
-        className="hidden stat-pill border-[var(--violet-soft)] bg-[var(--violet-soft)] text-[var(--violet)] sm:inline-flex"
-        title="Palavras aprendidas"
-      >
+      <span className="hidden items-center gap-1.5 sm:inline-flex" title="Palavras aprendidas">
         <BookOpen className="size-4" aria-hidden />
-        {summary.vocabulary_items}
+        <span className="font-semibold tabular-nums text-text-primary">{summary.vocabulary_items}</span>
+        <span className="sr-only">palavras</span>
       </span>
     </div>
   );
@@ -154,11 +153,11 @@ export function Header() {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-border bg-surface/90 px-5 backdrop-blur md:px-8">
-        <div className="flex items-center gap-3">
+      <header className="flex h-14 items-center justify-between border-b border-border bg-background/85 px-5 backdrop-blur md:px-8 lg:justify-end">
+        <div className="flex items-center gap-3 lg:hidden">
           <button
             type="button"
-            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-xl border border-border lg:hidden"
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg border border-border"
             aria-expanded={open}
             aria-controls={panelId}
             aria-label={open ? "Fechar menu" : "Abrir menu"}
@@ -166,22 +165,9 @@ export function Header() {
           >
             {open ? <X className="size-5" aria-hidden /> : <Menu className="size-5" aria-hidden />}
           </button>
-          <div className="hidden sm:block">
-            <p className="text-xs font-medium uppercase tracking-[.12em] text-text-secondary">
-              Área de estudo
-            </p>
-            <p className="text-sm font-semibold">{BRAND.name}</p>
-          </div>
+          <Logo showWordmark={false} />
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <StatsBar />
-          <Link
-            href="/onboarding"
-            className="hidden rounded-xl px-3 py-2 text-sm font-semibold text-primary hover:bg-primary-soft sm:inline-flex"
-          >
-            Onboarding
-          </Link>
-        </div>
+        <StatsBar />
       </header>
 
       {open && (

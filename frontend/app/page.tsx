@@ -77,7 +77,7 @@ export default function HomePage() {
             </Link>
             <Link
               href="/register"
-              className="inline-flex min-h-10 items-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white shadow-[0_3px_0_var(--primary-shadow)] transition hover:bg-[var(--primary-hover)]"
+              className="inline-flex min-h-10 items-center rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-[var(--primary-hover)]"
             >
               Começar agora
             </Link>

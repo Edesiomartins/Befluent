@@ -2,10 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { BarChart3, Clock, Flame, Trophy } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Loading } from "@/components/ui";
-import { modeColorClasses } from "@/lib/modes";
 import { levelShortCode } from "@/lib/levels";
 
 type ProgressData = {
@@ -95,8 +93,6 @@ export default function ProgressPage() {
   const language = data?.active_language ?? null;
   const stats = [
     {
-      icon: Clock,
-      color: "primary" as const,
       label: "Tempo total",
       value: data?.total_minutes_label ?? "0min",
       hint:
@@ -105,15 +101,11 @@ export default function ProgressPage() {
           : "Nenhum estudo registrado hoje",
     },
     {
-      icon: Trophy,
-      color: "gold" as const,
       label: "Sessões",
       value: String(data?.study_sessions ?? 0),
       hint: "Registradas neste idioma",
     },
     {
-      icon: BarChart3,
-      color: "violet" as const,
       label: "Vocabulário",
       value: String(data?.vocabulary_items ?? 0),
       hint: "Itens salvos",
@@ -124,14 +116,10 @@ export default function ProgressPage() {
     <div>
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
         <div>
-          <p className="text-sm font-semibold text-primary">Acompanhamento</p>
-          <h1 className="mt-2 page-title">Seu progresso</h1>
-          <p className="mt-3 text-text-secondary">
-            Dados reais da sua conta — sem estimativas inventadas.
-          </p>
+          <h1 className="page-title">Seu progresso</h1>
         </div>
         {language && (
-          <p className="rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium">
+          <p className="text-sm font-medium text-text-secondary">
             {language.name_pt}
             {language.current_level
               ? ` · ${levelShortCode(language.current_level)}`
@@ -142,54 +130,37 @@ export default function ProgressPage() {
         )}
       </div>
 
-      <section className="mt-8 grid gap-4 sm:grid-cols-3">
-        {stats.map(({ icon: Icon, color, label, value, hint }) => {
-          const colors = modeColorClasses[color];
-          return (
-            <div key={label} className="panel p-5">
-              <span className={`grid size-11 place-items-center rounded-xl ${colors.bg} ${colors.text}`}>
-                <Icon className="size-5" aria-hidden />
-              </span>
-              <p className="mt-4 text-sm text-text-secondary">{label}</p>
-              <p className="mt-1 text-3xl font-bold tracking-tight">{value}</p>
-              <p className="mt-1 text-xs text-text-secondary">{hint}</p>
-            </div>
-          );
-        })}
+      <section className="panel mt-8 grid grid-cols-2 divide-border md:grid-cols-4 md:divide-x">
+        {[
+          ...stats,
+          {
+            label: "Dias seguidos",
+            value: String(data?.streak_days ?? 0),
+            hint: "Dias com sessão registrada",
+          },
+        ].map(({ label, value, hint }) => (
+          <div key={label} className="p-5 md:p-6">
+            <p className="text-sm text-text-secondary">{label}</p>
+            <p className="display-number mt-2 text-4xl leading-none">{value}</p>
+            <p className="mt-2 text-xs text-text-secondary">{hint}</p>
+          </div>
+        ))}
       </section>
-
-      <div className="mt-4 panel flex items-center gap-3 p-4">
-        <span className="grid size-10 place-items-center rounded-full bg-[var(--streak-soft)] text-[var(--streak-shadow)]">
-          <Flame className="size-5 fill-current" aria-hidden />
-        </span>
-        <div>
-          <p className="text-lg font-bold tracking-tight">{data?.streak_days ?? 0} dia(s) seguidos</p>
-          <p className="text-sm text-text-secondary">
-            Sequência baseada em dias com sessão de estudo registrada.
-          </p>
-        </div>
-      </div>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_.9fr]">
         <section className="panel p-6">
           <h2 className="section-title">Foco do plano</h2>
-          <p className="mt-2 text-sm text-text-secondary">
-            Habilidades e objetivo definidos no onboarding.
-          </p>
           {language?.goal || (language?.skills?.length ?? 0) > 0 ? (
-            <div className="mt-6 grid gap-3">
+            <div className="mt-4 grid gap-4">
               {language?.goal && (
                 <p className="text-sm">
                   <span className="text-text-secondary">Objetivo: </span>
                   <span className="font-semibold">{language.goal}</span>
                 </p>
               )}
-              <ul className="grid gap-2">
+              <ul className="divide-y divide-border border-y border-border">
                 {(language?.skills ?? []).map((skill) => (
-                  <li
-                    key={skill}
-                    className="rounded-xl border border-border bg-[var(--surface-soft)] px-4 py-3 text-sm font-medium"
-                  >
+                  <li key={skill} className="py-2.5 text-sm font-medium">
                     {skill}
                   </li>
                 ))}

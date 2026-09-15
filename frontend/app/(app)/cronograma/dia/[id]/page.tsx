@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { Check, Circle, Lock } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { LessonContent } from "@/components/lesson-modes";
-import { Button, ErrorState, Loading } from "@/components/ui";
+import { Button, ErrorState, Loading, Note } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { levelShortCode } from "@/lib/levels";
 import { useCurriculumDay } from "@/hooks/use-curriculum";
@@ -35,10 +35,15 @@ function ThreadBanner({ lesson }: { lesson: BlockLesson }) {
   const origin = thread?.sources?.length ? thread.sources.join(" → ") : "blocos anteriores";
 
   return (
-    <div className="mb-6 rounded-xl border border-primary/25 bg-primary-soft/40 p-4">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
-        Continua de: {origin}
-      </p>
+    <div
+      className="mb-6 border-l-2 border-primary/40 pl-4"
+      title={
+        thread?.guaranteed === false
+          ? "Conteúdo de biblioteca: o reuso destes itens é sugerido, não garantido dentro do material."
+          : undefined
+      }
+    >
+      <p className="label">Continua de {origin}</p>
       {carried.length > 0 && (
         <p className="mt-2 text-sm leading-6 text-text-secondary">
           Você vai reaproveitar aqui:{" "}
@@ -50,12 +55,6 @@ function ThreadBanner({ lesson }: { lesson: BlockLesson }) {
           Retomando da semana: {recycled.join(", ")}
         </p>
       )}
-      {thread?.guaranteed === false && (
-        <p className="mt-2 text-xs text-text-secondary">
-          Conteúdo de biblioteca: o reuso destes itens é sugerido, não garantido dentro
-          do material.
-        </p>
-      )}
     </div>
   );
 }
@@ -64,10 +63,8 @@ function ThreadBanner({ lesson }: { lesson: BlockLesson }) {
 function DayThread({ thread }: { thread: LessonThread }) {
   if (thread.terms.length === 0 && thread.patterns.length === 0) return null;
   return (
-    <div className="mt-6 rounded-xl border border-border p-3.5">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-        Fio do dia
-      </p>
+    <div className="mt-6 border-t border-border pt-5">
+      <p className="label">Vocabulário do dia</p>
       {thread.terms.length > 0 && (
         <ul className="mt-2 grid gap-1">
           {thread.terms.map((item) => (
@@ -165,7 +162,7 @@ function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
         )}
       </p>
       <div className="panel p-7">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           {item.from_today ? "Você viu isto hoje — recupere sem olhar" : "Recupere da memória"}
         </p>
         <p className="mt-5 text-2xl font-semibold">{prompt}</p>
@@ -212,22 +209,21 @@ function DayObjectiveBanner({
   objective: DayLearningObjective;
 }) {
   return (
-    <div className="mt-6 rounded-xl border border-primary/25 bg-primary-soft/30 p-5">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
-        Objetivo da jornada
+    <div className="mt-6 flex flex-col gap-2 border-y border-border py-4 sm:flex-row sm:items-baseline sm:justify-between sm:gap-6">
+      <p className="text-base leading-7 text-text-primary">
+        <span className="text-text-secondary">Objetivo: </span>
+        <span className="font-semibold">{objective.learner_goal}</span>
       </p>
-      <p className="mt-2 text-base font-semibold leading-7 text-text-primary">
-        {objective.learner_goal}
-      </p>
-      <p className="mt-3 text-sm text-text-secondary">
+      <p
+        className="shrink-0 text-sm text-text-secondary"
+        title={
+          objective.status_label !== "Demonstrado"
+            ? "Concluir os blocos do dia não significa domínio — o domínio exige evidência e transferência."
+            : undefined
+        }
+      >
         Status: <span className="font-semibold text-text-primary">{objective.status_label}</span>
       </p>
-      {objective.status_label !== "Demonstrado" && (
-        <p className="mt-1 text-xs leading-5 text-text-secondary">
-          Concluir os blocos do dia não significa domínio — o domínio exige evidência e
-          transferência.
-        </p>
-      )}
     </div>
   );
 }
@@ -291,8 +287,8 @@ function MiniTeachingPractice({
   }
 
   return (
-    <div className="mb-6 rounded-xl border border-border bg-surface-elevated/40 p-5">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+    <div className="panel mb-6 p-5">
+      <p className="label">
         Prática do objetivo · {session.flow.phase_label_pt}
       </p>
       <div className="mt-4">
@@ -415,20 +411,20 @@ function BlockRunner({
 
   return (
     <div>
-      <div className="mb-6 border-l-2 border-primary pl-4">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
-          {block.phase_label ?? "Etapa"} · {block.skill_label} · {block.estimated_minutes}{" "}
-          min · {levelShortCode(block.cefr_level)}
+      <div className="mb-7">
+        <p className="text-sm text-text-secondary">
+          <span className="font-semibold text-primary">{block.phase_label ?? "Etapa"}</span> ·{" "}
+          {block.skill_label} · {block.estimated_minutes} min · {levelShortCode(block.cefr_level)}
         </p>
-        <h2 className="mt-1.5 text-xl font-semibold tracking-tight">{lesson.title}</h2>
+        <h2 className="mt-2 font-display text-[1.75rem] font-medium leading-tight tracking-[-0.015em]">
+          {lesson.title}
+        </h2>
         <p className="mt-1 text-sm text-text-secondary">{block.topic}</p>
         {block.phase_why && (
-          <p className="mt-3 text-sm leading-6 text-text-secondary">{block.phase_why}</p>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">{block.phase_why}</p>
         )}
         {lesson.provider === "mock" && (
-          <span className="mt-3 inline-flex rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">
-            Gerado em modo mock (IA local)
-          </span>
+          <Note className="mt-3">Gerado em modo mock (IA local)</Note>
         )}
       </div>
 
@@ -488,29 +484,21 @@ export default function CurriculumDayPage() {
       </Link>
 
       <header className="mt-5">
-        <p className="text-sm font-semibold text-primary">
+        <p className="text-sm text-text-secondary">
           Semana {week.week_number} · {week.theme}
           {week.is_checkpoint && (
-            <span className="ml-2 rounded-md bg-[var(--gold-soft)] px-2 py-0.5 text-xs font-semibold text-[var(--gold-ink)]">
-              Checkpoint
-            </span>
+            <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">Checkpoint</span>
           )}
         </p>
         <h1 className="mt-2 page-title">
           Dia {day.day_number}
           {curriculum.duration_days ? ` de ${curriculum.duration_days}` : ""}
         </h1>
-        <p className="mt-2 text-text-secondary">
-          {day.sequence_label ??
-            "Ativar → Estruturar → Compreender → Produzir → Consolidar"}
-        </p>
-        <p className="mt-1 text-sm text-text-secondary">
-          {day.blocks_completed} de {day.blocks_total} blocos · {day.total_minutes} min
-          estimados
-        </p>
-        <p className="mt-1 text-xs text-text-secondary">
-          Planejado originalmente para{" "}
-          {day.scheduled_date.split("-").reverse().join("/")} (ritmo recomendado)
+        <p
+          className="mt-2 text-sm text-text-secondary"
+          title={`Planejado originalmente para ${day.scheduled_date.split("-").reverse().join("/")} (ritmo recomendado)`}
+        >
+          {day.blocks_completed} de {day.blocks_total} blocos · {day.total_minutes} min estimados
         </p>
         <div className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated">
           <div
@@ -525,7 +513,7 @@ export default function CurriculumDayPage() {
       )}
 
       {week.is_checkpoint && finished && (
-        <div className="mt-6 rounded-xl border border-[var(--gold)]/30 bg-[var(--gold-soft)]/40 p-5">
+        <div className="panel mt-6 p-5">
           <p className="text-sm font-semibold text-[var(--gold-ink)]">
             Semana de checkpoint
           </p>
@@ -556,13 +544,11 @@ export default function CurriculumDayPage() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-8 lg:grid-cols-[16rem_1fr]">
-        <nav aria-label="Caminho do dia">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
-            Sequência obrigatória
-          </p>
+      <div className="mt-8 grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)]">
+        <nav aria-label="Caminho do dia" className="lg:sticky lg:top-6 lg:self-start">
+          <p className="label mb-3">Sequência do dia</p>
           <ol className="grid gap-1">
-            {day.blocks.map((block) => {
+            {day.blocks.map((block, index) => {
               const done = block.status === "completed";
               const locked = Boolean(block.locked);
               const selected = active?.id === block.id;
@@ -575,23 +561,33 @@ export default function CurriculumDayPage() {
                       if (!locked) setActiveBlockId(block.id);
                     }}
                     aria-current={selected ? "step" : undefined}
-                    className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                    className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
                       selected
-                        ? "bg-primary-soft font-semibold text-primary"
+                        ? "bg-surface font-semibold text-text-primary shadow-[inset_0_0_0_1px_var(--border)]"
                         : locked
-                          ? "cursor-not-allowed opacity-55"
+                          ? "cursor-not-allowed text-text-secondary"
                           : "hover:bg-surface-elevated"
                     }`}
                   >
-                    {done ? (
-                      <Check className="size-4 shrink-0 text-success" aria-hidden />
-                    ) : locked ? (
-                      <Lock className="size-4 shrink-0 text-text-secondary" aria-hidden />
-                    ) : (
-                      <Circle className="size-4 shrink-0 text-border" aria-hidden />
-                    )}
+                    <span
+                      className={`display-number grid size-7 shrink-0 place-items-center rounded-full text-sm ${
+                        done
+                          ? "bg-success text-white"
+                          : selected
+                            ? "bg-primary text-white"
+                            : "border border-border bg-background text-text-secondary"
+                      }`}
+                    >
+                      {done ? (
+                        <Check className="size-3.5" aria-hidden />
+                      ) : locked ? (
+                        <Lock className="size-3" aria-hidden />
+                      ) : (
+                        index + 1
+                      )}
+                    </span>
                     <span className="min-w-0 flex-1">
-                      <span className={`block truncate ${done ? "line-through" : ""}`}>
+                      <span className={`block leading-5 ${done ? "text-text-secondary" : ""}`}>
                         {block.skill_label}
                       </span>
                       {block.phase_label && (
@@ -600,8 +596,8 @@ export default function CurriculumDayPage() {
                         </span>
                       )}
                     </span>
-                    <span className="shrink-0 text-xs text-text-secondary tabular-nums">
-                      {block.estimated_minutes}min
+                    <span className="shrink-0 text-xs font-normal text-text-secondary tabular-nums">
+                      {block.estimated_minutes} min
                     </span>
                   </button>
                 </li>
@@ -632,7 +628,7 @@ export default function CurriculumDayPage() {
                 {day.next_day?.available && (
                   <Link
                     href={`/cronograma/dia/${day.next_day.id}`}
-                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+                    className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
                   >
                     Continuar para o Dia {day.next_day.day_number}
                   </Link>
@@ -642,7 +638,7 @@ export default function CurriculumDayPage() {
                   className={
                     day.next_day?.available
                       ? "text-sm font-semibold text-text-secondary hover:text-primary"
-                      : "inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+                      : "inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
                   }
                 >
                   Voltar ao cronograma

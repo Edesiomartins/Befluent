@@ -253,7 +253,7 @@ export default function PlacementResultPage() {
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {ranked && (
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                <p className="label">
                   Ponto forte
                 </p>
                 <p className="mt-2 text-sm font-medium">{ranked[0].label}</p>
@@ -262,7 +262,7 @@ export default function PlacementResultPage() {
             {hasPriorities && (
               <div>
                 {ranked && (
-                  <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                  <p className="label">
                     Prioridades de estudo
                   </p>
                 )}
@@ -289,13 +289,13 @@ export default function PlacementResultPage() {
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
         <Link
           href={result.curriculum?.day_href || "/dashboard"}
-          className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+          className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
         >
           {result.curriculum ? "Continuar caminho" : "Ir para o dashboard"}
         </Link>
         <Link
           href="/dashboard"
-          className="inline-flex min-h-11 items-center rounded-xl border-2 border-border bg-surface px-5 text-sm font-bold shadow-[0_4px_0_var(--secondary-shadow)] hover:bg-surface-elevated"
+          className="inline-flex min-h-11 items-center rounded-xl border-2 border-border bg-surface px-5 text-sm font-bold hover:bg-surface-elevated"
         >
           Ver painel
         </Link>

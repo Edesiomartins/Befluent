@@ -52,7 +52,7 @@ export function Logo({
         />
       </svg>
       {showWordmark && (
-        <span className={`text-lg font-semibold tracking-tight ${textColor}`}>
+        <span className={`text-lg font-semibold tracking-[-0.02em] ${textColor}`}>
           {BRAND.name}
         </span>
       )}

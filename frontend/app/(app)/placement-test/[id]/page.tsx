@@ -216,7 +216,7 @@ export default function PlacementTestRunnerPage() {
           </section>
         ) : stage === "writing" ? (
           <section className="panel p-6">
-            <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            <p className="label">
               {item.skill_label}
             </p>
             <h1 className="mt-3 text-lg font-semibold leading-7">{item.prompt}</h1>
@@ -257,7 +257,7 @@ export default function PlacementTestRunnerPage() {
           </section>
         ) : (
           <section className="panel p-6">
-            <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            <p className="label">
               {item.skill_label}
             </p>
 

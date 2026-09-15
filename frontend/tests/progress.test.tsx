@@ -56,7 +56,7 @@ describe("ProgressPage", () => {
     expect(await screen.findByText("35min")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText(/1 dia\(s\) seguidos/)).toBeInTheDocument();
+    expect(screen.getByText("Dias seguidos").nextElementSibling).toHaveTextContent("1");
     expect(screen.getByText("Conversar com confiança")).toBeInTheDocument();
     expect(screen.queryByText("18h 42min")).not.toBeInTheDocument();
     expect(screen.queryByText("386")).not.toBeInTheDocument();

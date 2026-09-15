@@ -113,7 +113,7 @@ export function TutorChatWidget() {
         aria-expanded={open}
         aria-controls={panelId}
         aria-label={open ? "Fechar tutor de apoio" : "Abrir tutor de apoio"}
-        className="fixed bottom-20 right-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-white shadow-[0_4px_0_var(--primary-shadow)] transition hover:bg-[var(--primary-hover)] lg:bottom-6 lg:right-6"
+        className="fixed bottom-20 right-4 z-40 grid size-14 place-items-center rounded-full bg-primary text-white transition hover:bg-[var(--primary-hover)] lg:bottom-6 lg:right-6"
       >
         {open ? <X className="size-6" aria-hidden /> : <Bot className="size-6" aria-hidden />}
       </button>
@@ -142,7 +142,7 @@ export function TutorChatWidget() {
           </div>
 
           {demoMode && (
-            <p className="border-b border-border bg-warning/10 px-4 py-2 text-xs leading-5 text-warning">
+            <p className="note border-b border-border bg-surface-soft px-4 py-2">
               Resposta em modo local (mock de desenvolvimento). Não é o tutor de IA.
             </p>
           )}

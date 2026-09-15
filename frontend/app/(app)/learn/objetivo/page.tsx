@@ -198,7 +198,7 @@ export default function ObjectiveSlicePage() {
       {session && (
         <div className="mt-8 space-y-6">
           <div className="rounded-2xl border border-border bg-surface px-5 py-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
+            <p className="label">
               Estado pedagógico
             </p>
             <p className="mt-2 text-lg font-semibold text-text-primary">

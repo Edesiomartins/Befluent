@@ -68,7 +68,7 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
       </div>
       {current ? (
         <section className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+          <p className="label !text-primary">
             {current.title}
           </p>
           <p className="mt-4 text-lg leading-8">{current.explanation}</p>
@@ -83,7 +83,7 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
         </section>
       ) : (
         <section className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+          <p className="label !text-primary">
             Verificação
           </p>
           <p className="mt-4 text-lg leading-8">{lesson.check_question}</p>
@@ -106,7 +106,7 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
               setCompleting(true);
               void completeLesson(lesson.lesson_id).finally(() => setCompleting(false));
             }}
-            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)] ${completing ? "pointer-events-none opacity-70" : ""}`}
+            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--primary-hover)] ${completing ? "pointer-events-none opacity-70" : ""}`}
           >
             {completing ? "Concluindo…" : "Concluir aula"}
           </Link>
@@ -120,7 +120,7 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
   return (
     <div className="grid gap-5">
       <div className="panel p-5">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Situação
         </p>
         <p className="mt-2 font-medium">{lesson.situation}</p>
@@ -210,13 +210,13 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
   return (
     <div className="grid gap-5 md:grid-cols-[1.1fr_.9fr]">
       <div className="panel p-5">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Situação
         </p>
         <p className="mt-2 font-medium">{lesson.situation}</p>
 
         <div className="mt-6 rounded-xl bg-surface-elevated p-5 text-center">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          <p className="label">
             {turnCount === 0 ? "O tutor começou" : "O tutor respondeu"}
           </p>
           <div className="mt-4 flex justify-center">
@@ -292,7 +292,7 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
       {current && (
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+            <p className="label">
               Frase {phrase + 1} de {lesson.target_phrases.length}
             </p>
             <button
@@ -418,7 +418,7 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
         <span>Nível {lesson.level}</span>
       </div>
       <div className="panel min-h-80 p-7 sm:p-10">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Expressão
         </p>
         <h2 className="mt-5 text-3xl font-semibold tracking-tight">{item.term}</h2>
@@ -594,7 +594,7 @@ function Reading({ lesson }: { lesson: ReadingLesson }) {
   return (
     <div className="grid gap-8 lg:grid-cols-[1.5fr_.7fr]">
       <article className="panel p-6 sm:p-9">
-        <p className="mb-5 text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="mb-5 label">
           Leitura · nível {lesson.level}
         </p>
         <h2 className="text-2xl font-semibold tracking-tight">{lesson.title}</h2>
@@ -690,7 +690,7 @@ function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
             </span>
           )}
           {heuristic && (
-            <span className="rounded-md bg-warning/15 px-2.5 py-1.5 text-xs font-semibold text-warning">
+            <span className="text-xs font-semibold text-text-secondary">
               Sem correção gramatical completa
             </span>
           )}
@@ -701,7 +701,7 @@ function WritingFeedbackPanel({ feedback }: { feedback: WritingFeedback }) {
         )}
 
         {heuristic && (
-          <p className="mt-4 rounded-lg bg-warning/10 p-3 text-xs leading-5 text-warning">
+          <p className="note mt-4 border-t border-border pt-3">
             Avaliação preliminar. Sem a IA conectada, o BeFluent mede extensão, segmentação
             em frases e variedade de palavras — não corrige gramática nem vocabulário.
             Isto não é uma avaliação linguística completa.
@@ -870,7 +870,7 @@ function Review({ lesson }: { lesson: ReviewLesson }) {
         Prática gerada (sem fila SRS). Itens salvos no vocabulário entram na revisão real.
       </p>
       <div className="panel p-8">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Recupere da memória
         </p>
         <p className="mt-6 text-2xl font-semibold">{item.prompt}</p>

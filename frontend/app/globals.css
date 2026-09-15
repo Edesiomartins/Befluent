@@ -1,18 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8fd;
+  --background: #f7f9fc;
   --surface: #ffffff;
-  --surface-soft: #eef3ff;
-  --surface-elevated: #e4edff;
-  --text-primary: #1a2033;
-  --text-secondary: #5b6472;
-  --border: #e1e7f5;
+  --surface-soft: #f1f4f9;
+  --surface-elevated: #edf1f7;
+  --text-primary: #14213d;
+  --text-secondary: #5a6478;
+  --border: #e2e8f0;
 
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-strong: #0f2a5f;
-  --primary-deep: #0b1f44;
+  --primary-deep: #14213d;
   --primary-soft: #dbeafe;
   --primary-shadow: #17469e;
 
@@ -72,6 +72,7 @@
   --color-teal: var(--teal);
   --color-rose: var(--rose);
   --font-sans: var(--font-inter);
+  --font-display: var(--font-newsreader);
 }
 
 * { box-sizing: border-box; }
@@ -91,22 +92,54 @@ button, a { -webkit-tap-highlight-color: transparent; }
 }
 
 .page-title {
-  font-size: clamp(1.75rem, 4vw, 2.35rem);
-  font-weight: 700;
-  letter-spacing: -0.035em;
-  line-height: 1.1;
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4.2vw, 2.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.08;
+}
+.display-number {
+  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: lining-nums tabular-nums;
 }
 .section-title {
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.015em;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+/* Rótulo de seção: frase normal, discreto — substitui os eyebrows em caixa alta. */
+.label {
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
 }
 .panel {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 24px -18px rgba(15, 23, 42, .35);
+  border-radius: 1rem;
 }
+/* Nota informativa (modo local, ressalvas): presente, mas sem gritar. */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: .4rem;
+  font-size: .75rem;
+  line-height: 1.25rem;
+  color: var(--text-secondary);
+}
+details.disclosure > summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: .8125rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+details.disclosure > summary::-webkit-details-marker { display: none; }
+details.disclosure > summary:hover { color: var(--primary); }
+details.disclosure > summary::after { content: " +"; }
+details.disclosure[open] > summary::after { content: " −"; }
 .muted { color: var(--text-secondary); }
 .skeleton {
   border-radius: .75rem;

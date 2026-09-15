@@ -251,7 +251,7 @@ export function SpeechCoach({
   return (
     <div className="grid gap-5">
       <p
-        className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary"
+        className="label"
         role="status"
       >
         {phaseLabel[phase]}
@@ -259,7 +259,7 @@ export function SpeechCoach({
       </p>
 
       <div className="panel p-5">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Frase para falar
         </p>
         <p className="mt-3 text-2xl font-medium leading-snug">{targetText}</p>
@@ -277,7 +277,7 @@ export function SpeechCoach({
 
       {chunkMode && result?.practice_chunk && (
         <div className="panel border-primary/25 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+          <p className="label !text-primary">
             Trecho para praticar
           </p>
           <p className="mt-3 text-xl font-medium">{result.practice_chunk}</p>
@@ -325,7 +325,7 @@ export function SpeechCoach({
 
       {result && (phase === "feedback" || phase === "chunk_practice") && (
         <div className="panel p-5">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+          <p className="label">
             O BeFluent entendeu
           </p>
           <p className="mt-2 text-base leading-7">
@@ -335,7 +335,7 @@ export function SpeechCoach({
           {result.alignment_sequence?.length > 0 && (
             <div className="mt-5 grid gap-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+                <p className="label">
                   Comparação com a frase-alvo
                 </p>
                 <div className="mt-2">
@@ -419,7 +419,7 @@ export function SpeechCoach({
 
       {showTransfer && transferPrompt && result?.success && (
         <div className="panel border-primary/20 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[.12em] text-primary">
+          <p className="label !text-primary">
             Agora use com as suas palavras
           </p>
           <p className="mt-3 text-base leading-7 text-text-primary">{transferPrompt}</p>

@@ -36,8 +36,8 @@ const SOURCE_LABELS: Record<string, string> = {
 function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
   const source = SOURCE_LABELS[lesson.level_source] ?? "padrão";
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <span className="w-fit rounded-md bg-primary-soft px-2.5 py-1.5 text-xs font-semibold text-primary">
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:justify-end">
+      <span className="w-fit text-sm font-medium text-text-secondary">
         Nível {lesson.level} · {source}
       </span>
       {!lesson.level_is_estimated && (
@@ -49,7 +49,7 @@ function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
         </Link>
       )}
       {lesson.provider === "mock" && (
-        <span className="w-fit rounded-md bg-info/10 px-2.5 py-1.5 text-xs font-semibold text-info">
+        <span className="note w-fit">
           Gerado em modo mock (IA local)
         </span>
       )}
@@ -207,7 +207,7 @@ function DueReviews() {
         <span>{item.item_type}</span>
       </div>
       <div className="panel p-8">
-        <p className="text-xs font-semibold uppercase tracking-[.12em] text-text-secondary">
+        <p className="label">
           Recupere da memória
         </p>
         <p className="mt-6 text-2xl font-semibold">{prompt}</p>
@@ -257,7 +257,7 @@ function Assessment() {
       </p>
       <Link
         href="/placement-test"
-        className="mt-7 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)]"
+        className="mt-7 inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
       >
         Ir para o teste de nivelamento
       </Link>

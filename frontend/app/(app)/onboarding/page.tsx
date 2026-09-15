@@ -232,7 +232,7 @@ export default function OnboardingPage() {
                 onClick={() => setMinutes(value)}
                 className={`min-h-11 rounded-xl border-2 px-5 text-sm font-bold transition ${
                   minutes === value
-                    ? "border-primary bg-primary text-white shadow-[0_3px_0_var(--primary-shadow)]"
+                    ? "border-primary bg-primary text-white"
                     : "border-border bg-surface hover:border-primary/40"
                 }`}
               >

@@ -82,7 +82,7 @@ export default function PlacementTestIntroPage() {
           </p>
           <Link
             href={`/placement-test/${existing.id}`}
-            className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white shadow-[0_4px_0_var(--primary-shadow)]"
+            className="mt-4 inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white"
           >
             Retomar teste
           </Link>

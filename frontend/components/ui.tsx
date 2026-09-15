@@ -5,7 +5,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
-import { AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { AlertTriangle, Eye, EyeOff, Info } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
 
@@ -30,19 +30,16 @@ export function Button({
   ...props
 }: ButtonProps) {
   const styles = {
-    primary:
-      "bg-primary text-white shadow-[0_4px_0_var(--primary-shadow)] hover:bg-[var(--primary-hover)] active:translate-y-[3px] active:shadow-[0_1px_0_var(--primary-shadow)]",
+    primary: "bg-primary text-white hover:bg-[var(--primary-hover)]",
     secondary:
-      "border-2 border-border bg-surface text-text-primary shadow-[0_4px_0_var(--secondary-shadow)] hover:bg-surface-elevated active:translate-y-[3px] active:shadow-[0_1px_0_var(--secondary-shadow)]",
-    success:
-      "bg-success text-white shadow-[0_4px_0_var(--success-shadow)] hover:opacity-95 active:translate-y-[3px] active:shadow-[0_1px_0_var(--success-shadow)]",
-    danger:
-      "bg-danger text-white shadow-[0_4px_0_var(--danger-shadow)] hover:opacity-95 active:translate-y-[3px] active:shadow-[0_1px_0_var(--danger-shadow)]",
+      "border border-border bg-surface text-text-primary hover:border-text-secondary/40 hover:bg-surface-soft",
+    success: "bg-success text-white hover:opacity-95",
+    danger: "bg-danger text-white hover:opacity-95",
     ghost: "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
   };
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold transition-[transform,box-shadow,background-color] duration-100 disabled:cursor-not-allowed disabled:opacity-55 disabled:active:translate-y-0 disabled:active:shadow-[0_4px_0_var(--secondary-shadow)] ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
       disabled={disabled || loading}
       {...props}
     >
@@ -68,7 +65,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       <input
         ref={ref}
         id={inputId}
-        className={`min-h-11 rounded-xl border-2 bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+        className={`min-h-11 rounded-xl border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
@@ -95,7 +92,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             id={inputId}
             type={visible ? "text" : "password"}
-            className={`min-h-11 w-full rounded-xl border-2 bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+            className={`min-h-11 w-full rounded-xl border bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${inputId}-error` : undefined}
             {...props}
@@ -124,6 +121,16 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     );
   },
 );
+
+/** Nota informativa discreta: ressalvas e modo local ficam visíveis sem virar alerta. */
+export function Note({ children, className = "" }: { children: ReactNode; className?: string }) {
+  return (
+    <p className={`note ${className}`}>
+      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </p>
+  );
+}
 
 export function Loading({ label = "Carregando" }: { label?: string }) {
   return (
@@ -170,7 +177,7 @@ export function ErrorState({
   const waiting = aiUnavailable && remaining > 0;
 
   return (
-    <div className="rounded-2xl border border-danger/25 bg-danger/5 p-5" role="alert">
+    <div className="rounded-xl border border-danger/20 bg-surface p-5" role="alert">
       <h2 className="flex items-center gap-2 font-semibold text-danger">
         <AlertTriangle className="size-5 shrink-0" aria-hidden />
         {aiUnavailable ? "IA temporariamente indisponível" : "Algo não saiu como esperado"}
