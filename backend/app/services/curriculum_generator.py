@@ -353,9 +353,9 @@ def total_weeks_for(duration_days: int) -> int:
     return math.ceil(duration_days / DAYS_PER_WEEK)
 
 
-def is_checkpoint_week(week_number: int) -> bool:
-    """Semana 1 calibra o plano; semanas pares acompanham seu progresso."""
-    return week_number == 1 or week_number % 2 == 0
+def is_checkpoint_week(week_number: int, *, has_week_one_priority: bool = False) -> bool:
+    """Semanas pares acompanham o progresso; semana 1 só calibra prioridades válidas."""
+    return week_number % 2 == 0 or (week_number == 1 and has_week_one_priority)
 
 
 def priority_block_skills(profile: UserLanguage, *, generated_from: str) -> tuple[str, ...]:
@@ -569,7 +569,10 @@ def generate_curriculum(
             week_number=week_number,
             theme=theme,
             cefr_focus=cefr_level,
-            is_checkpoint=is_checkpoint_week(week_number),
+            is_checkpoint=is_checkpoint_week(
+                week_number,
+                has_week_one_priority=bool(week_one_priorities),
+            ),
         )
         db.add(week)
         db.flush()

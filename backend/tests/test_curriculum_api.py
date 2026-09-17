@@ -189,6 +189,7 @@ class TestConsulta:
         assert body["weeks"]
         assert all(week["theme"] for week in body["weeks"])
         assert any(week["is_checkpoint"] for week in body["weeks"])
+        assert body["weeks"][0]["is_checkpoint"] is False
         assert body["progress"]["next_checkpoint_week"] == 2
 
     def test_sem_cronograma_responde_404(self, client, auth, db_session):

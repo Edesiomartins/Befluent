@@ -99,6 +99,7 @@ def record_checkpoint(db, curriculum, user, *, week_number, band, accuracy, minu
 class TestAberturaDoCheckpoint:
     def test_semana_um_cria_checkpoint_de_calibracao(self, db_session):
         profile, user = setup_profile(db_session)
+        profile.recommendations_json = [{"skill": "listening", "priority": 1}]
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
         week = week_of(db_session, curriculum, 1)

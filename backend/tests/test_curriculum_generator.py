@@ -272,8 +272,9 @@ class TestGeracao:
             skills = [block.skill for block in blocks_of(db_session, day)]
             assert skills == [BlockSkill.READING, BlockSkill.REVIEW]
 
-    def test_semana_um_e_semanas_pares_sao_checkpoint(self, db_session):
+    def test_checkpoint_de_calibracao_so_existe_com_prioridade_placement_valida(self, db_session):
         profile = make_profile(db_session)
+        profile.recommendations_json = [{"skill": "listening", "priority": 1}]
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
         weeks = list(
@@ -287,6 +288,39 @@ class TestGeracao:
         for week in weeks:
             assert week.is_checkpoint is (week.week_number == 1 or week.week_number % 2 == 0)
             assert week.theme, "semana sem tema comunicativo"
+
+    def test_curriculo_manual_ou_placement_sem_prioridades_so_tem_checkpoint_par(self, db_session):
+        profile = make_profile(db_session)
+        profile.recommendations_json = [{"skill": "listening", "priority": 1}]
+
+        manual = generate_curriculum(
+            db_session,
+            profile.id,
+            90,
+            start_date=START,
+            generated_from="manual",
+        )
+        db_session.commit()
+
+        profile.recommendations_json = []
+        placement_sem_prioridade = generate_curriculum(
+            db_session,
+            profile.id,
+            90,
+            start_date=START,
+        )
+        db_session.commit()
+
+        for curriculum in (manual, placement_sem_prioridade):
+            weeks = list(
+                db_session.scalars(
+                    select(CurriculumWeek)
+                    .where(CurriculumWeek.curriculum_id == curriculum.id)
+                    .order_by(CurriculumWeek.week_number)
+                )
+            )
+            assert weeks
+            assert [week.week_number for week in weeks if week.is_checkpoint] == [2, 4, 6, 8, 10, 12]
 
     def test_regenerar_arquiva_o_anterior(self, db_session):
         profile = make_profile(db_session)
