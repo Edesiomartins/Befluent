@@ -5,7 +5,17 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Loading } from "@/components/ui";
 import { ProgressActivityChart, type DailyActivity } from "@/components/progress-activity-chart";
+import { MasteryProgressChart, type MasteryTimelinePoint } from "@/components/mastery-progress-chart";
 import { levelShortCode } from "@/lib/levels";
+
+type MasteryData = {
+  status: "ready" | "calibrating" | "unavailable";
+  overall_percent: number | null;
+  by_skill: Array<{ skill: string; percent: number | null; label?: string }>;
+  timeline: MasteryTimelinePoint[];
+  cefr: { current: string; next: string; readiness_percent: number } | null;
+  priorities: Array<{ skill: string; href?: string; label?: string; reason?: string }>;
+};
 
 type ProgressData = {
   vocabulary_items: number;
@@ -15,6 +25,7 @@ type ProgressData = {
   minutes_today: number;
   total_minutes_label: string;
   daily_activity?: DailyActivity;
+  mastery?: MasteryData;
   recent_activity: Array<{
     id: string;
     status: string;
@@ -33,6 +44,19 @@ type ProgressData = {
     skills: string[];
   } | null;
 };
+
+const skillLabels: Record<string, string> = {
+  reading: "Leitura",
+  listening: "Escuta",
+  writing: "Escrita",
+  speaking: "Fala",
+  grammar: "Gramática",
+  vocabulary: "Vocabulário",
+};
+
+function skillLabel(skill: string, label?: string) {
+  return label ?? skillLabels[skill] ?? skill;
+}
 
 function activityLabel(session: ProgressData["recent_activity"][number]) {
   if (session.summary) return session.summary;
@@ -104,6 +128,8 @@ export default function ProgressPage() {
   }
 
   const language = data?.active_language ?? null;
+  const mastery = data?.mastery;
+  const hasDemonstratedMastery = mastery?.status === "ready" && typeof mastery.overall_percent === "number";
   const stats = [
     {
       label: "Tempo total",
@@ -143,7 +169,49 @@ export default function ProgressPage() {
         )}
       </div>
 
-      <section className="panel mt-8 grid grid-cols-2 divide-border md:grid-cols-4 md:divide-x">
+      <section className="panel mt-8 p-6 sm:p-8">
+        <p className="label">Aprendizado baseado em evidências</p>
+        <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+          <div>
+            <h2 className="font-display text-[1.75rem] font-medium leading-tight tracking-[-0.015em]">Domínio demonstrado</h2>
+            {hasDemonstratedMastery ? (
+              <p className="mt-3 font-display text-5xl font-medium leading-none tracking-[-0.03em]">{mastery.overall_percent}%</p>
+            ) : (
+              <p className="mt-3 text-sm text-text-secondary">Dados em calibração: pratique atividades com objetivo para formar uma medida confiável.</p>
+            )}
+          </div>
+          {hasDemonstratedMastery && mastery.cefr && (
+            <div className="rounded-xl border border-border bg-surface-soft px-4 py-3 sm:text-right">
+              <p className="text-xs text-text-secondary">Caminho CEFR</p>
+              <p className="mt-1 font-display text-2xl leading-none">{mastery.cefr.current} → {mastery.cefr.next}</p>
+              <p className="mt-2 text-xs text-text-secondary">{mastery.cefr.readiness_percent}% de prontidão</p>
+            </div>
+          )}
+        </div>
+        {hasDemonstratedMastery && mastery.by_skill.length > 0 && (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2">
+            {mastery.by_skill.map((skill) => (
+              <div key={skill.skill}>
+                <div className="flex justify-between gap-4 text-sm"><span className="font-medium">{skillLabel(skill.skill, skill.label)}</span><span className="tabular-nums text-text-secondary">{skill.percent}%</span></div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-soft"><div className="h-full rounded-full bg-primary" style={{ width: `${skill.percent}%` }} /></div>
+              </div>
+            ))}
+          </div>
+        )}
+        {hasDemonstratedMastery && mastery.priorities.length > 0 && (
+          <div className="mt-6 border-t border-border pt-5">
+            <p className="text-sm font-semibold">Prioridades para avançar</p>
+            <ul className="mt-2 grid gap-2 text-sm">
+              {mastery.priorities.slice(0, 3).map((priority, index) => (
+                <li key={`${priority.skill}-${index}`}><Link className="font-medium text-primary hover:underline" href={priority.href ?? "/learn"}>{priority.label ?? priority.reason ?? skillLabel(priority.skill)}</Link></li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {hasDemonstratedMastery && <MasteryProgressChart timeline={mastery.timeline} />}
+      </section>
+
+      <section className="panel mt-8 grid grid-cols-2 divide-border md:grid-cols-4 md:divide-x" aria-label="Métricas de hábito">
         {[
           ...stats,
           {

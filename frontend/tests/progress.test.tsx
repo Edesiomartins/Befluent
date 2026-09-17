@@ -172,4 +172,71 @@ describe("ProgressPage", () => {
     expect(apiMock).toHaveBeenLastCalledWith("/api/v1/progress?days=30");
     expect(screen.getByRole("row", { name: /20 de agosto de 2026 25 min/ })).toBeInTheDocument();
   });
+
+  it("mostra domínio, caminho CEFR e tabela acessível", async () => {
+    apiMock.mockResolvedValue({
+      vocabulary_items: 3,
+      study_sessions: 2,
+      streak_days: 1,
+      total_minutes: 35,
+      minutes_today: 12,
+      total_minutes_label: "35min",
+      daily_activity: { period_start: "2026-09-11", period_end: "2026-09-17", timezone: "America/Sao_Paulo", total_minutes: 35, days: [] },
+      recent_activity: [],
+      active_language: null,
+      mastery: {
+        status: "ready",
+        overall_percent: 54,
+        by_skill: [
+          { skill: "reading", label: "Leitura", percent: 70 },
+          { skill: "listening", label: "Escuta", percent: 38 },
+        ],
+        timeline: [
+          { date: "2026-09-16", percent: 50 },
+          { date: "2026-09-17", percent: 54 },
+        ],
+        cefr: { current: "A2", next: "B1", readiness_percent: 54 },
+        priorities: [{ skill: "listening", label: "Praticar escuta", href: "/learn" }],
+      },
+    });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByRole("heading", { name: "Domínio demonstrado" })).toBeInTheDocument();
+    expect(screen.getAllByText("54%").length).toBeGreaterThan(0);
+    expect(screen.getByText("A2 → B1")).toBeInTheDocument();
+    expect(screen.getByText("Leitura")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Praticar escuta" })).toHaveAttribute("href", "/learn");
+    expect(screen.getByRole("img", { name: "Evolução do domínio demonstrado" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Domínio por dia" })).toBeInTheDocument();
+  });
+
+  it("não mostra zero artificial durante calibração", async () => {
+    apiMock.mockResolvedValue({
+      vocabulary_items: 0,
+      study_sessions: 0,
+      streak_days: 0,
+      total_minutes: 0,
+      minutes_today: 0,
+      total_minutes_label: "0min",
+      daily_activity: { period_start: "2026-09-11", period_end: "2026-09-17", timezone: "America/Sao_Paulo", total_minutes: 0, days: [] },
+      recent_activity: [],
+      active_language: null,
+      mastery: {
+        status: "calibrating",
+        overall_percent: null,
+        by_skill: [],
+        timeline: [{ date: "2026-09-17", percent: null }],
+        cefr: null,
+        priorities: [],
+      },
+    });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByText(/dados em calibração/i)).toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Domínio por dia" })).not.toBeInTheDocument();
+  });
 });
