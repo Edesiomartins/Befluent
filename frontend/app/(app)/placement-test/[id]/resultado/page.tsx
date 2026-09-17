@@ -12,6 +12,7 @@ import type { PlacementResult, SkillResult } from "@/types/placement";
 
 const STATUS_LABELS: Record<SkillResult["status"], string> = {
   assessed: "",
+  calibrating: "em calibração",
   not_assessed: "não avaliada",
   not_available: "não avaliada",
 };
@@ -186,22 +187,35 @@ export default function PlacementResultPage() {
 
   const notAssessed = result.skills.filter((skill) => skill.status !== "assessed");
   const ranked = rankSkills(result);
-  const hasPriorities = result.recommendations.length > 0;
+  const priorities = result.priority_focus ?? result.recommendations;
+  const hasPriorities = priorities.length > 0;
+  const calibrating = result.diagnostic_status === "calibrating";
 
   return (
     <div className="mx-auto max-w-3xl">
       <p className="text-sm font-semibold text-primary">Resultado</p>
-      <h1 className="mt-2 page-title">Seu nível estimado</h1>
+      <h1 className="mt-2 page-title">
+        {calibrating ? "Estamos calibrando suas habilidades" : "Seu nível estimado"}
+      </h1>
 
       <section className="panel mt-7 p-6">
-        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
-          <span className="text-4xl font-bold tracking-tight text-primary">
-            {levelShortCode(result.overall_level) ?? "—"}
-          </span>
-          <span className="text-lg font-semibold">{result.overall?.name_pt}</span>
-        </div>
-        {result.overall && (
-          <p className="mt-3 leading-7 text-text-secondary">{result.overall.short_description}</p>
+        {calibrating ? (
+          <p className="leading-7 text-text-secondary">
+            Ainda não há evidência objetiva suficiente para estimar seu nível. Pratique as
+            prioridades abaixo para completar a calibração.
+          </p>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+              <span className="text-4xl font-bold tracking-tight text-primary">
+                {levelShortCode(result.overall_level)}
+              </span>
+              <span className="text-lg font-semibold">{result.overall?.name_pt}</span>
+            </div>
+            {result.overall && (
+              <p className="mt-3 leading-7 text-text-secondary">{result.overall.short_description}</p>
+            )}
+          </>
         )}
         <p className="mt-4 text-sm text-text-secondary">{skillMessage(result, ranked)}</p>
 
@@ -267,13 +281,21 @@ export default function PlacementResultPage() {
                   </p>
                 )}
                 <ul className="mt-2 grid gap-1.5 text-sm">
-                  {result.recommendations.slice(0, 4).map((item) => (
+                  {priorities.slice(0, 3).map((item) => (
                     <li key={`${item.skill}-${item.reason}`}>
-                      {SKILL_LABELS[item.skill]}
+                      {item.href ? (
+                        <Link href={item.href} className="font-medium text-primary hover:underline">
+                          Praticar {SKILL_LABELS[item.skill].toLowerCase()}
+                        </Link>
+                      ) : (
+                        SKILL_LABELS[item.skill]
+                      )}
                       <span className="text-text-secondary">
-                        {item.reason === "not_assessed"
-                          ? " — avaliar futuramente"
-                          : " — abaixo do nível geral"}
+                        {item.reason === "below_overall"
+                          ? " — abaixo do nível geral"
+                          : item.reason === "lowest_accuracy"
+                            ? " — menor acurácia recente"
+                            : " — precisa de mais evidência"}
                       </span>
                     </li>
                   ))}
@@ -284,7 +306,9 @@ export default function PlacementResultPage() {
         </section>
       )}
 
-      <BuildCurriculum languageCode={result.language_code} curriculum={result.curriculum} />
+      {!calibrating && (
+        <BuildCurriculum languageCode={result.language_code} curriculum={result.curriculum} />
+      )}
 
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
         <Link

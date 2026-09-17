@@ -54,13 +54,14 @@ export type SkillResult = {
   level: LevelDetails | null;
   score: number;
   max_score: number;
-  status: "assessed" | "not_assessed" | "not_available";
+  status: "assessed" | "calibrating" | "not_assessed" | "not_available";
 };
 
 export type Recommendation = {
   skill: Skill;
-  reason: "below_overall" | "not_assessed";
+  reason: "below_overall" | "not_assessed" | "insufficient_evidence" | "lowest_accuracy";
   priority: number;
+  href?: string;
 };
 
 export type PlacementResult = {
@@ -73,9 +74,11 @@ export type PlacementResult = {
   overall: LevelDetails | null;
   confidence_score: number | null;
   confidence_label: string | null;
+  diagnostic_status: "ready" | "calibrating";
   items_answered: number | null;
   weights_used: Record<string, number>;
   recommendations: Recommendation[];
+  priority_focus: Recommendation[];
   skills: SkillResult[];
   speaking_available: boolean;
   disclaimer: string;

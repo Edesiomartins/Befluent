@@ -2,8 +2,10 @@
 
 from sqlalchemy import select
 
-from app.core.levels import LEVEL_ORDER
+from app.api import placement_tests
+from app.core.levels import LEVEL_ORDER, CEFRLevel, Skill
 from app.models import PlacementItem, PlacementTest, UserLanguage
+from app.services import placement_engine as engine
 
 
 def create_test(client, auth, language="en", beginner=False):
@@ -118,6 +120,35 @@ class TestOwnership:
 
 
 class TestItemDelivery:
+    def test_fallback_respeita_faixa_da_habilidade_preferida(self, db_session):
+        """Quebraria se o fallback usar a faixa global em vez da habilidade."""
+        state = engine.TestState()
+        engine.register_answer(
+            state, engine.AnswerRecord(Skill.VOCABULARY_GRAMMAR, CEFRLevel.A2, 1.0)
+        )
+        engine.register_answer(
+            state, engine.AnswerRecord(Skill.LISTENING, CEFRLevel.A2, 1.0)
+        )
+        engine.state_for(state, Skill.READING).current_band = CEFRLevel.B1
+        reading_b1 = list(
+            db_session.scalars(
+                select(PlacementItem).where(
+                    PlacementItem.language_code == "en",
+                    PlacementItem.skill == Skill.READING,
+                    PlacementItem.cefr_level == CEFRLevel.B1,
+                )
+            )
+        )
+        for candidate in reading_b1:
+            candidate.is_active = False
+        db_session.commit()
+
+        item = placement_tests._pick_objective_item(db_session, "en", state, set())
+
+        assert item is not None
+        assert item.skill == Skill.VOCABULARY_GRAMMAR
+        assert item.cefr_level == CEFRLevel.A2
+
     def test_next_item_nao_revela_gabarito(self, client, auth):
         test_id = create_test(client, auth).json()["id"]
         item = client.post(
@@ -238,6 +269,28 @@ class TestCompletion:
         assert profile.level_source == "placement_test"
         assert profile.diagnostic_completed is True
 
+    def test_amostra_sem_evidencia_retorna_calibrating_sem_curriculo_longo(
+        self, client, auth, db_session
+    ):
+        test_id = create_test(client, auth).json()["id"]
+        answer_all(client, auth, test_id, db_session, correct=False)
+
+        body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
+
+        assert body["diagnostic_status"] == "calibrating"
+        assert body["overall_level"] is None
+        assert body["confidence_score"] is None
+        assert len(body["priority_focus"]) <= 3
+        assert body["curriculum"] is None
+        assert all(skill["estimated_level"] is None for skill in body["skills"])
+
+        profile = db_session.scalar(
+            select(UserLanguage).where(UserLanguage.placement_test_id == test_id)
+        )
+        assert profile is not None
+        assert profile.diagnostic_completed is False
+        assert profile.current_level is None
+
     def test_resultado_recuperavel_depois(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]
         answer_all(client, auth, test_id, db_session)
@@ -252,11 +305,14 @@ class TestCompletion:
         response = client.get(f"/api/v1/placement-tests/{test_id}/result", headers=auth)
         assert response.status_code == 409
 
-    def test_desempenho_fraco_gera_nivel_baixo(self, client, auth, db_session):
+    def test_desempenho_fraco_sem_faixa_dominada_permanece_em_calibracao(
+        self, client, auth, db_session
+    ):
         test_id = create_test(client, auth).json()["id"]
         answer_all(client, auth, test_id, db_session, correct=False)
         body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
-        assert body["overall_level"] in ("PRE_A1", "A1")
+        assert body["diagnostic_status"] == "calibrating"
+        assert body["overall_level"] is None
 
     def test_nao_permite_refazer_imediatamente(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]
@@ -325,7 +381,30 @@ class TestWriting:
         )
         body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
         writing = next(s for s in body["skills"] if s["skill"] == "writing")
-        assert writing["status"] == "assessed"
+        assert writing["status"] == "calibrating"
+
+    def test_escrita_heuristica_nao_entra_em_totais_ou_confianca(
+        self, client, auth, db_session
+    ):
+        test_id = create_test(client, auth).json()["id"]
+        ready = answer_all(client, auth, test_id, db_session)
+        writing_item = client.post(
+            f"/api/v1/placement-tests/{test_id}/next-item", headers=auth
+        ).json()["item"]
+        client.post(
+            f"/api/v1/placement-tests/{test_id}/writing",
+            json={
+                "item_id": writing_item["id"],
+                "text": "My name is Ana. I am from Brazil. I like reading and travelling a lot.",
+            },
+            headers=auth,
+        )
+
+        body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
+
+        assert "writing" not in body["weights_used"]
+        assert body["items_answered"] == ready["progress"]["answered"]
+        assert body["confidence_score"] is not None
 
     def test_texto_vazio_rejeitado(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]

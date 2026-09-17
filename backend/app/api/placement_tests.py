@@ -108,7 +108,7 @@ def _records(answers: list[PlacementTestAnswer]) -> list[engine.AnswerRecord]:
             response_time_ms=a.response_time_ms,
         )
         for a in answers
-        if a.normalized_score is not None
+        if a.normalized_score is not None and a.skill not in engine.PRODUCTION_SKILLS
     ]
 
 
@@ -321,23 +321,24 @@ def _pick_objective_item(
         item = db.scalar(
             select(PlacementItem).where(
                 *base,
-                PlacementItem.cefr_level == state.current_band,
+                PlacementItem.cefr_level == engine.state_for(state, skill).current_band,
                 PlacementItem.skill == skill,
             )
         )
         if item:
             return item
 
-    for band in engine.TESTABLE_LEVELS:
-        item = db.scalar(
-            select(PlacementItem).where(
-                *base,
-                PlacementItem.cefr_level == band,
-                PlacementItem.skill.in_(list(engine.OBJECTIVE_SKILLS)),
+    for skill in skill_order:
+        for band in engine.TESTABLE_LEVELS:
+            item = db.scalar(
+                select(PlacementItem).where(
+                    *base,
+                    PlacementItem.cefr_level == band,
+                    PlacementItem.skill == skill,
+                )
             )
-        )
-        if item:
-            return item
+            if item:
+                return item
     return None
 
 
@@ -511,6 +512,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     duration = int((_now() - started).total_seconds()) if started else None
 
     result = engine.build_result(scored, duration_seconds=duration)
+    _add_diagnostic_contract(result, scored)
 
     test.status = TestStatus.COMPLETED
     test.completed_at = _now()
@@ -549,6 +551,24 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
         section.status = "not_assessed" if skill != Skill.SPEAKING else "not_available"
         section.estimated_level = None
 
+    writing_answer = next((answer for answer in answers if answer.skill == Skill.WRITING), None)
+    if writing_answer is not None:
+        section = db.scalar(
+            select(PlacementTestSection).where(
+                PlacementTestSection.test_id == test.id,
+                PlacementTestSection.skill == Skill.WRITING,
+            )
+        )
+        if section is None:
+            section = PlacementTestSection(test_id=test.id, skill=Skill.WRITING)
+            db.add(section)
+        # A rubrica heurística é feedback preliminar, nunca uma evidência CEFR.
+        section.score = writing_answer.normalized_score
+        section.max_score = 1.0 if writing_answer.normalized_score is not None else None
+        section.estimated_level = None
+        section.status = "calibrating"
+        section.completed_at = writing_answer.created_at
+
     _apply_to_profile(db, test, result, user)
     # Checkpoint do cronograma: corrige a origem do nível e avalia a promoção
     # das semanas ainda pendentes. Teste comum não passa por aqui.
@@ -564,7 +584,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
                     UserLanguage.language_id == language.id,
                 )
             )
-            if profile is not None:
+            if profile is not None and result["diagnostic_status"] == "ready":
                 try:
                     ensure_active_curriculum(
                         db,
@@ -607,10 +627,55 @@ def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User
     profile.listening_level = skills.get(Skill.LISTENING, {}).get("estimated_level")
     profile.writing_level = skills.get(Skill.WRITING, {}).get("estimated_level")
     profile.speaking_level = skills.get(Skill.SPEAKING, {}).get("estimated_level")
-    profile.recommendations_json = result["recommendations"]
-    profile.diagnostic_completed = True
+    profile.recommendations_json = result["priority_focus"]
+    profile.diagnostic_completed = result["diagnostic_status"] == "ready"
     if result["overall_level"]:
         profile.level_estimate = result["overall_level"]
+
+
+def _add_diagnostic_contract(result: dict, scored: list[engine.AnswerRecord]) -> None:
+    """Expõe apenas uma estimativa sustentada por evidência objetiva."""
+    ready = result["overall_level"] is not None
+    result["diagnostic_status"] = "ready" if ready else "calibrating"
+    if not ready:
+        result["confidence_score"] = None
+        result["confidence_label"] = None
+
+    assessed = set(result["assessed_skills"])
+    focus: list[dict] = []
+    for skill in engine.OBJECTIVE_SKILLS:
+        if skill not in assessed:
+            focus.append(
+                {
+                    "skill": skill,
+                    "reason": "insufficient_evidence",
+                    "priority": 1,
+                    "href": "/learn",
+                }
+            )
+
+    for item in result["recommendations"]:
+        focus.append({**item, "href": "/learn"})
+
+    # Quando todas as habilidades já têm faixa, a menor acurácia orienta a prática.
+    accuracies: dict[str, float] = {}
+    for answer in scored:
+        accuracies.setdefault(answer.skill, 0.0)
+        accuracies[answer.skill] += answer.normalized_score
+    counts = {skill: sum(1 for answer in scored if answer.skill == skill) for skill in accuracies}
+    for skill, total in sorted(accuracies.items(), key=lambda item: (item[1] / counts[item[0]], item[0])):
+        if not any(item["skill"] == skill for item in focus):
+            focus.append(
+                {
+                    "skill": skill,
+                    "reason": "lowest_accuracy",
+                    "priority": 3,
+                    "href": "/learn",
+                }
+            )
+
+    result["priority_focus"] = focus[:3]
+    result["recommendations"] = result["priority_focus"]
 
 
 @router.get("/{test_id}/result")
@@ -687,6 +752,10 @@ def _result_payload(db: Session, test: PlacementTest, *, user: User | None = Non
         "items_answered": result.get("items_answered"),
         "weights_used": result.get("weights_used", {}),
         "recommendations": result.get("recommendations", []),
+        "priority_focus": result.get("priority_focus", result.get("recommendations", []))[:3],
+        "diagnostic_status": result.get(
+            "diagnostic_status", "ready" if overall else "calibrating"
+        ),
         "skills": skills,
         "speaking_available": SPEAKING_AVAILABLE,
         "disclaimer": "Nível estimado. Não é uma certificação oficial.",

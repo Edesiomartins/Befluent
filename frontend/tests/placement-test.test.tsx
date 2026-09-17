@@ -312,6 +312,34 @@ describe("Resultado", () => {
     ).toBeInTheDocument();
   });
 
+  it("mostra calibração sem CEFR nem oferta de cronograma longo", async () => {
+    mockRoute(() => ({
+      ...result,
+      diagnostic_status: "calibrating",
+      overall_level: null,
+      overall: null,
+      confidence_score: null,
+      confidence_label: null,
+      curriculum: null,
+      priority_focus: [
+        { skill: "listening", reason: "insufficient_evidence", priority: 1, href: "/learn" },
+      ],
+      recommendations: [
+        { skill: "listening", reason: "insufficient_evidence", priority: 1, href: "/learn" },
+      ],
+      skills: result.skills.map((skill) => ({ ...skill, estimated_level: null, status: "calibrating" })),
+    }));
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("Estamos calibrando suas habilidades")).toBeInTheDocument();
+    expect(screen.queryByText("B1")).not.toBeInTheDocument();
+    expect(screen.queryByText("Monte seu cronograma")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Praticar compreensão auditiva" })).toHaveAttribute(
+      "href",
+      "/learn",
+    );
+  });
+
   it("lista competências avaliadas e não avaliadas", async () => {
     mockRoute(() => result);
     render(<PlacementResultPage />);
