@@ -70,6 +70,7 @@ def test_atividade_legada_sem_objetivo_nao_gera_dominio(db_session):
 def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datados(db_session):
     """Pegaria projeção retroativa do estado atual para dias anteriores."""
     profile = _user_language(db_session)
+    profile.current_level = "B1"
     objective = _objective(db_session, skill="reading", level="A2")
     now = datetime.now(timezone.utc).replace(hour=15, minute=0, second=0, microsecond=0)
     attempt = LearningAttempt(
@@ -123,4 +124,79 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
     assert result["by_skill"] == [{"skill": "reading", "percent": 35}]
     assert result["timeline"][-2]["percent"] == 100
     assert result["timeline"][-1]["percent"] == 35
-    assert result["cefr"] == {"current": "A2", "next": "B1", "readiness_percent": 35}
+    assert result["cefr"] == {"current": "B1", "next": "B2", "readiness_percent": 35}
+
+
+def test_mastery_sem_nivel_atual_nao_infere_cefr_do_objetivo(db_session):
+    """Pegaria a inferência indevida de CEFR pelo nível do objetivo."""
+    profile = _user_language(db_session)
+    objective = _objective(db_session, level="C1")
+    attempt = LearningAttempt(
+        user_language_id=profile.id,
+        objective_id=objective.id,
+        activity_type="practice",
+        result="correct",
+    )
+    db_session.add(attempt)
+    db_session.flush()
+    db_session.add(
+        LearningEvidence(
+            user_language_id=profile.id,
+            objective_id=objective.id,
+            attempt_id=attempt.id,
+            evidence_type="correct_response",
+        )
+    )
+    db_session.add(
+        UserObjectiveProgress(
+            user_language_id=profile.id,
+            objective_id=objective.id,
+            state=MasteryState.MASTERED,
+        )
+    )
+    db_session.commit()
+
+    result = aggregate_mastery_progress(
+        db_session, profile.id, days=7, tz=ZoneInfo("America/Sao_Paulo")
+    )
+
+    assert result["cefr"] == {"current": None, "next": None, "readiness_percent": 100}
+
+
+def test_mastery_ignora_objetivo_inativo_mesmo_com_evidencia(db_session):
+    """Pegaria domínio inflado por objetivos removidos do catálogo ativo."""
+    profile = _user_language(db_session)
+    objective = _objective(db_session)
+    objective.is_active = False
+    attempt = LearningAttempt(
+        user_language_id=profile.id,
+        objective_id=objective.id,
+        activity_type="practice",
+        result="correct",
+    )
+    db_session.add(attempt)
+    db_session.flush()
+    db_session.add(
+        LearningEvidence(
+            user_language_id=profile.id,
+            objective_id=objective.id,
+            attempt_id=attempt.id,
+            evidence_type="correct_response",
+        )
+    )
+    db_session.add(
+        UserObjectiveProgress(
+            user_language_id=profile.id,
+            objective_id=objective.id,
+            state=MasteryState.MASTERED,
+        )
+    )
+    db_session.commit()
+
+    result = aggregate_mastery_progress(
+        db_session, profile.id, days=7, tz=ZoneInfo("America/Sao_Paulo")
+    )
+
+    assert result["status"] == "calibrating"
+    assert result["overall_percent"] is None
+    assert result["by_skill"] == []

@@ -8,7 +8,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core.levels import LEVEL_INDEX, LEVEL_ORDER
+from app.core.levels import LEVEL_INDEX, LEVEL_ORDER, normalize_level
 from app.core.teaching import AttemptResult, MasteryState
 from app.models import (
     LearningAttempt,
@@ -234,7 +234,10 @@ def aggregate_mastery_progress(
         db.execute(
             select(UserObjectiveProgress, LearningObjective)
             .join(LearningObjective, LearningObjective.id == UserObjectiveProgress.objective_id)
-            .where(UserObjectiveProgress.user_language_id == user_language_id)
+            .where(
+                UserObjectiveProgress.user_language_id == user_language_id,
+                LearningObjective.is_active.is_(True),
+            )
         )
     )
     attempts = list(
@@ -291,9 +294,9 @@ def aggregate_mastery_progress(
     by_skill: dict[str, list[int]] = {}
     for skill, _, percent in contributions:
         by_skill.setdefault(skill, []).append(percent)
-    levels = [level for _, level, _ in contributions if level in LEVEL_INDEX]
-    current = max(levels, key=LEVEL_INDEX.get) if levels else None
-    cefr = None
+    profile = db.get(UserLanguage, user_language_id)
+    current = normalize_level(profile.current_level if profile else None)
+    cefr = {"current": None, "next": None, "readiness_percent": overall_percent}
     if current is not None:
         next_index = min(LEVEL_INDEX[current] + 1, len(LEVEL_ORDER) - 1)
         cefr = {
@@ -301,7 +304,6 @@ def aggregate_mastery_progress(
             "next": LEVEL_ORDER[next_index],
             "readiness_percent": overall_percent,
         }
-    profile = db.get(UserLanguage, user_language_id)
     priorities = list((profile.recommendations_json if profile else None) or [])[:3]
     return {
         "status": "ready",
