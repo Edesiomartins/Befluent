@@ -46,6 +46,41 @@ O sistema pode dizer: “estimativa aproximada alinhada a X”, com ressalvas.
 - Tempo razoável (diagnóstico não deve ser maratona).
 - Evidência suficiente antes de mudar faixa de nível.
 
+## Diagnóstico adaptativo e evidência mínima
+
+O diagnóstico adapta a seleção **por habilidade objetiva**, mantendo uma faixa
+e o histórico de acertos/erros separados para vocabulário, gramática, leitura e
+escuta. Um acerto em leitura, por exemplo, não promove nem rebaixa a faixa de
+escuta. A ordem dos itens pode variar, mas prioriza habilidades que ainda não
+possuem evidência suficiente.
+
+Uma habilidade só recebe estimativa de faixa quando houver, simultaneamente:
+
+- pelo menos **4 itens objetivos respondidos** naquela habilidade; e
+- pelo menos **2 itens na faixa que sustenta a decisão**.
+
+Se qualquer requisito faltar, a habilidade permanece em calibração e seu nível
+é `null`; o sistema não infere uma faixa inferior nem cria um CEFR por falta de
+amostra. O resultado geral só usa habilidades com evidência objetiva válida.
+
+### Escrita e fala
+
+- A escrita corrigida pela heurística atual é uma amostra com feedback
+  preliminar: não entra em `overall_level`, `weights_used`, barras de domínio
+  ou geração do plano.
+- Fala permanece não avaliada para CEFR e domínio enquanto não houver avaliação
+  de fala confiável. STT ou inteligibilidade não equivalem a essa avaliação.
+- Essas limitações são exibidas no resultado; não são preenchidas com uma
+  estimativa artificial.
+
+### Resultado em calibração
+
+Quando a cobertura objetiva ainda for insuficiente, o resultado retorna
+`diagnostic_status: "calibrating"`, com `overall_level: null`. Nesse estado,
+não há código CEFR, percentual de confiança ou currículo longo gerado pelo
+diagnóstico. O sistema apresenta, no máximo, três prioridades práticas: falta
+de evidência, habilidade abaixo do geral ou padrão de erro observável.
+
 ## Modelo conceitual de pesos
 
 Os números abaixo são **apenas exemplos ilustrativos** de um modelo conceitual. **Não são valores definitivos** e **não devem ser interpretados como regra fechada** de implementação.

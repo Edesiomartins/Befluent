@@ -111,6 +111,13 @@ Preferências pedagógicas profundas por idioma (nível, plano, diagnóstico) fi
 | POST | `/api/v1/assessments/{id}/answers` | Enviar respostas | Sim | answers | progresso | 400, 401 |
 | POST | `/api/v1/assessments/{id}/complete` | Finalizar | Sim | — | resultado resumido | 400, 401, 503 |
 
+O contrato de resultado do diagnóstico baseado em evidência inclui
+`diagnostic_status: "ready" | "calibrating"`. Em `calibrating`,
+`overall_level` é `null`; uma habilidade sem pelo menos 4 itens objetivos e 2
+itens na faixa decisiva também tem nível `null`. Escrita heurística e fala sem
+avaliação confiável são retornadas como amostra/não avaliadas e não participam
+de `overall_level` nem de `weights_used`.
+
 ## learning-plans
 
 | Método | Caminho | Objetivo | Auth | Entrada | Resposta | Erros |
@@ -202,8 +209,37 @@ Preferências pedagógicas profundas por idioma (nível, plano, diagnóstico) fi
 
 | Método | Caminho | Objetivo | Auth | Entrada | Resposta | Erros |
 |---|---|---|---|---|---|---|
+| GET | `/api/v1/progress` | Progresso, hábitos e domínio demonstrado | Sim | `days` opcional: `7` (padrão) ou `30` | métricas + `mastery` opcional | 401, 422 |
 | GET | `/api/v1/progress/summary` | Resumo | Sim | language_code | metrics | 401 |
 | GET | `/api/v1/progress/sessions` | Histórico de sessões | Sim | language_code, page | list | 401 |
+
+`GET /api/v1/progress` preserva os campos de métricas já existentes e pode
+incluir o bloco retrocompatível `mastery`:
+
+```json
+{
+  "mastery": {
+    "status": "ready | calibrating | unavailable",
+    "overall_percent": 54,
+    "by_skill": [
+      {"skill": "listening", "label": "Escuta", "percent": 35}
+    ],
+    "timeline": [{"date": "2026-09-17", "percent": 54}],
+    "cefr": {"current": "A2", "next": "B1", "readiness_percent": 54},
+    "priorities": [
+      {"skill": "listening", "label": "Escuta", "reason": "...", "href": "/learn"}
+    ]
+  }
+}
+```
+
+`mastery` é opcional para preservar consumidores anteriores. Quando presente,
+`status` controla a interpretação: em `ready`, os percentuais representam
+domínio demonstrado por objetivos e evidências; em `calibrating`,
+`overall_percent` e `cefr` podem ser `null`, sem percentual ou CEFR artificial;
+em `unavailable` (por exemplo, sem idioma ativo), `overall_percent` e `cefr`
+são `null`, e listas podem estar vazias. Conclusão administrativa de atividade,
+tempo de estudo e sessões não aumentam o domínio sem evidência de objetivo.
 
 ## settings
 
