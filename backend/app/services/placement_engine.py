@@ -38,7 +38,8 @@ DEMOTE_AFTER_WRONG = 2
 BAND_MASTERY_THRESHOLD = 0.65
 #: Itens objetivos abaixo disto numa competência não sustentam uma estimativa
 #: própria — uma única questão de múltipla escolha não classifica ninguém.
-MIN_ITEMS_PER_SKILL = 2
+MIN_ITEMS_PER_SKILL = 4
+MIN_ITEMS_AT_DECIDING_BAND = 2
 
 #: Produção (escrita/fala) é avaliada por rubrica sobre uma amostra extensa:
 #: uma única tarefa já constitui evidência, ao contrário de um item objetivo.
@@ -84,11 +85,34 @@ class AnswerRecord:
 
 
 @dataclass
-class TestState:
+class SkillTestState:
     current_band: str = CEFRLevel.A2
-    answers: list[AnswerRecord] = field(default_factory=list)
     consecutive_correct: int = 0
     consecutive_wrong: int = 0
+
+
+@dataclass
+class TestState:
+    initial_band: str = CEFRLevel.A2
+    answers: list[AnswerRecord] = field(default_factory=list)
+    skill_states: dict[str, SkillTestState] = field(default_factory=dict)
+    # Compatibilidade temporária com o fluxo da API atual. Representa a faixa
+    # da habilidade que acabou de responder ou que será apresentada a seguir.
+    current_band: str = CEFRLevel.A2
+    active_skill: str = Skill.VOCABULARY_GRAMMAR
+
+    def __post_init__(self) -> None:
+        if self.initial_band == CEFRLevel.A2 and self.current_band != CEFRLevel.A2:
+            self.initial_band = self.current_band
+        else:
+            self.current_band = self.initial_band
+        for skill in OBJECTIVE_SKILLS:
+            self.skill_states.setdefault(skill, SkillTestState(self.initial_band))
+
+
+def state_for(state: TestState, skill: str) -> SkillTestState:
+    """Obtém o estado adaptativo isolado de uma habilidade."""
+    return state.skill_states.setdefault(skill, SkillTestState(state.initial_band))
 
 
 def initial_band(declared_beginner: bool = False) -> str:
@@ -108,32 +132,45 @@ def _band_neighbour(band: str, delta: int) -> str:
 def register_answer(state: TestState, record: AnswerRecord) -> TestState:
     """Atualiza streaks e faixa atual após uma resposta objetiva."""
     state.answers.append(record)
+    skill_state = state_for(state, record.skill)
     correct = record.normalized_score >= 0.5
 
     if correct:
-        state.consecutive_correct += 1
-        state.consecutive_wrong = 0
+        skill_state.consecutive_correct += 1
+        skill_state.consecutive_wrong = 0
     else:
-        state.consecutive_wrong += 1
-        state.consecutive_correct = 0
+        skill_state.consecutive_wrong += 1
+        skill_state.consecutive_correct = 0
 
-    if state.consecutive_correct >= PROMOTE_AFTER_CORRECT:
-        state.current_band = _band_neighbour(state.current_band, 1)
-        state.consecutive_correct = 0
-    elif state.consecutive_wrong >= DEMOTE_AFTER_WRONG:
-        state.current_band = _band_neighbour(state.current_band, -1)
-        state.consecutive_wrong = 0
+    if skill_state.consecutive_correct >= PROMOTE_AFTER_CORRECT:
+        skill_state.current_band = _band_neighbour(skill_state.current_band, 1)
+        skill_state.consecutive_correct = 0
+    elif skill_state.consecutive_wrong >= DEMOTE_AFTER_WRONG:
+        skill_state.current_band = _band_neighbour(skill_state.current_band, -1)
+        skill_state.consecutive_wrong = 0
 
+    state.active_skill = record.skill
+    state.current_band = skill_state.current_band
     return state
 
 
 def next_skill(state: TestState) -> str:
-    """Rotaciona competências objetivas para evitar sequência previsível."""
+    """Escolhe a habilidade com menos evidência, priorizando menos de quatro itens."""
     counts = {skill: 0 for skill in OBJECTIVE_SKILLS}
     for answer in state.answers:
         if answer.skill in counts:
             counts[answer.skill] += 1
-    return min(OBJECTIVE_SKILLS, key=lambda skill: (counts[skill], OBJECTIVE_SKILLS.index(skill)))
+    skill = min(
+        OBJECTIVE_SKILLS,
+        key=lambda item: (
+            counts[item] >= MIN_ITEMS_PER_SKILL,
+            counts[item],
+            OBJECTIVE_SKILLS.index(item),
+        ),
+    )
+    state.active_skill = skill
+    state.current_band = state_for(state, skill).current_band
+    return skill
 
 
 def should_stop(state: TestState) -> bool:
@@ -166,27 +203,23 @@ def _band_accuracy(answers: list[AnswerRecord]) -> dict[str, tuple[float, int]]:
 
 def estimate_skill_level(answers: list[AnswerRecord]) -> str | None:
     """Maior faixa dominada; None quando não há evidência suficiente."""
-    if not answers:
-        return None
-    is_production = answers[0].skill in PRODUCTION_SKILLS
-    if not is_production and len(answers) < MIN_ITEMS_PER_SKILL:
+    if len(answers) < MIN_ITEMS_PER_SKILL:
         return None
 
     accuracy = _band_accuracy(answers)
+    deciding_band = answers[-1].cefr_level
+    if accuracy.get(deciding_band, (0.0, 0))[1] < MIN_ITEMS_AT_DECIDING_BAND:
+        return None
     mastered = [
         level
         for level, (mean, count) in accuracy.items()
-        if mean >= BAND_MASTERY_THRESHOLD and count >= 1 and level in LEVEL_INDEX
+        if (
+            mean >= BAND_MASTERY_THRESHOLD
+            and count >= MIN_ITEMS_AT_DECIDING_BAND
+            and level in LEVEL_INDEX
+        )
     ]
-    if mastered:
-        return max(mastered, key=lambda level: LEVEL_INDEX[level])
-
-    # Nenhuma faixa dominada: fica uma abaixo da menor faixa testada.
-    tested = [level for level in accuracy if level in LEVEL_INDEX]
-    if not tested:
-        return None
-    lowest = min(tested, key=lambda level: LEVEL_INDEX[level])
-    return level_at(LEVEL_INDEX[lowest] - 1)
+    return max(mastered, key=lambda level: LEVEL_INDEX[level]) if mastered else None
 
 
 def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:

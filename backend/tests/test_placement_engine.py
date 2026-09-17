@@ -15,6 +15,13 @@ def levels(mapping: dict[str, str]) -> dict[str, dict]:
 
 
 class TestAdaptiveSelection:
+    def test_acerto_em_leitura_nao_promove_escuta(self):
+        state = engine.TestState()
+        for _ in range(3):
+            engine.register_answer(state, record(Skill.READING, "A2", 1.0))
+        assert state.skill_states[Skill.READING].current_band == "B1"
+        assert state.skill_states[Skill.LISTENING].current_band == "A2"
+
     def test_promove_apos_tres_acertos(self):
         state = engine.TestState(current_band="A2")
         for _ in range(3):
@@ -212,6 +219,12 @@ class TestBuildResult:
 
 
 class TestSkillEstimation:
+    def test_nao_estima_faixa_sem_quatro_itens_e_dois_na_faixa(self):
+        answers = [record(Skill.READING, "A2", 1.0) for _ in range(3)]
+        assert engine.estimate_skill_level(answers) is None
+        answers.append(record(Skill.READING, "A1", 1.0))
+        assert engine.estimate_skill_level(answers) is None
+
     def test_poucos_itens_nao_geram_estimativa(self):
         assert engine.estimate_skill_level([record(Skill.READING, "A2", 1.0)]) is None
 
@@ -219,6 +232,6 @@ class TestSkillEstimation:
         answers = [record(Skill.READING, "B1", 1.0) for _ in range(4)]
         assert engine.estimate_skill_level(answers) == "B1"
 
-    def test_sem_dominio_fica_abaixo_da_menor_faixa(self):
+    def test_sem_dominio_nao_infera_faixa_abaixo(self):
         answers = [record(Skill.READING, "A2", 0.0) for _ in range(4)]
-        assert engine.estimate_skill_level(answers) == "A1"
+        assert engine.estimate_skill_level(answers) is None
