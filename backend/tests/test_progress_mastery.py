@@ -160,7 +160,7 @@ def test_mastery_sem_nivel_atual_nao_infere_cefr_do_objetivo(db_session):
         db_session, profile.id, days=7, tz=ZoneInfo("America/Sao_Paulo")
     )
 
-    assert result["cefr"] == {"current": None, "next": None, "readiness_percent": 100}
+    assert result["cefr"] is None
 
 
 def test_mastery_ignora_objetivo_inativo_mesmo_com_evidencia(db_session):
@@ -200,3 +200,4 @@ def test_mastery_ignora_objetivo_inativo_mesmo_com_evidencia(db_session):
     assert result["status"] == "calibrating"
     assert result["overall_percent"] is None
     assert result["by_skill"] == []
+    assert all(point["percent"] is None for point in result["timeline"])

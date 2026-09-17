@@ -241,13 +241,34 @@ def aggregate_mastery_progress(
         )
     )
     attempts = list(
-        db.scalars(select(LearningAttempt).where(LearningAttempt.user_language_id == user_language_id))
+        db.scalars(
+            select(LearningAttempt)
+            .join(LearningObjective, LearningObjective.id == LearningAttempt.objective_id)
+            .where(
+                LearningAttempt.user_language_id == user_language_id,
+                LearningObjective.is_active.is_(True),
+            )
+        )
     )
     evidences = list(
-        db.scalars(select(LearningEvidence).where(LearningEvidence.user_language_id == user_language_id))
+        db.scalars(
+            select(LearningEvidence)
+            .join(LearningObjective, LearningObjective.id == LearningEvidence.objective_id)
+            .where(
+                LearningEvidence.user_language_id == user_language_id,
+                LearningObjective.is_active.is_(True),
+            )
+        )
     )
     errors = list(
-        db.scalars(select(LearningError).where(LearningError.user_language_id == user_language_id))
+        db.scalars(
+            select(LearningError)
+            .join(LearningObjective, LearningObjective.id == LearningError.objective_id)
+            .where(
+                LearningError.user_language_id == user_language_id,
+                LearningObjective.is_active.is_(True),
+            )
+        )
     )
     evidence_objectives = {evidence.objective_id for evidence in evidences}
     open_error_objectives = {
@@ -296,7 +317,7 @@ def aggregate_mastery_progress(
         by_skill.setdefault(skill, []).append(percent)
     profile = db.get(UserLanguage, user_language_id)
     current = normalize_level(profile.current_level if profile else None)
-    cefr = {"current": None, "next": None, "readiness_percent": overall_percent}
+    cefr = None
     if current is not None:
         next_index = min(LEVEL_INDEX[current] + 1, len(LEVEL_ORDER) - 1)
         cefr = {
