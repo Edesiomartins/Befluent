@@ -97,13 +97,25 @@ def record_checkpoint(db, curriculum, user, *, week_number, band, accuracy, minu
 
 
 class TestAberturaDoCheckpoint:
-    def test_semana_impar_nao_tem_checkpoint(self, db_session):
+    def test_semana_um_cria_checkpoint_de_calibracao(self, db_session):
+        profile, user = setup_profile(db_session)
+        curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+        week = week_of(db_session, curriculum, 1)
+        complete_week_days(db_session, week)
+
+        test = start_checkpoint(db_session, user=user, curriculum=curriculum, week=week)
+
+        assert week.is_checkpoint is True
+        assert test.result_json["calibration_checkpoint"] is True
+
+    def test_semana_impar_posterior_nao_tem_checkpoint(self, db_session):
         profile, user = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
         with pytest.raises(APIError) as exc:
             start_checkpoint(
-                db_session, user=user, curriculum=curriculum, week=week_of(db_session, curriculum, 1)
+                db_session, user=user, curriculum=curriculum, week=week_of(db_session, curriculum, 3)
             )
         assert exc.value.code == "not_a_checkpoint_week"
 
@@ -356,6 +368,57 @@ class TestPromocao:
 
 
 class TestOrigemDoNivel:
+    def test_checkpoint_regular_nao_promove_cefr_ou_semanas_futuras(self, db_session):
+        """Quebraria se apply_checkpoint_outcome voltasse a chamar a promoção."""
+        profile, user = setup_profile(db_session)
+        curriculum = generate_curriculum(db_session, profile.id, 180, start_date=START)
+        db_session.commit()
+        band = week_of(db_session, curriculum, 2).cefr_focus
+        future_week = week_of(db_session, curriculum, 5)
+        original_focus = future_week.cefr_focus
+        first = record_checkpoint(
+            db_session, curriculum, user, week_number=2, band=band, accuracy=0.9, minutes_ago=10
+        )
+        second = record_checkpoint(
+            db_session, curriculum, user, week_number=4, band=band, accuracy=0.9, minutes_ago=1
+        )
+
+        apply_checkpoint_outcome(db_session, first)
+        outcome = apply_checkpoint_outcome(db_session, second)
+        db_session.commit()
+        db_session.refresh(future_week)
+
+        assert outcome == {"promoted": False, "reason": "checkpoint_outcome_recorded"}
+        assert future_week.cefr_focus == original_focus
+
+    def test_checkpoint_calibracao_nao_promove_ou_reescreve_semanas_futuras(self, db_session):
+        profile, user = setup_profile(db_session)
+        curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+        future_week = week_of(db_session, curriculum, 2)
+        original_focus = future_week.cefr_focus
+        original_blocks = [
+            block.cefr_level
+            for day in db_session.scalars(select(CurriculumDay).where(CurriculumDay.week_id == future_week.id))
+            for block in db_session.scalars(select(CurriculumBlock).where(CurriculumBlock.day_id == day.id))
+        ]
+        checkpoint = record_checkpoint(
+            db_session, curriculum, user, week_number=1, band=CEFRLevel.A2, accuracy=1.0
+        )
+        checkpoint.result_json["calibration_checkpoint"] = True
+
+        outcome = apply_checkpoint_outcome(db_session, checkpoint)
+        db_session.commit()
+        db_session.refresh(future_week)
+
+        assert outcome == {"promoted": False, "reason": "calibration_checkpoint"}
+        assert future_week.cefr_focus == original_focus
+        assert [
+            block.cefr_level
+            for day in db_session.scalars(select(CurriculumDay).where(CurriculumDay.week_id == future_week.id))
+            for block in db_session.scalars(select(CurriculumBlock).where(CurriculumBlock.day_id == day.id))
+        ] == original_blocks
+
     def test_checkpoint_grava_origem_propria(self, db_session):
         profile, user = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)

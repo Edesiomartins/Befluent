@@ -99,6 +99,15 @@ LIGHT_DAY_BLOCKS: tuple[str, ...] = (BlockSkill.READING, BlockSkill.REVIEW)
 
 DAYS_PER_WEEK = 7
 
+#: Uma prioridade do diagnóstico só pode ocupar um bloco que já é opcional no
+#: dia. Vocabulário/gramática são essenciais e, por isso, nunca são trocados.
+PRIORITY_BLOCK_BY_ASSESSED_SKILL: dict[str, str] = {
+    "listening": BlockSkill.LISTENING,
+    "reading": BlockSkill.READING,
+    "speaking": BlockSkill.CONVERSATION,
+    "writing": BlockSkill.WRITING,
+}
+
 
 @dataclass(frozen=True)
 class LevelStage:
@@ -322,10 +331,13 @@ def day_block_skills(
     weekday: int,
     skill_levels: dict[str, str],
     entry_level: str,
+    priority_skills: tuple[str, ...] = (),
+    week_number: int = 1,
 ) -> list[str]:
     """Sequência de blocos do dia, na ordem em que serão estudados."""
     if weekday == SUNDAY:
-        return list(LIGHT_DAY_BLOCKS)
+        blocks = list(LIGHT_DAY_BLOCKS)
+        return apply_week_one_priority(blocks, priority_skills) if week_number == 1 else blocks
 
     blocks: list[str] = [BlockSkill.VOCABULARY, BlockSkill.GRAMMAR]
     if has_pronunciation(language_code, weekday):
@@ -334,7 +346,7 @@ def day_block_skills(
     blocks.append(choose_from_pair(OUTPUT_BLOCKS, day_number, skill_levels, entry_level))
     # A revisão fecha o dia: recuperar o que foi visto agora é o que fixa.
     blocks.append(BlockSkill.REVIEW)
-    return blocks
+    return apply_week_one_priority(blocks, priority_skills) if week_number == 1 else blocks
 
 
 def total_weeks_for(duration_days: int) -> int:
@@ -342,8 +354,52 @@ def total_weeks_for(duration_days: int) -> int:
 
 
 def is_checkpoint_week(week_number: int) -> bool:
-    """Semanas pares levam mini-avaliação das quatro competências."""
-    return week_number % 2 == 0
+    """Semana 1 calibra o plano; semanas pares acompanham seu progresso."""
+    return week_number == 1 or week_number % 2 == 0
+
+
+def priority_block_skills(profile: UserLanguage, *, generated_from: str) -> tuple[str, ...]:
+    """Converte recomendações válidas em blocos opcionais da semana inicial.
+
+    A adaptação só vale para o currículo novo criado pelo diagnóstico pronto.
+    Dados ausentes ou malformados não mudam o cronograma.
+    """
+    if generated_from != GeneratedFrom.PLACEMENT or not profile.diagnostic_completed:
+        return ()
+
+    recommendations = profile.recommendations_json
+    if not isinstance(recommendations, list):
+        return ()
+
+    selected: list[tuple[int, str]] = []
+    for recommendation in recommendations:
+        if not isinstance(recommendation, dict):
+            return ()
+        priority = recommendation.get("priority")
+        block = PRIORITY_BLOCK_BY_ASSESSED_SKILL.get(recommendation.get("skill"))
+        if not isinstance(priority, int) or isinstance(priority, bool) or priority < 1 or block is None:
+            return ()
+        selected.append((priority, block))
+
+    selected.sort(key=lambda item: item[0])
+    return tuple(dict.fromkeys(block for _, block in selected))
+
+
+def apply_week_one_priority(blocks: list[str], priority_skills: tuple[str, ...]) -> list[str]:
+    """Troca no máximo um bloco opcional pelo foco prioritário do dia."""
+    for priority_skill in priority_skills:
+        if priority_skill in blocks:
+            return blocks
+        pair = INPUT_BLOCKS if priority_skill in INPUT_BLOCKS else OUTPUT_BLOCKS
+        replacement_index = next(
+            (index for index, skill in enumerate(blocks) if skill in pair),
+            None,
+        )
+        if replacement_index is not None:
+            prioritized = list(blocks)
+            prioritized[replacement_index] = priority_skill
+            return prioritized
+    return blocks
 
 
 # ------------------------------------------------------------------- geração
@@ -361,6 +417,7 @@ def build_blocks_for_day(
     skill_levels: dict[str, str],
     entry_level: str,
     day_in_week: int | None = None,
+    priority_skills: tuple[str, ...] = (),
 ) -> list[CurriculumBlock]:
     skills = day_block_skills(
         language_code=language_code,
@@ -368,6 +425,8 @@ def build_blocks_for_day(
         weekday=weekday,
         skill_levels=skill_levels,
         entry_level=entry_level,
+        priority_skills=priority_skills,
+        week_number=week_number,
     )
 
     # Piloto Semana 1 B2: um Can-Do real por jornada; blocos pedagógicos
@@ -452,6 +511,13 @@ def generate_curriculum(
     if not language:
         raise APIError(404, "language_not_found", "Idioma não encontrado.")
 
+    if generated_from == GeneratedFrom.PLACEMENT and not profile.diagnostic_completed:
+        raise APIError(
+            409,
+            "diagnostic_not_ready",
+            "Conclua o diagnóstico antes de gerar o cronograma de nivelamento.",
+        )
+
     skill_levels = assessed_skill_levels(profile)
     if not skill_levels:
         raise APIError(
@@ -464,6 +530,7 @@ def generate_curriculum(
     entry_level = median_level(skill_levels)
     target_level = target_level_for(entry_level, duration_days)
     first_day = start_date or date.today()
+    week_one_priorities = priority_block_skills(profile, generated_from=generated_from)
 
     for previous in db.scalars(
         select(Curriculum).where(
@@ -531,6 +598,7 @@ def generate_curriculum(
                 skill_levels=skill_levels,
                 entry_level=entry_level,
                 day_in_week=day_in_week,
+                priority_skills=week_one_priorities,
             )
 
     db.flush()

@@ -558,6 +558,7 @@ def start_checkpoint(
             "curriculum_id": curriculum.id,
             "week_number": week.week_number,
             "cefr_focus": week.cefr_focus,
+            "calibration_checkpoint": week.week_number == 1,
         },
     )
     db.add(test)
@@ -660,11 +661,11 @@ def evaluate_promotion(db: Session, curriculum: Curriculum) -> dict:
 
 
 def apply_checkpoint_outcome(db: Session, test: PlacementTest) -> dict:
-    """Pós-processamento de um checkpoint concluído: origem do nível + promoção.
+    """Pós-processamento de um checkpoint concluído, sem promoção de CEFR.
 
-    O nível por competência já foi gravado pelo fluxo do nivelamento; aqui só
-    corrigimos a origem (um checkpoint não tem o peso do teste completo) e
-    avaliamos a promoção do cronograma.
+    O fluxo do nivelamento já atualizou as recomendações e quaisquer níveis
+    sustentados pela evidência. O checkpoint curto nunca muda a faixa CEFR do
+    currículo nem reescreve semanas futuras.
     """
     meta = test.result_json or {}
     curriculum = db.get(Curriculum, meta.get("curriculum_id") or "")
@@ -675,7 +676,9 @@ def apply_checkpoint_outcome(db: Session, test: PlacementTest) -> dict:
     if owner is not None:
         owner.level_source = LevelSource.CHECKPOINT
 
-    return evaluate_promotion(db, curriculum)
+    if meta.get("calibration_checkpoint"):
+        return {"promoted": False, "reason": "calibration_checkpoint"}
+    return {"promoted": False, "reason": "checkpoint_outcome_recorded"}
 
 
 # ------------------------------------------------------------------- atrasos

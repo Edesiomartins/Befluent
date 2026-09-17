@@ -129,6 +129,66 @@ class TestNiveis:
 
 
 class TestGeracao:
+    def test_diagnostico_calibrating_nao_gera_curriculo_de_placement(self, db_session):
+        """Quebraria se um diagnóstico sem CEFR sustentado abrisse plano longo."""
+        profile = make_profile(db_session)
+        profile.diagnostic_completed = False
+
+        with pytest.raises(APIError) as exc:
+            generate_curriculum(db_session, profile.id, 90, start_date=START)
+
+        assert exc.value.code == "diagnostic_not_ready"
+
+    def test_semana_um_prioriza_escuta_sem_remover_blocos_essenciais(self, db_session):
+        """Quebraria se a prioridade não substituísse só um bloco opcional."""
+        profile = make_profile(db_session)
+        profile.recommendations_json = [{"skill": "listening", "priority": 1}]
+
+        curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+
+        first_week = [day for day in days_of(db_session, curriculum) if day.day_number <= 7]
+        for day in first_week:
+            skills = [block.skill for block in blocks_of(db_session, day)]
+            assert BlockSkill.REVIEW in skills
+            assert BlockSkill.LISTENING in skills
+            if day.scheduled_date.weekday() != 6:
+                assert BlockSkill.VOCABULARY in skills
+                assert BlockSkill.GRAMMAR in skills
+
+        # Dia 2 normalmente recebe leitura; a prioridade troca somente esse
+        # bloco opcional por escuta, preservando o bloco de saída.
+        day_two = first_week[1]
+        assert [block.skill for block in blocks_of(db_session, day_two)] == [
+            BlockSkill.VOCABULARY,
+            BlockSkill.GRAMMAR,
+            BlockSkill.LISTENING,
+            BlockSkill.WRITING,
+            BlockSkill.REVIEW,
+        ]
+
+    def test_prioridade_nao_altera_curriculo_manual_ou_semana_posterior(self, db_session):
+        """Quebraria se a adaptação vazasse para outros tipos ou semanas."""
+        profile = make_profile(db_session)
+        profile.recommendations_json = [{"skill": "listening", "priority": 1}]
+
+        manual = generate_curriculum(
+            db_session,
+            profile.id,
+            90,
+            start_date=START,
+            generated_from="manual",
+        )
+        db_session.commit()
+
+        manual_day_two = days_of(db_session, manual)[1]
+        assert BlockSkill.READING in [block.skill for block in blocks_of(db_session, manual_day_two)]
+
+        diagnostic = generate_curriculum(db_session, profile.id, 90, start_date=START)
+        db_session.commit()
+        second_week_day_one = days_of(db_session, diagnostic)[7]
+        assert BlockSkill.READING in [block.skill for block in blocks_of(db_session, second_week_day_one)]
+
     def test_exige_nivelamento_concluido(self, db_session):
         profile = make_profile(
             db_session,
@@ -212,7 +272,7 @@ class TestGeracao:
             skills = [block.skill for block in blocks_of(db_session, day)]
             assert skills == [BlockSkill.READING, BlockSkill.REVIEW]
 
-    def test_semanas_pares_sao_checkpoint(self, db_session):
+    def test_semana_um_e_semanas_pares_sao_checkpoint(self, db_session):
         profile = make_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
@@ -225,7 +285,7 @@ class TestGeracao:
         )
         assert weeks
         for week in weeks:
-            assert week.is_checkpoint is (week.week_number % 2 == 0)
+            assert week.is_checkpoint is (week.week_number == 1 or week.week_number % 2 == 0)
             assert week.theme, "semana sem tema comunicativo"
 
     def test_regenerar_arquiva_o_anterior(self, db_session):
