@@ -291,7 +291,7 @@ export default function PlacementResultPage() {
                         SKILL_LABELS[item.skill]
                       )}
                       <span className="text-text-secondary">
-                        {item.reason === "below_overall"
+                        {item.reason === "below_overall" || item.reason === "needs_practice"
                           ? " — abaixo do nível geral"
                           : item.reason === "lowest_accuracy"
                             ? " — menor acurácia recente"

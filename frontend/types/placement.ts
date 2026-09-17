@@ -59,7 +59,7 @@ export type SkillResult = {
 
 export type Recommendation = {
   skill: Skill;
-  reason: "below_overall" | "not_assessed" | "insufficient_evidence" | "lowest_accuracy";
+  reason: "below_overall" | "not_assessed" | "insufficient_evidence" | "needs_practice" | "lowest_accuracy";
   priority: number;
   href?: string;
 };

@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.api import placement_tests
 from app.core.levels import LEVEL_ORDER, CEFRLevel, Skill
-from app.models import PlacementItem, PlacementTest, UserLanguage
+from app.models import Language, PlacementItem, PlacementTest, User, UserLanguage
 from app.services import placement_engine as engine
 
 
@@ -290,6 +290,44 @@ class TestCompletion:
         assert profile is not None
         assert profile.diagnostic_completed is False
         assert profile.current_level is None
+
+    def test_calibracao_limpa_estimativa_cefr_legada(self, client, auth, db_session):
+        user = db_session.scalar(select(User).where(User.email == "admin@befluent.local"))
+        language = db_session.scalar(select(Language).where(Language.code == "en"))
+        profile = UserLanguage(
+            user_id=user.id,
+            language_id=language.id,
+            current_level="B2",
+            level_estimate="B2",
+        )
+        db_session.add(profile)
+        db_session.commit()
+
+        test_id = create_test(client, auth).json()["id"]
+        answer_all(client, auth, test_id, db_session, correct=False)
+        client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth)
+
+        db_session.refresh(profile)
+        assert profile.current_level is None
+        assert profile.level_estimate is None
+
+    def test_prioridade_foca_habilidades_objetivas_antes_de_producao(self):
+        records = (
+            [engine.AnswerRecord(Skill.VOCABULARY_GRAMMAR, "B2", 1.0) for _ in range(4)]
+            + [engine.AnswerRecord(Skill.READING, "B2", 1.0) for _ in range(4)]
+            + [engine.AnswerRecord(Skill.LISTENING, "A1", 1.0) for _ in range(4)]
+        )
+        result = engine.build_result(records)
+
+        placement_tests._add_diagnostic_contract(result, records)
+
+        assert result["priority_focus"][0] == {
+            "skill": Skill.LISTENING,
+            "reason": "needs_practice",
+            "priority": 1,
+            "href": "/learn",
+        }
+        assert {item["skill"] for item in result["priority_focus"]} <= set(engine.OBJECTIVE_SKILLS)
 
     def test_resultado_recuperavel_depois(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]

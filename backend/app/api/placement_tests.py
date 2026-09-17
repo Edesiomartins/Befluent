@@ -631,6 +631,8 @@ def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User
     profile.diagnostic_completed = result["diagnostic_status"] == "ready"
     if result["overall_level"]:
         profile.level_estimate = result["overall_level"]
+    else:
+        profile.level_estimate = None
 
 
 def _add_diagnostic_contract(result: dict, scored: list[engine.AnswerRecord]) -> None:
@@ -655,9 +657,17 @@ def _add_diagnostic_contract(result: dict, scored: list[engine.AnswerRecord]) ->
             )
 
     for item in result["recommendations"]:
-        focus.append({**item, "href": "/learn"})
+        if item["skill"] in engine.OBJECTIVE_SKILLS and item["reason"] == "below_overall":
+            focus.append(
+                {
+                    "skill": item["skill"],
+                    "reason": "needs_practice",
+                    "priority": 1,
+                    "href": "/learn",
+                }
+            )
 
-    # Quando todas as habilidades já têm faixa, a menor acurácia orienta a prática.
+    # A menor acurácia objetiva orienta a prática, antes de produção não acionável.
     accuracies: dict[str, float] = {}
     for answer in scored:
         accuracies.setdefault(answer.skill, 0.0)
@@ -669,7 +679,7 @@ def _add_diagnostic_contract(result: dict, scored: list[engine.AnswerRecord]) ->
                 {
                     "skill": skill,
                     "reason": "lowest_accuracy",
-                    "priority": 3,
+                    "priority": 2,
                     "href": "/learn",
                 }
             )
