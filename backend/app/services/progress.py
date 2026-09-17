@@ -8,9 +8,37 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.models import StudySession, UserLanguage, UserPreference, VocabularyItem
+from app.core.levels import LEVEL_INDEX, LEVEL_ORDER
+from app.core.teaching import AttemptResult, MasteryState
+from app.models import (
+    LearningAttempt,
+    LearningError,
+    LearningEvidence,
+    LearningObjective,
+    StudySession,
+    UserLanguage,
+    UserObjectiveProgress,
+    UserPreference,
+    VocabularyItem,
+)
 
 DEFAULT_TIMEZONE = "America/Sao_Paulo"
+
+MASTERY_PERCENT = {
+    MasteryState.NOT_STARTED: 0,
+    MasteryState.LEARNING: 25,
+    MasteryState.PRACTICING: 50,
+    MasteryState.NEEDS_REMEDIATION: 35,
+    MasteryState.NEEDS_REVIEW: 35,
+    MasteryState.RETRYING: 45,
+    MasteryState.MASTERED: 100,
+}
+
+
+def mastery_percent_for_state(state: str, *, has_open_error: bool) -> int:
+    """Converte somente o estágio do Teaching Engine em contribuição visível."""
+    percent = MASTERY_PERCENT.get(state, 0)
+    return min(percent, 35) if has_open_error else percent
 
 
 def _as_utc(value: datetime) -> datetime:
@@ -129,6 +157,163 @@ def load_user_language_ids(db: Session, user_id: str, user_language_id: str | No
     if user_language_id:
         return [user_language_id]
     return list(db.scalars(select(UserLanguage.id).where(UserLanguage.user_id == user_id)))
+
+
+def _event_percent(result: str) -> int | None:
+    return {
+        AttemptResult.CORRECT: 100,
+        AttemptResult.PARTIAL: 50,
+        AttemptResult.INCORRECT: 35,
+    }.get(result)
+
+
+def _timeline(
+    attempts: list[LearningAttempt],
+    evidences: list[LearningEvidence],
+    errors: list[LearningError],
+    *,
+    period_end: date,
+    days: int,
+    tz: ZoneInfo,
+) -> list[dict]:
+    """Reconstrói apenas os seis últimos dias a partir de eventos datados.
+
+    UserObjectiveProgress não tem histórico de transições. Por isso seu estado
+    atual é deliberadamente excluído daqui: usá-lo no passado fabricaria uma
+    trajetória que o banco não registrou.
+    """
+    period_start = period_end - timedelta(days=days - 1)
+    events: list[tuple[datetime, str, str, int | None]] = []
+    for attempt in attempts:
+        event_at = attempt.evaluated_at or attempt.created_at
+        percent = _event_percent(attempt.result)
+        if percent is not None:
+            events.append((_as_utc(event_at), attempt.objective_id, "attempt", percent))
+    for evidence in evidences:
+        events.append((_as_utc(evidence.created_at), evidence.objective_id, "evidence", 100))
+    for error in errors:
+        if error.objective_id is None:
+            continue
+        events.append((_as_utc(error.first_seen), error.objective_id, "error_open", 35))
+        if error.resolved:
+            events.append((_as_utc(error.last_seen), error.objective_id, "error_resolved", None))
+    events.sort(key=lambda item: item[0])
+
+    per_objective: dict[str, int] = {}
+    open_errors: set[str] = set()
+    cursor = 0
+    history: list[dict] = []
+    for offset in range(days):
+        day = period_start + timedelta(days=offset)
+        day_end = datetime.combine(day + timedelta(days=1), datetime.min.time(), tzinfo=tz).astimezone(timezone.utc)
+        while cursor < len(events) and events[cursor][0] < day_end:
+            _, objective_id, kind, percent = events[cursor]
+            if kind == "error_open":
+                open_errors.add(objective_id)
+                per_objective[objective_id] = 35
+            elif kind == "error_resolved":
+                open_errors.discard(objective_id)
+            elif percent is not None:
+                per_objective[objective_id] = min(percent, 35) if objective_id in open_errors else percent
+            cursor += 1
+        percent = round(sum(per_objective.values()) / len(per_objective)) if per_objective else None
+        history.append({"date": day.isoformat(), "percent": percent})
+    return history[-6:]
+
+
+def aggregate_mastery_progress(
+    db: Session,
+    user_language_id: str,
+    *,
+    days: int,
+    tz: ZoneInfo,
+) -> dict:
+    """Agrega domínio demonstrado, sem usar métricas administrativas legadas."""
+    now_local = datetime.now(timezone.utc).astimezone(tz).date()
+    rows = list(
+        db.execute(
+            select(UserObjectiveProgress, LearningObjective)
+            .join(LearningObjective, LearningObjective.id == UserObjectiveProgress.objective_id)
+            .where(UserObjectiveProgress.user_language_id == user_language_id)
+        )
+    )
+    attempts = list(
+        db.scalars(select(LearningAttempt).where(LearningAttempt.user_language_id == user_language_id))
+    )
+    evidences = list(
+        db.scalars(select(LearningEvidence).where(LearningEvidence.user_language_id == user_language_id))
+    )
+    errors = list(
+        db.scalars(select(LearningError).where(LearningError.user_language_id == user_language_id))
+    )
+    evidence_objectives = {evidence.objective_id for evidence in evidences}
+    open_error_objectives = {
+        error.objective_id for error in errors if not error.resolved and error.objective_id is not None
+    }
+
+    # Um estágio sem evidência não é um percentual de domínio. Isso também
+    # impede que a mera conclusão de bloco/sessão apareça como aprendizagem.
+    demonstrated = [
+        (progress, objective)
+        for progress, objective in rows
+        if objective.id in evidence_objectives
+    ]
+    timeline = _timeline(
+        attempts,
+        evidences,
+        errors,
+        period_end=now_local,
+        days=days,
+        tz=tz,
+    )
+    if not demonstrated:
+        return {
+            "status": "calibrating",
+            "overall_percent": None,
+            "by_skill": [],
+            "timeline": timeline,
+            "cefr": None,
+            "priorities": [],
+        }
+
+    contributions = [
+        (
+            objective.skill_focus,
+            objective.level,
+            mastery_percent_for_state(
+                progress.state,
+                has_open_error=objective.id in open_error_objectives,
+            ),
+        )
+        for progress, objective in demonstrated
+    ]
+    overall_percent = round(sum(percent for _, _, percent in contributions) / len(contributions))
+    by_skill: dict[str, list[int]] = {}
+    for skill, _, percent in contributions:
+        by_skill.setdefault(skill, []).append(percent)
+    levels = [level for _, level, _ in contributions if level in LEVEL_INDEX]
+    current = max(levels, key=LEVEL_INDEX.get) if levels else None
+    cefr = None
+    if current is not None:
+        next_index = min(LEVEL_INDEX[current] + 1, len(LEVEL_ORDER) - 1)
+        cefr = {
+            "current": current,
+            "next": LEVEL_ORDER[next_index],
+            "readiness_percent": overall_percent,
+        }
+    profile = db.get(UserLanguage, user_language_id)
+    priorities = list((profile.recommendations_json if profile else None) or [])[:3]
+    return {
+        "status": "ready",
+        "overall_percent": overall_percent,
+        "by_skill": [
+            {"skill": skill, "percent": round(sum(values) / len(values))}
+            for skill, values in sorted(by_skill.items())
+        ],
+        "timeline": timeline,
+        "cefr": cefr,
+        "priorities": priorities,
+    }
 
 
 def aggregate_progress(

@@ -1,23 +1,24 @@
-from typing import Literal
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import current_user
+from app.core.errors import APIError
 from app.models import Language, LearningGoal, User, UserLanguage
-from app.services.progress import aggregate_progress
+from app.services.progress import aggregate_mastery_progress, aggregate_progress, resolve_timezone
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 
 
 @router.get("")
 def progress(
-    days: Literal[7, 30] = 7,
+    days: int = 7,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
+    if days not in (7, 30):
+        raise APIError(422, "invalid_progress_period", "Período de progresso inválido.")
     active = db.execute(
         select(UserLanguage, Language)
         .join(Language)
@@ -34,6 +35,23 @@ def progress(
     ul = active[0] if active else None
     lang = active[1] if active else None
     stats = aggregate_progress(db, user.id, user_language_id=ul.id if ul else None, activity_days=days)
+    mastery = (
+        aggregate_mastery_progress(
+            db,
+            ul.id,
+            days=days,
+            tz=resolve_timezone(db, user.id),
+        )
+        if ul
+        else {
+            "status": "unavailable",
+            "overall_percent": None,
+            "by_skill": [],
+            "timeline": [],
+            "cefr": None,
+            "priorities": [],
+        }
+    )
 
     skills: list[str] = []
     goal = None
@@ -57,6 +75,7 @@ def progress(
 
     return {
         **stats,
+        "mastery": mastery,
         "active_language": (
             {
                 "code": lang.code,

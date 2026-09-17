@@ -417,6 +417,8 @@ def test_progress_reflects_study_session(client, auth):
     assert body["total_minutes"] >= 0
     assert body["active_language"]["code"] == "en"
     assert len(body["recent_activity"]) == 1
+    assert body["mastery"]["status"] == "calibrating"
+    assert body["mastery"]["overall_percent"] is None
     daily = body["daily_activity"]
     assert daily["timezone"] == "America/Sao_Paulo"
     assert len(daily["days"]) == 7
