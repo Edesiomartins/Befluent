@@ -16,11 +16,11 @@
   --primary-soft: #dbeafe;
   --primary-shadow: #17469e;
 
-  --success: #16a34a;
+  --success: #15803d;
   --success-soft: #dcfce9;
   --success-shadow: #0f7a37;
 
-  --warning: #d97706;
+  --warning: #b45309;
   --warning-soft: #fef3c7;
 
   --danger: #dc2626;
@@ -29,29 +29,32 @@
 
   --info: #2563eb;
 
-  /* Playful accent palette — streaks, XP, and skill-color variety */
-  --streak: #ff9600;
+  /* Legacy accents retained for semantic states, never competing navigation. */
+  --streak: #b45309;
   --streak-soft: #fff1de;
   --streak-shadow: #c96e00;
 
-  --gold: #ffc700;
+  --gold: #8a5a00;
   --gold-soft: #fff6d6;
   --gold-ink: #8a5a00;
   --gold-shadow: #d99e00;
 
-  --violet: #7c3aed;
+  --violet: #63548c;
   --violet-soft: #efe6fe;
   --violet-shadow: #5b21b6;
 
-  --teal: #0d9488;
+  --teal: #0f766e;
   --teal-soft: #d9f5f1;
   --teal-shadow: #0b6e64;
 
-  --rose: #e11d48;
+  --rose: #be3455;
   --rose-soft: #ffe4e9;
   --rose-shadow: #a8123a;
 
   --secondary-shadow: #c9d3e6;
+  --radius-control: 10px;
+  --radius-panel: 16px;
+  --space-section: clamp(2rem, 4vw, 3rem);
 }
 
 @theme inline {
@@ -83,13 +86,25 @@ body {
   color: var(--text-primary);
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+  line-height: 1.6;
+  overflow-wrap: break-word;
 }
 button, input, textarea, select { font: inherit; }
+button:not(:disabled), summary { cursor: pointer; }
+input, textarea, select { max-width: 100%; }
+textarea { line-height: 1.75; }
+::selection { background: var(--primary-soft); color: var(--text-primary); }
+:lang(ja) { font-family: var(--font-inter), "Yu Gothic", "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; line-height: 1.85; }
+:lang(zh-CN) { font-family: var(--font-inter), "Microsoft YaHei", "PingFang SC", sans-serif; line-height: 1.85; }
 button, a { -webkit-tap-highlight-color: transparent; }
 :focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
 }
+.skip-link { position: fixed; left: 1rem; top: -6rem; z-index: 100; padding: .75rem 1rem; border-radius: 10px; background: var(--primary); color: white; }
+.skip-link:focus { top: 1rem; }
+main { min-width: 0; }
+main:focus { outline: none; }
 
 .page-title {
   font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
@@ -99,7 +114,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.08;
 }
 .display-number {
-  font-family: var(--font-newsreader), Georgia, "Times New Roman", serif;
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
   font-weight: 500;
   letter-spacing: -0.02em;
   font-variant-numeric: lining-nums tabular-nums;
@@ -118,15 +133,15 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel {
   border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 1rem;
+  border-radius: var(--radius-panel);
 }
 /* Nota informativa (modo local, ressalvas): presente, mas sem gritar. */
 .note {
   display: flex;
   align-items: flex-start;
   gap: .4rem;
-  font-size: .75rem;
-  line-height: 1.25rem;
+  font-size: .875rem;
+  line-height: 1.5rem;
   color: var(--text-secondary);
 }
 details.disclosure > summary {
@@ -148,7 +163,7 @@ details.disclosure[open] > summary::after { content: " −"; }
   animation: shimmer 1.5s infinite linear;
 }
 
-/* Compact stat pill used for streaks, XP, and other gamified counters */
+/* Quiet supporting counters; primary actions carry the accent color. */
 .stat-pill {
   display: inline-flex;
   align-items: center;
@@ -156,7 +171,7 @@ details.disclosure[open] > summary::after { content: " −"; }
   border-radius: 999px;
   padding: .375rem .7rem;
   font-size: .8rem;
-  font-weight: 700;
+  font-weight: 500;
   border: 1px solid transparent;
   white-space: nowrap;
 }

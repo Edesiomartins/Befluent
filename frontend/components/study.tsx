@@ -155,11 +155,11 @@ export function AudioPlayer({
         {playing ? "Ⅱ" : "▶"}
       </button>
       <div className="min-w-40 flex-1">
-        <div className="h-1.5 rounded-full bg-surface-elevated">
-          <div className="h-full w-1/3 rounded-full bg-primary" />
-        </div>
-        <p className="mt-2 text-xs text-text-secondary">
+        <p className="text-sm font-medium text-text-primary" role="status">
           {loading ? "Gerando áudio…" : usingBrowserVoice ? "Voz do navegador" : "Voz do BeFluent"}
+        </p>
+        <p className="mt-1 text-xs text-text-secondary">
+          {playing ? "Áudio em reprodução" : "Pronto para reproduzir"}
         </p>
       </div>
       <label className="text-xs text-text-secondary">
@@ -289,7 +289,7 @@ export function Recorder({
         }`}
         aria-label={recording ? "Parar gravação" : "Iniciar gravação"}
       >
-        {recording ? "PARAR" : uploading ? "..." : "GRAVAR"}
+        {recording ? "Parar" : uploading ? "…" : "Gravar"}
       </button>
       <p className="font-mono text-sm">
         {Math.floor(seconds / 60)
@@ -297,13 +297,18 @@ export function Recorder({
           .padStart(2, "0")}
         :{(seconds % 60).toString().padStart(2, "0")}
       </p>
-      <p className="text-center text-sm text-text-secondary">
+      <p className="text-center text-sm font-medium text-text-primary" role="status">
         {recording
-          ? "Gravando… fale com naturalidade."
+          ? "Gravando — fale com naturalidade."
           : uploading
-            ? "Enviando áudio para transcrição…"
-            : "Toque para começar. O áudio será processado ao finalizar."}
+            ? "Processando áudio…"
+            : "Pronto para gravar"}
       </p>
+      {!recording && !uploading && (
+        <p className="text-center text-sm text-text-secondary">
+          Toque para começar. O áudio será processado ao finalizar.
+        </p>
+      )}
       {permissionError && (
         <p role="alert" className="text-center text-sm text-danger">
           Não foi possível acessar o microfone. Use a resposta por texto abaixo.
@@ -438,7 +443,7 @@ export function Chat({
   }
 
   async function send() {
-    if (!text.trim()) return;
+    if (!text.trim() || thinking || closing || closed || (serviceDown && cooldownRemaining > 0)) return;
     const userText = text.trim();
     setText("");
     setError(null);
@@ -497,6 +502,7 @@ export function Chat({
           ? err.message
           : "Não foi possível obter resposta do tutor.",
       );
+      setText((current) => current || userText);
     } finally {
       setThinking(false);
     }
@@ -542,16 +548,23 @@ export function Chat({
             {message.corrections?.map((correction, position) => (
               <div
                 key={position}
-                className="mt-2 border-l-2 border-primary/40 pl-3 text-sm text-text-secondary"
+                className="mt-3 border-l-2 border-primary/40 bg-surface-soft py-3 pl-4 pr-3 text-sm"
               >
+                <p className="text-xs font-semibold text-text-secondary">Resposta original</p>
+                <p className="mt-1 text-text-primary">
+                  {correction.original ?? message.text}
+                </p>
                 {correction.corrected && (
-                  <p>
-                    <strong className="text-text-primary">Mais natural:</strong>{" "}
-                    {correction.corrected}
-                  </p>
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-primary">Sugestão</p>
+                    <p className="mt-1 text-text-primary">{correction.corrected}</p>
+                  </div>
                 )}
                 {correction.explanation && (
-                  <p className="mt-0.5">{correction.explanation}</p>
+                  <div className="mt-3">
+                    <p className="text-xs font-semibold text-text-secondary">Explicação</p>
+                    <p className="mt-1 leading-6 text-text-secondary">{correction.explanation}</p>
+                  </div>
                 )}
               </div>
             ))}
@@ -577,25 +590,27 @@ export function Chat({
           ))}
         </div>
       )}
-      <div className="flex gap-2 border-t border-border p-3">
-        <label className="sr-only" htmlFor="chat-message">
-          Sua resposta
-        </label>
-        <textarea
-          id="chat-message"
-          rows={2}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              void send();
-            }
-          }}
-          placeholder="Escreva sua resposta…"
-          disabled={closed}
-          className="min-h-12 flex-1 resize-none rounded-lg border border-border bg-surface px-3 py-2.5 text-sm disabled:opacity-60"
-        />
+      <div className="flex flex-col gap-3 border-t border-border p-4 sm:flex-row sm:items-end">
+        <div className="min-w-0 flex-1">
+          <label className="mb-2 block text-sm font-semibold text-text-primary" htmlFor="chat-message">
+            Sua resposta
+          </label>
+          <textarea
+            id="chat-message"
+            rows={3}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                void send();
+              }
+            }}
+            placeholder="Escreva sua resposta…"
+            disabled={closed}
+            className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none ring-primary focus:ring-2 disabled:opacity-60"
+          />
+        </div>
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => void send()}

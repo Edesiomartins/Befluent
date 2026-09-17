@@ -326,6 +326,70 @@ describe("Chat / conversação", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/indisponível/i);
     expect(screen.getByText(/Serviço de IA temporariamente indisponível/i)).toBeInTheDocument();
-    expect(screen.queryByText("Hi")).toBeInTheDocument(); // mensagem do aluno permanece
+    expect(screen.getAllByText("Hi").length).toBeGreaterThan(0); // mensagem e rascunho permanecem
+    expect(screen.getByLabelText("Sua resposta")).toHaveValue("Hi");
+  });
+
+  it("preserva o novo rascunho quando o envio anterior falha", async () => {
+    let rejectSend!: (error: Error) => void;
+    apiMock.mockImplementation((path: string) => path.endsWith("/messages")
+      ? new Promise((_, reject) => { rejectSend = reject; })
+      : Promise.resolve({ id: "c1" }));
+    render(<Chat languageCode="en" opening="Hello!" />);
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    const input = screen.getByLabelText("Sua resposta");
+    fireEvent.change(input, { target: { value: "First message" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    fireEvent.change(input, { target: { value: "New draft" } });
+    rejectSend(new Error("offline"));
+    await screen.findByRole("alert");
+    expect(input).toHaveValue("New draft");
+    expect(screen.getByText("First message")).toBeInTheDocument();
+  });
+
+  it("não envia uma segunda resposta por Enter enquanto aguarda o tutor", async () => {
+    apiMock.mockImplementation((path: string) => path.endsWith("/messages")
+      ? new Promise(() => {}) : Promise.resolve({ id: "c1" }));
+    render(<Chat languageCode="en" opening="Hello!" />);
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    const input = screen.getByLabelText("Sua resposta");
+    fireEvent.change(input, { target: { value: "First message" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    fireEvent.change(input, { target: { value: "Next message" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect(input).toHaveValue("Next message");
+    expect(screen.queryByText("Next message", { selector: "p" })).not.toBeInTheDocument();
+  });
+
+  it("separa resposta original, sugestão e explicação no feedback", async () => {
+    apiMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/conversations") return Promise.resolve({ id: "c1" });
+      if (path === "/api/v1/conversations/c1/messages") {
+        return Promise.resolve({
+          reply: "That sounds good.",
+          provider: "openrouter",
+          corrections_available: true,
+          corrections: [
+            {
+              original: "I agree with you idea",
+              corrected: "I agree with your idea",
+              explanation: "Use o possessivo “your” antes do substantivo.",
+            },
+          ],
+        });
+      }
+      return Promise.resolve({});
+    });
+
+    render(<Chat languageCode="en" opening="What do you think?" />);
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    fireEvent.change(screen.getByLabelText("Sua resposta"), {
+      target: { value: "I agree with you idea" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+
+    expect(await screen.findByText("Resposta original")).toBeInTheDocument();
+    expect(screen.getByText("Sugestão")).toBeInTheDocument();
+    expect(screen.getByText("Explicação")).toBeInTheDocument();
   });
 });

@@ -94,6 +94,37 @@ def minutes_on_local_day(
     return total
 
 
+def daily_activity(
+    sessions: list[StudySession],
+    *,
+    period_end: date,
+    tz: ZoneInfo,
+    days: int = 7,
+) -> dict:
+    """Série diária completa, calculada do histórico integral de sessões."""
+    period_start = period_end - timedelta(days=days - 1)
+    return {
+        "period_start": period_start.isoformat(),
+        "period_end": period_end.isoformat(),
+        "timezone": tz.key,
+        "days": [
+            {
+                "date": (period_start + timedelta(days=offset)).isoformat(),
+                "minutes": minutes_on_local_day(
+                    sessions,
+                    period_start + timedelta(days=offset),
+                    tz,
+                ),
+            }
+            for offset in range(days)
+        ],
+        "total_minutes": sum(
+            minutes_on_local_day(sessions, period_start + timedelta(days=offset), tz)
+            for offset in range(days)
+        ),
+    }
+
+
 def load_user_language_ids(db: Session, user_id: str, user_language_id: str | None = None) -> list[str]:
     if user_language_id:
         return [user_language_id]
@@ -105,6 +136,7 @@ def aggregate_progress(
     user_id: str,
     *,
     user_language_id: str | None = None,
+    activity_days: int = 7,
 ) -> dict:
     """Retorna contadores reais para dashboard/progresso."""
     tz = resolve_timezone(db, user_id)
@@ -121,6 +153,7 @@ def aggregate_progress(
             "minutes_today": 0,
             "total_minutes_label": format_minutes(0),
             "recent_activity": [],
+            "daily_activity": daily_activity([], period_end=today_local, tz=tz, days=activity_days),
         }
 
     all_sessions = list(
@@ -166,4 +199,5 @@ def aggregate_progress(
         "minutes_today": minutes_today,
         "total_minutes_label": format_minutes(total_minutes),
         "recent_activity": recent,
+        "daily_activity": daily_activity(completed, period_end=today_local, tz=tz, days=activity_days),
     }

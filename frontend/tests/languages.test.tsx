@@ -58,6 +58,8 @@ describe("LanguagesPage", () => {
 
   it("ativa idioma via API correta e mostra erro real", async () => {
     const { ApiError } = await import("@/lib/api");
+    const changed = vi.fn();
+    window.addEventListener("befluent:language-changed", changed);
     apiMock.mockImplementation((path: string, options?: { method?: string }) => {
       if (path === "/api/v1/languages") {
         return Promise.resolve([
@@ -95,5 +97,47 @@ describe("LanguagesPage", () => {
         body: { code: "fr" },
       }),
     );
+    expect(changed).not.toHaveBeenCalled();
+    window.removeEventListener("befluent:language-changed", changed);
+  });
+
+  it("avisa o shell somente depois de ativar outro idioma com sucesso", async () => {
+    const changed = vi.fn();
+    window.addEventListener("befluent:language-changed", changed);
+    let activeCode = "en";
+    apiMock.mockImplementation((path: string, options?: { method?: string; body?: { code?: string } }) => {
+      if (path === "/api/v1/languages") {
+        return Promise.resolve([
+          { id: "1", code: "en", name_pt: "Inglês", native_name: "English" },
+          { id: "2", code: "fr", name_pt: "Francês", native_name: "Français" },
+        ]);
+      }
+      if (path === "/api/v1/languages/mine") {
+        return Promise.resolve([
+          {
+            id: activeCode === "en" ? "1" : "2",
+            code: activeCode,
+            name_pt: activeCode === "en" ? "Inglês" : "Francês",
+            native_name: activeCode === "en" ? "English" : "Français",
+            user_language_id: "ul1",
+            active: true,
+            level_estimate: null,
+            current_level: null,
+            onboarding_completed: true,
+          },
+        ]);
+      }
+      if (path === "/api/v1/languages/activate" && options?.method === "POST") {
+        activeCode = options.body?.code ?? activeCode;
+        return Promise.resolve({});
+      }
+      return Promise.resolve({});
+    });
+
+    render(<LanguagesPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Estudar este idioma" }));
+
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    window.removeEventListener("befluent:language-changed", changed);
   });
 });

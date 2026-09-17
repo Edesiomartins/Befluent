@@ -208,7 +208,7 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
   }
 
   return (
-    <div className="grid gap-5 md:grid-cols-[1.1fr_.9fr]">
+    <div className="mx-auto grid max-w-3xl gap-5">
       <div className="panel p-5">
         <p className="label">
           Situação
@@ -234,7 +234,7 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
         )}
       </div>
 
-      <div>
+      <div className="border-t border-border pt-5">
         <Recorder onTranscript={(text) => void respond(text)} languageCode={lesson.language_code} />
         {lastHeard && (
           <p className="mt-3 text-center text-xs text-text-secondary">
@@ -592,7 +592,7 @@ function Listening({ lesson }: { lesson: ListeningLesson }) {
 function Reading({ lesson }: { lesson: ReadingLesson }) {
   const paragraphs = useMemo(() => lesson.text.split(/\n+/).filter(Boolean), [lesson.text]);
   return (
-    <div className="grid gap-8 lg:grid-cols-[1.5fr_.7fr]">
+    <div className="mx-auto grid max-w-3xl gap-8">
       <article className="panel p-6 sm:p-9">
         <p className="mb-5 label">
           Leitura · nível {lesson.level}
@@ -604,7 +604,7 @@ function Reading({ lesson }: { lesson: ReadingLesson }) {
           ))}
         </div>
       </article>
-      <aside>
+      <aside className="border-t border-border pt-7">
         {lesson.glossary.length > 0 && (
           <>
             <h2 className="section-title">Glossário</h2>
@@ -933,4 +933,3 @@ export function LessonContent({ mode, lesson }: { mode: string; lesson: LessonEn
       return null;
   }
 }
-

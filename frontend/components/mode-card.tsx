@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Clock } from "lucide-react";
-import { modeColorClasses, type ModeMeta } from "@/lib/modes";
+import { type ModeMeta } from "@/lib/modes";
 
 /**
  * Card de modo de aprendizado. Único componente para a grade completa
@@ -19,7 +19,6 @@ export function ModeCard({
   titleAs?: "h2" | "h3";
 }) {
   const Icon = mode.icon;
-  const colors = modeColorClasses[mode.color];
   const Title = titleAs;
 
   return (
@@ -30,7 +29,7 @@ export function ModeCard({
       }`}
     >
       <span
-        className={`grid size-9 shrink-0 place-items-center rounded-lg bg-surface-soft ${colors.text}`}
+        className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary-soft text-primary"
       >
         <Icon className="size-[1.1rem]" aria-hidden />
       </span>

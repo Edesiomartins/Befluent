@@ -67,6 +67,7 @@ export default function LanguagesPage() {
         body: { code },
       });
       await load();
+      window.dispatchEvent(new CustomEvent("befluent:language-changed"));
     } catch (caught) {
       setError(
         caught instanceof ApiError

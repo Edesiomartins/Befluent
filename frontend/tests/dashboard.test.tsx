@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardPage from "@/app/(app)/dashboard/page";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
@@ -84,6 +84,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Prática livre")).toBeInTheDocument();
     expect(screen.getByText("Atividade recente")).toBeInTheDocument();
     expect(screen.queryByText("Escolha um idioma para começar.")).not.toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Progresso do plano do dia" })).toHaveAttribute("aria-valuenow", "33");
   });
 
   it("mantém estado vazio apenas sem plano", async () => {
@@ -125,6 +126,23 @@ describe("DashboardPage", () => {
     apiMock.mockRejectedValue(new ApiError("Sessão expirada.", 401, "unauthorized"));
     render(<DashboardPage />);
     expect(await screen.findByRole("alert")).toHaveTextContent("Sessão expirada.");
+  });
+
+  it("permite tentar novamente sem perder o fluxo do painel", async () => {
+    let dashboardCalls = 0;
+    apiMock.mockImplementation((path: string) => {
+      if (path !== "/api/v1/dashboard") return Promise.resolve({ day: null });
+      dashboardCalls += 1;
+      return dashboardCalls === 1
+        ? Promise.reject(new Error("offline"))
+        : Promise.resolve(dashboardWithPlan);
+    });
+
+    render(<DashboardPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Tentar novamente" }));
+
+    await waitFor(() => expect(dashboardCalls).toBe(2));
+    expect(await screen.findByText("Inglês")).toBeInTheDocument();
   });
 });
 

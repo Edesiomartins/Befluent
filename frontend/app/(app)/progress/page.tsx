@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { EmptyState, Loading } from "@/components/ui";
+import { ProgressActivityChart, type DailyActivity } from "@/components/progress-activity-chart";
 import { levelShortCode } from "@/lib/levels";
 
 type ProgressData = {
@@ -13,6 +14,7 @@ type ProgressData = {
   total_minutes: number;
   minutes_today: number;
   total_minutes_label: string;
+  daily_activity?: DailyActivity;
   recent_activity: Array<{
     id: string;
     status: string;
@@ -54,10 +56,14 @@ export default function ProgressPage() {
   const [data, setData] = useState<ProgressData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [periodDays, setPeriodDays] = useState<7 | 30>(7);
 
   useEffect(() => {
     let active = true;
-    api<ProgressData>("/api/v1/progress")
+    setLoading(true);
+    setError("");
+    api<ProgressData>(periodDays === 7 ? "/api/v1/progress" : "/api/v1/progress?days=30")
       .then((payload) => {
         if (active) setData(payload);
       })
@@ -75,7 +81,7 @@ export default function ProgressPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey, periodDays]);
 
   if (loading) return <Loading label="Carregando progresso" />;
 
@@ -86,6 +92,13 @@ export default function ProgressPage() {
         <p role="alert" className="mt-4 text-sm text-danger">
           {error}
         </p>
+        <button
+          type="button"
+          className="mt-5 min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -145,6 +158,24 @@ export default function ProgressPage() {
             <p className="mt-2 text-xs text-text-secondary">{hint}</p>
           </div>
         ))}
+      </section>
+
+      <section className="panel mt-8 p-6 sm:p-8">
+        <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div>
+            <p className="label">Ritmo de estudo</p>
+            <h2 className="section-title mt-2">Minutos por dia</h2>
+          </div>
+          {language && (
+            <p className="text-sm text-text-secondary">Somente {language.name_pt}</p>
+          )}
+        </div>
+        <div className="mt-5 inline-flex rounded-xl border border-border p-1" aria-label="Período do gráfico">
+          {([7, 30] as const).map((days) => (
+            <button key={days} type="button" aria-pressed={periodDays === days} onClick={() => setPeriodDays(days)} className={`min-h-9 rounded-lg px-3 text-sm font-semibold ${periodDays === days ? "bg-primary text-white" : "text-text-secondary hover:text-text-primary"}`}>{days} dias</button>
+          ))}
+        </div>
+        <ProgressActivityChart activity={data?.daily_activity} />
       </section>
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_.9fr]">

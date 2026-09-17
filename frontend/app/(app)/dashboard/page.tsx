@@ -244,11 +244,14 @@ export default function DashboardPage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
   const { code, resolved } = useActiveLanguage();
   const todayResource = useTodayInCurriculum(resolved ? code : null);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
+    setError("");
     api<DashboardData>("/api/v1/dashboard")
       .then((payload) => {
         if (active) setData(payload);
@@ -267,7 +270,7 @@ export default function DashboardPage() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [reloadKey]);
 
   if (loading) return <DashboardSkeleton />;
 
@@ -278,6 +281,13 @@ export default function DashboardPage() {
         <p role="alert" className="mt-4 text-sm text-danger">
           {error}
         </p>
+        <button
+          type="button"
+          className="mt-5 min-h-11 rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:bg-primary-hover"
+          onClick={() => setReloadKey((key) => key + 1)}
+        >
+          Tentar novamente
+        </button>
       </div>
     );
   }
@@ -325,7 +335,7 @@ export default function DashboardPage() {
         </dl>
       </header>
 
-      <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(0,1fr)]">
+      <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {today ? (
           <TodayInCurriculum today={today} />
         ) : (
@@ -360,7 +370,15 @@ export default function DashboardPage() {
                     </p>
                     <span className="text-sm font-semibold tabular-nums">{planPercent}%</span>
                   </div>
-                  <div className="mt-3 h-1.5 rounded-full bg-surface-elevated">
+                  <div
+                    className="mt-3 h-1.5 rounded-full bg-surface-elevated"
+                    role="progressbar"
+                    aria-label="Progresso do plano do dia"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={planPercent}
+                    aria-valuetext={`${doneCount} de ${planItems.length} itens concluídos`}
+                  >
                     <div
                       className="h-full rounded-full bg-primary transition-[width]"
                       style={{ width: `${planPercent}%` }}

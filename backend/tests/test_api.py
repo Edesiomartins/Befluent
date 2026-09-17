@@ -1,8 +1,13 @@
 import httpx
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
+
 from fastapi.testclient import TestClient
+from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.main import app
+from app.models import StudySession, User, UserLanguage
 
 
 def test_health(client):
@@ -412,11 +417,79 @@ def test_progress_reflects_study_session(client, auth):
     assert body["total_minutes"] >= 0
     assert body["active_language"]["code"] == "en"
     assert len(body["recent_activity"]) == 1
+    daily = body["daily_activity"]
+    assert daily["timezone"] == "America/Sao_Paulo"
+    assert len(daily["days"]) == 7
+    assert daily["days"][-1]["date"] == daily["period_end"]
+    assert sum(day["minutes"] for day in daily["days"]) == body["minutes_today"]
 
     dashboard = client.get("/api/v1/dashboard", headers=auth).json()
     assert dashboard["progress"]["study_sessions"] == 1
     assert dashboard["progress"]["streak_days"] >= 1
     assert len(dashboard["recent_activity"]) == 1
+
+
+def test_progress_daily_series_uses_full_history_not_recent_activity(client, auth, db_session):
+    assert client.post(
+        "/api/v1/onboarding/complete",
+        json={
+            "language_code": "en",
+            "perceived_level": "iniciante",
+            "goal": "Conversar com confiança",
+            "minutes_per_day": 20,
+            "skills": ["Conversação"],
+        },
+        headers=auth,
+    ).status_code == 200
+
+    user_id = db_session.scalar(select(User.id).where(User.email == "admin@befluent.local"))
+    user_language_id = db_session.scalar(
+        select(UserLanguage.id).where(
+            UserLanguage.user_id == user_id,
+            UserLanguage.is_active.is_(True),
+        )
+    )
+    local_now = datetime.now(ZoneInfo("America/Sao_Paulo"))
+    local_noon = local_now.replace(hour=12, minute=0, second=0, microsecond=0)
+    ended_at = local_noon.astimezone(timezone.utc)
+    for index in range(11):
+        db_session.add(
+            StudySession(
+                user_language_id=user_language_id,
+                started_at=ended_at - timedelta(minutes=5, seconds=index),
+                ended_at=ended_at - timedelta(seconds=index),
+                status="completed",
+                summary_short=f"Sessão {index + 1}",
+            )
+        )
+    db_session.commit()
+
+    body = client.get("/api/v1/progress", headers=auth).json()
+    assert len(body["recent_activity"]) == 10
+    assert body["daily_activity"]["days"][-1]["minutes"] == 55
+
+
+def test_progress_supports_seven_and_thirty_day_periods(client, auth, db_session):
+    assert client.post(
+        "/api/v1/onboarding/complete",
+        json={"language_code": "en", "perceived_level": "iniciante", "goal": "Viagem", "minutes_per_day": 20, "skills": []},
+        headers=auth,
+    ).status_code == 200
+    user_id = db_session.scalar(select(User.id).where(User.email == "admin@befluent.local"))
+    user_language_id = db_session.scalar(select(UserLanguage.id).where(UserLanguage.user_id == user_id))
+    local_now = datetime.now(ZoneInfo("America/Sao_Paulo")).replace(hour=12, minute=0, second=0, microsecond=0)
+    for days_ago, minutes in ((2, 10), (20, 25)):
+        ended_at = (local_now - timedelta(days=days_ago)).astimezone(timezone.utc)
+        db_session.add(StudySession(user_language_id=user_language_id, started_at=ended_at - timedelta(minutes=minutes), ended_at=ended_at, status="completed"))
+    db_session.commit()
+
+    seven = client.get("/api/v1/progress?days=7", headers=auth).json()["daily_activity"]
+    thirty = client.get("/api/v1/progress?days=30", headers=auth).json()["daily_activity"]
+    assert len(seven["days"]) == 7
+    assert seven["total_minutes"] == 10
+    assert len(thirty["days"]) == 30
+    assert thirty["total_minutes"] == 35
+    assert client.get("/api/v1/progress?days=14", headers=auth).status_code == 422
 
 
 def test_onboarding_persists_after_new_session(client):

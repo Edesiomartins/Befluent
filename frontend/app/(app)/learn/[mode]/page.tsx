@@ -61,13 +61,15 @@ function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | n
   const fallback = meta[mode];
   return (
     <header className="mb-8">
-      <Link href="/learn" className="text-sm font-medium text-text-secondary hover:text-primary">
-        ← Voltar para aprender
-      </Link>
-      <div className="mt-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="page-title">{lesson?.title ?? fallback.title}</h1>
-          {lesson?.objective && <p className="mt-2 text-text-secondary">{lesson.objective}</p>}
+          {lesson?.objective && (
+            <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
+              <span className="font-semibold text-text-primary">Objetivo: </span>
+              {lesson.objective}
+            </p>
+          )}
         </div>
         {lesson && <LevelBadge lesson={lesson} />}
       </div>
@@ -269,7 +271,7 @@ function AdaptiveLesson({ mode }: { mode: string }) {
   const { code } = useActiveLanguage();
   const { status, lesson, error, rawError, reload } = useLesson(mode, code);
   return (
-    <div>
+    <div className="mx-auto max-w-3xl">
       <PageHeader mode={mode} lesson={lesson} />
       {status === "loading" && <Loading label={`Preparando ${meta[mode].title}`} />}
       {status === "error" && (
@@ -291,7 +293,7 @@ export default function StudyModePage() {
   }
   if (mode === "assessment") {
     return (
-      <div>
+      <div className="mx-auto max-w-3xl">
         <PageHeader mode={mode} lesson={null} />
         <Assessment />
       </div>
@@ -299,7 +301,7 @@ export default function StudyModePage() {
   }
   if (mode === "review") {
     return (
-      <div>
+      <div className="mx-auto max-w-3xl">
         <PageHeader mode={mode} lesson={null} />
         <DueReviews />
       </div>

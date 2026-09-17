@@ -330,7 +330,14 @@ export default function CronogramaPage() {
 
       {/* Progresso geral */}
       <section className="mt-6">
-        <div className="h-1.5 rounded-full bg-surface-elevated">
+        <div
+          className="h-1.5 rounded-full bg-surface-elevated"
+          role="progressbar"
+          aria-label="Progresso do cronograma"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progress.percent_complete}
+        >
           <div
             className="h-full rounded-full bg-primary transition-[width]"
             style={{ width: `${progress.percent_complete}%` }}

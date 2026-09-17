@@ -1,5 +1,6 @@
 import {
   forwardRef,
+  useId,
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
@@ -39,8 +40,9 @@ export function Button({
   };
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
       disabled={disabled || loading}
+      aria-busy={loading || undefined}
       {...props}
     >
       {loading && <span className="size-4 animate-spin rounded-full border-2 border-current border-r-transparent" aria-hidden />}
@@ -58,14 +60,15 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { label, error, id, className = "", ...props },
   ref,
 ) {
-  const inputId = id ?? props.name;
+  const generatedId = useId();
+  const inputId = id ?? props.name ?? generatedId;
   return (
     <label className="grid gap-2 text-sm font-medium" htmlFor={inputId}>
       {label}
       <input
         ref={ref}
         id={inputId}
-        className={`min-h-11 rounded-xl border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+        className={`min-h-11 rounded-[10px] border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
@@ -81,7 +84,8 @@ type PasswordInputProps = Omit<InputProps, "type">;
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   function PasswordInput({ label, error, id, className = "", ...props }, ref) {
     const [visible, setVisible] = useState(false);
-    const inputId = id ?? props.name;
+    const generatedId = useId();
+    const inputId = id ?? props.name ?? generatedId;
     const toggleLabel = visible ? "Ocultar senha" : "Mostrar senha";
 
     return (
@@ -92,7 +96,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
             ref={ref}
             id={inputId}
             type={visible ? "text" : "password"}
-            className={`min-h-11 w-full rounded-xl border bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary/65 focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+            className={`min-h-11 w-full rounded-[10px] border bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${inputId}-error` : undefined}
             {...props}
@@ -215,10 +219,10 @@ export function Toggle({
   return (
     <label className="flex cursor-pointer items-center justify-between gap-5 border-b border-border py-4 last:border-0">
       <span><span className="block text-sm font-medium">{label}</span>{description && <span className="mt-1 block text-sm text-text-secondary">{description}</span>}</span>
-      <input className="sr-only" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input className="peer sr-only" type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
       <span
         aria-hidden
-        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors ${checked ? "bg-success" : "bg-border"}`}
+        className={`relative inline-flex h-7 w-12 shrink-0 items-center rounded-full transition-colors peer-focus-visible:outline-2 peer-focus-visible:outline-offset-4 peer-focus-visible:outline-primary ${checked ? "bg-primary" : "bg-border"}`}
       >
         <span
           className={`inline-block size-5 transform rounded-full bg-white shadow transition-transform ${checked ? "translate-x-6" : "translate-x-1"}`}

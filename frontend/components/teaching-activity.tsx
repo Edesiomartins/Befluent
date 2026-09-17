@@ -124,14 +124,16 @@ export function TeachingActivityBody({
         <p className="text-lg font-semibold text-text-primary">{activity.prompt}</p>
       )}
       {activity.scaffold_pt && (
-        <p className="rounded-xl bg-surface-elevated px-4 py-3 text-sm text-text-secondary">
-          Apoio: {activity.scaffold_pt}
-        </p>
+        <details className="disclosure rounded-lg border border-border px-4 py-3 text-sm">
+          <summary className="cursor-pointer font-semibold text-primary">Ver ajuda</summary>
+          <p className="mt-3 leading-6 text-text-secondary">{activity.scaffold_pt}</p>
+        </details>
       )}
       {activity.type === "fill_gap" && (
         <p className="font-medium text-text-primary">{activity.prompt}</p>
       )}
       <textarea
+        aria-label="Sua resposta"
         value={response}
         disabled={locked}
         onChange={(event) => onResponse(event.target.value)}

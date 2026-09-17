@@ -29,6 +29,18 @@ function selectChoice(label: string) {
   fireEvent.click(screen.getByRole("radio", { name: new RegExp(label) }));
 }
 
+function next() {
+  fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+}
+
+function reachReview(level = "Fazer o teste depois") {
+  next();
+  selectChoice(level);
+  next();
+  next();
+  next();
+}
+
 describe("OnboardingPage — decisão de nível", () => {
   beforeEach(() => {
     replace.mockReset();
@@ -37,8 +49,12 @@ describe("OnboardingPage — decisão de nível", () => {
     apiMock.mockReset();
   });
 
-  it("oferece as quatro opções de nível", () => {
+  it("apresenta uma decisão por etapa e anuncia o progresso", () => {
     render(<OnboardingPage />);
+    expect(screen.getByRole("heading", { name: "Qual idioma você quer estudar?" })).toHaveFocus();
+    expect(screen.getByRole("progressbar", { name: "Progresso da configuração" })).toHaveAttribute("aria-valuenow", "1");
+    expect(screen.queryByText("Você já sabe qual é o seu nível?")).not.toBeInTheDocument();
+    next();
     expect(screen.getByText("Você já sabe qual é o seu nível?")).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Sou iniciante absoluto/ })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: /Quero fazer o teste de nível/ })).toBeInTheDocument();
@@ -50,7 +66,7 @@ describe("OnboardingPage — decisão de nível", () => {
     apiMock.mockResolvedValue({ completed: true });
 
     render(<OnboardingPage />);
-    selectChoice("Sou iniciante absoluto");
+    reachReview("Sou iniciante absoluto");
     fireEvent.click(screen.getByRole("button", { name: "Criar meu plano" }));
 
     await waitFor(() =>
@@ -70,14 +86,31 @@ describe("OnboardingPage — decisão de nível", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/cronograma"), { timeout: 2000 });
   });
 
+  it("avisa o shell após salvar o idioma do plano", async () => {
+    const changed = vi.fn();
+    window.addEventListener("befluent:language-changed", changed);
+    apiMock.mockResolvedValue({ completed: true });
+
+    render(<OnboardingPage />);
+    reachReview();
+    fireEvent.click(screen.getByRole("button", { name: "Criar meu plano" }));
+
+    await waitFor(() => expect(changed).toHaveBeenCalledTimes(1));
+    window.removeEventListener("befluent:language-changed", changed);
+  });
+
   it("nível declarado exibe seletor CEFR e envia o código escolhido", async () => {
     apiMock.mockResolvedValue({ completed: true });
 
     render(<OnboardingPage />);
+    next();
     selectChoice("Prefiro informar meu nível");
 
     const select = screen.getByLabelText(/Qual é o seu nível/);
     fireEvent.change(select, { target: { value: "B1" } });
+    next();
+    next();
+    next();
     fireEvent.click(screen.getByRole("button", { name: "Criar meu plano" }));
 
     await waitFor(() =>
@@ -96,6 +129,7 @@ describe("OnboardingPage — decisão de nível", () => {
       .mockResolvedValueOnce({ id: "test-123" });
 
     render(<OnboardingPage />);
+    reachReview("Quero fazer o teste de nível");
     fireEvent.click(screen.getByRole("button", { name: "Criar plano e iniciar teste" }));
 
     await waitFor(() =>
@@ -111,7 +145,7 @@ describe("OnboardingPage — decisão de nível", () => {
     apiMock.mockResolvedValue({ completed: true });
 
     render(<OnboardingPage />);
-    selectChoice("Fazer o teste depois");
+    reachReview();
     fireEvent.click(screen.getByRole("button", { name: "Criar meu plano" }));
 
     await waitFor(() =>
@@ -127,15 +161,19 @@ describe("OnboardingPage — decisão de nível", () => {
 
   it("mostra erro real da API e não redireciona", async () => {
     const { ApiError } = await import("@/lib/api");
+    const changed = vi.fn();
+    window.addEventListener("befluent:language-changed", changed);
     apiMock.mockRejectedValue(new ApiError("Idioma não encontrado.", 404, "language_not_found"));
 
     render(<OnboardingPage />);
-    selectChoice("Fazer o teste depois");
+    reachReview();
     fireEvent.click(screen.getByRole("button", { name: "Criar meu plano" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Idioma não encontrado.");
     expect(replace).not.toHaveBeenCalled();
     expect(refresh).not.toHaveBeenCalled();
+    expect(changed).not.toHaveBeenCalled();
+    window.removeEventListener("befluent:language-changed", changed);
   });
 
   it("falha ao criar o teste não redireciona silenciosamente ao dashboard", async () => {
@@ -145,6 +183,7 @@ describe("OnboardingPage — decisão de nível", () => {
       .mockRejectedValueOnce(new ApiError("Falha ao criar teste.", 500));
 
     render(<OnboardingPage />);
+    reachReview("Quero fazer o teste de nível");
     fireEvent.click(screen.getByRole("button", { name: "Criar plano e iniciar teste" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Falha ao criar teste.");
@@ -161,12 +200,20 @@ describe("OnboardingPage — decisão de nível", () => {
     );
 
     render(<OnboardingPage />);
-    selectChoice("Fazer o teste depois");
+    reachReview();
     const button = screen.getByRole("button", { name: "Criar meu plano" });
     fireEvent.click(button);
     fireEvent.click(button);
 
     await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(1));
     resolveRequest({ completed: true });
+  });
+
+  it("preserva escolhas ao voltar", () => {
+    render(<OnboardingPage />);
+    fireEvent.click(screen.getByRole("radio", { name: "Francês" }));
+    next();
+    fireEvent.click(screen.getByRole("button", { name: "Voltar" }));
+    expect(screen.getByRole("radio", { name: "Francês" })).toBeChecked();
   });
 });

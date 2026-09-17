@@ -475,15 +475,8 @@ export default function CurriculumDayPage() {
     day.blocks_total > 0 ? Math.round((day.blocks_completed / day.blocks_total) * 100) : 0;
 
   return (
-    <div>
-      <Link
-        href="/cronograma"
-        className="text-sm font-medium text-text-secondary hover:text-primary"
-      >
-        ← Voltar para o cronograma
-      </Link>
-
-      <header className="mt-5">
+    <div className="mx-auto max-w-5xl">
+      <header>
         <p className="text-sm text-text-secondary">
           Semana {week.week_number} · {week.theme}
           {week.is_checkpoint && (
@@ -607,7 +600,7 @@ export default function CurriculumDayPage() {
           {day.thread && <DayThread thread={day.thread} />}
         </nav>
 
-        <div>
+        <div className="min-w-0 max-w-3xl">
           {finished && !activeBlockId ? (
             <div className="panel p-8 text-center" role="status">
               <h2 className="text-xl font-semibold">

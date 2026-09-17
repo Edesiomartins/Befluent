@@ -1,3 +1,5 @@
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -11,7 +13,11 @@ router = APIRouter(prefix="/progress", tags=["progress"])
 
 
 @router.get("")
-def progress(db: Session = Depends(get_db), user: User = Depends(current_user)):
+def progress(
+    days: Literal[7, 30] = 7,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
     active = db.execute(
         select(UserLanguage, Language)
         .join(Language)
@@ -27,7 +33,7 @@ def progress(db: Session = Depends(get_db), user: User = Depends(current_user)):
 
     ul = active[0] if active else None
     lang = active[1] if active else None
-    stats = aggregate_progress(db, user.id, user_language_id=ul.id if ul else None)
+    stats = aggregate_progress(db, user.id, user_language_id=ul.id if ul else None, activity_days=days)
 
     skills: list[str] = []
     goal = None
