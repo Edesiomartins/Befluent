@@ -192,6 +192,16 @@ class TestConfidence:
 
 
 class TestBuildResult:
+    def test_escrita_heuristica_nao_entra_no_resultado_de_dominio(self):
+        answers = [record(Skill.READING, "A2", 1.0) for _ in range(4)]
+        answers += [record(Skill.WRITING, "B2", 1.0) for _ in range(4)]
+
+        result = engine.build_result(answers)
+
+        assert Skill.WRITING not in result["skills"]
+        assert Skill.WRITING not in result["assessed_skills"]
+        assert Skill.WRITING not in result["weights_used"]
+
     def test_registra_competencias_avaliadas_e_ausentes(self):
         answers = [record(Skill.READING, "A2", 1.0) for _ in range(4)]
         answers += [record(Skill.VOCABULARY_GRAMMAR, "A2", 1.0) for _ in range(4)]
@@ -219,11 +229,19 @@ class TestBuildResult:
 
 
 class TestSkillEstimation:
-    def test_nao_estima_faixa_sem_quatro_itens_e_dois_na_faixa(self):
-        answers = [record(Skill.READING, "A2", 1.0) for _ in range(3)]
+    def test_nao_estima_faixa_sem_dois_itens_na_faixa_dominada(self):
+        answers = [
+            record(Skill.READING, "PRE_A1", 1.0),
+            record(Skill.READING, "A1", 1.0),
+            record(Skill.READING, "A2", 1.0),
+            record(Skill.READING, "B1", 1.0),
+        ]
         assert engine.estimate_skill_level(answers) is None
-        answers.append(record(Skill.READING, "A1", 1.0))
-        assert engine.estimate_skill_level(answers) is None
+
+    def test_faixa_dominada_nao_depende_da_ultima_resposta(self):
+        answers = [record(Skill.READING, "A2", 1.0) for _ in range(4)]
+        answers.append(record(Skill.READING, "B1", 0.0))
+        assert engine.estimate_skill_level(answers) == "A2"
 
     def test_poucos_itens_nao_geram_estimativa(self):
         assert engine.estimate_skill_level([record(Skill.READING, "A2", 1.0)]) is None

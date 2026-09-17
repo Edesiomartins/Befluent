@@ -207,9 +207,6 @@ def estimate_skill_level(answers: list[AnswerRecord]) -> str | None:
         return None
 
     accuracy = _band_accuracy(answers)
-    deciding_band = answers[-1].cefr_level
-    if accuracy.get(deciding_band, (0.0, 0))[1] < MIN_ITEMS_AT_DECIDING_BAND:
-        return None
     mastered = [
         level
         for level, (mean, count) in accuracy.items()
@@ -230,6 +227,8 @@ def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
 
     results: dict[str, dict] = {}
     for skill, skill_answers in grouped.items():
+        if skill in PRODUCTION_SKILLS:
+            continue
         level = estimate_skill_level(skill_answers)
         if level is None:
             continue
