@@ -239,4 +239,35 @@ describe("ProgressPage", () => {
     expect(screen.queryByText(/→/)).not.toBeInTheDocument();
     expect(screen.queryByRole("table", { name: "Domínio por dia" })).not.toBeInTheDocument();
   });
+
+  it("orienta configurar um idioma quando o domínio está indisponível", async () => {
+    apiMock.mockResolvedValue({
+      vocabulary_items: 0,
+      study_sessions: 0,
+      streak_days: 0,
+      total_minutes: 0,
+      minutes_today: 0,
+      total_minutes_label: "0min",
+      daily_activity: { period_start: "2026-09-11", period_end: "2026-09-17", timezone: "America/Sao_Paulo", total_minutes: 0, days: [] },
+      recent_activity: [],
+      active_language: null,
+      mastery: {
+        status: "unavailable",
+        overall_percent: null,
+        by_skill: [],
+        timeline: [],
+        cefr: null,
+        priorities: [],
+      },
+    });
+
+    render(<ProgressPage />);
+
+    expect(await screen.findByText(/configure ou selecione um idioma/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Configurar idioma" })).toHaveAttribute("href", "/onboarding");
+    expect(screen.queryByText(/dados em calibração/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+    expect(screen.queryByText(/→/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("table", { name: "Domínio por dia" })).not.toBeInTheDocument();
+  });
 });

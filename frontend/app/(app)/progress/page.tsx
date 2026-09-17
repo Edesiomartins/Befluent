@@ -176,6 +176,11 @@ export default function ProgressPage() {
             <h2 className="font-display text-[1.75rem] font-medium leading-tight tracking-[-0.015em]">Domínio demonstrado</h2>
             {hasDemonstratedMastery ? (
               <p className="mt-3 font-display text-5xl font-medium leading-none tracking-[-0.03em]">{mastery.overall_percent}%</p>
+            ) : mastery?.status === "unavailable" ? (
+              <div className="mt-3 text-sm text-text-secondary">
+                <p>Configure ou selecione um idioma para acompanhar seu domínio.</p>
+                <Link className="mt-2 inline-block font-semibold text-primary hover:underline" href="/onboarding">Configurar idioma</Link>
+              </div>
             ) : (
               <p className="mt-3 text-sm text-text-secondary">Dados em calibração: pratique atividades com objetivo para formar uma medida confiável.</p>
             )}
