@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 import uuid
 from zoneinfo import ZoneInfo
 
@@ -72,14 +72,19 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
     profile = _user_language(db_session)
     profile.current_level = "B1"
     objective = _objective(db_session, skill="reading", level="A2")
-    now = datetime.now(timezone.utc).replace(hour=15, minute=0, second=0, microsecond=0)
+    tz = ZoneInfo("America/Sao_Paulo")
+    today_local = datetime.now(tz).date()
+    previous_local_noon = datetime.combine(
+        today_local - timedelta(days=1), time(hour=12), tzinfo=tz
+    ).astimezone(timezone.utc)
+    current_local_noon = datetime.combine(today_local, time(hour=12), tzinfo=tz).astimezone(timezone.utc)
     attempt = LearningAttempt(
         user_language_id=profile.id,
         objective_id=objective.id,
         activity_type="practice",
         result="correct",
-        created_at=now - timedelta(days=1),
-        evaluated_at=now - timedelta(days=1),
+        created_at=previous_local_noon,
+        evaluated_at=previous_local_noon,
     )
     db_session.add(attempt)
     db_session.flush()
@@ -89,7 +94,7 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
             objective_id=objective.id,
             attempt_id=attempt.id,
             evidence_type="correct_response",
-            created_at=now - timedelta(days=1),
+            created_at=previous_local_noon,
         )
     )
     db_session.add(
@@ -97,8 +102,8 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
             user_language_id=profile.id,
             objective_id=objective.id,
             state=MasteryState.MASTERED,
-            started_at=now - timedelta(days=1),
-            mastered_at=now,
+            started_at=previous_local_noon,
+            mastered_at=current_local_noon,
         )
     )
     db_session.add(
@@ -109,14 +114,14 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
             category="grammar",
             original="wrong",
             resolved=False,
-            first_seen=now,
-            last_seen=now,
+            first_seen=current_local_noon,
+            last_seen=current_local_noon,
         )
     )
     db_session.commit()
 
     result = aggregate_mastery_progress(
-        db_session, profile.id, days=7, tz=ZoneInfo("America/Sao_Paulo")
+        db_session, profile.id, days=7, tz=tz
     )
 
     assert result["status"] == "ready"
