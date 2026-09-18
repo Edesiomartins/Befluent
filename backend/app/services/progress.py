@@ -227,9 +227,10 @@ def aggregate_mastery_progress(
     *,
     days: int,
     tz: ZoneInfo,
+    as_of: datetime | None = None,
 ) -> dict:
     """Agrega domínio demonstrado, sem usar métricas administrativas legadas."""
-    now_local = datetime.now(timezone.utc).astimezone(tz).date()
+    now_local = _as_utc(as_of or datetime.now(timezone.utc)).astimezone(tz).date()
     rows = list(
         db.execute(
             select(UserObjectiveProgress, LearningObjective)

@@ -73,7 +73,8 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
     profile.current_level = "B1"
     objective = _objective(db_session, skill="reading", level="A2")
     tz = ZoneInfo("America/Sao_Paulo")
-    today_local = datetime.now(tz).date()
+    reference_utc = datetime(2026, 9, 18, 15, tzinfo=timezone.utc)
+    today_local = reference_utc.astimezone(tz).date()
     previous_local_noon = datetime.combine(
         today_local - timedelta(days=1), time(hour=12), tzinfo=tz
     ).astimezone(timezone.utc)
@@ -121,7 +122,7 @@ def test_mastery_usa_estado_por_habilidade_e_timeline_somente_por_eventos_datado
     db_session.commit()
 
     result = aggregate_mastery_progress(
-        db_session, profile.id, days=7, tz=tz
+        db_session, profile.id, days=7, tz=tz, as_of=reference_utc
     )
 
     assert result["status"] == "ready"
