@@ -16,4 +16,5 @@ export const LANGUAGES = [
   { code: "fr", namePt: "Francês", native: "Français" },
   { code: "ja", namePt: "Japonês", native: "日本語" },
   { code: "zh-CN", namePt: "Mandarim", native: "中文" },
+  { code: "la", namePt: "Latim eclesiástico", native: "Latina" },
 ] as const;

@@ -132,7 +132,7 @@ def test_mock_generates_every_mode(mode):
     assert lesson["level"] == CEFRLevel.B1
 
 
-@pytest.mark.parametrize("language", ["en", "es-ES", "fr", "ja", "zh-CN"])
+@pytest.mark.parametrize("language", ["en", "es-ES", "fr", "ja", "zh-CN", "la"])
 @pytest.mark.parametrize("mode", SUPPORTED_MODES)
 def test_mock_covers_every_language(mode, language):
     lesson = MockAIProvider().generate_lesson(mode, _context(language_code=language))

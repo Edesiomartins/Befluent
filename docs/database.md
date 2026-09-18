@@ -78,7 +78,7 @@ Por isso **não** há aresta Mermaid `VocabularyItem ||--o{ ReviewItem` como cha
 ### Language
 
 - **Finalidade:** catálogo de idiomas.
-- **Campos:** id, code (`en`, `es-ES`, `fr`, `ja`, `zh-CN` — codes exatos = decisão de implementação), name_pt, variant_note, is_active.
+- **Campos:** id, code (`en`, `es-ES`, `fr`, `ja`, `zh-CN`, `la` — codes exatos = decisão de implementação), name_pt, variant_note, is_active.
 - **Relacionamentos:** UserLanguage, GrammarTopic (catálogo por idioma).
 - **Índices:** único em code.
 - **Exclusão:** soft (desativar); não apagar se houver histórico.

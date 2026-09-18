@@ -120,6 +120,32 @@ LANGUAGE_THEMES: dict[str, dict[str, list[str]]] = {
         CEFRLevel.A2: ["Hanzi compostos e radicais"],
         CEFRLevel.B1: ["Chengyu e expressões de quatro caracteres"],
     },
+    "la": {
+        CEFRLevel.PRE_A1: [
+            "Alfabeto e pronúncia eclesiástica",
+            "Saudacoes da Missa (Dominus vobiscum)",
+            "Nominativo e acusativo na 1ª/2ª declinação",
+        ],
+        CEFRLevel.A1: [
+            "Presente do indicativo e genitivo",
+            "Vocabulário litúrgico essencial",
+            "Pater noster — leitura guiada",
+        ],
+        CEFRLevel.A2: [
+            "Ablativo e dativo na liturgia",
+            "Perfeito e Vulgata narrativa",
+            "Credo — morfologia e sentido",
+        ],
+        CEFRLevel.B1: [
+            "Subjuntivo de desejo e orações",
+            "João 1 e prosa bíblica",
+            "Casos em orações subordinadas",
+        ],
+        CEFRLevel.B2: [
+            "Prosa escolástica e argumentação",
+            "Teologia latina: termos técnicos",
+        ],
+    },
 }
 
 
@@ -169,6 +195,8 @@ def script_focus(language_code: str, week_number: int) -> str | None:
         return f"kanji — lote {min((week_number - 2), 24)}"
     if language_code == "zh-CN":
         return f"hanzi — lote {min(week_number, 26)}"
+    if language_code == "la":
+        return "morfologia eclesiástica (casos e desinências)"
     return None
 
 
@@ -180,6 +208,7 @@ PRONUNCIATION_OPENING: dict[str, str] = {
     "fr": "vogais nasais e /y/",
     "es-ES": "/θ/ e vibrante múltiplo",
     "en": "/θ/, /ð/ e vogais curtas × longas",
+    "la": "c/g eclesiásticos (/tʃ/, /dʒ/) e v = /v/",
 }
 
 
@@ -213,7 +242,7 @@ def coverage_report() -> dict[str, list[str]]:
     """Níveis sem tema por idioma. Usado por teste: uma célula vazia aqui vira
     uma semana sem tema no cronograma do aluno."""
     gaps: dict[str, list[str]] = {}
-    for language_code in ("en", "es-ES", "fr", "ja", "zh-CN"):
+    for language_code in ("en", "es-ES", "fr", "ja", "zh-CN", "la"):
         missing = [
             level
             for level in LEVEL_ORDER

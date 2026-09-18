@@ -26,7 +26,7 @@ from app.services.curriculum_generator import (
     weight_for,
 )
 
-LANGUAGES = ["en", "es-ES", "fr", "ja", "zh-CN"]
+LANGUAGES = ["en", "es-ES", "fr", "ja", "zh-CN", "la"]
 
 #: Segunda-feira, para o cronograma começar sempre no mesmo dia da semana.
 START = date(2026, 8, 3)

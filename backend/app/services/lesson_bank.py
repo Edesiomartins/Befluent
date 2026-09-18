@@ -1269,11 +1269,16 @@ PRONUNCIATION_FOCUS: dict[str, list[dict[str, str]]] = {
 
 #: Idiomas suportados. Vale como contrato: nenhuma célula
 #: idioma × habilidade × faixa pode voltar vazia para nenhum deles.
-SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "es-ES", "fr", "ja", "zh-CN")
+SUPPORTED_LANGUAGES: tuple[str, ...] = ("en", "es-ES", "fr", "ja", "zh-CN", "la")
 
 #: Idioma usado quando um código desconhecido chega até aqui. Só protege contra
-#: dado inesperado — para os cinco idiomas oficiais o fallback nunca dispara.
+#: dado inesperado — para os idiomas oficiais o fallback nunca dispara.
 FALLBACK_LANGUAGE = "en"
+
+# Latim eclesiástico: conteúdo em módulo próprio para não inflar este arquivo.
+from app.services.lesson_bank_la import register as _register_la
+
+_register_la(globals())
 
 
 def _by_language(table: dict, language_code: str) -> dict:

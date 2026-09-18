@@ -1,4 +1,4 @@
-export type LanguageCode = "en" | "es-ES" | "fr" | "ja" | "zh-CN";
+export type LanguageCode = "en" | "es-ES" | "fr" | "ja" | "zh-CN" | "la";
 
 export type User = {
   id: string;

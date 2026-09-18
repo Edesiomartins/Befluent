@@ -42,7 +42,7 @@ from app.services.corpus_import import (  # noqa: E402
     load_frequency_ranks,
 )
 
-SUPPORTED = {"en", "es-ES", "fr", "ja", "zh-CN"}
+SUPPORTED = {"en", "es-ES", "fr", "ja", "zh-CN", "la"}
 
 REQUIRED_COLUMNS = {"source", "license", "attribution", "source_ref", "review_status"}
 

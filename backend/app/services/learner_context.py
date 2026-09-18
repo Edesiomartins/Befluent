@@ -53,6 +53,13 @@ SCRIPT_RULES: dict[str, str] = {
         "Variante: espanhol da Espanha. Use vocabulário peninsular e a forma "
         "vosotros quando couber; sinalize regionalismos."
     ),
+    "la": (
+        "Variante: latim eclesiástico (Igreja / Vulgata), não clássico restituído. "
+        "Pronúncia eclesiástica: c/g diante de e/i como no italiano (/tʃ/, /dʒ/); "
+        "v = /v/. Prefira vocabulário litúrgico e bíblico; indique caso e função "
+        "quando a morfologia for o ponto de ensino. Escrita e leitura têm prioridade "
+        "sobre fala espontânea."
+    ),
 }
 
 SKILL_COLUMNS: dict[str, str] = {

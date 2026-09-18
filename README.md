@@ -16,6 +16,7 @@ Assinatura: *Uma plataforma MedQuestHub AI* · *Powered by MedQuestHub AI*
 - Francês (`fr`)
 - Japonês (`ja`)
 - Mandarim (`zh-CN`)
+- Latim eclesiástico (`la`) — liturgia / Vulgata
 
 ## Objetivo
 

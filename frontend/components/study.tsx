@@ -14,6 +14,7 @@ const SPEECH_LANGS: Record<string, string> = {
   fr: "fr-FR",
   ja: "ja-JP",
   "zh-CN": "zh-CN",
+  la: "la",
 };
 
 export type TranscriptResult = {

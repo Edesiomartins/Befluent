@@ -163,10 +163,10 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-5 py-20 md:px-8">
             <div className="max-w-2xl">
               <h2 className="text-3xl font-bold tracking-tight md:text-[2rem]">
-                Cinco idiomas, cada um no seu caminho
+                Seis idiomas, cada um no seu caminho
               </h2>
               <p className="mt-4 text-lg leading-8 text-text-secondary">
-                Estratégias próprias para inglês, espanhol da Espanha, francês, japonês e mandarim.
+                Estratégias próprias para inglês, espanhol da Espanha, francês, japonês, mandarim e latim eclesiástico.
               </p>
             </div>
             <ul className="mt-12 divide-y divide-border border-y border-border">

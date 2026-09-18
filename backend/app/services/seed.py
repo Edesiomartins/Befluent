@@ -44,6 +44,14 @@ LANGUAGES = [
         "Mandarim simplificado",
         "Ênfase em tons, pinyin, caracteres simplificados e comunicação.",
     ),
+    (
+        "la",
+        "Latim eclesiástico",
+        "Latina ecclesiastica",
+        "Eclesiástico / Vulgata",
+        "Latim da Igreja, liturgia e Vulgata (não clássico restituído)",
+        "Ênfase em leitura, morfologia, liturgia/Vulgata e escrita; fala secundária.",
+    ),
 ]
 
 

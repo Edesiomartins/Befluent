@@ -27,7 +27,7 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | D-015 | Redis não obrigatório inicialmente | Confirmada | Evitar complexidade precoce | 2026-07-27 | Infra |
 | D-016 | STT/TTS com arquitetura modular; provedor após testes | Confirmada | Flexibilidade | 2026-07-27 | Áudio |
 | D-017 | Estratégias pedagógicas distintas por idioma | Confirmada | Qualidade de ensino | 2026-07-27 | Motor/prompts |
-| D-018 | Codes de idioma: en, es-ES, fr, ja, zh-CN | Confirmada | Autorização explícita do proprietário | 2026-07-27 | API/DB |
+| D-018 | Codes de idioma: en, es-ES, fr, ja, zh-CN, la (eclesiástico) | Confirmada | Autorização explícita do proprietário; `la` acrescentado 2026-09-18 | 2026-07-27 | API/DB |
 | D-019 | SRS da 1ª versão: agendador simples substituível (não FSRS) | Confirmada | P-010 permanece pendente para algoritmo final | 2026-07-27 | Reviews |
 | D-020 | Cookie de sessão `befluent_session`; containers `befluent-*`; DB exemplo `befluent` | Confirmada | Migração de identidade sem migration destrutiva de tabelas | 2026-07-27 | Auth/Infra |
 | D-021 | Domínio planejado `befluent.medquesthub.com.br` (app independente do MedQuestHub) | Confirmada | Produção futura; sem SSO nesta fase | 2026-07-27 | Ops/Auth |
@@ -54,7 +54,7 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 ## Notas de alinhamento
 
 - **P-010 / D-019:** FSRS não está confirmado. A primeira versão usa agendador simples isolado e substituível.
-- **D-018 (ex-P-015):** codes confirmados: `en`, `es-ES`, `fr`, `ja`, `zh-CN`.
+- **D-018 (ex-P-015):** codes confirmados: `en`, `es-ES`, `fr`, `ja`, `zh-CN`, `la` (latim eclesiástico / Vulgata).
 
 ## Como atualizar este registro
 

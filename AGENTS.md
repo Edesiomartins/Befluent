@@ -1,7 +1,7 @@
 ﻿# BeFluent — Regras do Projeto
 
 - O projeto se chama **BeFluent** (antes: Fluentia).
-- O BeFluent é um webapp para aprendizado de inglês, espanhol da Espanha, francês, japonês e mandarim.
+- O BeFluent é um webapp para aprendizado de inglês, espanhol da Espanha, francês, japonês, mandarim e latim eclesiástico.
 - A interface deve permanecer em português.
 - Cadastro público e múltiplos usuários estão autorizados.
 - O projeto está **publicado em produção no Coolify**: `befluent.medquesthub.com.br` (frontend) e `api-befluent.medquesthub.com.br` (backend).
@@ -36,4 +36,4 @@ Continua **não autorizado** sem confirmação explícita:
 - Integrar login ao MedQuestHub AI.
 - Renomear infraestrutura legada `fluentia-*` (serviços, volume `fluentia_pg_data`) por causa da marca — quebraria volumes existentes em produção.
 
-Codes de idioma autorizados: `en`, `es-ES`, `fr`, `ja`, `zh-CN`.
+Codes de idioma autorizados: `en`, `es-ES`, `fr`, `ja`, `zh-CN`, `la` (latim eclesiástico / Vulgata).
