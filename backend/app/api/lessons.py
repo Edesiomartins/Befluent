@@ -249,11 +249,16 @@ def create(
 @router.get("/{lesson_id}")
 def one(lesson_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
     lesson, _ = _owned_lesson(db, user, lesson_id)
+    content = dict(lesson.content_json or {})
+    if content.get("mode") == "vocabulary" and content.get("language_code") == "la":
+        from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
+
+        content = sanitize_latin_vocabulary_payload(content)
     return {
         "id": lesson.id,
         "title": lesson.title,
         "objective": lesson.objective,
-        "content": lesson.content_json,
+        "content": content,
     }
 
 

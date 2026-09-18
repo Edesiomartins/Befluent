@@ -55,10 +55,13 @@ SCRIPT_RULES: dict[str, str] = {
     ),
     "la": (
         "Variante: latim eclesiástico (Igreja / Vulgata), não clássico restituído. "
-        "Pronúncia eclesiástica: c/g diante de e/i como no italiano (/tʃ/, /dʒ/); "
-        "v = /v/. Prefira vocabulário litúrgico e bíblico; indique caso e função "
-        "quando a morfologia for o ponto de ensino. Escrita e leitura têm prioridade "
-        "sobre fala espontânea."
+        "Pronúncia eclesiástica: c/g diante de e/i/ae/oe como no italiano (/tʃ/, /dʒ/); "
+        "c/g diante de a/o/u/l/r permanece /k/ e /g/ (ex.: gloria = /g/, não /dʒ/); "
+        "v = /v/. Em usage_note de pronúncia, cite só a regra que vale para as letras "
+        "reais do termo — não cole a regra de e/i em palavra com gl, ga, co, etc. "
+        "Prefira vocabulário litúrgico e bíblico; indique caso e função quando a "
+        "morfologia for o ponto de ensino. Escrita e leitura têm prioridade sobre "
+        "fala espontânea."
     ),
 }
 
