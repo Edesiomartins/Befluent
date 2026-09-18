@@ -93,6 +93,7 @@ const REVIEW_RATINGS = [
 ] as const;
 
 function DueReviews() {
+  const { code, resolved } = useActiveLanguage();
   const [items, setItems] = useState<DueReview[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -101,8 +102,16 @@ function DueReviews() {
   const [done, setDone] = useState(0);
 
   useEffect(() => {
+    if (!resolved) return;
     let active = true;
-    api<DueReview[]>("/api/v1/reviews/due")
+    setItems(null);
+    setIndex(0);
+    setRevealed(false);
+    setDone(0);
+    setError("");
+    api<DueReview[]>(
+      `/api/v1/reviews/due?language_code=${encodeURIComponent(code)}`,
+    )
       .then((payload) => {
         if (active) setItems(payload);
       })
@@ -118,9 +127,9 @@ function DueReviews() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [code, resolved]);
 
-  if (items === null) return <Loading label="Carregando revisões" />;
+  if (!resolved || items === null) return <Loading label="Carregando revisões" />;
   if (error && items.length === 0) {
     return <ErrorState message={error} retry={() => window.location.reload()} />;
   }

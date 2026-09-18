@@ -739,6 +739,42 @@ def test_vocabulary_and_reviews(client, auth):
     assert client.delete(f"/api/v1/vocabulary/{item['id']}", headers=auth).status_code == 200
 
 
+def test_reviews_due_isolated_by_language(client, auth):
+    """Revisões de um idioma não devem aparecer na fila do outro."""
+    assert client.post("/api/v1/languages/activate", json={"code": "en"}, headers=auth).status_code == 200
+    en = client.post(
+        "/api/v1/vocabulary",
+        json={"language_code": "en", "term": "house", "translation_pt": "casa"},
+        headers=auth,
+    )
+    assert en.status_code == 200
+
+    assert client.post("/api/v1/languages/activate", json={"code": "fr"}, headers=auth).status_code == 200
+    fr = client.post(
+        "/api/v1/vocabulary",
+        json={"language_code": "fr", "term": "maison", "translation_pt": "casa"},
+        headers=auth,
+    )
+    assert fr.status_code == 200
+
+    # Idioma ativo = francês → só itens de fr
+    due_active = client.get("/api/v1/reviews/due", headers=auth)
+    assert due_active.status_code == 200
+    terms_active = {item["payload"]["term"] for item in due_active.json()}
+    assert terms_active == {"maison"}
+
+    # Pedido explícito de inglês → só itens de en
+    due_en = client.get("/api/v1/reviews/due?language_code=en", headers=auth)
+    assert due_en.status_code == 200
+    terms_en = {item["payload"]["term"] for item in due_en.json()}
+    assert terms_en == {"house"}
+
+    due_fr = client.get("/api/v1/reviews/due?language_code=fr", headers=auth)
+    assert due_fr.status_code == 200
+    terms_fr = {item["payload"]["term"] for item in due_fr.json()}
+    assert terms_fr == {"maison"}
+
+
 def test_validation_error(client, auth):
     response = client.post("/api/v1/languages/activate", json={}, headers=auth)
     assert response.status_code == 422

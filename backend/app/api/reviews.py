@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.helpers import user_language
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
@@ -15,15 +16,32 @@ router = APIRouter(prefix="/reviews", tags=["reviews"])
 
 
 @router.get("/due")
-def due(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    q = (
-        select(ReviewItem)
-        .join(UserLanguage)
-        .where(
-            UserLanguage.user_id == user.id,
-            ReviewItem.suspended.is_(False),
-            ReviewItem.next_review_at <= datetime.now(timezone.utc),
+def due(
+    language_code: str | None = None,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Fila de revisão vencida — escopada a um único idioma.
+
+    Com `language_code`, usa esse idioma. Sem parâmetro, usa o idioma ativo.
+    Sem idioma ativo, devolve lista vazia (não mistura idiomas).
+    """
+    if language_code:
+        ul = user_language(db, user.id, code=language_code)
+    else:
+        ul = db.scalar(
+            select(UserLanguage).where(
+                UserLanguage.user_id == user.id,
+                UserLanguage.is_active.is_(True),
+            )
         )
+        if not ul:
+            return []
+
+    q = select(ReviewItem).where(
+        ReviewItem.user_language_id == ul.id,
+        ReviewItem.suspended.is_(False),
+        ReviewItem.next_review_at <= datetime.now(timezone.utc),
     )
     return [
         {
