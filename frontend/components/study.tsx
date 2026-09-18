@@ -36,15 +36,23 @@ function pickRecorderMimeType(): string {
  * TTS: Kokoro-82M via backend (`/speech/synthesize`) como voz principal;
  * se a chamada falhar, cai no SpeechSynthesis do navegador como rede de
  * segurança (nunca deixa o aluno sem áudio nenhum).
+ *
+ * `variant="compact"`: botão único “Ouvir” (cards de vocabulário).
+ * `variant="full"` (padrão): player com status e velocidade.
  */
 export function AudioPlayer({
   text = "Áudio da atividade",
   languageCode = "en",
+  variant = "full",
+  label = "Ouvir",
 }: {
   text?: string;
   /** @deprecated Mantido por compatibilidade; sem efeito. */
   demo?: boolean;
   languageCode?: string;
+  variant?: "full" | "compact";
+  /** Rótulo do botão na variante compacta. */
+  label?: string;
 }) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -62,8 +70,24 @@ export function AudioPlayer({
     return () => {
       abortRef.current?.abort();
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
+
+  // Ao mudar o texto (próximo item do deck), interrompe o áudio atual.
+  useEffect(() => {
+    abortRef.current?.abort();
+    audioRef.current?.pause();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+    setPlaying(false);
+    setLoading(false);
+    setUnsupported(false);
+    setUsingBrowserVoice(false);
+  }, [text, languageCode]);
 
   function playBrowserFallback() {
     setLoading(false);
@@ -116,8 +140,6 @@ export function AudioPlayer({
       setLoading(false);
     } catch {
       if (controller.signal.aborted) {
-        // Cancelamento intencional (stop/nova reprodução) — não é falha do
-        // provedor, então não aciona o fallback do navegador.
         setLoading(false);
         return;
       }
@@ -135,21 +157,48 @@ export function AudioPlayer({
     setPlaying(false);
   }
 
+  const audioElement = (
+    <audio
+      ref={audioRef}
+      className="hidden"
+      onEnded={() => setPlaying(false)}
+      onError={() => {
+        setPlaying(false);
+        setLoading(false);
+        playBrowserFallback();
+      }}
+    />
+  );
+
+  if (variant === "compact") {
+    return (
+      <div className="inline-flex flex-col items-start gap-1">
+        {audioElement}
+        <button
+          type="button"
+          onClick={playing ? stop : () => void play()}
+          disabled={loading || !text.trim()}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
+          aria-label={playing ? "Parar áudio" : `${label}: ${text}`}
+        >
+          <span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>
+          {loading ? "Gerando…" : playing ? "Parar" : label}
+        </button>
+        {unsupported && (
+          <p role="alert" className="text-xs text-danger">
+            Leitura em voz alta indisponível neste navegador.
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-surface p-4">
-      <audio
-        ref={audioRef}
-        className="hidden"
-        onEnded={() => setPlaying(false)}
-        onError={() => {
-          setPlaying(false);
-          setLoading(false);
-          playBrowserFallback();
-        }}
-      />
+      {audioElement}
       <button
         type="button"
-        onClick={playing ? stop : play}
+        onClick={playing ? stop : () => void play()}
         className="grid size-11 place-items-center rounded-full bg-primary text-white"
         aria-label={playing ? "Pausar áudio" : "Reproduzir áudio"}
       >

@@ -421,7 +421,15 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
         <p className="label">
           Expressão
         </p>
-        <h2 className="mt-5 text-3xl font-semibold tracking-tight">{item.term}</h2>
+        <div className="mt-5 flex flex-wrap items-center gap-4">
+          <h2 className="text-3xl font-semibold tracking-tight">{item.term}</h2>
+          <AudioPlayer
+            variant="compact"
+            label="Ouvir"
+            text={[item.term, item.example].filter(Boolean).join(". ")}
+            languageCode={lesson.language_code}
+          />
+        </div>
         <p className="mt-4 text-lg italic text-text-secondary">“{item.example}”</p>
         {revealed ? (
           <div className="mt-8 border-t border-border pt-6">

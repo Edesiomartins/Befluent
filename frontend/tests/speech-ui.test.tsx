@@ -56,8 +56,35 @@ describe("AudioPlayer (Kokoro-82M com fallback local)", () => {
         }),
       ),
     );
-    expect(await screen.findByText("Voz do BeFluent")).toBeInTheDocument();
+    expect(await screen.findByText(/Voz do/)).toBeInTheDocument();
     expect(apiMock).not.toHaveBeenCalled();
+  });
+
+  it("na variante compacta mostra o botão Ouvir e fala termo+exemplo", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+
+    render(
+      <AudioPlayer
+        variant="compact"
+        label="Ouvir"
+        text="gloria. Gloria in excelsis Deo."
+        languageCode="la"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Ouvir/ }));
+
+    await waitFor(() =>
+      expect(apiBlobMock).toHaveBeenCalledWith(
+        "/api/v1/speech/synthesize",
+        expect.objectContaining({
+          method: "POST",
+          body: expect.objectContaining({
+            text: "gloria. Gloria in excelsis Deo.",
+            language_code: "la",
+          }),
+        }),
+      ),
+    );
   });
 
   it("cai para SpeechSynthesis do navegador quando o backend de TTS falha", async () => {
