@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
+import { prepareEcclesiasticalLatinForSpeech } from "@/lib/ecclesiastical-latin-speech";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
 const AI_RETRY_COOLDOWN_SECONDS = 30;
@@ -16,6 +17,11 @@ const SPEECH_LANGS: Record<string, string> = {
   "zh-CN": "zh-CN",
   la: "la",
 };
+
+/** Voz italiana instalada (aproximação fonética para latim eclesiástico). */
+function pickItalianVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+  return voices.find((voice) => voice.lang.toLowerCase().startsWith("it")) ?? null;
+}
 
 export type TranscriptResult = {
   text: string;
@@ -45,6 +51,7 @@ export function AudioPlayer({
   languageCode = "en",
   variant = "full",
   label = "Ouvir",
+  phoneticActivity = false,
 }: {
   text?: string;
   /** @deprecated Mantido por compatibilidade; sem efeito. */
@@ -53,18 +60,25 @@ export function AudioPlayer({
   variant?: "full" | "compact";
   /** Rótulo do botão na variante compacta. */
   label?: string;
+  /**
+   * Atividade que avalia/ensina pronúncia: se a preparação fonética do latim
+   * falhar, não reproduz o texto ortográfico bruto (evita /k/ clássico).
+   */
+  phoneticActivity?: boolean;
 }) {
   const [playing, setPlaying] = useState(false);
   const [loading, setLoading] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [unsupported, setUnsupported] = useState(false);
   const [usingBrowserVoice, setUsingBrowserVoice] = useState(false);
+  const [phoneticUnavailable, setPhoneticUnavailable] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
   /** Cancela uma geração Kokoro ainda em voo ao parar, trocar de áudio, ou
    * desmontar — evita que uma resposta tardia comece a tocar depois que o
    * aluno já saiu da tela ou pediu outro áudio. */
   const abortRef = useRef<AbortController | null>(null);
+  const voicesRef = useRef<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
     return () => {
@@ -73,6 +87,31 @@ export function AudioPlayer({
       if (typeof window !== "undefined" && "speechSynthesis" in window) {
         window.speechSynthesis.cancel();
       }
+    };
+  }, []);
+
+  // Vozes do navegador podem carregar de forma assíncrona (`voiceschanged`).
+  // Apenas sincroniza a lista — nunca dispara reprodução.
+  useEffect(() => {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+    const synthesis = window.speechSynthesis;
+    if (typeof synthesis.getVoices !== "function") return;
+
+    const syncVoices = () => {
+      voicesRef.current = synthesis.getVoices();
+    };
+    syncVoices();
+
+    if (typeof synthesis.addEventListener === "function") {
+      synthesis.addEventListener("voiceschanged", syncVoices);
+      return () => synthesis.removeEventListener("voiceschanged", syncVoices);
+    }
+
+    // Chrome legado: onvoiceschanged
+    const previousHandler = synthesis.onvoiceschanged;
+    synthesis.onvoiceschanged = syncVoices;
+    return () => {
+      synthesis.onvoiceschanged = previousHandler;
     };
   }, []);
 
@@ -87,6 +126,7 @@ export function AudioPlayer({
     setLoading(false);
     setUnsupported(false);
     setUsingBrowserVoice(false);
+    setPhoneticUnavailable(false);
   }, [text, languageCode]);
 
   function playBrowserFallback() {
@@ -100,11 +140,48 @@ export function AudioPlayer({
       setPlaying(false);
       return;
     }
+
+    // displayText = `text` (ortografia pedagógica). speechText só para síntese.
+    const displayText = text;
+    let speechText = displayText;
+    let utteranceLang = SPEECH_LANGS[languageCode] ?? "en-US";
+    let selectedVoice: SpeechSynthesisVoice | null = null;
+
+    if (languageCode === "la") {
+      try {
+        speechText = prepareEcclesiasticalLatinForSpeech(displayText);
+      } catch {
+        speechText = "";
+      }
+      if (!speechText.trim()) {
+        setUsingBrowserVoice(false);
+        setPlaying(false);
+        if (phoneticActivity) {
+          setPhoneticUnavailable(true);
+          setUnsupported(false);
+        } else {
+          setPhoneticUnavailable(false);
+          setUnsupported(true);
+        }
+        return;
+      }
+      // Aproximação controlada: voz italiana (não latim clássico do navegador).
+      utteranceLang = "it-IT";
+      selectedVoice = pickItalianVoice(voicesRef.current);
+      if (!selectedVoice && process.env.NODE_ENV === "development") {
+        console.info(
+          "[BeFluent] Nenhuma voz it-* instalada; usando lang=it-IT sem voice explícita (aproximação).",
+        );
+      }
+    }
+
+    setPhoneticUnavailable(false);
     setUnsupported(false);
     setUsingBrowserVoice(true);
     window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = SPEECH_LANGS[languageCode] ?? "en-US";
+    const utterance = new SpeechSynthesisUtterance(speechText);
+    utterance.lang = utteranceLang;
+    if (selectedVoice) utterance.voice = selectedVoice;
     utterance.rate = speed;
     utterance.onend = () => setPlaying(false);
     utterance.onerror = () => {
@@ -121,6 +198,7 @@ export function AudioPlayer({
     abortRef.current = controller;
     setUnsupported(false);
     setUsingBrowserVoice(false);
+    setPhoneticUnavailable(false);
     setLoading(true);
     setPlaying(true);
     try {
@@ -189,6 +267,11 @@ export function AudioPlayer({
             Leitura em voz alta indisponível neste navegador.
           </p>
         )}
+        {phoneticUnavailable && (
+          <p role="status" className="text-xs text-text-secondary">
+            Áudio de pronúncia indisponível para este item.
+          </p>
+        )}
       </div>
     );
   }
@@ -225,8 +308,13 @@ export function AudioPlayer({
         </select>
       </label>
       {unsupported && (
-        <p role="alert" className="basis-full text-sm text-danger">
+        <p role="alert" className="w-full basis-full text-sm text-danger">
           Este navegador não oferece leitura em voz alta. Leia o texto na tela.
+        </p>
+      )}
+      {phoneticUnavailable && (
+        <p role="status" className="w-full basis-full text-sm text-text-secondary">
+          Áudio de pronúncia indisponível para este item.
         </p>
       )}
     </div>

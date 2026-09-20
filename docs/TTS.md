@@ -178,6 +178,41 @@ visível ("Este navegador não oferece leitura em voz alta. Leia o texto na
 tela.") — é o único caso em que o aluno vê algo, e mesmo assim sem detalhe
 técnico.
 
+## Latim eclesiástico (`la`)
+
+O latim **não** tem voz Kokoro no allowlist (decisão de produto: fala/STT
+secundários; ver Obsidian `DECISAO_BEFLUENT_LATIM_ECLESIASTICO`). O fluxo é:
+
+```text
+POST /speech/synthesize { language_code: "la" }
+  → 400 tts_unsupported_language
+  → AudioPlayer.playBrowserFallback()
+  → prepareEcclesiasticalLatinForSpeech(displayText)  // só para utterance
+  → speechSynthesis com lang=it-IT (+ voz it-* se instalada)
+```
+
+Regras importantes:
+
+- O texto **exibido** (cards, gabaritos, currículo, banco) permanece a
+  ortografia latina original (`caelum`, não `celum` / `tchêlum`).
+- Só o `SpeechSynthesisUtterance.text` recebe a forma preparada (léxico +
+  regras seguras em `frontend/lib/ecclesiastical-latin-speech.ts`).
+- A voz italiana é **aproximação controlada** do eclesiástico (c/g ante
+  e/i/ae/oe ≈ italiano), **não** pronúncia litúrgica perfeita. A qualidade
+  varia por SO/navegador e pelas vozes `it-*` instaladas.
+- Se nenhuma voz `it-*` estiver disponível, ainda assim usa-se
+  `utterance.lang = "it-IT"` (sem escolher voz de outro idioma).
+- Em atividades fonéticas (`phoneticActivity`), se a preparação falhar ou
+  devolver vazio, **não** se reproduz o latim ortográfico bruto (evita o
+  `/k/` clássico). Mostra-se: “Áudio de pronúncia indisponível para este
+  item.”
+- Validação auditiva humana: `/admin/latin-speech-check` (ferramenta de
+  desenvolvimento, não fluxo de aluno).
+
+Idiomas `en` / `es-ES` / `fr` / `ja` / `zh-CN` **não** passam por esta
+preparação; o fallback deles continua com o texto ortográfico e o BCP-47
+de `SPEECH_LANGS`.
+
 Não há retry automático contra a OpenRouter antes do fallback — uma
 tentativa, timeout de 30s (`REQUEST_TIMEOUT_SECONDS`-equivalente do
 `httpx.post`), e cai pro navegador. Falar rápido demais esperando retries

@@ -271,7 +271,11 @@ export function SpeechCoach({
             <Volume2 className="size-4" aria-hidden />
             Ouvir frase
           </p>
-          <AudioPlayer text={targetText} languageCode={languageCode} />
+          <AudioPlayer
+            text={targetText}
+            languageCode={languageCode}
+            phoneticActivity={languageCode === "la"}
+          />
         </div>
       </div>
 
@@ -287,7 +291,11 @@ export function SpeechCoach({
               <Volume2 className="size-4" aria-hidden />
               Ouvir trecho
             </p>
-            <AudioPlayer text={practiceText} languageCode={languageCode} />
+            <AudioPlayer
+              text={practiceText}
+              languageCode={languageCode}
+              phoneticActivity={languageCode === "la"}
+            />
           </div>
           <p className="mt-4 flex items-center gap-2 text-sm font-semibold">
             <Mic className="size-4" aria-hidden />
