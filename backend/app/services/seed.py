@@ -46,11 +46,19 @@ LANGUAGES = [
     ),
     (
         "la",
-        "Latim eclesiástico",
+        "Latim Eclesiástico",
         "Latina ecclesiastica",
         "Eclesiástico / Vulgata",
         "Latim da Igreja, liturgia e Vulgata (não clássico restituído)",
         "Ênfase em leitura, morfologia, liturgia/Vulgata e escrita; fala secundária.",
+    ),
+    (
+        "la-classical",
+        "Latim Clássico",
+        "Lingua Latina",
+        "Clássico reconstruído",
+        "Latim da tradição literária da República e do início do Império Romano, com pronúncia clássica reconstruída.",
+        "Ênfase em morfologia, prosa graduada, República/Império inicial e pronúncia clássica reconstruída.",
     ),
 ]
 

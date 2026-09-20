@@ -218,6 +218,34 @@ tentativa, timeout de 30s (`REQUEST_TIMEOUT_SECONDS`-equivalente do
 `httpx.post`), e cai pro navegador. Falar rápido demais esperando retries
 numa conversa não é aceitável.
 
+## Latim clássico (`la-classical`)
+
+Modalidade **independente** de `la`. Também **não** tem voz Kokoro (e
+`_voice_for_language` rejeita `la` e `la-classical` explicitamente — nunca
+mapear via hint ISO para uma voz “parecida”).
+
+```text
+POST /speech/synthesize { language_code: "la-classical" }
+  → 400 / UnsupportedTTSLanguage
+  → AudioPlayer playBrowserFallback()
+  → prepareClassicalLatinForSpeech(displayText)  // só para utterance
+  → speechSynthesis com lang=la (modo de teste; sem voz italiana eclesiástica)
+```
+
+Regras importantes:
+
+- Progresso, placement, SRS e banco de lições de `la-classical` **não**
+  compartilham estado com `la`.
+- Preparação em `frontend/lib/classical-latin-speech.ts` (c duro → `k`,
+  v≈`w`, ae/oe como ditongos aproximados). Léxico e regras são distintos
+  do eclesiástico.
+- BCP-47 interno → `la-x-classical` (`app/services/language_codes.py`).
+- O áudio clássico está em **modo de teste**: o fato de o código executar
+  **não** valida a pronúncia. Exige escuta humana antes de qualquer
+  declaração de qualidade.
+- Não reutilizar questões eclesiásticas cuja resposta fonética seja
+  incompatível com o clássico.
+
 ## Cancelamento / playback
 
 - Cada `play()` cria um `AbortController` novo e cancela qualquer geração

@@ -6,7 +6,15 @@ import { api, ApiError } from "@/lib/api";
 import { Button } from "@/components/ui";
 import { CEFR_LEVELS, LEVEL_DETAILS, type CefrLevel } from "@/lib/levels";
 
-const languages = [["en", "Inglês"], ["es-ES", "Espanhol da Espanha"], ["fr", "Francês"], ["ja", "Japonês"], ["zh-CN", "Mandarim"], ["la", "Latim eclesiástico"]] as const;
+const languages = [
+  ["en", "Inglês"],
+  ["es-ES", "Espanhol da Espanha"],
+  ["fr", "Francês"],
+  ["ja", "Japonês"],
+  ["zh-CN", "Mandarim"],
+  ["la", "Latim Eclesiástico"],
+  ["la-classical", "Latim Clássico"],
+] as const;
 type LevelChoice = "beginner" | "take_test" | "self_declared" | "later";
 const levelChoices: { value: LevelChoice; label: string; hint: string }[] = [
   { value: "beginner", label: "Sou iniciante absoluto", hint: "Você começará do Pré-A1, do zero." },

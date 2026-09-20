@@ -243,6 +243,11 @@ class UnsupportedTTSLanguage(ValueError):
 def _voice_for_language(language_code: str, s) -> str:
     if s.tts_voice:
         return s.tts_voice
+    # Latim (eclesiástico ou clássico): sem voz Kokoro — o frontend usa
+    # speechSynthesis com preparação específica por modalidade.
+    # Nunca mapear `la-classical` via `_language_hint` → `la` como se houvesse voz.
+    if language_code in {"la", "la-classical"}:
+        raise UnsupportedTTSLanguage(language_code)
     voice = _KOKORO_VOICE_BY_LANGUAGE.get(_language_hint(language_code))
     if voice is None:
         raise UnsupportedTTSLanguage(language_code)

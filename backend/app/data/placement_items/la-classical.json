@@ -1,0 +1,233 @@
+{
+  "version": 1,
+  "language_code": "la-classical",
+  "notice": "Banco inicial — latim clássico (pronúncia reconstruída, República/Império inicial). Requer validação pedagógica antes de uso definitivo. Não reutiliza gabaritos fonéticos eclesiásticos.",
+  "items": [
+    {
+      "external_key": "la-classical-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Na pronúncia clássica reconstruída, o c de \"caelum\" soa como:",
+      "options": ["/k/", "/tʃ/", "/s/", "/θ/"],
+      "correct_answer": { "value": "/k/" },
+      "explanation": "No clássico reconstruído, c = /k/ em todas as posições.",
+      "difficulty": 0.1
+    },
+    {
+      "external_key": "la-classical-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "O que significa \"rosa\"?",
+      "options": ["rosa (flor)", "guerra", "caminho", "rei"],
+      "correct_answer": { "value": "rosa (flor)" },
+      "explanation": "\"Rosa\" é a flor; 1ª declinação.",
+      "difficulty": 0.12
+    },
+    {
+      "external_key": "la-classical-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem é saudado neste diálogo?",
+      "passage": "Marcus: Salve, amice. Lucius: Salve, Marce. Quid agis?",
+      "options": ["Lucius (vocativo amice)", "Um rei", "O senado", "Um deus"],
+      "correct_answer": { "value": "Lucius (vocativo amice)" },
+      "explanation": "\"Amice\" é vocativo: Marcus saúda o amigo Lucius.",
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "la-classical-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que se pergunta?",
+      "audio_script": "Quid agis hodie?",
+      "options": ["O que fazes hoje?", "Onde moras?", "Qual é o teu nome?", "Quem venceu?"],
+      "correct_answer": { "value": "O que fazes hoje?" },
+      "explanation": "\"Quid agis hodie?\" = o que fazes hoje?",
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "la-classical-a1-vg-01",
+      "cefr_level": "A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Puella ____ amat.\"",
+      "options": ["rosam", "rosae", "rosa", "rosis"],
+      "correct_answer": { "value": "rosam" },
+      "explanation": "Objeto direto: acusativo singular \"rosam\".",
+      "difficulty": 0.25
+    },
+    {
+      "external_key": "la-classical-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Na pronúncia clássica reconstruída, \"via\" aproxima-se de:",
+      "options": ["/ˈwi.a/", "/ˈvi.a/", "/ˈfia/", "/ˈbia/"],
+      "correct_answer": { "value": "/ˈwi.a/" },
+      "explanation": "V consonantal clássico ≈ /w/, não /v/ eclesiástico.",
+      "difficulty": 0.36
+    },
+    {
+      "external_key": "la-classical-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "\"Senatus populusque Romanus\" refere-se a:",
+      "options": ["O senado e o povo romano", "Só o imperador", "Uma oração litúrgica", "Um poema"],
+      "correct_answer": { "value": "O senado e o povo romano" },
+      "explanation": "SPQR: fórmula política da República.",
+      "difficulty": 0.38
+    },
+    {
+      "external_key": "la-classical-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Para onde a Via Ápia conduz, segundo o texto?",
+      "passage": "Via Appia a Roma Capuam ducit. Multae carinae et milites per viam pergunt.",
+      "options": ["A Cápua", "A Atenas", "Ao fórum apenas", "À Gália"],
+      "correct_answer": { "value": "A Cápua" },
+      "explanation": "\"Capuam ducit\" = conduz a Cápua.",
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "la-classical-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde César combate?",
+      "audio_script": "Caesar in Gallia pugnat. Milites fortes sunt.",
+      "options": ["Na Gália", "Em Roma", "No fórum", "No mar"],
+      "correct_answer": { "value": "Na Gália" },
+      "explanation": "\"in Gallia pugnat\".",
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "la-classical-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Na pronúncia clássica reconstruída, \"Cicero\" soa aproximadamente:",
+      "options": ["/ˈki.ke.ro/", "/ˈtʃi.tʃe.ro/", "/ˈsi.se.ro/", "/ˈtsi.tse.ro/"],
+      "correct_answer": { "value": "/ˈki.ke.ro/" },
+      "explanation": "Ambos os c = /k/; não a leitura eclesiástica com /tʃ/.",
+      "difficulty": 0.52
+    },
+    {
+      "external_key": "la-classical-b1-vg-02",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "\"Res publica\" no contexto republicano significa principalmente:",
+      "options": ["A coisa pública / a república", "Uma missa", "Um templo", "Um poema épico"],
+      "correct_answer": { "value": "A coisa pública / a república" },
+      "explanation": "Expressão política clássica, não litúrgica.",
+      "difficulty": 0.56
+    },
+    {
+      "external_key": "la-classical-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Segundo o texto, o que sustenta a res publica?",
+      "passage": "Res publica populi Romani legibus et auctoritate senatus nititur. Si cives virtutem et iustitiam colunt, urbs firma manet.",
+      "options": ["Leis e autoridade do senado", "Só a força militar", "Um credo litúrgico", "O comércio com a Gália"],
+      "correct_answer": { "value": "Leis e autoridade do senado" },
+      "explanation": "\"legibus et auctoritate senatus nititur\".",
+      "difficulty": 0.55
+    },
+    {
+      "external_key": "la-classical-b1-wr-01",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_answer",
+      "prompt": "Escreva em latim clássico: \"Dou-te graças.\"",
+      "correct_answer": { "value": "Gratias tibi ago" },
+      "explanation": "Fórmula clássica de agradecimento: \"Gratias tibi ago\".",
+      "difficulty": 0.55
+    },
+    {
+      "external_key": "la-classical-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete o contrafactual: \"Si hoc ____, melius egissemus.\"",
+      "options": ["scivissemus", "scivimus", "sciebamus", "sciamus"],
+      "correct_answer": { "value": "scivissemus" },
+      "explanation": "Irreal do passado: si + mais-que-perfeito do subjuntivo.",
+      "difficulty": 0.72
+    },
+    {
+      "external_key": "la-classical-b2-vg-02",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Na pronúncia clássica reconstruída, \"ti\" em \"ratio\" e \"gratia\":",
+      "options": ["permanece /ti/ (sem palatalização eclesiástica)", "vira /tsi/ como no eclesiástico", "vira /ʃ/", "desaparece"],
+      "correct_answer": { "value": "permanece /ti/ (sem palatalização eclesiástica)" },
+      "explanation": "No clássico adotado, ti+vogal não sofre a palatalização eclesiástica.",
+      "difficulty": 0.68
+    },
+    {
+      "external_key": "la-classical-b2-rd-01",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "O que o texto afirma sobre guerra e paz?",
+      "passage": "Bellum gerere facile est; pacem firmam servare difficile. Duces qui solum victoriam quaerunt saepe rem publicam perdunt.",
+      "options": ["Fazer a guerra é fácil; manter a paz firme é difícil", "A guerra é impossível", "Só a vitória importa", "A paz é irrelevante"],
+      "correct_answer": { "value": "Fazer a guerra é fácil; manter a paz firme é difícil" },
+      "explanation": "Contraste explícito no primeiro período.",
+      "difficulty": 0.75
+    },
+    {
+      "external_key": "la-classical-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que preserva a res publica, segundo o trecho?",
+      "audio_script": "Libertas sine lege ruina est. Mos maiorum et auctoritas senatus rem publicam servant.",
+      "options": ["Costume dos antepassados e autoridade do senado", "Somente armas", "Um hino litúrgico", "O comércio"],
+      "correct_answer": { "value": "Costume dos antepassados e autoridade do senado" },
+      "explanation": "\"Mos maiorum et auctoritas senatus rem publicam servant\".",
+      "difficulty": 0.74
+    },
+    {
+      "external_key": "la-classical-b2-sp-01",
+      "cefr_level": "B2",
+      "skill": "speaking",
+      "item_type": "short_answer",
+      "prompt": "Na pronúncia clássica reconstruída, diga (ou escreva a aproximação) de \"Caesar\" com c duro e ditongo ae.",
+      "correct_answer": { "value": "káe-sar" },
+      "explanation": "Aproximação pedagógica: /ˈkae̯.sar/, não a forma eclesiástica.",
+      "difficulty": 0.7
+    },
+    {
+      "external_key": "la-classical-c1-rd-01",
+      "cefr_level": "C1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual a relação entre libertas e lex no trecho?",
+      "passage": "Libertas sine lege ruina est. Mos maiorum et auctoritas senatus rem publicam servant. Sapientia et temperantia plus valent quam arma sola.",
+      "options": ["Liberdade sem lei é ruína", "Lei destrói a liberdade", "Armas bastam sem lei", "O senado é irrelevante"],
+      "correct_answer": { "value": "Liberdade sem lei é ruína" },
+      "explanation": "\"Libertas sine lege ruina est\".",
+      "difficulty": 0.85
+    },
+    {
+      "external_key": "la-classical-a1-vg-02",
+      "cefr_level": "A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "\"Bellum\" é de que gênero gramatical?",
+      "options": ["Neutro", "Masculino", "Feminino", "Comum"],
+      "correct_answer": { "value": "Neutro" },
+      "explanation": "Neutro da 2ª declinação (bellum, belli).",
+      "difficulty": 0.28
+    }
+  ]
+}

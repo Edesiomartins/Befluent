@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
+import { prepareClassicalLatinForSpeech } from "@/lib/classical-latin-speech";
 import { prepareEcclesiasticalLatinForSpeech } from "@/lib/ecclesiastical-latin-speech";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
@@ -16,6 +17,8 @@ const SPEECH_LANGS: Record<string, string> = {
   ja: "ja-JP",
   "zh-CN": "zh-CN",
   la: "la",
+  // Modo de teste: tag BCP-47 `la`; preparação clássica é feita à parte.
+  "la-classical": "la",
 };
 
 /** Voz italiana instalada (aproximação fonética para latim eclesiástico). */
@@ -171,6 +174,34 @@ export function AudioPlayer({
       if (!selectedVoice && process.env.NODE_ENV === "development") {
         console.info(
           "[BeFluent] Nenhuma voz it-* instalada; usando lang=it-IT sem voice explícita (aproximação).",
+        );
+      }
+    } else if (languageCode === "la-classical") {
+      try {
+        speechText = prepareClassicalLatinForSpeech(displayText);
+      } catch {
+        speechText = "";
+      }
+      if (!speechText.trim()) {
+        setUsingBrowserVoice(false);
+        setPlaying(false);
+        if (phoneticActivity) {
+          setPhoneticUnavailable(true);
+          setUnsupported(false);
+        } else {
+          setPhoneticUnavailable(false);
+          setUnsupported(true);
+        }
+        return;
+      }
+      // Modo de teste: speechSynthesis com lang=la; NÃO usar voz italiana eclesiástica.
+      // Qualidade do áudio clássico exige validação auditiva humana — não declarar validado só porque o código roda.
+      utteranceLang = "la";
+      selectedVoice =
+        voicesRef.current.find((voice) => voice.lang.toLowerCase().startsWith("la")) ?? null;
+      if (!selectedVoice && process.env.NODE_ENV === "development") {
+        console.info(
+          "[BeFluent] Latim clássico em modo de teste (speechSynthesis lang=la); validação auditiva humana pendente.",
         );
       }
     }

@@ -162,7 +162,7 @@ class OnboardingIn(BaseModel):
 class PlacementTestCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    language_code: str = Field(min_length=2, max_length=10)
+    language_code: str = Field(min_length=2, max_length=32)
     declared_beginner: bool = False
 
 
@@ -260,7 +260,7 @@ class LessonGenerateIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    language_code: str = Field(min_length=2, max_length=10)
+    language_code: str = Field(min_length=2, max_length=32)
     mode: str = Field(min_length=2, max_length=30)
     persist: bool = True
 
@@ -280,7 +280,7 @@ class LessonWritingIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    language_code: str = Field(min_length=2, max_length=10)
+    language_code: str = Field(min_length=2, max_length=32)
     prompt: str = Field(min_length=1, max_length=1000)
     content_text: str = Field(min_length=1, max_length=4000)
     target_level: str | None = None
@@ -466,7 +466,7 @@ class SpeechCoachIn(BaseModel):
     attempt_number: int = Field(default=1, ge=1, le=20)
     previous_missed: list[str] = Field(default_factory=list, max_length=40)
     mode: str = Field(default="repetition", max_length=30)
-    language_code: str | None = Field(default=None, max_length=10)
+    language_code: str | None = Field(default=None, max_length=32)
     objective_id: str | None = Field(default=None, max_length=36)
     record_evidence: bool = False
 

@@ -63,6 +63,16 @@ SCRIPT_RULES: dict[str, str] = {
         "morfologia for o ponto de ensino. Escrita e leitura têm prioridade sobre "
         "fala espontânea."
     ),
+    "la-classical": (
+        "Variante: latim clássico (tradição literária da República e início do Império), "
+        "não eclesiástico. Pronúncia clássica reconstruída (convenção BeFluent): "
+        "c=/k/ e g=/g/ em todas as posições; v consonantal ≈ /w/; ae=/ae̯/, oe=/oe̯/; "
+        "qu=/kʷ/; ti+vogal sem palatalização eclesiástica; ph/th/ch aspirados. "
+        "Em usage_note de pronúncia, diga explicitamente "
+        "\"Na pronúncia clássica reconstruída...\". Prefira vocabulário e contextos "
+        "republicanos/imperiais iniciais; indique caso e função quando a morfologia "
+        "for o ponto de ensino. Não misture regras ou exemplos litúrgicos do código `la`."
+    ),
 }
 
 SKILL_COLUMNS: dict[str, str] = {

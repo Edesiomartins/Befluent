@@ -274,7 +274,7 @@ export function SpeechCoach({
           <AudioPlayer
             text={targetText}
             languageCode={languageCode}
-            phoneticActivity={languageCode === "la"}
+            phoneticActivity={languageCode === "la" || languageCode === "la-classical"}
           />
         </div>
       </div>
@@ -294,7 +294,7 @@ export function SpeechCoach({
             <AudioPlayer
               text={practiceText}
               languageCode={languageCode}
-              phoneticActivity={languageCode === "la"}
+              phoneticActivity={languageCode === "la" || languageCode === "la-classical"}
             />
           </div>
           <p className="mt-4 flex items-center gap-2 text-sm font-semibold">

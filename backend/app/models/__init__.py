@@ -23,7 +23,7 @@ class User(UUIDMixin, Base):
 
 class Language(UUIDMixin, Base):
     __tablename__="languages"
-    code: Mapped[str]=mapped_column(String(10), unique=True)
+    code: Mapped[str]=mapped_column(String(32), unique=True)
     name_pt: Mapped[str]=mapped_column(String(80))
     native_name: Mapped[str]=mapped_column(String(80))
     variant_note: Mapped[str|None]=mapped_column(String(160))
@@ -307,7 +307,7 @@ class PlacementTest(UUIDMixin, Base):
     """Teste de nivelamento CEFR. Distinto do stub legado `assessments`."""
     __tablename__="placement_tests"
     user_id: Mapped[str]=mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    language_code: Mapped[str]=mapped_column(String(10), index=True)
+    language_code: Mapped[str]=mapped_column(String(32), index=True)
     status: Mapped[str]=mapped_column(String(20), default="pending", index=True)
     version: Mapped[int]=mapped_column(Integer, default=1)
     source: Mapped[str]=mapped_column(String(30), default="placement_test")
@@ -337,7 +337,7 @@ class PlacementItem(UUIDMixin, Base):
     """Item do banco de nivelamento. Carregado por seed versionado, não por migration."""
     __tablename__="placement_items"; __table_args__=(UniqueConstraint("language_code","external_key"),)
     external_key: Mapped[str]=mapped_column(String(80), index=True)
-    language_code: Mapped[str]=mapped_column(String(10), index=True)
+    language_code: Mapped[str]=mapped_column(String(32), index=True)
     cefr_level: Mapped[str]=mapped_column(String(10), index=True)
     skill: Mapped[str]=mapped_column(String(30), index=True)
     item_type: Mapped[str]=mapped_column(String(40))
