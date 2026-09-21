@@ -39,8 +39,9 @@ class FakeResponse:
 class FakeBinaryResponse:
     """Dublê de `httpx.Response` para respostas binárias (síntese de TTS)."""
 
-    def __init__(self, content: bytes):
+    def __init__(self, content: bytes, headers: dict | None = None):
         self.content = content
+        self.headers = headers or {}
 
     def raise_for_status(self):
         return None
@@ -268,6 +269,31 @@ def test_tts_mock_provider_allowed_outside_production(monkeypatch, _settings):
     monkeypatch.setattr(_settings, "tts_provider", "mock")
     audio, content_type = speech_service.synthesize_audio("Hello", "en")
     assert audio.startswith(b"RIFF")
+    assert content_type == "audio/wav"
+
+
+def test_tts_provider_kokoro_api_uses_self_hosted_service(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "kokoro_api")
+    monkeypatch.setattr(_settings, "tts_base_url", "https://tts.medquesthub.com.br/")
+    monkeypatch.setattr(_settings, "tts_api_key", "befluent-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "")
+    monkeypatch.setattr(_settings, "tts_speed", 1.0)
+
+    def fake_post(url, **kwargs):
+        assert url == "https://tts.medquesthub.com.br/v1/tts"
+        assert kwargs["headers"]["X-API-Key"] == "befluent-secret-key"
+        body = kwargs["json"]
+        assert body["text"] == "Hello there"
+        assert body["language"] == "en-us"
+        assert body["voice"] == "af_sky"
+        assert body["speed"] == 1.0
+        return FakeBinaryResponse(b"fake-wav-bytes", {"content-type": "audio/wav"})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    audio, content_type = speech_service.synthesize_audio("Hello there", "en-US")
+    assert audio == b"fake-wav-bytes"
     assert content_type == "audio/wav"
 
 
