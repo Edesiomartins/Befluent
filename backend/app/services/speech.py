@@ -230,6 +230,18 @@ _KOKORO_API_LANGUAGE_BY_LANGUAGE = {
     "zh": "zh",
 }
 
+_KOKORO_API_LANGUAGE_BY_VOICE_PREFIX = {
+    "a": "en-us",
+    "b": "en-gb",
+    "e": "es",
+    "f": "fr",
+    "h": "hi",
+    "i": "it",
+    "j": "ja",
+    "p": "pt-br",
+    "z": "zh",
+}
+
 
 class UnsupportedTTSLanguage(ValueError):
     """`language_code` não tem voz Kokoro configurada (fora do allowlist de
@@ -248,11 +260,22 @@ class UnsupportedTTSLanguage(ValueError):
         self.language_code = language_code
 
 
-def _kokoro_api_language(language_code: str) -> str:
+def _kokoro_api_language(language_code: str, s) -> str:
     language = _KOKORO_API_LANGUAGE_BY_LANGUAGE.get(_language_hint(language_code))
-    if language is None:
-        raise UnsupportedTTSLanguage(language_code)
-    return language
+    if language is not None:
+        return language
+
+    # TTS_VOICE é uma substituição explícita do operador. Para manter o
+    # contrato já existente no provedor OpenRouter, derive o idioma pelo
+    # prefixo oficial da voz Kokoro quando o language_code não estiver no
+    # allowlist do produto.
+    if s.tts_voice:
+        voice_prefix = s.tts_voice.strip().lower()[:1]
+        voice_language = _KOKORO_API_LANGUAGE_BY_VOICE_PREFIX.get(voice_prefix)
+        if voice_language is not None:
+            return voice_language
+
+    raise UnsupportedTTSLanguage(language_code)
 
 
 def _voice_for_language(language_code: str, s) -> str:
@@ -308,7 +331,7 @@ class KokoroAPITTSProvider(BaseTTSProvider):
             headers={"X-API-Key": self.s.tts_api_key},
             json={
                 "text": text,
-                "language": _kokoro_api_language(language_code),
+                "language": _kokoro_api_language(language_code, self.s),
                 "voice": _voice_for_language(language_code, self.s),
                 "speed": speed if speed is not None else self.s.tts_speed,
             },
