@@ -24,24 +24,24 @@ _TABLE_COLUMNS: tuple[tuple[str, str], ...] = (
 )
 
 
+def _alter_length(table: str, column: str, *, from_length: int, to_length: int, nullable: bool) -> None:
+    # SQLite não suporta ALTER COLUMN TYPE. Alembic batch mode recria a
+    # tabela de forma compatível no SQLite e usa ALTER normal no PostgreSQL.
+    with op.batch_alter_table(table) as batch_op:
+        batch_op.alter_column(
+            column,
+            existing_type=sa.String(length=from_length),
+            type_=sa.String(length=to_length),
+            existing_nullable=nullable,
+        )
+
+
 def _widen(table: str, column: str) -> None:
-    op.alter_column(
-        table,
-        column,
-        existing_type=sa.String(length=10),
-        type_=sa.String(length=_LANG_CODE_LEN),
-        existing_nullable=False,
-    )
+    _alter_length(table, column, from_length=10, to_length=_LANG_CODE_LEN, nullable=False)
 
 
 def _narrow(table: str, column: str) -> None:
-    op.alter_column(
-        table,
-        column,
-        existing_type=sa.String(length=_LANG_CODE_LEN),
-        type_=sa.String(length=10),
-        existing_nullable=False,
-    )
+    _alter_length(table, column, from_length=_LANG_CODE_LEN, to_length=10, nullable=False)
 
 
 def upgrade() -> None:
@@ -60,12 +60,12 @@ def upgrade() -> None:
     if "ai_generation_logs" in tables:
         cols = {c["name"] for c in inspector.get_columns("ai_generation_logs")}
         if "language_code" in cols:
-            op.alter_column(
+            _alter_length(
                 "ai_generation_logs",
                 "language_code",
-                existing_type=sa.String(length=10),
-                type_=sa.String(length=_LANG_CODE_LEN),
-                existing_nullable=True,
+                from_length=10,
+                to_length=_LANG_CODE_LEN,
+                nullable=True,
             )
 
 
@@ -84,10 +84,10 @@ def downgrade() -> None:
     if "ai_generation_logs" in tables:
         cols = {c["name"] for c in inspector.get_columns("ai_generation_logs")}
         if "language_code" in cols:
-            op.alter_column(
+            _alter_length(
                 "ai_generation_logs",
                 "language_code",
-                existing_type=sa.String(length=_LANG_CODE_LEN),
-                type_=sa.String(length=10),
-                existing_nullable=True,
+                from_length=_LANG_CODE_LEN,
+                to_length=10,
+                nullable=True,
             )

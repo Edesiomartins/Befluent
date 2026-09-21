@@ -24,4 +24,4 @@ def test_heads_is_single_linear_chain():
     scripts = ScriptDirectory.from_config(cfg)
     heads = scripts.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0010_password_reset_tokens"
+    assert heads[0] == "0011_widen_language_codes"

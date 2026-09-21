@@ -305,7 +305,7 @@ def test_csrf_bootstrap_endpoint(client, auth):
 
 def test_languages_and_onboarding(client, auth):
     items = client.get("/api/v1/languages").json()
-    assert {x["code"] for x in items} == {"en", "es-ES", "fr", "ja", "zh-CN", "la"}
+    assert {x["code"] for x in items} == {"en", "es-ES", "fr", "ja", "zh-CN", "la", "la-classical"}
     assert client.post("/api/v1/languages/activate", json={"code": "en"}, headers=auth).status_code == 200
     response = client.post(
         "/api/v1/onboarding/complete",
