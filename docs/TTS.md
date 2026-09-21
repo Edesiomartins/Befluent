@@ -10,13 +10,49 @@ outro é experimentação. As vozes documentadas aqui foram escolhidas
 TTS Lab em si não decide nem altera a configuração de produção — ela é
 sempre uma edição manual deste lado.
 
-## Provider principal e modelo
+## Provider principal
 
 ```text
-Provider: OpenRouter (mesma OPENROUTER_API_KEY já usada por IA/STT)
-Modelo:   hexgrad/kokoro-82m
-Formato:  mp3 (Content-Type: audio/mpeg)
+Provider: Piper (`TTS_PROVIDER=piper_api`)
+URL:      TTS_BASE_URL  (produção: https://piper.medquesthub.com.br)
+Auth:     header X-API-Key = TTS_API_KEY
+Contrato: POST {TTS_BASE_URL}/v1/tts
+          { "text", "language", "speed" }
+Formato:  audio/wav
+Timeout:  20s
 ```
+
+Kokoro não foi removido. `TTS_PROVIDER=kokoro_api` e `TTS_PROVIDER=openrouter`
+continuam como rollback. `TTS_VOICE` só vale para esses caminhos Kokoro.
+
+Variáveis, sem chave real:
+
+```text
+TTS_PROVIDER=piper_api
+TTS_BASE_URL=https://piper.medquesthub.com.br
+TTS_API_KEY=<secret>
+TTS_SPEED=1.0
+```
+
+Mapa explícito BeFluent → idioma Piper (sem chute para código desconhecido):
+
+| Código BeFluent | `language` enviado |
+|---|---|
+| `en` | `en` |
+| `es`, `es-ES` | `es` |
+| `fr` | `fr` |
+| `it` | `it` |
+| `de` | `de` |
+| `la` | `la-ecclesiastical` |
+
+`la-classical`, japonês e mandarim não entram nesse mapa. O backend responde
+`400 tts_unsupported_language` e não chama o Piper. No navegador, `la-classical`
+nem tenta o backend: vai direto ao `speechSynthesis`.
+
+O serviço Piper escolhe a voz internamente (`en_US-ryan-high`,
+`fr_FR-siwis-medium`, `es_ES-davefx-medium`, `it_IT-serena-medium`,
+`de_DE-thorsten-medium`; latim eclesiástico usa a voz italiana). O BeFluent
+não envia nome de arquivo de voz.
 
 ## Arquitetura
 
@@ -133,24 +169,25 @@ manual em produção), não um mecanismo de seleção por idioma.
 
 ## Configuração / env vars
 
-Já existiam antes desta tarefa (`backend/app/core/config.py`); nenhuma
-duplicada. Não há `.env.example` neste projeto — variáveis são
-documentadas em Markdown (mesmo padrão de `docs/TTS_LAB.md`) e definidas
-no `.env` real de cada ambiente (não versionado; ver
-[deployment-coolify.md](deployment-coolify.md)).
+Já existiam em `backend/app/core/config.py`; nenhuma variável nova só do
+Piper. Os exemplos versionados estão em `.env.example` e
+`backend/.env.example`. O `.env` real de cada ambiente não é versionado
+(ver [deployment-coolify.md](deployment-coolify.md)).
 
 ```env
-OPENROUTER_API_KEY=...        # já usada por IA/STT — não duplicar
-TTS_PROVIDER=openrouter       # openrouter | mock | web_speech (rollback)
-TTS_MODEL=hexgrad/kokoro-82m  # já é o default no código
-TTS_VOICE=                    # vazio = usa o mapeamento por idioma
-TTS_SPEED=1.0                 # velocidade default quando o cliente não envia `speed`
+TTS_PROVIDER=piper_api
+TTS_BASE_URL=https://piper.medquesthub.com.br
+TTS_API_KEY=<secret>
+TTS_SPEED=1.0
 ```
 
+- `TTS_PROVIDER=piper_api`: Piper em `TTS_BASE_URL` — modo de produção.
+- `TTS_PROVIDER=kokoro_api`: Kokoro próprio em `TTS_BASE_URL` — rollback.
+- `TTS_PROVIDER=openrouter`: Kokoro-82M via OpenRouter — rollback.
 - `TTS_PROVIDER=mock`: síntese fake (`RIFF` vazio), permitida só fora de
   `production`; em produção falha explicitamente (nunca fabrica áudio).
-- `TTS_PROVIDER=openrouter`: Kokoro-82M via OpenRouter — modo de produção.
 - `TTS_PROVIDER=web_speech`: **rollback** — ver seção abaixo.
+- `TTS_MODEL` e `TTS_VOICE` só entram no caminho Kokoro.
 
 **Este documento não altera nem lê o `.env` real de nenhum ambiente.**
 Mudar essas variáveis em produção é uma ação humana deliberada (Coolify),
@@ -166,7 +203,7 @@ mostrar o erro técnico ao aluno (só loga internamente, no backend):
 - qualquer status HTTP de erro (`400`, `401`/`403`, `429`, `5xx`) —
   `apiBlob` lança `ApiError` para todo `!response.ok`, capturado por um
   `catch` genérico;
-- `400 tts_unsupported_language` (idioma sem voz Kokoro configurada);
+- `400 tts_unsupported_language` (idioma fora do mapa do provider ativo);
 - `503 tts_unavailable` (API key ausente/inválida, provider indisponível,
   timeout, ou rollback via `TTS_PROVIDER=web_speech`);
 - o elemento `<audio>` disparar `onError` (blob corrompido/formato
@@ -180,23 +217,26 @@ técnico.
 
 ## Latim eclesiástico (`la`)
 
-O latim **não** tem voz Kokoro no allowlist (decisão de produto: fala/STT
-secundários; ver Obsidian `DECISAO_BEFLUENT_LATIM_ECLESIASTICO`). O fluxo é:
+Com `TTS_PROVIDER=piper_api`, o eclesiástico usa a voz italiana do Piper
+(`language=la-ecclesiastical`). O texto enviado ao backend já passou por
+`prepareEcclesiasticalLatinForSpeech`. O texto exibido na tela não muda.
 
 ```text
-POST /speech/synthesize { language_code: "la" }
-  → 400 tts_unsupported_language
-  → AudioPlayer.playBrowserFallback()
-  → prepareEcclesiasticalLatinForSpeech(displayText)  // só para utterance
-  → speechSynthesis com lang=it-IT (+ voz it-* se instalada)
+AudioPlayer (languageCode=la)
+  → prepareEcclesiasticalLatinForSpeech(displayText)
+  → se vazio ou exceção: não chama o Piper e não fala o latim ortográfico bruto
+  → POST /speech/synthesize { text: forma preparada, language_code: "la" }
+  → backend traduz la → la-ecclesiastical e chama POST /v1/tts
+  → se o Piper falhar: playBrowserFallback() com a mesma preparação e lang=it-IT
 ```
 
 Regras importantes:
 
 - O texto **exibido** (cards, gabaritos, currículo, banco) permanece a
   ortografia latina original (`caelum`, não `celum` / `tchêlum`).
-- Só o `SpeechSynthesisUtterance.text` recebe a forma preparada (léxico +
-  regras seguras em `frontend/lib/ecclesiastical-latin-speech.ts`).
+- A forma preparada (léxico + regras em
+  `frontend/lib/ecclesiastical-latin-speech.ts`) vai no corpo do Piper e,
+  no fallback, no `SpeechSynthesisUtterance.text`.
 - A voz italiana é **aproximação controlada** do eclesiástico (c/g ante
   e/i/ae/oe ≈ italiano), **não** pronúncia litúrgica perfeita. A qualidade
   varia por SO/navegador e pelas vozes `it-*` instaladas.
@@ -220,17 +260,17 @@ numa conversa não é aceitável.
 
 ## Latim clássico (`la-classical`)
 
-Modalidade **independente** de `la`. Também **não** tem voz Kokoro (e
-`_voice_for_language` rejeita `la` e `la-classical` explicitamente — nunca
-mapear via hint ISO para uma voz “parecida”).
+Modalidade **independente** de `la`. Não é enviada ao Piper. O `AudioPlayer`
+vai direto ao navegador, sem uma ida ao backend só para receber 400.
 
 ```text
-POST /speech/synthesize { language_code: "la-classical" }
-  → 400 / UnsupportedTTSLanguage
-  → AudioPlayer playBrowserFallback()
-  → prepareClassicalLatinForSpeech(displayText)  // só para utterance
-  → speechSynthesis com lang=la (modo de teste; sem voz italiana eclesiástica)
+AudioPlayer (languageCode=la-classical)
+  → prepareClassicalLatinForSpeech(displayText)
+  → speechSynthesis com lang=la (sem voz italiana eclesiástica)
 ```
+
+Se alguém chamar `POST /speech/synthesize` com `la-classical` mesmo assim,
+o backend responde `400 tts_unsupported_language` e não chama o Piper.
 
 Regras importantes:
 
@@ -322,28 +362,27 @@ ser lido do response/headers, nunca inventado.
 
 ## Rollback
 
-Para desativar o Kokoro de servidor sem tocar em código:
+Para voltar ao Kokoro próprio sem tocar em código, aponte as mesmas
+variáveis genéricas:
 
 ```env
-TTS_PROVIDER=web_speech
+TTS_PROVIDER=kokoro_api
+TTS_BASE_URL=<url do Kokoro>
+TTS_API_KEY=<secret>
 ```
 
-Todo pedido de síntese passa a devolver `503 tts_unavailable`
-imediatamente (sem tentar a OpenRouter), e o `AudioPlayer` cai no
-`window.speechSynthesis` do navegador para 100% dos alunos. Reverter é só
-voltar `TTS_PROVIDER=openrouter`. Nenhuma mudança de código é necessária
-em nenhum dos dois sentidos — **esta implementação não altera o `.env` de
-nenhum ambiente**; a troca é sempre manual, feita por quem administra a
-implantação.
+`TTS_PROVIDER=openrouter` volta ao Kokoro via OpenRouter.
+`TTS_PROVIDER=web_speech` devolve `503 tts_unavailable` imediatamente e o
+`AudioPlayer` cai no `window.speechSynthesis`. **Esta implementação não
+altera o `.env` de nenhum ambiente**; a troca é sempre manual.
 
 ## Troubleshooting
 
 | Sintoma | Causa provável | Onde olhar |
 |---|---|---|
-| Todo mundo ouve voz do navegador, nunca a do BeFluent | `OPENROUTER_API_KEY` ausente/inválida, ou `TTS_PROVIDER` != `openrouter` | logs do backend (`tts_unavailable`), `.env` do ambiente |
-| Um idioma específico sempre cai no navegador | `language_code` enviado não bate com nenhuma chave de `_KOKORO_VOICE_BY_LANGUAGE` (checar alias) | log `tts_unsupported_language`, valor exato de `language_code` |
-| Áudio soa em inglês para outro idioma | `TTS_VOICE` setado globalmente (força uma voz única) | `.env`, variável `TTS_VOICE` |
-| Latência alta / timeouts frequentes | Provedor (OpenRouter/Kokoro) lento — não é bug do BeFluent | comparar com o TTS Lab, que mede latência isoladamente |
+| Todo mundo ouve voz do navegador, nunca a do BeFluent | `TTS_API_KEY` ou `TTS_BASE_URL` ausente, ou `TTS_PROVIDER` diferente de `piper_api` | logs do backend (`tts_unavailable`), variáveis do Coolify |
+| Um idioma específico sempre cai no navegador | `language_code` fora de `_PIPER_LANGUAGE_BY_CODE` (`la-classical`, `ja`, `zh-CN`) | log `tts_unsupported_language`; clássico nem chama o backend |
+| Latência alta / timeouts frequentes | Piper acima de ~3s por frase; timeout do cliente é 20s | logs `TTS provider piper_api falhou` |
 | Quero comparar vozes antes de trocar uma | Use o Kokoro Voice Lab, não produção | [TTS_LAB.md](TTS_LAB.md) |
 
 ## Limitações conhecidas

@@ -317,6 +317,120 @@ def test_tts_kokoro_api_voice_override_bypasses_language_allowlist(monkeypatch, 
     assert captured["language"] == "en-us"
 
 
+def _piper_settings(monkeypatch, _settings, *, environment="production", speed=1.0):
+    monkeypatch.setattr(_settings, "environment", environment)
+    monkeypatch.setattr(_settings, "tts_provider", "piper_api")
+    monkeypatch.setattr(_settings, "tts_base_url", "https://piper.medquesthub.com.br/")
+    monkeypatch.setattr(_settings, "tts_api_key", "piper-test-key")
+    monkeypatch.setattr(_settings, "tts_speed", speed)
+
+
+@pytest.mark.parametrize(
+    "language_code,expected_language",
+    [
+        ("en", "en"),
+        ("fr", "fr"),
+        ("es-ES", "es"),
+        ("es", "es"),
+        ("it", "it"),
+        ("de", "de"),
+        ("la", "la-ecclesiastical"),
+    ],
+)
+def test_tts_piper_maps_language_and_returns_wav(
+    monkeypatch, _settings, language_code, expected_language
+):
+    _piper_settings(monkeypatch, _settings)
+
+    def fake_post(url, **kwargs):
+        assert url == "https://piper.medquesthub.com.br/v1/tts"
+        assert kwargs["headers"] == {"X-API-Key": "piper-test-key"}
+        assert "piper-test-key" not in json.dumps(kwargs["json"])
+        assert kwargs["timeout"] == 20
+        body = kwargs["json"]
+        assert body["text"] == "texto de teste"
+        assert body["language"] == expected_language
+        assert body["speed"] == 1.0
+        assert "voice" not in body
+        return FakeBinaryResponse(b"RIFFpiper", {"content-type": "audio/wav"})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    audio, content_type = speech_service.synthesize_audio("texto de teste", language_code)
+    assert audio == b"RIFFpiper"
+    assert content_type == "audio/wav"
+
+
+def test_tts_piper_forwards_speed(monkeypatch, _settings):
+    _piper_settings(monkeypatch, _settings, speed=1.0)
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured["speed"] = kwargs["json"]["speed"]
+        return FakeBinaryResponse(b"wav", {"content-type": "audio/wav"})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    speech_service.synthesize_audio("Hello", "en", speed=0.75)
+    assert captured["speed"] == 0.75
+
+
+def test_tts_piper_classical_latin_never_calls_the_service(monkeypatch, _settings):
+    _piper_settings(monkeypatch, _settings)
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("la-classical não deve chamar o Piper")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("Caesar", "la-classical")
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.code == "tts_unsupported_language"
+
+
+def test_tts_piper_unknown_language_does_not_guess(monkeypatch, _settings):
+    _piper_settings(monkeypatch, _settings)
+
+    def fake_post(url, **kwargs):
+        raise AssertionError("idioma sem mapa Piper não deve chamar o serviço")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("こんにちは", "ja")
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.code == "tts_unsupported_language"
+
+
+def test_tts_piper_failure_in_production_returns_503(monkeypatch, _settings):
+    _piper_settings(monkeypatch, _settings)
+
+    def fake_post(url, **kwargs):
+        raise httpx.HTTPError("piper indisponível")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    with pytest.raises(APIError) as exc_info:
+        speech_service.synthesize_audio("Hello", "en")
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.code == "tts_unavailable"
+    assert exc_info.value.retryable is True
+
+
+def test_tts_piper_failure_outside_production_falls_back_to_mock(monkeypatch, _settings):
+    _piper_settings(monkeypatch, _settings, environment="development")
+
+    def fake_post(url, **kwargs):
+        raise httpx.HTTPError("piper indisponível")
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    audio, content_type = speech_service.synthesize_audio("Hello", "en")
+    assert audio.startswith(b"RIFF")
+    assert content_type == "audio/wav"
+
+
 def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
     monkeypatch.setattr(_settings, "environment", "production")
     monkeypatch.setattr(_settings, "tts_provider", "openrouter")

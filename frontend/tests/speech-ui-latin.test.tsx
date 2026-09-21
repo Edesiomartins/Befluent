@@ -74,6 +74,24 @@ describe("AudioPlayer — fallback latim eclesiástico (it-IT)", () => {
     });
   });
 
+  it("em la envia ao backend o texto já preparado, não o ortográfico bruto", async () => {
+    render(<AudioPlayer text="caelum" languageCode="la" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+    await waitFor(() => expect(apiBlobMock).toHaveBeenCalled());
+    const body = apiBlobMock.mock.calls[0][1].body as { text: string; language_code: string };
+    expect(body.language_code).toBe("la");
+    expect(body.text.toLowerCase()).toBe("celum");
+    expect(body.text.toLowerCase()).not.toBe("caelum");
+  });
+
+  it("latim clássico não chama o backend e vai direto à voz do navegador", async () => {
+    render(<AudioPlayer text="caelum" languageCode="la-classical" />);
+    fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));
+    await waitFor(() => expect(speak).toHaveBeenCalled());
+    expect(apiBlobMock).not.toHaveBeenCalled();
+    expect(lastUtterance!.text.toLowerCase()).not.toBe("caelum");
+  });
+
   it("em la usa speechText preparado (não o ortográfico bruto caelum)", async () => {
     render(<AudioPlayer text="caelum" languageCode="la" />);
     fireEvent.click(screen.getByRole("button", { name: "Reproduzir áudio" }));

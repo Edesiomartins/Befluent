@@ -44,9 +44,10 @@ function pickRecorderMimeType(): string {
 }
 
 /**
- * TTS: Kokoro-82M via backend (`/speech/synthesize`) como voz principal;
+ * TTS: Piper via backend (`/speech/synthesize`) como voz principal;
  * se a chamada falhar, cai no SpeechSynthesis do navegador como rede de
- * segurança (nunca deixa o aluno sem áudio nenhum).
+ * segurança (nunca deixa o aluno sem áudio nenhum). Latim clássico não
+ * chama o backend: vai direto para a voz do navegador.
  *
  * `variant="compact"`: botão único “Ouvir” (cards de vocabulário).
  * `variant="full"` (padrão): player com status e velocidade.
@@ -225,6 +226,19 @@ export function AudioPlayer({
     setPlaying(true);
   }
 
+  function markLatinPreparationUnavailable() {
+    setUsingBrowserVoice(false);
+    setLoading(false);
+    setPlaying(false);
+    if (phoneticActivity) {
+      setPhoneticUnavailable(true);
+      setUnsupported(false);
+    } else {
+      setPhoneticUnavailable(false);
+      setUnsupported(true);
+    }
+  }
+
   async function play() {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -234,10 +248,34 @@ export function AudioPlayer({
     setPhoneticUnavailable(false);
     setLoading(true);
     setPlaying(true);
+
+    // Latim clássico não tem voz no Piper. Ir ao navegador evita uma
+    // ida ao backend só para receber 400.
+    if (languageCode === "la-classical") {
+      setLoading(false);
+      playBrowserFallback();
+      return;
+    }
+
+    let textForServer = text;
+    if (languageCode === "la") {
+      let prepared = "";
+      try {
+        prepared = prepareEcclesiasticalLatinForSpeech(text);
+      } catch {
+        prepared = "";
+      }
+      if (!prepared.trim()) {
+        markLatinPreparationUnavailable();
+        return;
+      }
+      textForServer = prepared;
+    }
+
     try {
       const blob = await apiBlob("/api/v1/speech/synthesize", {
         method: "POST",
-        body: { text, language_code: languageCode, speed },
+        body: { text: textForServer, language_code: languageCode, speed },
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;

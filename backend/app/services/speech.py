@@ -7,9 +7,10 @@ resultado real. Mock só roda quando explicitamente selecionado
 
 STT: Groq (`whisper-large-v3-turbo`) como primário, OpenRouter
 (`input_audio` multimodal, contrato documentado pela OpenRouter) como
-fallback. TTS: Kokoro-82M via OpenRouter (`TTS_PROVIDER=openrouter`) ou via
-API Kokoro própria (`TTS_PROVIDER=kokoro_api`); o frontend cai no
-SpeechSynthesis do navegador se a síntese de servidor falhar.
+fallback. TTS: Piper (`TTS_PROVIDER=piper_api`) é o provedor de produção
+em CPU. Kokoro permanece disponível como rollback (`TTS_PROVIDER=kokoro_api`
+ou `openrouter`). O frontend cai no SpeechSynthesis do navegador se a
+síntese de servidor falhar.
 """
 
 import base64
@@ -232,6 +233,31 @@ _KOKORO_API_LANGUAGE_BY_LANGUAGE = {
     "zh": "zh",
 }
 
+#: Códigos BeFluent → códigos aceitos pelo serviço Piper. Sem entrada aqui,
+#: o idioma não é enviado (nunca se reduz `es-ES` por split nem se escolhe
+#: uma voz “parecida”). `la-classical` fica de fora de propósito.
+_PIPER_LANGUAGE_BY_CODE = {
+    "en": "en",
+    "es": "es",
+    "es-ES": "es",
+    "fr": "fr",
+    "it": "it",
+    "de": "de",
+    "la": "la-ecclesiastical",
+}
+
+#: Frases curtas no Piper de produção levam cerca de 3s. 20s cobre uma
+#: frase longa sem segurar o aluno num timeout de 45s ou 90s.
+_PIPER_TIMEOUT_SECONDS = 20
+
+
+def _piper_language(language_code: str) -> str:
+    mapped = _PIPER_LANGUAGE_BY_CODE.get(language_code)
+    if mapped is None:
+        raise UnsupportedTTSLanguage(language_code)
+    return mapped
+
+
 _KOKORO_API_LANGUAGE_BY_VOICE_PREFIX = {
     "a": "en-us",
     "b": "en-gb",
@@ -344,14 +370,45 @@ class KokoroAPITTSProvider(BaseTTSProvider):
         return response.content, content_type
 
 
+class PiperAPITTSProvider(BaseTTSProvider):
+    """Piper hospedado pelo projeto e exposto em `POST /v1/tts`.
+
+    As vozes ficam no serviço Piper. Este cliente só traduz o código do
+    BeFluent para o código de idioma que o serviço aceita.
+    """
+
+    def __init__(self):
+        self.s = get_settings()
+
+    def synthesize(self, text, language_code, speed=None):
+        base_url = self.s.tts_base_url.rstrip("/")
+        if not base_url or not self.s.tts_api_key:
+            raise ValueError("Piper API não configurada")
+
+        response = httpx.post(
+            f"{base_url}/v1/tts",
+            headers={"X-API-Key": self.s.tts_api_key},
+            json={
+                "text": text,
+                "language": _piper_language(language_code),
+                "speed": speed if speed is not None else self.s.tts_speed,
+            },
+            timeout=_PIPER_TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "audio/wav").split(";", 1)[0]
+        return response.content, content_type
+
+
 def synthesize_audio(text: str, language_code: str, speed: float | None = None) -> tuple[bytes, str]:
     """Ponto único de síntese: seleciona o provedor pela configuração.
 
     Mesma regra do STT: `TTS_PROVIDER=mock` é um interruptor explícito que só
-    vale fora de produção. Com `TTS_PROVIDER=openrouter`, tenta o Kokoro-82M
-    (mesma `OPENROUTER_API_KEY` já usada por IA/STT); se falhar, produção
-    recebe erro explícito (503) e nunca áudio fabricado — só fora de produção
-    a falha cai no mock.
+    vale fora de produção. `TTS_PROVIDER=piper_api` chama o Piper em
+    `TTS_BASE_URL`. `TTS_PROVIDER=openrouter` e `kokoro_api` continuam
+    disponíveis como rollback Kokoro. Se o provedor falhar, produção recebe
+    erro explícito (503) e nunca áudio fabricado — só fora de produção a
+    falha cai no mock.
 
     `TTS_PROVIDER=web_speech` é o interruptor de rollback: desativa o Kokoro
     de servidor sem remover código nenhum. Devolve o mesmo 503 que qualquer
@@ -420,6 +477,29 @@ def synthesize_audio(text: str, language_code: str, speed: float | None = None) 
             ) from exc
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("TTS provider kokoro_api falhou: %s", exc)
+            if s.environment == "production":
+                raise APIError(
+                    503,
+                    "tts_unavailable",
+                    "O serviço de síntese de voz está temporariamente indisponível.",
+                    retryable=True,
+                ) from exc
+            logger.warning("TTS indisponível fora de produção; usando MockTTSProvider (desenvolvimento)")
+            return MockTTSProvider().synthesize(text, language_code, speed)
+
+    if s.tts_provider == "piper_api" and s.tts_base_url and s.tts_api_key:
+        try:
+            return PiperAPITTSProvider().synthesize(text, language_code, speed)
+        except UnsupportedTTSLanguage as exc:
+            logger.info("TTS sem voz Piper configurada: language_code=%s", language_code)
+            raise APIError(
+                400,
+                "tts_unsupported_language",
+                "Este idioma não tem voz configurada no TTS de servidor.",
+                retryable=False,
+            ) from exc
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            logger.warning("TTS provider piper_api falhou: %s", exc)
             if s.environment == "production":
                 raise APIError(
                     503,

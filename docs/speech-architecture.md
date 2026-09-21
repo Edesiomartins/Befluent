@@ -19,8 +19,8 @@ Separar claramente:
 | STT primário | Groq `whisper-large-v3-turbo` (`STT_PROVIDER=groq` + `GROQ_API_KEY`) |
 | STT fallback | OpenRouter multimodal (`STT_FALLBACK_PROVIDER=openrouter` + `STT_FALLBACK_MODEL`) |
 | STT mock | Só com `STT_PROVIDER=mock` explícito; em production, falha → `503 stt_unavailable` (sem transcript fabricado) |
-| TTS servidor | Kokoro-82M (`hexgrad/kokoro-82m`) via `/audio/speech` da OpenRouter (`TTS_PROVIDER=openrouter`, mesma `OPENROUTER_API_KEY`); mock só fora de production com `TTS_PROVIDER=mock` |
-| TTS produto | Kokoro-82M (backend) como voz principal; **SpeechSynthesis do navegador** só como fallback se a chamada ao backend falhar |
+| TTS servidor | Piper em `TTS_BASE_URL` (`TTS_PROVIDER=piper_api`, header `X-API-Key`). Kokoro (`kokoro_api` / `openrouter`) permanece como rollback. Mock só fora de production com `TTS_PROVIDER=mock` |
+| TTS produto | Piper (backend) como voz principal para en, es-ES, fr, it, de e latim eclesiástico; **SpeechSynthesis do navegador** se a chamada falhar. Latim clássico não chama o backend |
 | Pronúncia | Sem score fonético; API devolve `status=unavailable` / `score=null` |
 | Duração WebM | Só limite por bytes no backend; duração WAV via `wave`; WebM sem ffprobe (sem mudar Docker) |
 
@@ -72,11 +72,12 @@ Separar claramente:
 Documentação completa (arquitetura, voice mapping, fallback, rollback,
 troubleshooting): [TTS.md](TTS.md). Resumo:
 
-- Produto: `AudioPlayer` chama `POST /api/v1/speech/synthesize`, que sintetiza com Kokoro-82M (`hexgrad/kokoro-82m`) via OpenRouter e devolve mp3.
-- Voz escolhida por idioma (`_KOKORO_VOICE_BY_LANGUAGE` em `app/services/speech.py`), fixada manualmente após escuta comparativa no Kokoro Voice Lab (`/admin/tts-lab`) — não é ranking automático: en→`af_sky`, es→`em_alex`, fr→`ff_siwis`, ja→`jf_nezumi`, zh→`zf_xiaoxiao`. Idioma fora desse allowlist devolve `400 tts_unsupported_language` (nunca "adivinha" uma voz). `TTS_VOICE` força uma voz única para qualquer idioma, se definido.
-- Velocidade da UI do `AudioPlayer` é enviada no corpo da requisição (`speed`) e renderizada nativamente pelo Kokoro (não é `playbackRate` do navegador).
-- Se a chamada ao backend falhar (rede, timeout, `tts_unavailable`, `tts_unsupported_language`, ou o `<audio>` disparar `onError`), o `AudioPlayer` cai automaticamente no `window.speechSynthesis` do navegador — fallback, não mais o caminho principal. O aluno nunca vê o erro técnico; a falha só fica registrada nos logs do backend.
-- Fora de production, sem `TTS_PROVIDER=openrouter` configurado, o endpoint segue as mesmas regras de mock do resto do projeto (`TTS_PROVIDER=mock`). `TTS_PROVIDER=web_speech` desativa o Kokoro de servidor por configuração (rollback), sem remover código.
+- Produto: `AudioPlayer` chama `POST /api/v1/speech/synthesize`. Com `TTS_PROVIDER=piper_api` o backend chama `POST {TTS_BASE_URL}/v1/tts` e devolve WAV.
+- Mapa explícito: `en→en`, `es`/`es-ES→es`, `fr→fr`, `it→it`, `de→de`, `la→la-ecclesiastical`. Idioma fora desse mapa devolve `400 tts_unsupported_language` e não chama o Piper. `la-classical` nem sai do navegador.
+- Latim eclesiástico: o frontend envia o texto já passado por `prepareEcclesiasticalLatinForSpeech`. Se a preparação falhar ou vier vazia, o latim ortográfico bruto não é enviado.
+- Velocidade da UI vai no campo `speed`. Timeout do Piper: 20s.
+- Se a chamada falhar (rede, timeout, 5xx, `tts_unavailable`, ou o `<audio>` disparar `onError`), o `AudioPlayer` cai no `window.speechSynthesis`.
+- `TTS_PROVIDER=kokoro_api` e `openrouter` continuam no código como rollback. `TTS_PROVIDER=web_speech` desativa a síntese de servidor. `TTS_PROVIDER=mock` só fora de production.
 
 ## Reprodução, interrupção, repetição e velocidade
 
