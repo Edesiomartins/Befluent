@@ -297,6 +297,26 @@ def test_tts_provider_kokoro_api_uses_self_hosted_service(monkeypatch, _settings
     assert content_type == "audio/wav"
 
 
+def test_tts_kokoro_api_voice_override_bypasses_language_allowlist(monkeypatch, _settings):
+    monkeypatch.setattr(_settings, "environment", "production")
+    monkeypatch.setattr(_settings, "tts_provider", "kokoro_api")
+    monkeypatch.setattr(_settings, "tts_base_url", "https://tts.medquesthub.com.br")
+    monkeypatch.setattr(_settings, "tts_api_key", "befluent-secret-key")
+    monkeypatch.setattr(_settings, "tts_voice", "am_michael")
+
+    captured = {}
+
+    def fake_post(url, **kwargs):
+        captured.update(kwargs["json"])
+        return FakeBinaryResponse(b"audio", {"content-type": "audio/wav"})
+
+    monkeypatch.setattr(httpx, "post", fake_post)
+
+    speech_service.synthesize_audio("some text", "de")
+    assert captured["voice"] == "am_michael"
+    assert captured["language"] == "en-us"
+
+
 def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
     monkeypatch.setattr(_settings, "environment", "production")
     monkeypatch.setattr(_settings, "tts_provider", "openrouter")
