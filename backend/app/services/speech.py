@@ -7,9 +7,9 @@ resultado real. Mock só roda quando explicitamente selecionado
 
 STT: Groq (`whisper-large-v3-turbo`) como primário, OpenRouter
 (`input_audio` multimodal, contrato documentado pela OpenRouter) como
-fallback. TTS: Kokoro-82M (`hexgrad/kokoro-82m`) via `/audio/speech` da
-OpenRouter (`TTS_PROVIDER=openrouter`), com a mesma `OPENROUTER_API_KEY`;
-o frontend cai no SpeechSynthesis do navegador só se essa chamada falhar.
+fallback. TTS: Kokoro-82M via OpenRouter (`TTS_PROVIDER=openrouter`) ou via
+API Kokoro própria (`TTS_PROVIDER=kokoro_api`); o frontend cai no
+SpeechSynthesis do navegador se a síntese de servidor falhar.
 """
 
 import base64
@@ -222,6 +222,14 @@ _KOKORO_VOICE_BY_LANGUAGE = {
     "zh": "zf_xiaoxiao",
 }
 
+_KOKORO_API_LANGUAGE_BY_LANGUAGE = {
+    "en": "en-us",
+    "es": "es",
+    "fr": "fr",
+    "ja": "ja",
+    "zh": "zh",
+}
+
 
 class UnsupportedTTSLanguage(ValueError):
     """`language_code` não tem voz Kokoro configurada (fora do allowlist de
@@ -238,6 +246,13 @@ class UnsupportedTTSLanguage(ValueError):
     def __init__(self, language_code: str):
         super().__init__(f"Nenhuma voz Kokoro configurada para o idioma '{language_code}'.")
         self.language_code = language_code
+
+
+def _kokoro_api_language(language_code: str) -> str:
+    language = _KOKORO_API_LANGUAGE_BY_LANGUAGE.get(_language_hint(language_code))
+    if language is None:
+        raise UnsupportedTTSLanguage(language_code)
+    return language
 
 
 def _voice_for_language(language_code: str, s) -> str:
@@ -275,6 +290,33 @@ class OpenRouterTTSProvider(BaseTTSProvider):
         )
         response.raise_for_status()
         return response.content, "audio/mpeg"
+
+
+class KokoroAPITTSProvider(BaseTTSProvider):
+    """Kokoro hospedado pelo projeto e exposto em `POST /v1/tts`."""
+
+    def __init__(self):
+        self.s = get_settings()
+
+    def synthesize(self, text, language_code, speed=None):
+        base_url = self.s.tts_base_url.rstrip("/")
+        if not base_url or not self.s.tts_api_key:
+            raise ValueError("Kokoro API não configurada")
+
+        response = httpx.post(
+            f"{base_url}/v1/tts",
+            headers={"X-API-Key": self.s.tts_api_key},
+            json={
+                "text": text,
+                "language": _kokoro_api_language(language_code),
+                "voice": _voice_for_language(language_code, self.s),
+                "speed": speed if speed is not None else self.s.tts_speed,
+            },
+            timeout=45,
+        )
+        response.raise_for_status()
+        content_type = response.headers.get("content-type", "audio/wav").split(";", 1)[0]
+        return response.content, content_type
 
 
 def synthesize_audio(text: str, language_code: str, speed: float | None = None) -> tuple[bytes, str]:
@@ -330,6 +372,29 @@ def synthesize_audio(text: str, language_code: str, speed: float | None = None) 
             ) from exc
         except (httpx.HTTPError, KeyError, ValueError) as exc:
             logger.warning("TTS provider openrouter falhou: %s", exc)
+            if s.environment == "production":
+                raise APIError(
+                    503,
+                    "tts_unavailable",
+                    "O serviço de síntese de voz está temporariamente indisponível.",
+                    retryable=True,
+                ) from exc
+            logger.warning("TTS indisponível fora de produção; usando MockTTSProvider (desenvolvimento)")
+            return MockTTSProvider().synthesize(text, language_code, speed)
+
+    if s.tts_provider == "kokoro_api" and s.tts_base_url and s.tts_api_key:
+        try:
+            return KokoroAPITTSProvider().synthesize(text, language_code, speed)
+        except UnsupportedTTSLanguage as exc:
+            logger.info("TTS sem voz Kokoro configurada: language_code=%s", language_code)
+            raise APIError(
+                400,
+                "tts_unsupported_language",
+                "Este idioma não tem voz configurada no TTS de servidor.",
+                retryable=False,
+            ) from exc
+        except (httpx.HTTPError, KeyError, ValueError) as exc:
+            logger.warning("TTS provider kokoro_api falhou: %s", exc)
             if s.environment == "production":
                 raise APIError(
                     503,
