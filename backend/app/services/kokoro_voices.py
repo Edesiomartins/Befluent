@@ -15,11 +15,11 @@ em produção (mesmo endpoint `/audio/speech`), então o contrato de geração
 (model + voice + text) é o mesmo já usado por `speech.py` e pelo TTS Lab
 genérico; só o *conjunto* de voice IDs testável aqui é novo.
 
-Os idiomas `en-US`/`en-GB`/`es-ES`/`fr-FR`/`ja-JP`/`zh-CN` cobrem os
-idiomas atuais do BeFluent (inglês diferenciado em US/UK, conforme pedido).
-`it-IT`/`pt-BR`/`hi-IN` são idiomas extras que o Kokoro já suporta e ficam
-disponíveis só para exploração no laboratório — não fazem parte do
-currículo do produto.
+Os idiomas `en-US`/`en-GB`/`es-ES`/`fr-FR`/`it-IT`/`ja-JP`/`zh-CN` cobrem
+os idiomas do BeFluent que o Kokoro fala (inglês diferenciado em US/UK).
+`it-IT` também é idioma do currículo. Alemão (`de`) é idioma do produto,
+mas o Kokoro-82M não tem voz alemã: a produção não inventa uma voz
+parecida. `pt-BR`/`hi-IN` ficam só para exploração no laboratório.
 """
 
 from __future__ import annotations

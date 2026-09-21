@@ -233,6 +233,7 @@ export function ObjectiveChoice({
         setFeedback(nextFeedback);
         setCorrectOption(String(latest.correct_answer || nextFeedback?.correct_option || ""));
         setRetry(latest.retry ?? null);
+        if (nextFeedback) onEvaluated?.(nextFeedback);
         if (latest.question_snapshot?.prompt && latest.question_snapshot.options) {
           setDisplayQuestion((prev) => ({
             ...prev,

@@ -218,6 +218,7 @@ _KOKORO_VOICE_BY_LANGUAGE = {
     "en": "af_sky",
     "es": "em_alex",
     "fr": "ff_siwis",
+    "it": "if_sara",
     "ja": "jf_nezumi",
     "zh": "zf_xiaoxiao",
 }
@@ -226,6 +227,7 @@ _KOKORO_API_LANGUAGE_BY_LANGUAGE = {
     "en": "en-us",
     "es": "es",
     "fr": "fr",
+    "it": "it",
     "ja": "ja",
     "zh": "zh",
 }

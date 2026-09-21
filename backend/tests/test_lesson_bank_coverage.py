@@ -62,7 +62,7 @@ def test_gramatica_tem_exemplos_e_exercicio(language_code, band):
     examples = lesson_bank.grammar_examples(language_code, band)
     exercises = lesson_bank.grammar_exercises(language_code, band)
     assert len(examples) >= 3
-    assert exercises
+    assert len(exercises) >= 4
     for exercise in exercises:
         # A resposta precisa estar entre as opções, senão o exercício é insolúvel.
         assert exercise["answer"] in exercise["options"]

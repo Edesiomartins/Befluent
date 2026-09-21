@@ -2,6 +2,8 @@ export type LanguageCode =
   | "en"
   | "es-ES"
   | "fr"
+  | "it"
+  | "de"
   | "ja"
   | "zh-CN"
   | "la"

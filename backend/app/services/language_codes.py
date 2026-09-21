@@ -13,6 +13,8 @@ _BCP47: dict[str, str] = {
     "en": "en",
     "es-ES": "es-ES",
     "fr": "fr",
+    "it": "it",
+    "de": "de",
     "ja": "ja",
     "zh-CN": "zh-CN",
     "la": "la",

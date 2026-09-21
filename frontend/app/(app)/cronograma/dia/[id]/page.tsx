@@ -355,6 +355,8 @@ function BlockRunner({
   const [rawError, setRawError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
+  const grammarGate = (block.mode ?? block.skill) === "grammar";
+  const [practiceReady, setPracticeReady] = useState(!grammarGate);
 
   const start = useCallback(async () => {
     setLoading(true);
@@ -437,7 +439,11 @@ function BlockRunner({
       {block.skill === "review" ? (
         <ReviewQueue lesson={lesson} />
       ) : (
-        <LessonContent mode={block.mode ?? block.skill} lesson={lesson as LessonEnvelope} />
+        <LessonContent
+          mode={block.mode ?? block.skill}
+          lesson={lesson as LessonEnvelope}
+          onPracticeReady={grammarGate ? setPracticeReady : undefined}
+        />
       )}
 
       {error && (
@@ -446,8 +452,17 @@ function BlockRunner({
         </p>
       )}
 
-      <div className="mt-8 flex justify-end border-t border-border pt-6">
-        <Button loading={finishing} disabled={finishing} onClick={() => void finish()}>
+      <div className="mt-8 flex flex-col items-end gap-2 border-t border-border pt-6">
+        {grammarGate && !practiceReady && (
+          <p className="text-sm text-text-secondary">
+            Termine todas as atividades de gramática antes de abrir o card de compreensão.
+          </p>
+        )}
+        <Button
+          loading={finishing}
+          disabled={finishing || !practiceReady}
+          onClick={() => void finish()}
+        >
           Concluir e avançar
         </Button>
       </div>

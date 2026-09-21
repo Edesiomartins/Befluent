@@ -10,6 +10,8 @@ const languages = [
   ["en", "Inglês"],
   ["es-ES", "Espanhol da Espanha"],
   ["fr", "Francês"],
+  ["it", "Italiano"],
+  ["de", "Alemão"],
   ["ja", "Japonês"],
   ["zh-CN", "Mandarim"],
   ["la", "Latim Eclesiástico"],

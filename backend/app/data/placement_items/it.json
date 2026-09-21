@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "language_code": "it",
+  "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
+  "items": [
+    {
+      "external_key": "it-pre-a1-vg-01",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Como se diz \"bom dia\" em italiano?",
+      "options": ["Buongiorno", "Buonanotte", "Arrivederci", "Grazie"],
+      "correct_answer": { "value": "Buongiorno" },
+      "explanation": "\"Buongiorno\" é a saudação usada de manhã e no início da tarde.",
+      "difficulty": 0.1
+    },
+    {
+      "external_key": "it-pre-a1-vg-02",
+      "cefr_level": "PRE_A1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Io ___ Ana.\"",
+      "options": ["sono", "sei", "è", "siamo"],
+      "correct_answer": { "value": "sono" },
+      "explanation": "Com \"io\", o verbo \"essere\" fica \"sono\".",
+      "difficulty": 0.12
+    },
+    {
+      "external_key": "it-a1-rd-01",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Onde mora Giulia?",
+      "passage": "Giulia è italiana. Abita a Milano in un piccolo appartamento. Lavora in una libreria.",
+      "options": ["A Milano", "A Roma", "In una libreria", "In una scuola"],
+      "correct_answer": { "value": "A Milano" },
+      "explanation": "O texto diz \"Abita a Milano\".",
+      "difficulty": 0.2
+    },
+    {
+      "external_key": "it-a1-ls-01",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa pediu?",
+      "audio_script": "Vorrei un caffè e una bottiglia d'acqua, per favore.",
+      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
+      "correct_answer": { "value": "Café e água" },
+      "explanation": "A frase menciona \"un caffè e una bottiglia d'acqua\".",
+      "difficulty": 0.22
+    },
+    {
+      "external_key": "it-a2-vg-01",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Ieri ___ al cinema.\"",
+      "options": ["sono andato", "vado", "andrò", "andavo"],
+      "correct_answer": { "value": "sono andato" },
+      "explanation": "\"Ieri\" fecha o tempo: passato prossimo. \"Andare\" usa o auxiliar \"essere\".",
+      "difficulty": 0.38
+    },
+    {
+      "external_key": "it-a2-vg-02",
+      "cefr_level": "A2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Qual frase descreve um hábito atual?",
+      "options": ["Di solito lavoro da casa.", "Ieri ho lavorato da casa.", "Domani lavorerò da casa.", "Avevo lavorato da casa."],
+      "correct_answer": { "value": "Di solito lavoro da casa." },
+      "explanation": "\"Di solito\" + presente marca um hábito que continua válido.",
+      "difficulty": 0.36
+    },
+    {
+      "external_key": "it-a2-rd-01",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que a loja fechou mais cedo?",
+      "passage": "Il negozio ha chiuso alle sedici perché il proprietario aveva un appuntamento dal medico. Domani aprirà all'ora solita.",
+      "options": ["O proprietário tinha uma consulta médica", "Não havia clientes", "Faltou energia", "Era feriado"],
+      "correct_answer": { "value": "O proprietário tinha uma consulta médica" },
+      "explanation": "O texto diz \"perché il proprietario aveva un appuntamento dal medico\".",
+      "difficulty": 0.4
+    },
+    {
+      "external_key": "it-a2-ls-01",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que horas o trem parte?",
+      "audio_script": "Il treno per Napoli parte alle sette e mezza, binario numero tre.",
+      "options": ["7h30", "7h00", "3h30", "8h30"],
+      "correct_answer": { "value": "7h30" },
+      "explanation": "\"Alle sette e mezza\" significa às sete e meia.",
+      "difficulty": 0.42
+    },
+    {
+      "external_key": "it-b1-vg-01",
+      "cefr_level": "B1",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Se ___ più tempo, viaggerei di più.\"",
+      "options": ["avessi", "ho", "avrò", "avrei"],
+      "correct_answer": { "value": "avessi" },
+      "explanation": "Hipótese irreal no presente: \"se\" + congiuntivo imperfetto.",
+      "difficulty": 0.56
+    },
+    {
+      "external_key": "it-b1-rd-01",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "O que o texto contrasta?",
+      "passage": "Alcuni professionisti apprezzano l'autonomia del lavoro da casa. Altri sentono la mancanza delle conversazioni spontanee in ufficio. Non esiste un modello unico che funzioni per tutti.",
+      "options": ["Autonomia em casa e conversas no escritório", "O preço do aluguel e o salário", "Férias e feriados", "Trem e avião"],
+      "correct_answer": { "value": "Autonomia em casa e conversas no escritório" },
+      "explanation": "O texto opõe autonomia e a falta das conversas espontâneas.",
+      "difficulty": 0.58
+    },
+    {
+      "external_key": "it-b2-vg-01",
+      "cefr_level": "B2",
+      "skill": "vocabulary_grammar",
+      "item_type": "multiple_choice",
+      "prompt": "Complete: \"Se lo ___, avremmo aspettato.\"",
+      "options": ["avessimo saputo", "sappiamo", "sapremo", "sapevamo"],
+      "correct_answer": { "value": "avessimo saputo" },
+      "explanation": "Contrafactual do passado: congiuntivo trapassato na condição.",
+      "difficulty": 0.72
+    },
+    {
+      "external_key": "it-b2-ls-01",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que a pessoa critica no relatório?",
+      "audio_script": "Quello che mi ha colpito non è stato il numero in sé, ma il modo in cui è stato presentato: un unico indicatore nasconde la variazione che conta.",
+      "options": ["Um indicador único esconde a variação", "O número está errado", "O relatório não chegou", "A reunião foi cancelada"],
+      "correct_answer": { "value": "Um indicador único esconde a variação" },
+      "explanation": "A crítica é à apresentação que agrega tudo num único indicador.",
+      "difficulty": 0.74
+    }
+  ]
+}

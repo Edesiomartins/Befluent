@@ -1273,6 +1273,8 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "en",
     "es-ES",
     "fr",
+    "it",
+    "de",
     "ja",
     "zh-CN",
     "la",
@@ -1284,11 +1286,15 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
 FALLBACK_LANGUAGE = "en"
 
 # Latim eclesiástico e clássico: conteúdo em módulos próprios para não inflar este arquivo.
+from app.services.lesson_bank_de import register as _register_de
+from app.services.lesson_bank_it import register as _register_it
 from app.services.lesson_bank_la import register as _register_la
 from app.services.lesson_bank_la_classical import register as _register_la_classical
 
 _register_la(globals())
 _register_la_classical(globals())
+_register_it(globals())
+_register_de(globals())
 
 
 def _by_language(table: dict, language_code: str) -> dict:
@@ -1316,8 +1322,15 @@ def grammar_examples(language_code: str, band: str) -> list[dict[str, str]]:
 
 
 def grammar_exercises(language_code: str, band: str) -> list[dict]:
+    from app.services.grammar_practice import extra_exercises
+
     table = _by_language(GRAMMAR_EXERCISES, language_code)
-    return list(table.get(band) or table[BAND_ELEMENTARY])
+    base = list(table.get(band) or table[BAND_ELEMENTARY])
+    # Extras só entram no idioma pedido. Fallback para inglês não mistura
+    # a prática de outro código desconhecido.
+    if language_code not in GRAMMAR_EXERCISES:
+        return base
+    return base + extra_exercises(language_code, band)
 
 
 def pronunciation_focus(language_code: str) -> list[dict[str, str]]:

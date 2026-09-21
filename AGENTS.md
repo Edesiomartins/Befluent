@@ -1,7 +1,7 @@
 ﻿# BeFluent — Regras do Projeto
 
 - O projeto se chama **BeFluent** (antes: Fluentia).
-- O BeFluent é um webapp para aprendizado de inglês, espanhol da Espanha, francês, japonês, mandarim, latim eclesiástico e latim clássico.
+- O BeFluent é um webapp para aprendizado de inglês, espanhol da Espanha, francês, italiano, alemão, japonês, mandarim, latim eclesiástico e latim clássico.
 - A interface deve permanecer em português.
 - Cadastro público e múltiplos usuários estão autorizados.
 - O projeto está **publicado em produção no Coolify**: `befluent.medquesthub.com.br` (frontend) e `api-befluent.medquesthub.com.br` (backend).
@@ -36,4 +36,4 @@ Continua **não autorizado** sem confirmação explícita:
 - Integrar login ao MedQuestHub AI.
 - Renomear infraestrutura legada `fluentia-*` (serviços, volume `fluentia_pg_data`) por causa da marca — quebraria volumes existentes em produção.
 
-Codes de idioma autorizados: `en`, `es-ES`, `fr`, `ja`, `zh-CN`, `la` (latim eclesiástico / Vulgata), `la-classical` (latim clássico, pronúncia reconstruída). Progresso, placement e SRS de `la` e `la-classical` são independentes — nunca converter nem misturar.
+Codes de idioma autorizados: `en`, `es-ES`, `fr`, `it`, `de`, `ja`, `zh-CN`, `la` (latim eclesiástico / Vulgata), `la-classical` (latim clássico, pronúncia reconstruída). Progresso, placement e SRS de `la` e `la-classical` são independentes — nunca converter nem misturar. Italiano e alemão seguem a trilha dos idiomas falados de alfabeto latino (como inglês e francês).

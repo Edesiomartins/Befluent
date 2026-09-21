@@ -29,6 +29,22 @@ LANGUAGES = [
         "Ênfase em compreensão oral, liaison e comunicação prática.",
     ),
     (
+        "it",
+        "Italiano",
+        "Italiano",
+        None,
+        "Italiano padrão",
+        "Ênfase em conversação, escuta, gênero e pronúncia. Transparência com o português pede mais escuta.",
+    ),
+    (
+        "de",
+        "Alemão",
+        "Deutsch",
+        None,
+        "Alemão padrão",
+        "Ênfase em conversação, casos, ordem da frase e pronúncia.",
+    ),
+    (
         "ja",
         "Japonês",
         "日本語",

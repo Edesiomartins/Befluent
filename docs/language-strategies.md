@@ -62,6 +62,42 @@ Diretrizes:
 - usar diálogos naturais;
 - evitar dependência excessiva da tradução.
 
+## Italiano
+
+Prioridades:
+
+- conversação;
+- compreensão auditiva;
+- pronúncia (consoantes duplas, vogais abertas e fechadas);
+- vocabulário cotidiano;
+- gênero e concordância;
+- tempos do passado (passato prossimo e imperfetto).
+
+Diretrizes:
+
+- mesma trilha dos idiomas falados de alfabeto latino (inglês e francês);
+- a proximidade com o português faz o aluno achar que já entendeu o texto: compensar com escuta extra;
+- apresentar escrita e pronúncia juntas;
+- não tratar o italiano como tradução palavra a palavra do português.
+
+## Alemão
+
+Prioridades:
+
+- conversação;
+- compreensão auditiva;
+- casos, artigos e gênero;
+- ordem da frase e verbos separáveis;
+- pronúncia (ch, umlauts, ensurdecimento final);
+- vocabulário cotidiano.
+
+Diretrizes:
+
+- mesma trilha dos idiomas falados de alfabeto latino (inglês e francês);
+- pronúncia três vezes por semana, como no inglês — não é trilha diária de tom ou mora;
+- o Kokoro não tem voz alemã: a escuta cai na voz do navegador, sem emprestar voz de outro idioma;
+- explicar caso e ordem da frase em português no início, e reduzir esse apoio conforme o nível sobe.
+
 ## Japonês
 
 Prioridades:

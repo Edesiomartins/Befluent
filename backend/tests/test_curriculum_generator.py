@@ -26,7 +26,7 @@ from app.services.curriculum_generator import (
     weight_for,
 )
 
-LANGUAGES = ["en", "es-ES", "fr", "ja", "zh-CN", "la"]
+LANGUAGES = ["en", "es-ES", "fr", "it", "de", "ja", "zh-CN", "la"]
 
 #: Segunda-feira, para o cronograma começar sempre no mesmo dia da semana.
 START = date(2026, 8, 3)
@@ -439,7 +439,7 @@ class TestIdiomas:
             skills = [block.skill for block in blocks_of(db_session, day)]
             assert BlockSkill.PRONUNCIATION in skills
 
-    @pytest.mark.parametrize("language_code", ["en", "es-ES", "fr"])
+    @pytest.mark.parametrize("language_code", ["en", "es-ES", "fr", "it", "de"])
     def test_pronuncia_tres_vezes_por_semana_nos_demais(self, db_session, language_code):
         profile = make_profile(db_session, language_code=language_code)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
@@ -506,7 +506,7 @@ class TestIdiomas:
         assert escrita
         assert all("hanzi" in block.topic for block in escrita)
 
-    @pytest.mark.parametrize("language_code", ["fr", "es-ES"])
+    @pytest.mark.parametrize("language_code", ["fr", "es-ES", "it"])
     def test_transparencia_lexical_ganha_escuta_extra(self, db_session, language_code):
         profile = make_profile(db_session, language_code=language_code)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)

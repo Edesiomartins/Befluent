@@ -351,6 +351,8 @@ def test_tts_provider_openrouter_uses_kokoro(monkeypatch, _settings):
         ("es-ES", "em_alex"),
         ("fr", "ff_siwis"),
         ("fr-FR", "ff_siwis"),
+        ("it", "if_sara"),
+        ("it-IT", "if_sara"),
         ("ja", "jf_nezumi"),
         ("ja-JP", "jf_nezumi"),
         ("zh-CN", "zf_xiaoxiao"),
@@ -379,11 +381,11 @@ def test_tts_openrouter_picks_voice_by_language(monkeypatch, _settings, language
 
 
 def test_tts_openrouter_unsupported_language_never_guesses_a_voice(monkeypatch, _settings):
-    """Idioma sem entrada no mapa (ex. alemão, fora dos 5 idiomas do
-    BeFluent) nunca cai numa voz "parecida" nem na voz default — mandar
-    texto de idioma desconhecido para af_sky (voz de inglês) produziria
-    fala errada. Devolve erro explícito (400) para o frontend cair no
-    SpeechSynthesis do navegador, sem sequer chamar a OpenRouter."""
+    """Idioma sem voz Kokoro (alemão é idioma do produto, mas o modelo
+    não tem voz alemã) nunca cai numa voz "parecida" nem na voz default —
+    mandar texto alemão para af_sky produziria fala errada. Devolve erro
+    explícito (400) para o frontend cair no SpeechSynthesis do navegador,
+    sem sequer chamar a OpenRouter."""
     monkeypatch.setattr(_settings, "environment", "production")
     monkeypatch.setattr(_settings, "tts_provider", "openrouter")
     monkeypatch.setattr(_settings, "openrouter_api_key", "sk-secret-key")

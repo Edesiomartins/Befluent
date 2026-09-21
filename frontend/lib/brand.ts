@@ -14,6 +14,8 @@ export const LANGUAGES = [
   { code: "en", namePt: "Inglês", native: "English" },
   { code: "es-ES", namePt: "Espanhol da Espanha", native: "Español" },
   { code: "fr", namePt: "Francês", native: "Français" },
+  { code: "it", namePt: "Italiano", native: "Italiano" },
+  { code: "de", namePt: "Alemão", native: "Deutsch" },
   { code: "ja", namePt: "Japonês", native: "日本語" },
   { code: "zh-CN", namePt: "Mandarim", native: "中文" },
   { code: "la", namePt: "Latim Eclesiástico", native: "Latina ecclesiastica" },

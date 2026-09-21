@@ -87,7 +87,7 @@ PRONUNCIATION_WEEKDAYS = frozenset({0, 2, 4})
 
 #: Transparência lexical com o português faz o aluno superestimar a
 #: compreensão: ele lê bem e não entende a fala. Compensado com escuta extra.
-LISTENING_BONUS_LANGUAGES = frozenset({"fr", "es-ES"})
+LISTENING_BONUS_LANGUAGES = frozenset({"fr", "es-ES", "it"})
 LISTENING_BONUS_MINUTES = 3
 
 SUNDAY = 6

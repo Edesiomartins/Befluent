@@ -100,6 +100,16 @@ LANGUAGE_THEMES: dict[str, dict[str, list[str]]] = {
         CEFRLevel.A1: ["Gênero gramatical e artigos", "Liaison e ritmo da fala"],
         CEFRLevel.A2: ["Conjugação: os tempos que você mais vai usar"],
     },
+    "it": {
+        CEFRLevel.PRE_A1: ["Sons do italiano que o português esconde"],
+        CEFRLevel.A1: ["Gênero, artigos e concordância"],
+        CEFRLevel.A2: ["Passato prossimo e imperfetto"],
+    },
+    "de": {
+        CEFRLevel.PRE_A1: ["Sons do alemão: ch, umlaut e r"],
+        CEFRLevel.A1: ["Artigos, gênero e casos no singular"],
+        CEFRLevel.A2: ["Ordem da frase e verbos separáveis"],
+    },
     "ja": {
         CEFRLevel.PRE_A1: [
             "Hiragana — leitura e escrita",
@@ -236,6 +246,8 @@ PRONUNCIATION_OPENING: dict[str, str] = {
     "fr": "vogais nasais e /y/",
     "es-ES": "/θ/ e vibrante múltiplo",
     "en": "/θ/, /ð/ e vogais curtas × longas",
+    "it": "consoantes duplas, gli/gn e e/o abertos",
+    "de": "ch (ich/ach), umlauts e ensurdecimento final",
     "la": "c/g eclesiásticos (/tʃ/, /dʒ/) e v = /v/",
     "la-classical": "c/g duros (/k/, /g/), v≈/w/ e ditongos ae/oe",
 }
@@ -271,7 +283,7 @@ def coverage_report() -> dict[str, list[str]]:
     """Níveis sem tema por idioma. Usado por teste: uma célula vazia aqui vira
     uma semana sem tema no cronograma do aluno."""
     gaps: dict[str, list[str]] = {}
-    for language_code in ("en", "es-ES", "fr", "ja", "zh-CN", "la", "la-classical"):
+    for language_code in ("en", "es-ES", "fr", "it", "de", "ja", "zh-CN", "la", "la-classical"):
         missing = [
             level
             for level in LEVEL_ORDER

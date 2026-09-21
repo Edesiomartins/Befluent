@@ -8,7 +8,7 @@
  * e duplicar estes componentes faria as duas telas divergirem com o tempo.
  */
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
@@ -479,8 +479,42 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
   );
 }
 
-function Grammar({ lesson }: { lesson: GrammarLesson }) {
-  const exercise = lesson.exercises[0];
+function Grammar({
+  lesson,
+  onPracticeReady,
+}: {
+  lesson: GrammarLesson;
+  onPracticeReady?: (ready: boolean) => void;
+}) {
+  const exercises = lesson.exercises ?? [];
+  const [index, setIndex] = useState(0);
+  const [resolved, setResolved] = useState<boolean[]>(() => exercises.map(() => false));
+  const completed = useRef(false);
+  const total = exercises.length;
+  const safeIndex = total === 0 ? 0 : Math.min(index, total - 1);
+  const exercise = exercises[safeIndex];
+  const doneCount = resolved.filter(Boolean).length;
+  const allResolved = total === 0 || doneCount === total;
+
+  useEffect(() => {
+    onPracticeReady?.(allResolved);
+  }, [allResolved, onPracticeReady]);
+
+  useEffect(() => {
+    if (!allResolved || total === 0 || completed.current) return;
+    completed.current = true;
+    void completeLesson(lesson.lesson_id);
+  }, [allResolved, total, lesson.lesson_id]);
+
+  function markResolved(at: number) {
+    setResolved((current) => {
+      if (current[at]) return current;
+      const next = [...current];
+      next[at] = true;
+      return next;
+    });
+  }
+
   return (
     <div className="max-w-3xl">
       <section>
@@ -511,24 +545,52 @@ function Grammar({ lesson }: { lesson: GrammarLesson }) {
       )}
       {exercise && (
         <div className="mt-7 panel p-6">
-          <ObjectiveChoice
-            lessonId={lesson.lesson_id}
-            index={0}
-            surface="grammar"
-            kind="exercise"
-            question={{
-              prompt: exercise.prompt,
-              options: exercise.options,
-              answer: exercise.answer,
-              rationale: exercise.rationale,
-              option_rationales: exercise.option_rationales,
-            }}
-            onEvaluated={(feedback) => {
-              if (feedback.is_correct) {
-                void completeLesson(lesson.lesson_id);
-              }
-            }}
-          />
+          <p className="label">
+            Atividade {safeIndex + 1} de {total}
+          </p>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">
+            Responda cada atividade desta etapa. O card de compreensão só abre
+            quando esta sequência terminar.
+          </p>
+          <div className="mt-4 h-1.5 rounded-full bg-surface-elevated">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${(doneCount / total) * 100}%` }}
+            />
+          </div>
+          <div className="mt-5">
+            <ObjectiveChoice
+              key={`${exercise.prompt}-${safeIndex}`}
+              lessonId={lesson.lesson_id}
+              index={safeIndex}
+              surface="grammar"
+              kind="exercise"
+              question={{
+                prompt: exercise.prompt,
+                options: exercise.options,
+                answer: exercise.answer,
+                rationale: exercise.rationale,
+                option_rationales: exercise.option_rationales,
+              }}
+              onEvaluated={() => markResolved(safeIndex)}
+            />
+          </div>
+          {resolved[safeIndex] && safeIndex < total - 1 && (
+            <div className="mt-5 flex justify-end">
+              <Button
+                onClick={() => {
+                  setIndex((current) => Math.min(current + 1, total - 1));
+                }}
+              >
+                Próxima atividade
+              </Button>
+            </div>
+          )}
+          {allResolved && (
+            <p className="mt-5 text-sm font-semibold text-primary" role="status">
+              Gramática desta etapa concluída. Agora você pode seguir para compreensão.
+            </p>
+          )}
         </div>
       )}
     </div>
@@ -915,7 +977,16 @@ function Review({ lesson }: { lesson: ReviewLesson }) {
 
 /* ------------------------------------------------------------------ */
 
-export function LessonContent({ mode, lesson }: { mode: string; lesson: LessonEnvelope }) {
+export function LessonContent({
+  mode,
+  lesson,
+  onPracticeReady,
+}: {
+  mode: string;
+  lesson: LessonEnvelope;
+  /** Gramática só fica pronta depois de todas as atividades da etapa. */
+  onPracticeReady?: (ready: boolean) => void;
+}) {
   switch (mode) {
     case "guided":
       return <Guided lesson={lesson as GuidedLesson} />;
@@ -928,7 +999,12 @@ export function LessonContent({ mode, lesson }: { mode: string; lesson: LessonEn
     case "vocabulary":
       return <Vocabulary lesson={lesson as VocabularyLesson} />;
     case "grammar":
-      return <Grammar lesson={lesson as GrammarLesson} />;
+      return (
+        <Grammar
+          lesson={lesson as GrammarLesson}
+          onPracticeReady={onPracticeReady}
+        />
+      );
     case "listening":
       return <Listening lesson={lesson as ListeningLesson} />;
     case "reading":

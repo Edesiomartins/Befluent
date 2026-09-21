@@ -14,6 +14,8 @@ const SPEECH_LANGS: Record<string, string> = {
   en: "en-US",
   "es-ES": "es-ES",
   fr: "fr-FR",
+  it: "it-IT",
+  de: "de-DE",
   ja: "ja-JP",
   "zh-CN": "zh-CN",
   la: "la",
