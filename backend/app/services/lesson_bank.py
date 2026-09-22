@@ -196,7 +196,7 @@ VOCABULARY: dict[str, dict[str, list[dict[str, str]]]] = {
         ],
         BAND_ELEMENTARY: [
             {"term": "buscar", "translation": "procurar", "example": "Estoy buscando la estación.", "example_translation": "Estou procurando a estação.", "usage_note": "Sem preposição, diferente do inglês 'look for'."},
-            {"term": "soler", "translation": "costumar", "example": "Suelo desayunar a las ocho.", "example_translation": "Costumo tomar café da manhã às oito.", "usage_note": "Verbo muito usado; não tem equivalente direto em inglês."},
+            {"term": "soler", "translation": "costumar", "example": "Suelo desayunar a las ocho.", "example_translation": "Costumo tomar café da manhã às oito.", "usage_note": "Verbo muito usado; não tem equivalente direto em inglês.", "example_form": "suelo", "form_note": "“suelo” é uma forma de “soler” usada com yo."},
             {"term": "en cuanto", "translation": "assim que", "example": "Llámame en cuanto llegues.", "example_translation": "Me ligue assim que você chegar.", "usage_note": "Exige subjuntivo quando fala do futuro."},
             {"term": "en vez de", "translation": "em vez de", "example": "Vamos en autobús en vez de en taxi.", "example_translation": "Vamos de ônibus em vez de táxi.", "usage_note": "Muito próximo do português."},
             {"term": "acostumbrarse a", "translation": "acostumar-se a", "example": "Me estoy acostumbrando al clima.", "example_translation": "Estou me acostumando ao clima.", "usage_note": "Sempre com a preposição 'a'."},

@@ -26,7 +26,7 @@ MODE_OUTPUT_CONTRACT: dict[str, str] = {
     "vocabulary": (
         '{"title": str, "objective": str, "items": [{"term": str, '
         '"translation": str, "example": str, "example_translation": str, '
-        '"usage_note": str}]}'
+        '"usage_note": str, "example_form": str | null, "form_note": str | null}]}'
     ),
     "grammar": (
         '{"title": str, "objective": str, "explanation": str, "patterns": [str], '
@@ -149,11 +149,18 @@ VOCABULARY = PromptTemplate(
         "Entregue palavras e expressões essenciais para o contexto do aluno, "
         "organizadas por categoria de uso. Para cada item: a tradução em "
         "português, um exemplo em frase real e uma nota curta de uso. Priorize o "
-        "que ele consegue usar hoje."
+        "que ele consegue usar hoje. Se a frase usar uma forma flexionada "
+        "diferente do termo e você tiver certeza dessa relação, preencha "
+        "`example_form` com a forma usada (pode incluir o contexto imediato, "
+        "como o sujeito) e `form_note` com uma frase curta em português."
     ),
     rule=(
         "Uma palavra que o aluno não vai usar no contexto real dele não entra na "
-        "lista essencial. Priorize utilidade prática sobre completude."
+        "lista essencial. Priorize utilidade prática sobre completude. "
+        "`example_form` e `form_note` são opcionais: omita ou use null quando o "
+        "termo aparece igual na frase, quando não há flexão relevante, ou quando "
+        "você não tiver certeza. Nunca invente uma flexão só porque alguma "
+        "palavra da frase é parecida com o termo."
     ),
 )
 

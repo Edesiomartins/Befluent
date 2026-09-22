@@ -15,6 +15,7 @@ import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
 import { Button } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { visibleContextualForm } from "@/lib/lexical-form";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import type {
   ConversationLesson,
@@ -409,6 +410,8 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
 
   if (!item) return null;
 
+  const contextual = visibleContextualForm(item);
+
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-3 flex justify-between text-xs text-text-secondary">
@@ -423,14 +426,37 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-4">
           <h2 className="text-3xl font-semibold tracking-tight">{item.term}</h2>
-          <AudioPlayer
-            variant="compact"
-            label="Ouvir"
-            text={[item.term, item.example].filter(Boolean).join(". ")}
-            languageCode={lesson.language_code}
-          />
+          {(item.term ?? "").trim() && (
+            <AudioPlayer
+              variant="compact"
+              label="Ouvir"
+              accessibleName={`Ouvir expressão ${item.term}`}
+              text={item.term}
+              languageCode={lesson.language_code}
+            />
+          )}
         </div>
-        <p className="mt-4 text-lg italic text-text-secondary">“{item.example}”</p>
+        {contextual && (
+          <div className="mt-4">
+            <p className="label">Na frase</p>
+            <p className="mt-2 font-medium">{contextual.exampleForm}</p>
+            {contextual.formNote && (
+              <p className="mt-1 text-sm leading-6 text-text-secondary">{contextual.formNote}</p>
+            )}
+          </div>
+        )}
+        {(item.example ?? "").trim() && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <AudioPlayer
+              variant="compact"
+              label="Ouvir"
+              accessibleName="Ouvir frase de exemplo"
+              text={item.example}
+              languageCode={lesson.language_code}
+            />
+            <p className="text-lg italic text-text-secondary">“{item.example}”</p>
+          </div>
+        )}
         {revealed ? (
           <div className="mt-8 border-t border-border pt-6">
             <p className="font-semibold">{item.translation}</p>

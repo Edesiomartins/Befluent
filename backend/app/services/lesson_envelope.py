@@ -15,6 +15,7 @@ from typing import Any
 from app.core.levels import SKILL_LABELS
 from app.prompts.library import MODE_SKILL
 from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
+from app.services.lexical_form import normalize_vocabulary_payload
 from app.services.learner_context import LearnerContext
 
 
@@ -33,8 +34,10 @@ def apply_lesson_envelope(
     origin = content_origin or provider
     guaranteed = thread_guaranteed if thread_guaranteed is not None else provider == "mock"
 
-    if mode == "vocabulary" and context.language_code == "la":
-        payload = sanitize_latin_vocabulary_payload(payload)
+    if mode == "vocabulary":
+        if context.language_code == "la":
+            payload = sanitize_latin_vocabulary_payload(payload)
+        payload = normalize_vocabulary_payload(payload)
 
     carried_terms = list(context.carryover_terms or [])
     base = {

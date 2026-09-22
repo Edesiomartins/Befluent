@@ -25,6 +25,10 @@ export type VocabularyLesson = LessonEnvelope & {
     example: string;
     example_translation: string;
     usage_note: string;
+    /** Forma da frase, só quando é diferente do termo. Opcional. */
+    example_form?: string | null;
+    /** Nota curta dessa forma. Opcional. Não é inferida na tela. */
+    form_note?: string | null;
   }>;
 };
 

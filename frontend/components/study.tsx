@@ -57,6 +57,7 @@ export function AudioPlayer({
   languageCode = "en",
   variant = "full",
   label = "Ouvir",
+  accessibleName,
   phoneticActivity = false,
 }: {
   text?: string;
@@ -64,8 +65,10 @@ export function AudioPlayer({
   demo?: boolean;
   languageCode?: string;
   variant?: "full" | "compact";
-  /** Rótulo do botão na variante compacta. */
+  /** Rótulo visível do botão na variante compacta. */
   label?: string;
+  /** Nome acessível. Sem isto, o botão compacto usa rótulo e texto. */
+  accessibleName?: string;
   /**
    * Atividade que avalia/ensina pronúncia: se a preparação fonética do latim
    * falhar, não reproduz o texto ortográfico bruto (evita /k/ clássico).
@@ -328,7 +331,7 @@ export function AudioPlayer({
           onClick={playing ? stop : () => void play()}
           disabled={loading || !text.trim()}
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
-          aria-label={playing ? "Parar áudio" : `${label}: ${text}`}
+          aria-label={playing ? "Parar áudio" : (accessibleName ?? `${label}: ${text}`)}
         >
           <span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>
           {loading ? "Gerando…" : playing ? "Parar" : label}
