@@ -421,6 +421,56 @@ describe("Execução do dia", () => {
     expect(await screen.findByText("Gerado em modo mock (IA local)")).toBeInTheDocument();
   });
 
+  it("envia o índice atual em toda submissão lexical do cronograma", async () => {
+    const teaching = {
+      status: "active",
+      flow: {
+        id: "flow-lexical",
+        phase: "input",
+        phase_label_pt: "Recebendo o modelo",
+        status: "active",
+        activity_cursor: 0,
+        remediation_cycles: 0,
+      },
+      objective: { id: "", code: null, title: null, can_do: null, level: null },
+      progress_state: "learning",
+      current_activity: {
+        index: 0,
+        type: "presentation",
+        vocabulary_item_id: "v-1",
+        prompt_pt: "Conheça este item de vocabulário.",
+        term: "on my way",
+        translation_pt: "a caminho",
+        audio_targets: [],
+      },
+      activities_total: 5,
+    };
+    routeApi([
+      ["/api/v1/curriculum/day/day-1", dayDetail],
+      [
+        "/api/v1/curriculum/block/b-1/start",
+        { block: day.blocks[0], lesson, teaching },
+      ],
+      [
+        "/api/v1/curriculum/block/b-1/teaching/answer",
+        { ...teaching, status: "closed", current_activity: null },
+      ],
+    ]);
+
+    render(<CurriculumDayPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar" }));
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith(
+        "/api/v1/curriculum/block/b-1/teaching/answer",
+        {
+          method: "POST",
+          body: { activity_index: 0, student_response: "__ack__" },
+        },
+      ),
+    );
+  });
+
   it("declara fila vazia no bloco de revisão em vez de inventar itens", async () => {
     routeApi([
       [

@@ -231,26 +231,40 @@ function DayObjectiveBanner({
 function MiniTeachingPractice({
   blockId,
   initial,
+  languageCode,
 }: {
   blockId: string;
   initial: SliceSession | null;
+  languageCode: string;
 }) {
   const [session, setSession] = useState<SliceSession | null>(initial);
   const [response, setResponse] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
-  if (!session?.current_activity) return null;
+  if (!session) return null;
+  if (!session.current_activity) {
+    return (
+      <div className="panel mb-6 p-5" role="status">
+        <h3 className="section-title">Prática de vocabulário concluída</h3>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">
+          Suas respostas foram registradas. Os itens que precisam de reforço voltarão depois.
+        </p>
+      </div>
+    );
+  }
   const activity = session.current_activity;
   const inRemediation =
     session.flow.phase === "needs_remediation" ||
     session.flow.phase === "retrying" ||
     Boolean(session.remediation);
   const locked = Boolean(session.activity_locked) && !inRemediation;
-  const needsChoice =
-    activity.type !== "listen" &&
-    activity.type !== "recognition" &&
-    activity.type !== "matching";
+  const isLexical = Boolean(activity.vocabulary_item_id);
+  const needsChoice = isLexical
+    ? activity.type !== "presentation"
+    : activity.type !== "listen" &&
+      activity.type !== "recognition" &&
+      activity.type !== "matching";
 
   async function submit() {
     if (busy || (locked && !inRemediation)) return;
@@ -273,7 +287,12 @@ function MiniTeachingPractice({
             remediation_id: session?.remediation?.id,
             student_response: response,
           }
-        : { student_response: response || "__ack__" };
+        : {
+            student_response: response || "__ack__",
+            ...(isLexical
+              ? { activity_index: session!.flow.activity_cursor }
+              : {}),
+          };
       const next = await api<SliceSession>(path, { method: "POST", body });
       setSession(next);
       setResponse("");
@@ -297,6 +316,7 @@ function MiniTeachingPractice({
           response={response}
           onResponse={setResponse}
           locked={locked}
+          languageCode={languageCode}
         />
       </div>
       <TeachingAnswerFeedback
@@ -356,6 +376,7 @@ function BlockRunner({
   const [loading, setLoading] = useState(true);
   const [finishing, setFinishing] = useState(false);
   const grammarGate = (block.mode ?? block.skill) === "grammar";
+  const vocabularyBlock = (block.mode ?? block.skill) === "vocabulary";
   const [practiceReady, setPracticeReady] = useState(!grammarGate);
 
   const start = useCallback(async () => {
@@ -432,17 +453,31 @@ function BlockRunner({
 
       <ThreadBanner lesson={lesson} />
 
-      {teaching && block.skill !== "review" && (
-        <MiniTeachingPractice blockId={block.id} initial={teaching} />
+      {teaching?.current_activity && block.skill !== "review" && (
+        <MiniTeachingPractice
+          blockId={block.id}
+          initial={teaching}
+          languageCode={
+            typeof lesson.language_code === "string" ? lesson.language_code : "en"
+          }
+        />
       )}
 
       {block.skill === "review" ? (
         <ReviewQueue lesson={lesson} />
-      ) : (
+      ) : vocabularyBlock && teaching?.status === "no_vocabulary_due" ? (
+        <div className="panel p-6" role="status">
+          <h2 className="section-title">Vocabulário em dia</h2>
+          <p className="mt-3 text-sm leading-6 text-text-secondary">
+            Não há itens de vocabulário devidos agora. Eles voltarão no momento adequado.
+          </p>
+        </div>
+      ) : vocabularyBlock && teaching?.current_activity ? null : (
         <LessonContent
           mode={block.mode ?? block.skill}
           lesson={lesson as LessonEnvelope}
           onPracticeReady={grammarGate ? setPracticeReady : undefined}
+          enableVocabularyCycle={!vocabularyBlock}
         />
       )}
 

@@ -26,6 +26,7 @@ export type AnswerFeedback = {
 export type TeachingActivity = {
   index?: number;
   type: string;
+  vocabulary_item_id?: string;
   phase_hint?: string;
   prompt?: string;
   prompt_pt?: string;
@@ -37,16 +38,26 @@ export type TeachingActivity = {
   tokens?: string[];
   options?: string[];
   pairs?: { term: string; hint_pt: string }[];
-  canonical_answer?: string;
-  accepted_variants?: string[];
-  required_features?: string[];
   scaffold_pt?: string;
   ai_required?: boolean;
   post_reveal?: boolean;
   is_retry_variant?: boolean;
+  term?: string;
+  translation_pt?: string;
+  reading_or_pinyin?: string;
+  example_sentence?: string;
+  example_translation_pt?: string;
+  audio_target_type?: "vocabulary_item" | "example_sentence";
+  audio_text?: string;
+  audio_targets?: Array<{
+    audio_target_type: "vocabulary_item" | "example_sentence";
+    audio_text: string;
+  }>;
+  response_modes?: Array<"typing" | "speech">;
 };
 
 export type SliceSession = {
+  status?: string;
   flow: {
     id: string;
     phase: TeachingFlowPhase;

@@ -83,6 +83,7 @@ describe("card de vocabulário", () => {
     render(
       <LessonContent
         mode="vocabulary"
+        enableVocabularyCycle={false}
         lesson={lesson({
           ...base,
           term: "können",
@@ -112,6 +113,7 @@ describe("card de vocabulário", () => {
     render(
       <LessonContent
         mode="vocabulary"
+        enableVocabularyCycle={false}
         lesson={lesson(
           {
             term: "water",
@@ -137,6 +139,7 @@ describe("card de vocabulário", () => {
     render(
       <LessonContent
         mode="vocabulary"
+        enableVocabularyCycle={false}
         lesson={lesson({
           ...base,
           term: "können",
@@ -158,7 +161,13 @@ describe("card de vocabulário", () => {
       example_translation: "Obrigado pela sua ajuda.",
       usage_note: "Não muda com o gênero.",
     };
-    render(<LessonContent mode="vocabulary" lesson={lesson(oldItem, "en")} />);
+    render(
+      <LessonContent
+        mode="vocabulary"
+        enableVocabularyCycle={false}
+        lesson={lesson(oldItem, "en")}
+      />,
+    );
 
     expect(screen.getByRole("heading", { name: "thank you" })).toBeInTheDocument();
     expect(screen.getByText("“Thank you for your help.”")).toBeInTheDocument();
@@ -177,6 +186,7 @@ describe("card de vocabulário", () => {
     render(
       <LessonContent
         mode="vocabulary"
+        enableVocabularyCycle={false}
         lesson={lesson({
           ...base,
           term: "können",
@@ -214,6 +224,7 @@ describe("card de vocabulário", () => {
     render(
       <LessonContent
         mode="vocabulary"
+        enableVocabularyCycle={false}
         lesson={lesson(
           {
             term: "soler",

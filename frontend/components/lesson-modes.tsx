@@ -13,7 +13,8 @@ import Link from "next/link";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
-import { Button } from "@/components/ui";
+import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
+import { Button, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { visibleContextualForm } from "@/lib/lexical-form";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -338,7 +339,7 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
   );
 }
 
-function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
+function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
   const { code } = useActiveLanguage();
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -349,7 +350,7 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
   const item = lesson.items[index];
   const last = index >= lesson.items.length - 1;
 
-  async function saveAndAdvance(_kind: "learning" | "known") {
+  async function saveAndAdvance() {
     if (!item || saving) return;
     setSaving(true);
     setError("");
@@ -479,7 +480,7 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
           variant="secondary"
           loading={saving}
           disabled={saving || !revealed}
-          onClick={() => void saveAndAdvance("learning")}
+          onClick={() => void saveAndAdvance()}
         >
           Difícil · salvar
         </Button>
@@ -488,16 +489,232 @@ function Vocabulary({ lesson }: { lesson: VocabularyLesson }) {
             variant="secondary"
             loading={saving}
             disabled={saving || !revealed}
-            onClick={() => void saveAndAdvance("learning")}
+            onClick={() => void saveAndAdvance()}
           >
             Ainda aprendendo
           </Button>
           <Button
             loading={saving}
             disabled={saving || !revealed}
-            onClick={() => void saveAndAdvance("known")}
+            onClick={() => void saveAndAdvance()}
           >
             {last ? "Eu sabia · concluir" : "Eu sabia · salvar"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+type VocabularyCycleState =
+  | { kind: "loading" }
+  | { kind: "legacy" }
+  | { kind: "no_due" }
+  | { kind: "closed" }
+  | { kind: "active"; session: import("@/types/teaching").SliceSession }
+  | { kind: "error"; message: string };
+
+function isSliceSession(value: unknown): value is import("@/types/teaching").SliceSession {
+  if (!value || typeof value !== "object") return false;
+  const payload = value as Record<string, unknown>;
+  return Boolean(payload.flow && typeof payload.flow === "object");
+}
+
+function Vocabulary({
+  lesson,
+  enableCycle = true,
+}: {
+  lesson: VocabularyLesson;
+  enableCycle?: boolean;
+}) {
+  const [cycle, setCycle] = useState<VocabularyCycleState>(
+    lesson.lesson_id && enableCycle ? { kind: "loading" } : { kind: "legacy" },
+  );
+  const [response, setResponse] = useState("");
+  const [sending, setSending] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+
+  useEffect(() => {
+    if (!lesson.lesson_id || !enableCycle) {
+      setCycle({ kind: "legacy" });
+      return;
+    }
+    let active = true;
+    const lessonId = lesson.lesson_id;
+
+    async function loadCycle() {
+      setCycle({ kind: "loading" });
+      try {
+        let payload: unknown;
+        try {
+          payload = await api(`/api/v1/lessons/${lessonId}/vocabulary-cycle`);
+        } catch (caught) {
+          if (
+            !(caught instanceof ApiError) ||
+            caught.status !== 404 ||
+            caught.code !== "vocabulary_cycle_not_found"
+          ) {
+            throw caught;
+          }
+          payload = await api(`/api/v1/lessons/${lessonId}/vocabulary-cycle/start`, {
+            method: "POST",
+            body: {},
+          });
+        }
+        if (!active) return;
+        if (
+          payload &&
+          typeof payload === "object" &&
+          (payload as { status?: string }).status === "no_vocabulary_due"
+        ) {
+          setCycle({ kind: "no_due" });
+        } else if (isSliceSession(payload)) {
+          const session = payload;
+          setCycle(
+            session.status !== "active" || !session.current_activity
+              ? { kind: "closed" }
+              : { kind: "active", session },
+          );
+        } else {
+          setCycle({ kind: "legacy" });
+        }
+      } catch (caught) {
+        if (!active) return;
+        if (caught instanceof ApiError && caught.status === 404) {
+          setCycle({ kind: "legacy" });
+          return;
+        }
+        setCycle({
+          kind: "error",
+          message:
+            caught instanceof ApiError
+              ? caught.message
+              : "Não foi possível abrir a prática de vocabulário.",
+        });
+      }
+    }
+
+    void loadCycle();
+    return () => {
+      active = false;
+    };
+  }, [enableCycle, lesson.lesson_id]);
+
+  async function submitCycle() {
+    if (
+      cycle.kind !== "active" ||
+      !lesson.lesson_id ||
+      sending
+    ) {
+      return;
+    }
+    const activity = cycle.session.current_activity;
+    if (!activity) return;
+    const acknowledgement = activity.type === "presentation";
+    if (!acknowledgement && !response.trim()) {
+      setSubmitError(
+        ["recognition", "reverse_recognition", "listening_recognition"].includes(activity.type)
+          ? "Escolha uma alternativa antes de enviar."
+          : "Digite ou fale uma resposta antes de enviar.",
+      );
+      return;
+    }
+    setSending(true);
+    setSubmitError("");
+    try {
+      const next = await api<import("@/types/teaching").SliceSession>(
+        `/api/v1/lessons/${lesson.lesson_id}/vocabulary-cycle/answer`,
+        {
+          method: "POST",
+          body: {
+            activity_index: cycle.session.flow.activity_cursor,
+            student_response: acknowledgement ? "" : response.trim(),
+          },
+        },
+      );
+      setResponse("");
+      setCycle(
+        next.status !== "active" || !next.current_activity
+          ? { kind: "closed" }
+          : { kind: "active", session: next },
+      );
+    } catch (caught) {
+      if (
+        caught instanceof ApiError &&
+        (caught.code === "flow_closed" || caught.status === 409)
+      ) {
+        setCycle({ kind: "closed" });
+      } else {
+        setSubmitError(
+          caught instanceof ApiError
+            ? caught.message
+            : "Não foi possível enviar a resposta.",
+        );
+      }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  if (cycle.kind === "legacy") return <LegacyVocabulary lesson={lesson} />;
+  if (cycle.kind === "loading") return <Loading label="Preparando prática de vocabulário" />;
+  if (cycle.kind === "error") {
+    return (
+      <div className="panel p-6">
+        <p role="alert" className="text-sm text-danger">{cycle.message}</p>
+      </div>
+    );
+  }
+  if (cycle.kind === "no_due") {
+    return (
+      <div className="panel p-7 text-center" role="status">
+        <h2 className="text-xl font-semibold">Vocabulário em dia</h2>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Não há itens de vocabulário devidos agora. Eles voltarão no momento adequado.
+        </p>
+      </div>
+    );
+  }
+  if (cycle.kind === "closed") {
+    return (
+      <div className="panel p-7 text-center" role="status">
+        <h2 className="text-xl font-semibold">Sessão de vocabulário concluída</h2>
+        <p className="mt-3 text-sm leading-6 text-text-secondary">
+          Suas respostas foram registradas. Os itens que precisam de reforço voltarão depois.
+        </p>
+      </div>
+    );
+  }
+
+  const activity = cycle.session.current_activity;
+  if (!activity) return null;
+  const isPresentation = activity.type === "presentation";
+  return (
+    <div className="mx-auto max-w-2xl">
+      <div className="mb-3 flex justify-between text-xs text-text-secondary">
+        <span>Atividade {cycle.session.flow.activity_cursor + 1} de {cycle.session.activities_total}</span>
+        <span>{cycle.session.flow.phase_label_pt}</span>
+      </div>
+      <div className="panel p-7 sm:p-9">
+        <TeachingActivityBody
+          key={`${cycle.session.flow.id}-${cycle.session.flow.activity_cursor}`}
+          activity={activity}
+          response={response}
+          onResponse={setResponse}
+          locked={sending}
+          languageCode={lesson.language_code}
+        />
+        <TeachingAnswerFeedback feedback={cycle.session.answer_feedback} />
+        {submitError && (
+          <p role="alert" className="mt-4 text-sm text-danger">{submitError}</p>
+        )}
+        <div className="mt-6 border-t border-border pt-5">
+          <Button
+            loading={sending}
+            disabled={sending || (!isPresentation && !response.trim())}
+            onClick={() => void submitCycle()}
+          >
+            {isPresentation ? "Continuar" : "Enviar tentativa"}
           </Button>
         </div>
       </div>
@@ -1007,11 +1224,14 @@ export function LessonContent({
   mode,
   lesson,
   onPracticeReady,
+  enableVocabularyCycle = true,
 }: {
   mode: string;
   lesson: LessonEnvelope;
   /** Gramática só fica pronta depois de todas as atividades da etapa. */
   onPracticeReady?: (ready: boolean) => void;
+  /** O cronograma já recebe a sessão lexical no payload do bloco. */
+  enableVocabularyCycle?: boolean;
 }) {
   switch (mode) {
     case "guided":
@@ -1023,7 +1243,12 @@ export function LessonContent({
     case "pronunciation":
       return <Pronunciation lesson={lesson as PronunciationLesson} />;
     case "vocabulary":
-      return <Vocabulary lesson={lesson as VocabularyLesson} />;
+      return (
+        <Vocabulary
+          lesson={lesson as VocabularyLesson}
+          enableCycle={enableVocabularyCycle}
+        />
+      );
     case "grammar":
       return (
         <Grammar
