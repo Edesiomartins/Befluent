@@ -80,12 +80,12 @@ def list_profiles(db: Session = Depends(get_db), user: User = Depends(current_us
         .where(UserLanguage.user_id == user.id)
         .order_by(UserLanguage.is_active.desc(), UserLanguage.updated_at.desc())
     ).all()
+    profiles = []
+    for profile, language in rows:
+        access_state = language_access_state(db, user.id, language.code)
+        profiles.append(_profile_payload(profile, language, ui_prefs, access_state))
     return {
-        "profiles": [
-            _profile_payload(profile, language, ui_prefs, language_access_state(db, user.id, language.code))
-            for profile, language in rows
-            if user_can_access_language(db, user.id, language.code)
-        ]
+        "profiles": profiles
     }
 
 

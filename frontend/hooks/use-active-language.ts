@@ -14,8 +14,13 @@ type Profile = {
  * Idioma ativo do usuário, com fallback silencioso para inglês.
  * Falha de rede não deve impedir a página de estudo de abrir.
  */
-export function useActiveLanguage(): { code: string; resolved: boolean } {
+export function useActiveLanguage(): {
+  code: string;
+  resolved: boolean;
+  accessState: LanguageAccessState;
+} {
   const [code, setCode] = useState("en");
+  const [accessState, setAccessState] = useState<LanguageAccessState>("available");
   const [resolved, setResolved] = useState(false);
 
   useEffect(() => {
@@ -23,12 +28,11 @@ export function useActiveLanguage(): { code: string; resolved: boolean } {
     api<{ profiles: Profile[] }>("/api/v1/language-profiles")
       .then((response) => {
         if (!active) return;
-        const accessibleProfiles = response.profiles.filter(
-          (item) => item.access_state !== "locked",
-        );
-        const profile =
-          accessibleProfiles.find((item) => item.is_active) ?? accessibleProfiles[0];
-        if (profile) setCode(profile.language_code);
+        const profile = response.profiles.find((item) => item.is_active) ?? response.profiles[0];
+        if (profile) {
+          setCode(profile.language_code);
+          setAccessState(profile.access_state ?? "available");
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -39,5 +43,5 @@ export function useActiveLanguage(): { code: string; resolved: boolean } {
     };
   }, []);
 
-  return { code, resolved };
+  return { code, resolved, accessState };
 }

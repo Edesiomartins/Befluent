@@ -162,3 +162,46 @@ def test_lookup_de_perfil_existente_respeita_servico_central(client, auth, db_se
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "language_locked"
+
+
+def test_lista_perfis_mantem_perfil_bloqueado_com_estado_explicito(
+    client, auth, db_session, monkeypatch
+):
+    """Quebra se a listagem esconder perfil locked e induzir fallback enganoso."""
+    _set_entitlements_enabled(monkeypatch, True)
+    user_id = _user_id(db_session)
+    language = _language(db_session, "fr")
+    db_session.add(UserLanguage(user_id=user_id, language_id=language.id, is_active=True))
+    db_session.commit()
+
+    response = client.get("/api/v1/language-profiles", headers=auth)
+
+    assert response.status_code == 200
+    profiles = response.json()["profiles"]
+    assert len(profiles) == 1
+    assert profiles[0]["language_code"] == "fr"
+    assert profiles[0]["is_active"] is True
+    assert profiles[0]["access_state"] == "locked"
+
+
+def test_lista_perfis_calcula_estado_uma_vez_por_perfil(client, auth, db_session, monkeypatch):
+    """Quebra se a listagem fizer decisões duplicadas para o mesmo perfil."""
+    _set_entitlements_enabled(monkeypatch, True)
+    user_id = _user_id(db_session)
+    for code in ("en", "fr"):
+        language = _language(db_session, code)
+        db_session.add(UserLanguage(user_id=user_id, language_id=language.id, is_active=code == "en"))
+    db_session.commit()
+    calls = []
+
+    def fake_access_state(db, checked_user_id: str, language_code: str) -> str:
+        calls.append((checked_user_id, language_code))
+        return "locked"
+
+    monkeypatch.setattr("app.api.language_profiles.language_access_state", fake_access_state)
+
+    response = client.get("/api/v1/language-profiles", headers=auth)
+
+    assert response.status_code == 200
+    assert [profile["language_code"] for profile in response.json()["profiles"]] == ["en", "fr"]
+    assert calls == [(user_id, "en"), (user_id, "fr")]
