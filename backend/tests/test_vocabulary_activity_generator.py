@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from sqlalchemy import func, select
+from sqlalchemy.dialects import postgresql
 
 from app.core.errors import APIError
 from app.core.teaching import ActivityType, EvidenceType, MemorySubjectType
@@ -15,6 +16,7 @@ from app.models import (
     LearningError,
     LearningEvidence,
     MemorySchedule,
+    TeachingFlowSession,
     User,
     UserLanguage,
     VocabularyExample,
@@ -65,6 +67,15 @@ def _examples(db_session, items):
     for row in rows:
         grouped[row.vocabulary_item_id].append(row)
     return grouped
+
+
+def _submit_current(db_session, session, response: str):
+    return teaching_slice.submit_slice_answer(
+        db_session,
+        session,
+        student_response=response,
+        activity_index=session.activity_cursor,
+    )
 
 
 def test_generator_interleaves_set_by_stage_and_declares_exact_audio_contract(
@@ -141,7 +152,7 @@ def test_generator_interleaves_set_by_stage_and_declares_exact_audio_contract(
     assert production["response_modes"] == ["typing", "speech"]
 
 
-def test_generator_degrades_without_inventing_distractors_or_example(db_session):
+def test_generator_with_one_item_omits_unevaluable_choice_modalities(db_session):
     profile = _profile(db_session)
     item = vocabulary_learning.enroll_item(
         db_session,
@@ -154,10 +165,9 @@ def test_generator_degrades_without_inventing_distractors_or_example(db_session)
     second = activity_generator.generate_vocabulary_activities([item])
 
     assert first == second
-    assert [activity["options"] for activity in first if "options" in activity] == [
-        ["olá"],
-        ["hello"],
-        ["olá"],
+    assert [activity["type"] for activity in first] == [
+        ActivityType.PRESENTATION,
+        ActivityType.LEXICAL_PRODUCTION,
     ]
     presentation = first[0]
     assert "example_sentence" not in presentation
@@ -210,15 +220,11 @@ def test_correct_lexical_answers_record_every_payload_evidence_type(db_session):
     )
     # Apresentações registram exposure; avançar até recognition.
     for _ in items:
-        teaching_slice.submit_slice_answer(db_session, session, student_response="")
+        _submit_current(db_session, session, "")
 
     activity = teaching_flow.current_activity(session)
     assert activity["type"] == ActivityType.RECOGNITION
-    output = teaching_slice.submit_slice_answer(
-        db_session,
-        session,
-        student_response=activity["canonical_answer"],
-    )
+    output = _submit_current(db_session, session, activity["canonical_answer"])
 
     attempt = db_session.get(LearningAttempt, output["attempt"]["id"])
     evidence = db_session.scalar(
@@ -228,11 +234,7 @@ def test_correct_lexical_answers_record_every_payload_evidence_type(db_session):
     assert evidence.evidence_type == activity["evidence_type"] == EvidenceType.RECOGNITION
 
     while activity := teaching_flow.current_activity(session):
-        teaching_slice.submit_slice_answer(
-            db_session,
-            session,
-            student_response=activity["canonical_answer"],
-        )
+        _submit_current(db_session, session, activity["canonical_answer"])
 
     expected = {
         EvidenceType.EXPOSURE,
@@ -270,9 +272,7 @@ def test_listening_public_payload_hides_text_and_answer(db_session):
             if activity["type"] == ActivityType.PRESENTATION
             else activity["canonical_answer"]
         )
-        output = teaching_slice.submit_slice_answer(
-            db_session, session, student_response=response
-        )
+        output = _submit_current(db_session, session, response)
 
     public_activity = output["current_activity"]
     assert public_activity["type"] == ActivityType.LISTENING_RECOGNITION
@@ -296,7 +296,7 @@ def test_incorrect_lexical_answer_defers_item_and_preserves_replay_idempotency(
         vocabulary_item_ids=[item.id for item in items],
     )
     for _ in items:
-        teaching_slice.submit_slice_answer(db_session, session, student_response="")
+        _submit_current(db_session, session, "")
 
     failed_index = session.activity_cursor
     failed_activity = teaching_flow.current_activity(session)
@@ -342,3 +342,233 @@ def test_incorrect_lexical_answer_defers_item_and_preserves_replay_idempotency(
     assert exc.value.code == "attempt_already_submitted"
     db_session.refresh(schedule)
     assert schedule.lapse_count == 1
+
+
+def test_public_payload_hides_answer_keys_from_every_evaluated_lexical_activity(
+    db_session,
+):
+    profile = _profile(db_session)
+    items = _items(db_session, profile)
+    session = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[item.id for item in items],
+    )
+    assessed_types = {
+        ActivityType.RECOGNITION,
+        ActivityType.REVERSE_RECOGNITION,
+        ActivityType.LISTENING_RECOGNITION,
+        ActivityType.LEXICAL_PRODUCTION,
+    }
+    seen = set()
+
+    while activity := teaching_flow.current_activity(session):
+        if activity["type"] in assessed_types:
+            public = teaching_slice._session_payload(
+                db_session, session, None, "learning"
+            )["current_activity"]
+            seen.add(public["type"])
+            assert "canonical_answer" not in public
+            assert "accepted_variants" not in public
+            assert "correct_option" not in public
+            assert "correct_explanation" not in public
+        response = (
+            ""
+            if activity["type"] == ActivityType.PRESENTATION
+            else activity["canonical_answer"]
+        )
+        _submit_current(db_session, session, response)
+
+    assert seen == assessed_types
+
+
+def test_vocabulary_flow_reuses_only_same_canonical_context(db_session):
+    profile = _profile(db_session)
+    items = _items(db_session, profile)
+
+    first = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[items[0].id, items[1].id],
+    )
+    reordered = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[items[1].id, items[0].id],
+    )
+    different = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[items[1].id, items[2].id],
+    )
+
+    assert reordered.id == first.id
+    assert different.id != first.id
+    assert first.payload_json["context_key"] == reordered.payload_json["context_key"]
+    assert different.payload_json["context_key"] != first.payload_json["context_key"]
+
+
+def test_last_lexical_activity_closes_session_as_needs_review(db_session):
+    profile = _profile(db_session)
+    item = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="hello",
+        translation_pt="olá",
+    )
+    session = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[item.id],
+    )
+
+    _submit_current(db_session, session, "")
+    last = teaching_flow.current_activity(session)
+    output = _submit_current(db_session, session, last["canonical_answer"])
+
+    assert session.activity_cursor == output["activities_total"]
+    assert session.status == "closed"
+    assert session.phase == "needs_review"
+    assert session.closed_at is not None
+    assert output["current_activity"] is None
+    assert output["flow"]["status"] == "closed"
+
+
+def test_start_vocabulary_flow_rejects_empty_or_not_due_content(db_session):
+    profile = _profile(db_session)
+    item = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="hello",
+        translation_pt="olá",
+    )
+    schedule = db_session.scalar(
+        select(MemorySchedule).where(
+            MemorySchedule.subject_type == MemorySubjectType.VOCABULARY,
+            MemorySchedule.subject_key == item.id,
+        )
+    )
+    schedule.state = "mastered"
+    schedule.due_at = datetime.now(timezone.utc) + timedelta(days=7)
+
+    for item_ids in ([], [item.id]):
+        with pytest.raises(APIError) as exc:
+            teaching_flow.start_vocabulary_flow(
+                db_session,
+                user_language_id=profile.id,
+                vocabulary_item_ids=item_ids,
+            )
+        assert exc.value.status_code == 409
+        assert exc.value.code == "no_vocabulary_due"
+
+    assert db_session.scalar(select(func.count(TeachingFlowSession.id))) == 0
+
+
+def test_generator_omits_modalities_with_semantically_ambiguous_options(db_session):
+    profile = _profile(db_session)
+    rows = [
+        ("hello!", "saudação"),
+        ("hello", "cumprimento"),
+        ("pear", "fruta!"),
+        ("apple", "fruta"),
+        ("water", "água"),
+    ]
+    items = [
+        vocabulary_learning.enroll_item(
+            db_session,
+            user_language_id=profile.id,
+            term=term,
+            translation_pt=translation,
+        )
+        for term, translation in rows
+    ]
+
+    activities = activity_generator.generate_vocabulary_activities(items)
+    assessed = [
+        activity
+        for activity in activities
+        if activity["type"]
+        in {
+            ActivityType.RECOGNITION,
+            ActivityType.REVERSE_RECOGNITION,
+            ActivityType.LISTENING_RECOGNITION,
+        }
+    ]
+    ambiguous_ids = {item.id for item in items[:4]}
+
+    assert all(
+        activity["vocabulary_item_id"] not in ambiguous_ids
+        for activity in assessed
+    )
+    for activity in assessed:
+        normalized = [
+            teaching_slice.deterministic_evaluator.normalize_text(option)
+            for option in activity["options"]
+        ]
+        assert len(normalized) == len(set(normalized))
+
+
+def test_lexical_advances_align_phase_to_next_activity_including_error(db_session):
+    profile = _profile(db_session)
+    items = _items(db_session, profile)
+    session = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[item.id for item in items],
+    )
+
+    for _ in items:
+        _submit_current(db_session, session, "")
+    assert teaching_flow.current_activity(session)["type"] == ActivityType.RECOGNITION
+    assert session.phase == "practicing"
+
+    while teaching_flow.current_activity(session)["type"] != ActivityType.LEXICAL_PRODUCTION:
+        activity = teaching_flow.current_activity(session)
+        _submit_current(db_session, session, activity["canonical_answer"])
+    assert session.phase == "producing"
+
+    failed = teaching_flow.current_activity(session)
+    _submit_current(db_session, session, "wrong")
+    assert teaching_flow.current_activity(session)["type"] == ActivityType.LEXICAL_PRODUCTION
+    assert teaching_flow.current_activity(session)["vocabulary_item_id"] != failed[
+        "vocabulary_item_id"
+    ]
+    assert session.phase == "producing"
+
+
+def test_lexical_answer_requires_current_index_and_uses_row_lock(db_session):
+    profile = _profile(db_session)
+    item = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="hello",
+        translation_pt="olá",
+    )
+    session = teaching_flow.start_vocabulary_flow(
+        db_session,
+        user_language_id=profile.id,
+        vocabulary_item_ids=[item.id],
+    )
+
+    compiled = str(
+        teaching_flow._flow_for_update_statement(session.id).compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "FOR UPDATE" in compiled
+
+    with pytest.raises(APIError) as exc:
+        teaching_slice.submit_slice_answer(
+            db_session, session, student_response=""
+        )
+    assert exc.value.code == "activity_index_required"
+
+    _submit_current(db_session, session, "")
+    with pytest.raises(APIError) as stale:
+        teaching_slice.submit_slice_answer(
+            db_session,
+            session,
+            student_response="hello",
+            activity_index=0,
+        )
+    assert stale.value.code == "attempt_already_submitted"

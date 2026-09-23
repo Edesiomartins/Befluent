@@ -441,7 +441,7 @@ def start_flow_endpoint(
         "phase_label_pt": teaching_flow.phase_label_pt(session.phase),
         "status": session.status,
         "activity_cursor": session.activity_cursor,
-        "current_activity": teaching_flow.current_activity(session),
+        "current_activity": teaching_flow.public_activity(session),
         "activities_total": len((session.payload_json or {}).get("activities") or []),
     }
 
@@ -461,7 +461,7 @@ def get_flow_endpoint(
         "objective_id": session.objective_id,
         "activity_cursor": session.activity_cursor,
         "remediation_cycles": session.remediation_cycles,
-        "current_activity": teaching_flow.current_activity(session),
+        "current_activity": teaching_flow.public_activity(session),
         "activities_total": len((session.payload_json or {}).get("activities") or []),
     }
 

@@ -7,7 +7,10 @@ inválidas são rejeitadas. Ortogonal a `MasteryState` (domínio) e a
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
+from collections import deque
 from datetime import datetime, timezone
 
 from sqlalchemy import select
@@ -16,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.core.teaching import (
     MAX_REMEDIATION_CYCLES,
+    VALID_FLOW_TRANSITIONS,
     FlowPhase,
     MasteryState,
     MemorySubjectType,
@@ -43,6 +47,42 @@ def _get_objective(db: Session, objective_id: str) -> LearningObjective:
     if not objective or not objective.is_active:
         raise APIError(404, "objective_not_found", "Objetivo de aprendizagem não encontrado.")
     return objective
+
+
+def _vocabulary_context_key(
+    *,
+    vocabulary_item_ids: list[str],
+    lesson_id: str | None,
+    curriculum_block_id: str | None,
+) -> str:
+    canonical = json.dumps(
+        {
+            "curriculum_block_id": curriculum_block_id,
+            "lesson_id": lesson_id,
+            "vocabulary_item_ids": sorted(set(vocabulary_item_ids)),
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _flow_for_update_statement(flow_id: str):
+    return (
+        select(TeachingFlowSession)
+        .where(TeachingFlowSession.id == flow_id)
+        .with_for_update()
+    )
+
+
+def lock_flow_for_answer(db: Session, flow_id: str) -> TeachingFlowSession:
+    session = db.scalar(
+        _flow_for_update_statement(flow_id).execution_options(populate_existing=True)
+    )
+    if session is None:
+        raise APIError(404, "flow_not_found", "Sessão de ensino não encontrada.")
+    return session
 
 
 def start_flow(
@@ -97,17 +137,23 @@ def start_vocabulary_flow(
     curriculum_block_id: str | None = None,
 ) -> TeachingFlowSession:
     """Inicia uma sessão lexical usando os itens persistidos como identidade."""
-    existing_query = select(TeachingFlowSession).where(
-        TeachingFlowSession.user_language_id == user_language_id,
-        TeachingFlowSession.objective_id.is_(None),
-        TeachingFlowSession.lesson_id == lesson_id,
-        TeachingFlowSession.status == "active",
-    )
-    existing = db.scalar(existing_query)
-    if existing is not None:
-        return existing
-
     unique_ids = list(dict.fromkeys(vocabulary_item_ids))
+    context_key = _vocabulary_context_key(
+        vocabulary_item_ids=unique_ids,
+        lesson_id=lesson_id,
+        curriculum_block_id=curriculum_block_id,
+    )
+    active_sessions = db.scalars(
+        select(TeachingFlowSession).where(
+            TeachingFlowSession.user_language_id == user_language_id,
+            TeachingFlowSession.objective_id.is_(None),
+            TeachingFlowSession.status == "active",
+        )
+    )
+    for existing in active_sessions:
+        if (existing.payload_json or {}).get("context_key") == context_key:
+            return existing
+
     found = list(
         db.scalars(
             select(VocabularyItem).where(
@@ -148,6 +194,12 @@ def start_vocabulary_flow(
         examples_by_item=examples_by_item,
         memory_by_item={schedule.subject_key: schedule for schedule in schedules},
     )
+    if not activities:
+        raise APIError(
+            409,
+            "no_vocabulary_due",
+            "Não há itens de vocabulário disponíveis para esta sessão.",
+        )
     session = TeachingFlowSession(
         user_language_id=user_language_id,
         objective_id=None,
@@ -160,6 +212,7 @@ def start_vocabulary_flow(
             "activities": activities,
             "lexical_cycle": True,
             "vocabulary_item_ids": unique_ids,
+            "context_key": context_key,
             "history": [{"phase": FlowPhase.ACTIVATING, "at": _now().isoformat()}],
         },
         status="active",
@@ -255,6 +308,63 @@ def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> Teachi
     return session
 
 
+def _lexical_target_phase(activity: dict | None) -> str:
+    if activity is None:
+        return FlowPhase.NEEDS_REVIEW
+    return {
+        "input": FlowPhase.INPUT,
+        "practicing": FlowPhase.PRACTICING,
+        "producing": FlowPhase.PRODUCING,
+    }.get(activity.get("phase_hint"), FlowPhase.PRACTICING)
+
+
+def _align_lexical_phase(
+    db: Session, session: TeachingFlowSession, target_phase: str
+) -> None:
+    if session.phase == target_phase:
+        return
+    allowed = {
+        FlowPhase.ACTIVATING,
+        FlowPhase.INPUT,
+        FlowPhase.NOTICING,
+        FlowPhase.PRACTICING,
+        FlowPhase.PRODUCING,
+        FlowPhase.EVALUATING,
+        FlowPhase.NEEDS_REVIEW,
+    }
+    queue = deque([(session.phase, [])])
+    visited = {session.phase}
+    path: list[str] | None = None
+    while queue:
+        phase, current_path = queue.popleft()
+        for candidate in VALID_FLOW_TRANSITIONS.get(phase, frozenset()):
+            if candidate not in allowed or candidate in visited:
+                continue
+            next_path = [*current_path, candidate]
+            if candidate == target_phase:
+                path = next_path
+                queue.clear()
+                break
+            visited.add(candidate)
+            queue.append((candidate, next_path))
+    if path is None:
+        raise APIError(
+            409,
+            "invalid_lexical_flow_transition",
+            f"Não foi possível alinhar o fluxo lexical: {session.phase} → {target_phase}.",
+        )
+    for phase in path:
+        transition(db, session, target_phase=phase, reason="lexical_advance")
+
+
+def advance_lexical_activity(
+    db: Session, session: TeachingFlowSession
+) -> TeachingFlowSession:
+    advance_activity_cursor(db, session)
+    _align_lexical_phase(db, session, _lexical_target_phase(current_activity(session)))
+    return session
+
+
 def current_activity(session: TeachingFlowSession) -> dict | None:
     """Atividade atual. Em remediação/retry, preferir variante pós-revelação.
 
@@ -274,6 +384,35 @@ def current_activity(session: TeachingFlowSession) -> dict | None:
     if 0 <= session.activity_cursor < len(activities):
         return activities[session.activity_cursor]
     return None
+
+
+def public_activity(session: TeachingFlowSession) -> dict | None:
+    """Retorna a atividade atual sem material privado de avaliação lexical."""
+    activity = current_activity(session)
+    if not isinstance(activity, dict):
+        return activity
+    public = dict(activity)
+    if public.get("vocabulary_item_id") and public.get("type") in {
+        "recognition",
+        "reverse_recognition",
+        "listening_recognition",
+        "lexical_production",
+    }:
+        for private_key in {
+            "accepted_variants",
+            "answer",
+            "canonical_answer",
+            "correct_explanation",
+            "correct_option",
+            "correct_option_id",
+            "expected_answer",
+            "option_rationales",
+            "rationale",
+            "required_features",
+            "required_patterns",
+        }:
+            public.pop(private_key, None)
+    return public
 
 
 def phase_label_pt(phase: str) -> str:

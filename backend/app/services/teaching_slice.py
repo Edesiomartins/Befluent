@@ -144,6 +144,7 @@ def submit_slice_answer(
     student_response: str,
     activity_index: int | None = None,
 ) -> dict[str, Any]:
+    session = teaching_flow.lock_flow_for_answer(db, session.id)
     objective = (
         db.get(LearningObjective, session.objective_id)
         if session.objective_id is not None
@@ -163,6 +164,12 @@ def submit_slice_answer(
         raise APIError(409, "flow_closed", "Esta sessão de ensino já foi encerrada.")
 
     activities = (session.payload_json or {}).get("activities") or []
+    if is_lexical_session and activity_index is None:
+        raise APIError(
+            422,
+            "activity_index_required",
+            "O índice da atividade é obrigatório no fluxo lexical.",
+        )
     # Só a atividade do cursor — impedir mirar índice futuro/passado.
     if activity_index is not None and activity_index != session.activity_cursor:
         raise APIError(
@@ -316,7 +323,7 @@ def submit_slice_answer(
             payload.pop("retry_activity", None)
             payload.pop("pending_remediation", None)
             session.payload_json = payload
-            teaching_flow.advance_activity_cursor(db, session)
+            teaching_flow.advance_lexical_activity(db, session)
         else:
             remediation = teaching_engine.choose_remediation(
                 db,
@@ -353,7 +360,10 @@ def submit_slice_answer(
         payload.pop("retry_activity", None)
         session.payload_json = payload
         db.flush()
-        _advance_after_success(db, session, activity)
+        if is_lexical_activity:
+            teaching_flow.advance_lexical_activity(db, session)
+        else:
+            _advance_after_success(db, session, activity)
 
     mastery = eval_out["mastery"]
     if mastery is not None and mastery["state"] == "mastered" and session.status == "active":
@@ -661,19 +671,13 @@ def _session_payload(
     objective: LearningObjective | None,
     progress_state: str,
 ) -> dict[str, Any]:
-    activity = teaching_flow.current_activity(session)
+    activity = teaching_flow.public_activity(session)
     payload = session.payload_json or {}
     # Normalizar options tipadas → textos para o frontend legado.
     current = dict(activity) if isinstance(activity, dict) else activity
     if isinstance(current, dict) and current.get("options"):
         texts = option_texts(current)
         current = {**current, "options": texts or current.get("options")}
-    if (
-        isinstance(current, dict)
-        and current.get("type") == "listening_recognition"
-    ):
-        current.pop("canonical_answer", None)
-        current.pop("accepted_variants", None)
     return {
         "flow": {
             "id": session.id,

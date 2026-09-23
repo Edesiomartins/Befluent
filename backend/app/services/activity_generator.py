@@ -7,6 +7,7 @@ menos tradução e mais produção/contexto.
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timezone
 from typing import Any
@@ -18,6 +19,7 @@ from app.models import (
     VocabularyExample,
     VocabularyItem,
 )
+from app.services.deterministic_evaluator import normalize_text
 
 
 def _patterns(objective: LearningObjective) -> list[dict[str, Any]]:
@@ -69,12 +71,18 @@ def _deterministic_options(
     values: Sequence[str], *, correct: str, item_index: int
 ) -> list[str]:
     """Ordena alternativas sem aleatoriedade e sem criar conteúdo externo."""
-    unique = list(dict.fromkeys(str(value) for value in values if value))
-    if correct not in unique:
+    unique_by_normalized: dict[str, str] = {}
+    for value in values:
+        normalized = normalize_text(str(value))
+        if normalized and normalized not in unique_by_normalized:
+            unique_by_normalized[normalized] = str(value)
+    unique = list(unique_by_normalized.values())
+    correct_normalized = normalize_text(correct)
+    if correct_normalized not in unique_by_normalized:
         unique.insert(0, correct)
     if len(unique) <= 1:
         return unique
-    others = [value for value in unique if value != correct]
+    others = [value for value in unique if normalize_text(value) != correct_normalized]
     position = item_index % len(unique)
     return others[:position] + [correct] + others[position:]
 
@@ -108,6 +116,8 @@ def generate_vocabulary_activities(
 
     meanings = [item.translation_pt for item in selected]
     terms = [item.term for item in selected]
+    meaning_counts = Counter(normalize_text(value) for value in meanings)
+    term_counts = Counter(normalize_text(value) for value in terms)
     stages: list[list[dict[str, Any]]] = [[], [], [], [], []]
 
     for item_index, item in enumerate(selected):
@@ -149,60 +159,67 @@ def generate_vocabulary_activities(
         term_options = _deterministic_options(
             terms, correct=item.term, item_index=item_index
         )
-        stages[1].append(
-            {
-                "type": ActivityType.RECOGNITION,
-                "vocabulary_item_id": item.id,
-                "phase_hint": "practicing",
-                "evidence_type": EvidenceType.RECOGNITION,
-                "prompt_pt": "Escolha o significado do termo.",
-                "prompt": item.term,
-                "show_text": True,
-                "options": meaning_options,
-                "canonical_answer": item.translation_pt,
-                "accepted_variants": [item.translation_pt],
-                "audio_targets": [],
-                "ai_required": False,
-            }
+        choices_are_unambiguous = (
+            term_counts[normalize_text(item.term)] == 1
+            and meaning_counts[normalize_text(item.translation_pt)] == 1
+            and len(term_options) >= 2
+            and len(meaning_options) >= 2
         )
-        stages[2].append(
-            {
-                "type": ActivityType.REVERSE_RECOGNITION,
-                "vocabulary_item_id": item.id,
-                "phase_hint": "practicing",
-                "evidence_type": EvidenceType.REVERSE_RECOGNITION,
-                "prompt_pt": "Escolha o termo correspondente ao significado.",
-                "prompt": item.translation_pt,
-                "show_text": True,
-                "options": term_options,
-                "canonical_answer": item.term,
-                "accepted_variants": [item.term],
-                "audio_targets": [],
-                "ai_required": False,
-            }
-        )
-        stages[3].append(
-            {
-                "type": ActivityType.LISTENING_RECOGNITION,
-                "vocabulary_item_id": item.id,
-                "phase_hint": "practicing",
-                "evidence_type": EvidenceType.LISTENING_RECOGNITION,
-                "prompt_pt": "Ouça e escolha o significado.",
-                "show_text": False,
-                "options": meaning_options,
-                "canonical_answer": item.translation_pt,
-                "accepted_variants": [item.translation_pt],
-                "audio_target_type": "vocabulary_item",
-                "audio_text": item.term,
-                "audio_targets": [
-                    {
-                        "audio_target_type": "vocabulary_item",
-                        "audio_text": item.term,
-                    }
-                ],
-                "ai_required": False,
-            }
-        )
+        if choices_are_unambiguous:
+            stages[1].append(
+                {
+                    "type": ActivityType.RECOGNITION,
+                    "vocabulary_item_id": item.id,
+                    "phase_hint": "practicing",
+                    "evidence_type": EvidenceType.RECOGNITION,
+                    "prompt_pt": "Escolha o significado do termo.",
+                    "prompt": item.term,
+                    "show_text": True,
+                    "options": meaning_options,
+                    "canonical_answer": item.translation_pt,
+                    "accepted_variants": [item.translation_pt],
+                    "audio_targets": [],
+                    "ai_required": False,
+                }
+            )
+            stages[2].append(
+                {
+                    "type": ActivityType.REVERSE_RECOGNITION,
+                    "vocabulary_item_id": item.id,
+                    "phase_hint": "practicing",
+                    "evidence_type": EvidenceType.REVERSE_RECOGNITION,
+                    "prompt_pt": "Escolha o termo correspondente ao significado.",
+                    "prompt": item.translation_pt,
+                    "show_text": True,
+                    "options": term_options,
+                    "canonical_answer": item.term,
+                    "accepted_variants": [item.term],
+                    "audio_targets": [],
+                    "ai_required": False,
+                }
+            )
+            stages[3].append(
+                {
+                    "type": ActivityType.LISTENING_RECOGNITION,
+                    "vocabulary_item_id": item.id,
+                    "phase_hint": "practicing",
+                    "evidence_type": EvidenceType.LISTENING_RECOGNITION,
+                    "prompt_pt": "Ouça e escolha o significado.",
+                    "show_text": False,
+                    "options": meaning_options,
+                    "canonical_answer": item.translation_pt,
+                    "accepted_variants": [item.translation_pt],
+                    "audio_target_type": "vocabulary_item",
+                    "audio_text": item.term,
+                    "audio_targets": [
+                        {
+                            "audio_target_type": "vocabulary_item",
+                            "audio_text": item.term,
+                        }
+                    ],
+                    "ai_required": False,
+                }
+            )
         stages[4].append(
             {
                 "type": ActivityType.LEXICAL_PRODUCTION,
