@@ -15,6 +15,12 @@ down_revision = "0012_language_entitlements"
 branch_labels = None
 depends_on = None
 
+_OBJECTIVE_REQUIRED_ON_DOWNGRADE = (
+    "teaching_flow_sessions",
+    "learning_attempts",
+    "learning_evidence",
+)
+
 
 def _columns(table_name: str) -> set[str]:
     return {column["name"] for column in inspect(op.get_bind()).get_columns(table_name)}
@@ -54,6 +60,32 @@ def _index_optional_fk(table_name: str, column_name: str) -> None:
         op.create_index(name, table_name, [column_name], unique=False)
 
 
+def _assert_no_standalone_learning_rows(bind) -> None:
+    """Impede downgrade destrutivo quando objective_id nulo já tem histórico."""
+    inspector = inspect(bind)
+    offenders: list[str] = []
+    for table_name in _OBJECTIVE_REQUIRED_ON_DOWNGRADE:
+        if not inspector.has_table(table_name):
+            continue
+        columns = {column["name"] for column in inspector.get_columns(table_name)}
+        if "objective_id" not in columns:
+            continue
+        count = bind.execute(
+            sa.text(
+                f"SELECT COUNT(*) FROM {table_name} "  # nomes internos fixos
+                "WHERE objective_id IS NULL"
+            )
+        ).scalar_one()
+        if count:
+            offenders.append(f"{table_name}={count}")
+    if offenders:
+        details = ", ".join(offenders)
+        raise RuntimeError(
+            "Downgrade 0013 abortado: existem linhas standalone com "
+            f"objective_id NULL ({details}). O histórico não será apagado."
+        )
+
+
 def upgrade() -> None:
     _add_optional_fk("teaching_flow_sessions", "lesson_id", "lessons.id")
     _add_optional_fk("learning_attempts", "vocabulary_item_id", "vocabulary_items.id")
@@ -77,6 +109,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    _assert_no_standalone_learning_rows(op.get_bind())
     with op.batch_alter_table("learning_evidence") as batch:
         batch.alter_column("objective_id", existing_type=sa.String(length=36), nullable=False)
     with op.batch_alter_table("learning_attempts") as batch:

@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
+
+import pytest
 from sqlalchemy import func, select
+from sqlalchemy.dialects import postgresql
 
 from app.core.errors import APIError
 from app.core.teaching import EvidenceType, MemorySubjectType
@@ -43,6 +48,34 @@ def _enroll(db_session, user_language_id: str) -> VocabularyItem:
             }
         ],
     )
+
+
+def _correct_signal(db_session, profile, item, evidence_type):
+    attempt = teaching_engine.record_attempt(
+        db_session,
+        user_language_id=profile.id,
+        objective_id=None,
+        vocabulary_item_id=item.id,
+        activity_type=evidence_type,
+    )
+    return teaching_engine.evaluate_attempt(
+        db_session,
+        attempt,
+        result="correct",
+        evidence_type=evidence_type,
+    )
+
+
+def _master_item(db_session, profile, item):
+    output = None
+    for evidence_type in (
+        EvidenceType.RECOGNITION,
+        EvidenceType.REVERSE_RECOGNITION,
+        EvidenceType.LISTENING_RECOGNITION,
+        EvidenceType.LEXICAL_PRODUCTION,
+    ):
+        output = _correct_signal(db_session, profile, item, evidence_type)
+    return output
 
 
 def test_enrollment_is_idempotent_without_unique_constraint(db_session):
@@ -240,3 +273,169 @@ def test_incorrect_lexical_attempt_demotes_mastery_and_records_lapse(db_session)
     assert schedule.lapse_count == 1
     assert schedule.payload_json["evidence_summary"]["incorrect_attempt_count"] == 1
     assert schedule.payload_json["evidence_summary"]["mastered"] is False
+
+
+def test_out_of_order_evaluation_uses_attempt_just_evaluated_as_lapse(db_session):
+    profile = _user_language(db_session)
+    item = _enroll(db_session, profile.id)
+    older_pending = teaching_engine.record_attempt(
+        db_session,
+        user_language_id=profile.id,
+        objective_id=None,
+        vocabulary_item_id=item.id,
+        activity_type=EvidenceType.RECOGNITION,
+    )
+    mastered = _master_item(db_session, profile, item)
+    assert mastered["lexical_memory"]["state"] == "mastered"
+
+    output = teaching_engine.evaluate_attempt(
+        db_session, older_pending, result="incorrect"
+    )
+    schedule = db_session.get(
+        MemorySchedule, output["lexical_memory"]["memory_schedule_id"]
+    )
+    review = db_session.get(ReviewItem, schedule.review_item_id)
+
+    assert output["lexical_memory"]["state"] == "learning"
+    assert schedule.lapse_count == 1
+    assert schedule.payload_json["evidence_summary"]["lapse_attempt_id"] == older_pending.id
+    assert review.mastery_state == "learning"
+    assert review.payload_json == schedule.payload_json
+    assert review.interval_days == schedule.interval_days == 1
+    assert review.next_review_at == schedule.due_at
+
+
+def test_post_lapse_epoch_requires_four_new_correct_signals(db_session):
+    profile = _user_language(db_session)
+    item = _enroll(db_session, profile.id)
+    _master_item(db_session, profile, item)
+    failed = teaching_engine.record_attempt(
+        db_session,
+        user_language_id=profile.id,
+        objective_id=None,
+        vocabulary_item_id=item.id,
+        activity_type=EvidenceType.RECOGNITION,
+    )
+    teaching_engine.evaluate_attempt(db_session, failed, result="incorrect")
+
+    one_signal = _correct_signal(
+        db_session, profile, item, EvidenceType.RECOGNITION
+    )
+
+    assert one_signal["lexical_memory"]["state"] != "mastered"
+    summary = one_signal["lexical_memory"]["evidence_summary"]
+    assert summary["evaluated_types"] == ["recognition"]
+    assert summary["epoch"]["lapse_attempt_id"] == failed.id
+    assert summary["mastered"] is False
+
+    for evidence_type in (
+        EvidenceType.REVERSE_RECOGNITION,
+        EvidenceType.LISTENING_RECOGNITION,
+        EvidenceType.LEXICAL_PRODUCTION,
+    ):
+        remastered = _correct_signal(db_session, profile, item, evidence_type)
+    assert remastered["lexical_memory"]["state"] == "mastered"
+
+
+def test_partial_lexical_evidence_never_counts_toward_mastery(db_session):
+    profile = _user_language(db_session)
+    item = _enroll(db_session, profile.id)
+
+    for evidence_type in (
+        EvidenceType.RECOGNITION,
+        EvidenceType.REVERSE_RECOGNITION,
+        EvidenceType.LISTENING_RECOGNITION,
+        EvidenceType.LEXICAL_PRODUCTION,
+    ):
+        attempt = teaching_engine.record_attempt(
+            db_session,
+            user_language_id=profile.id,
+            objective_id=None,
+            vocabulary_item_id=item.id,
+            activity_type=evidence_type,
+        )
+        output = teaching_engine.evaluate_attempt(
+            db_session,
+            attempt,
+            result="partial",
+            evidence_type=evidence_type,
+        )
+
+    assert output["lexical_memory"]["state"] != "mastered"
+    assert output["lexical_memory"]["evidence_summary"]["evaluated_types"] == []
+
+
+def test_enrollment_lock_compiles_to_postgresql_for_update():
+    statement = vocabulary_learning._user_language_lock_statement("profile-id")
+    compiled = str(
+        statement.compile(
+            dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True}
+        )
+    )
+    assert "FOR UPDATE" in compiled
+    assert "user_languages.id = 'profile-id'" in compiled
+
+
+def test_enrollment_reuses_legacy_term_with_external_spaces(db_session):
+    profile = _user_language(db_session)
+    legacy = VocabularyItem(
+        user_language_id=profile.id,
+        term=" Hello ",
+        translation_pt="Olá",
+    )
+    db_session.add(legacy)
+    db_session.flush()
+
+    enrolled = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="Hello",
+        translation_pt="Olá",
+    )
+
+    assert enrolled.id == legacy.id
+    assert db_session.scalar(select(func.count(VocabularyItem.id))) == 1
+
+
+def test_enrollment_preserves_internal_term_spaces(db_session):
+    profile = _user_language(db_session)
+    item = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="  New   York  ",
+        translation_pt="Nova York",
+    )
+    distinct = vocabulary_learning.enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="New York",
+        translation_pt="Nova York",
+    )
+
+    assert item.term == "New   York"
+    assert distinct.id != item.id
+
+
+def test_downgrade_rejects_standalone_rows_before_not_null(db_session):
+    profile = _user_language(db_session)
+    item = _enroll(db_session, profile.id)
+    teaching_engine.record_attempt(
+        db_session,
+        user_language_id=profile.id,
+        objective_id=None,
+        vocabulary_item_id=item.id,
+        activity_type=EvidenceType.RECOGNITION,
+    )
+    migration_path = (
+        Path(__file__).resolve().parents[1]
+        / "alembic"
+        / "versions"
+        / "0013_vocabulary_learning_cycle.py"
+    )
+    spec = importlib.util.spec_from_file_location("migration_0013", migration_path)
+    migration = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(migration)
+
+    with pytest.raises(RuntimeError, match="standalone.*objective_id NULL"):
+        migration._assert_no_standalone_learning_rows(db_session.connection())

@@ -160,10 +160,68 @@ LEXICAL_MASTERY_EVIDENCE = frozenset(
 )
 
 
+def _after_lexical_epoch(attempt: LearningAttempt, epoch: dict | None) -> bool:
+    if not epoch:
+        return True
+    started_at = epoch.get("started_at")
+    if not started_at or attempt.evaluated_at is None:
+        return False
+    return _aware(attempt.evaluated_at) > _aware(datetime.fromisoformat(started_at))
+
+
 def update_vocabulary_memory(
-    db: Session, *, item: VocabularyItem
+    db: Session,
+    *,
+    item: VocabularyItem,
+    current_attempt: LearningAttempt | None = None,
 ) -> MemorySchedule:
     """Materializa o progresso lexical e mantém a projeção legada sincronizada."""
+    attempts = list(
+        db.scalars(
+            select(LearningAttempt)
+            .where(
+                LearningAttempt.user_language_id == item.user_language_id,
+                LearningAttempt.vocabulary_item_id == item.id,
+            )
+        )
+    )
+    attempts_by_id = {attempt.id: attempt for attempt in attempts}
+    evaluated_attempts = [
+        attempt for attempt in attempts if attempt.evaluated_at is not None
+    ]
+    latest_attempt = max(
+        evaluated_attempts,
+        key=lambda attempt: (_aware(attempt.evaluated_at), attempt.id),
+        default=None,
+    )
+    incorrect_count = sum(
+        attempt.result == AttemptResult.INCORRECT for attempt in attempts
+    )
+
+    schedule = get_or_create_schedule(
+        db,
+        user_language_id=item.user_language_id,
+        subject_type=MemorySubjectType.VOCABULARY,
+        subject_key=item.id,
+    )
+    previous_summary = (schedule.payload_json or {}).get("evidence_summary", {})
+    processed_lapses = list(previous_summary.get("processed_lapse_attempt_ids") or [])
+    epoch = previous_summary.get("epoch")
+    if (
+        current_attempt is not None
+        and current_attempt.result == AttemptResult.INCORRECT
+        and current_attempt.id not in processed_lapses
+    ):
+        processed_lapses.append(current_attempt.id)
+        epoch = {
+            "started_at": _aware(current_attempt.evaluated_at).isoformat(),
+            "lapse_attempt_id": current_attempt.id,
+        }
+        schedule.lapse_count += 1
+        schedule.interval_days = 1
+        schedule.due_at = _now()
+        schedule.strength = max(0.0, schedule.strength - 0.2)
+
     evidences = list(
         db.scalars(
             select(LearningEvidence).where(
@@ -174,25 +232,16 @@ def update_vocabulary_memory(
     )
     counts: dict[str, int] = {}
     for evidence in evidences:
+        evidence_attempt = attempts_by_id.get(evidence.attempt_id)
+        if (
+            evidence_attempt is None
+            or evidence_attempt.result != AttemptResult.CORRECT
+            or not _after_lexical_epoch(evidence_attempt, epoch)
+        ):
+            continue
         counts[evidence.evidence_type] = counts.get(evidence.evidence_type, 0) + 1
-    attempts = list(
-        db.scalars(
-            select(LearningAttempt)
-            .where(
-                LearningAttempt.user_language_id == item.user_language_id,
-                LearningAttempt.vocabulary_item_id == item.id,
-            )
-            .order_by(LearningAttempt.created_at.asc(), LearningAttempt.id.asc())
-        )
-    )
-    latest_attempt = attempts[-1] if attempts else None
-    incorrect_count = sum(
-        attempt.result == AttemptResult.INCORRECT for attempt in attempts
-    )
     evaluated_types = sorted(set(counts).intersection(LEXICAL_MASTERY_EVIDENCE))
-    mastered = LEXICAL_MASTERY_EVIDENCE.issubset(set(evaluated_types)) and (
-        latest_attempt is None or latest_attempt.result != AttemptResult.INCORRECT
-    )
+    mastered = LEXICAL_MASTERY_EVIDENCE.issubset(set(evaluated_types))
     payload = {
         "vocabulary_item_id": item.id,
         "term": item.term,
@@ -203,29 +252,18 @@ def update_vocabulary_memory(
             "required_types": sorted(LEXICAL_MASTERY_EVIDENCE),
             "incorrect_attempt_count": incorrect_count,
             "latest_attempt_id": latest_attempt.id if latest_attempt else None,
+            "processed_lapse_attempt_ids": processed_lapses,
+            "epoch": epoch,
+            "lapse_attempt_id": epoch.get("lapse_attempt_id") if epoch else None,
             "mastered": mastered,
         },
     }
-    schedule = get_or_create_schedule(
-        db,
-        user_language_id=item.user_language_id,
-        subject_type=MemorySubjectType.VOCABULARY,
-        subject_key=item.id,
-        payload=payload,
-    )
-    previous_summary = (schedule.payload_json or {}).get("evidence_summary", {})
-    if (
-        latest_attempt is not None
-        and latest_attempt.result == AttemptResult.INCORRECT
-        and previous_summary.get("latest_attempt_id") != latest_attempt.id
-    ):
-        schedule.lapse_count += 1
-        schedule.interval_days = 1
-        schedule.due_at = _now()
-        schedule.strength = max(0.0, schedule.strength - 0.2)
     schedule.payload_json = payload
     schedule.state = "mastered" if mastered else ("practicing" if evaluated_types else "learning")
-    if latest_attempt is not None and latest_attempt.result == AttemptResult.INCORRECT:
+    if (
+        current_attempt is not None
+        and current_attempt.result == AttemptResult.INCORRECT
+    ):
         schedule.state = "learning"
     item.status = "mastered" if mastered else "learning"
     item.interval_days = schedule.interval_days

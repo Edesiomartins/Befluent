@@ -19,6 +19,22 @@ def _clean(value: str | None) -> str | None:
     return cleaned or None
 
 
+def _term_text(value: str | None) -> str | None:
+    """Remove apenas espaço externo; espaços internos pertencem ao termo."""
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None
+
+
+def _user_language_lock_statement(user_language_id: str):
+    return (
+        select(UserLanguage)
+        .where(UserLanguage.id == user_language_id)
+        .with_for_update()
+    )
+
+
 def enroll_item(
     db: Session,
     *,
@@ -30,18 +46,20 @@ def enroll_item(
     examples: Iterable[Mapping[str, str | None]] | None = None,
 ) -> VocabularyItem:
     """Matricula termo e exemplos sem depender de unique em dados antigos."""
-    normalized_term = _clean(term)
+    normalized_term = _term_text(term)
     normalized_translation = _clean(translation_pt)
     if not normalized_term or not normalized_translation:
         raise APIError(422, "invalid_vocabulary_item", "Termo e tradução são obrigatórios.")
-    if db.get(UserLanguage, user_language_id) is None:
+    # Serializa matrículas do mesmo perfil antes de repetir a busca normalizada.
+    # PostgreSQL emite SELECT ... FOR UPDATE; SQLite ignora o lock em testes.
+    if db.scalar(_user_language_lock_statement(user_language_id)) is None:
         raise APIError(404, "user_language_not_found", "Perfil de idioma não encontrado.")
 
     item = db.scalar(
         select(VocabularyItem)
         .where(
             VocabularyItem.user_language_id == user_language_id,
-            func.lower(VocabularyItem.term) == normalized_term.lower(),
+            func.lower(func.trim(VocabularyItem.term)) == normalized_term.casefold(),
         )
         .order_by(VocabularyItem.created_at.asc(), VocabularyItem.id.asc())
         .limit(1)

@@ -254,7 +254,9 @@ def evaluate_attempt(
     if attempt.vocabulary_item_id is not None:
         item = db.get(VocabularyItem, attempt.vocabulary_item_id)
         if item is not None:
-            schedule = memory_engine.update_vocabulary_memory(db, item=item)
+            schedule = memory_engine.update_vocabulary_memory(
+                db, item=item, current_attempt=attempt
+            )
             lexical_memory = {
                 "memory_schedule_id": schedule.id,
                 "state": schedule.state,
