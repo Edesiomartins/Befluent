@@ -121,3 +121,91 @@ Resultado: exit code `0`, sem erros de whitespace.
 - Os warnings do Alembic sobre `path_separator` permanecem como ruído existente de configuração de testes.
 - A Task 1 não aplica a autorização em endpoints nem frontend; isso permanece para as próximas tasks do plano.
 - Não houve push, deploy, alteração de produção ou secrets.
+
+---
+
+## Fix round 1/5 — achados Important
+
+Status: correções aplicadas localmente, sem push/deploy.
+
+### Arquivos alterados no fix
+
+- `backend/app/models/__init__.py` — adicionada `UniqueConstraint` nomeada em `(user_id, language_id, source)`.
+- `backend/alembic/versions/0012_language_entitlements.py` — adicionada a mesma unicidade na criação da tabela e reforço via índice único quando a tabela já existe.
+- `backend/app/services/language_access.py` — extraída função de domínio `entitlement_is_current`; helper `ensure_legacy_language_entitlement` agora usa savepoint e recupera a linha vencedora após `IntegrityError`.
+- `backend/tests/test_language_entitlements.py` — testes de constraint, corrida/idempotência e estados inconsistentes.
+
+### Decisões do fix
+
+- A unicidade canônica é `uq_language_entitlements_user_language_source`, sobre `(user_id, language_id, source)`.
+- O helper legado faz uma leitura inicial e, se precisar inserir, faz `db.begin_nested()` para isolar a tentativa em savepoint. Se a constraint colidir, ele consulta novamente e retorna o grant vencedor, sem `rollback()` na transação externa.
+- A regra de vigência fica documentada e concentrada em `entitlement_is_current`: só `status == "active"` com `cancelled_at is None` e janela temporal vigente autoriza acesso.
+- Estados inconsistentes negados explicitamente: `active` com `cancelled_at` preenchido e `cancelled` sem `cancelled_at`.
+
+### Evidência RED do fix
+
+Comando:
+
+```powershell
+pytest tests/test_language_entitlements.py
+```
+
+RED I-2 inicial:
+
+```text
+ImportError: cannot import name 'entitlement_is_current' from 'app.services.language_access'
+1 error
+```
+
+RED I-1 após extração da regra canônica:
+
+```text
+FAILED test_constraint_impede_grant_duplicado_por_origem
+Failed: DID NOT RAISE <class 'sqlalchemy.exc.IntegrityError'>
+
+FAILED test_helper_legacy_recupera_grant_vencedor_apos_conflito
+AssertionError: recovered.id != winner.id
+
+FAILED test_migration_cria_entitlements_legacy_para_user_languages_existentes
+Failed: DID NOT RAISE <class 'sqlalchemy.exc.IntegrityError'>
+
+3 failed, 8 passed, 2 warnings
+```
+
+### Evidência GREEN do fix
+
+Comando:
+
+```powershell
+pytest tests/test_language_entitlements.py
+```
+
+Saída:
+
+```text
+11 passed, 2 warnings in 7.17s
+```
+
+### Regressões proporcionais do fix
+
+Comando:
+
+```powershell
+pytest tests/test_language_entitlements.py tests/test_alembic_revision_ids.py tests/test_placement_migration.py
+```
+
+Saída:
+
+```text
+23 passed, 25 warnings in 26.29s
+```
+
+Lints consultados via Cursor para os arquivos editados:
+
+```text
+No linter errors found.
+```
+
+### Commit do fix
+
+Commit local do código/testes do fix round 1: `75007b7` (`Fix language entitlement invariants`).
