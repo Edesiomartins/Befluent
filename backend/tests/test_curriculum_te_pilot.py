@@ -126,7 +126,7 @@ def test_starting_vocabulary_cycle_enrolls_items_before_completion(
     start = client.post(f"/api/v1/curriculum/block/{vocab.id}/start", headers=auth)
     assert start.status_code == 200
     lesson = start.json()["lesson"]
-    assert "revisited_items" in lesson or "items" in lesson
+    assert lesson["items"]
 
     due = list(
         db_session.scalars(

@@ -135,7 +135,7 @@ def enroll_lesson_content(
     db: Session,
     *,
     user_language_id: str,
-    content: Mapping[str, object] | None,
+    content: object,
 ) -> list[VocabularyItem]:
     """Matricula os itens válidos de uma lição, tolerando contratos antigos.
 
@@ -143,7 +143,9 @@ def enroll_lesson_content(
     sessão inteira por não ter exemplo, áudio ou os nomes de campo atuais.
     """
     enrolled: list[VocabularyItem] = []
-    raw_items = (content or {}).get("items")
+    if not isinstance(content, Mapping):
+        return enrolled
+    raw_items = content.get("items")
     if not isinstance(raw_items, list):
         return enrolled
 

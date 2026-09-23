@@ -137,41 +137,53 @@ def ensure_block_teaching(
     Idempotente. Review nunca entra. Não altera completion do bloco.
     """
     if block.skill == BlockSkill.VOCABULARY and block.lesson_ref:
-        lesson = db.get(Lesson, block.lesson_ref)
-        if lesson is None:
-            return None
-        items = vocabulary_learning.enroll_lesson_content(
+        lesson = _block_lesson(
             db,
             user_language_id=user_language_id,
-            content=lesson.content_json or {},
+            block=block,
         )
-        if not items:
-            return _no_vocabulary_due(lesson.id)
-        objective = (
-            db.get(LearningObjective, block.objective_id)
-            if block.objective_id
-            else None
-        )
-        progress_state = MasteryState.NOT_STARTED
-        if objective is not None:
-            progress = teaching_engine.start_objective(
-                db,
-                user_language_id=user_language_id,
-                objective_id=objective.id,
-            )
-            progress_state = progress.state
+        lesson_id = lesson.id
+        savepoint = db.begin_nested()
         try:
-            session = teaching_flow.start_vocabulary_flow(
+            items = vocabulary_learning.enroll_lesson_content(
                 db,
                 user_language_id=user_language_id,
-                vocabulary_item_ids=[item.id for item in items],
-                objective_id=objective.id if objective else None,
-                lesson_id=lesson.id,
-                curriculum_block_id=block.id,
+                content=lesson.content_json,
             )
-        except APIError as exc:
-            if exc.code == "no_vocabulary_due":
-                return _no_vocabulary_due(lesson.id)
+            if not items:
+                savepoint.rollback()
+                return _no_vocabulary_due(lesson_id)
+            objective = (
+                db.get(LearningObjective, block.objective_id)
+                if block.objective_id
+                else None
+            )
+            try:
+                session = teaching_flow.start_vocabulary_flow(
+                    db,
+                    user_language_id=user_language_id,
+                    vocabulary_item_ids=[item.id for item in items],
+                    objective_id=objective.id if objective else None,
+                    lesson_id=lesson_id,
+                    curriculum_block_id=block.id,
+                )
+            except APIError as exc:
+                if exc.code == "no_vocabulary_due":
+                    savepoint.rollback()
+                    return _no_vocabulary_due(lesson_id)
+                raise
+            progress_state = MasteryState.NOT_STARTED
+            if objective is not None:
+                progress = teaching_engine.start_objective(
+                    db,
+                    user_language_id=user_language_id,
+                    objective_id=objective.id,
+                )
+                progress_state = progress.state
+            savepoint.commit()
+        except Exception:
+            if savepoint.is_active:
+                savepoint.rollback()
             raise
         return {
             **teaching_slice.restore_session_payload(
@@ -180,7 +192,7 @@ def ensure_block_teaching(
                 objective=objective,
                 progress_state=progress_state,
             ),
-            "lesson_id": lesson.id,
+            "lesson_id": lesson_id,
         }
 
     if not block.objective_id or block.skill == BlockSkill.REVIEW:
@@ -221,17 +233,32 @@ def get_block_teaching(
     block: CurriculumBlock,
 ) -> dict[str, Any] | None:
     if block.skill == BlockSkill.VOCABULARY and block.lesson_ref:
-        session = db.scalar(
+        lesson = _block_lesson(
+            db,
+            user_language_id=user_language_id,
+            block=block,
+        )
+        sessions = db.scalars(
             select(TeachingFlowSession)
             .where(
                 TeachingFlowSession.user_language_id == user_language_id,
-                TeachingFlowSession.lesson_id == block.lesson_ref,
+                TeachingFlowSession.lesson_id == lesson.id,
                 TeachingFlowSession.curriculum_block_id == block.id,
             )
-            .order_by(TeachingFlowSession.updated_at.desc())
-            .limit(1)
+            .order_by(
+                TeachingFlowSession.updated_at.desc(),
+                TeachingFlowSession.id.desc(),
+            )
         )
-        if session is None or not (session.payload_json or {}).get("lexical_cycle"):
+        session = next(
+            (
+                candidate
+                for candidate in sessions
+                if (candidate.payload_json or {}).get("lexical_cycle") is True
+            ),
+            None,
+        )
+        if session is None:
             return None
         objective = (
             db.get(LearningObjective, session.objective_id)
@@ -257,7 +284,7 @@ def get_block_teaching(
                     progress.state if progress else MasteryState.NOT_STARTED
                 ),
             ),
-            "lesson_id": block.lesson_ref,
+            "lesson_id": lesson.id,
         }
 
     if not block.objective_id or block.skill == BlockSkill.REVIEW:
@@ -332,6 +359,15 @@ def submit_block_answer(
     session = db.get(TeachingFlowSession, flow.get("id"))
     if session is None:
         raise APIError(404, "flow_not_found", "Sessão de ensino não encontrada.")
+    if (
+        (session.payload_json or {}).get("lexical_cycle") is True
+        and activity_index is None
+    ):
+        raise APIError(
+            422,
+            "activity_index_required",
+            "O índice da atividade é obrigatório no fluxo lexical.",
+        )
     return teaching_slice.submit_slice_answer(
         db,
         session,
@@ -379,3 +415,20 @@ def _no_vocabulary_due(lesson_id: str) -> dict[str, Any]:
         "current_activity": None,
         "activities_total": 0,
     }
+
+
+def _block_lesson(
+    db: Session,
+    *,
+    user_language_id: str,
+    block: CurriculumBlock,
+) -> Lesson:
+    lesson = db.scalar(
+        select(Lesson).where(
+            Lesson.id == block.lesson_ref,
+            Lesson.user_language_id == user_language_id,
+        )
+    )
+    if lesson is None:
+        raise APIError(404, "lesson_not_found", "Lição não encontrada.")
+    return lesson

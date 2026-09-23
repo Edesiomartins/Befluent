@@ -350,17 +350,23 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
     language_code = _language_code(db, owner)
 
     if block.lesson_ref:
-        existing = db.get(Lesson, block.lesson_ref)
-        if existing is not None:
-            content = dict(existing.content_json or {})
-            if (
-                content.get("mode") == "vocabulary"
-                and (content.get("language_code") or language_code) == "la"
-            ):
-                from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
+        existing = db.scalar(
+            select(Lesson).where(
+                Lesson.id == block.lesson_ref,
+                Lesson.user_language_id == owner.id,
+            )
+        )
+        if existing is None:
+            raise APIError(404, "lesson_not_found", "Lição não encontrada.")
+        content = dict(existing.content_json or {})
+        if (
+            content.get("mode") == "vocabulary"
+            and (content.get("language_code") or language_code) == "la"
+        ):
+            from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
 
-                content = sanitize_latin_vocabulary_payload(content)
-            return {**content, "lesson_id": existing.id}
+            content = sanitize_latin_vocabulary_payload(content)
+        return {**content, "lesson_id": existing.id}
 
     # O fio é lido antes de gerar: é ele que faz este bloco continuar o anterior
     # em vez de recomeçar. `week_thread` acrescenta a espiral da semana.

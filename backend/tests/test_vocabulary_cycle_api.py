@@ -1,7 +1,9 @@
 """Contratos HTTP do ciclo lexical em lições avulsas e no currículo."""
 
+from copy import deepcopy
 from datetime import timedelta
 
+import pytest
 from sqlalchemy import func, select
 
 from app.core.config import get_settings
@@ -11,12 +13,14 @@ from app.models import (
     CurriculumDay,
     CurriculumWeek,
     Language,
+    LearningAttempt,
     Lesson,
     MemorySchedule,
     ReviewItem,
     TeachingFlowSession,
     User,
     UserLanguage,
+    UserObjectiveProgress,
     VocabularyExample,
     VocabularyItem,
     now,
@@ -79,6 +83,30 @@ def _start(client, auth, lesson_id: str):
     )
 
 
+def _first_vocabulary_block(db, curriculum_id: str) -> CurriculumBlock:
+    return db.scalar(
+        select(CurriculumBlock)
+        .join(CurriculumDay, CurriculumDay.id == CurriculumBlock.day_id)
+        .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+        .where(
+            CurriculumWeek.curriculum_id == curriculum_id,
+            CurriculumBlock.skill == BlockSkill.VOCABULARY,
+        )
+        .order_by(CurriculumDay.day_number)
+    )
+
+
+def _persistence_snapshot(db) -> dict[str, int]:
+    return {
+        "items": db.scalar(select(func.count(VocabularyItem.id))) or 0,
+        "examples": db.scalar(select(func.count(VocabularyExample.id))) or 0,
+        "memory": db.scalar(select(func.count(MemorySchedule.id))) or 0,
+        "reviews": db.scalar(select(func.count(ReviewItem.id))) or 0,
+        "progress": db.scalar(select(func.count(UserObjectiveProgress.id))) or 0,
+        "flows": db.scalar(select(func.count(TeachingFlowSession.id))) or 0,
+    }
+
+
 def test_standalone_start_restore_answer_and_hide_answer_key(
     client, auth, db_session
 ):
@@ -127,6 +155,48 @@ def test_standalone_start_restore_answer_and_hide_answer_key(
     assert answered.json()["attempt"]["result"] == "correct"
 
 
+def test_standalone_restore_and_answer_ignore_curriculum_session_for_same_lesson(
+    client, auth, db_session
+):
+    profile = _profile(db_session)
+    lesson = _lesson(db_session, profile)
+    standalone = _start(client, auth, lesson.id).json()
+    standalone_id = standalone["flow"]["id"]
+
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    block.lesson_ref = lesson.id
+    db_session.commit()
+    curriculum_started = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+    assert curriculum_started.status_code == 200
+    curriculum_id = curriculum_started.json()["teaching"]["flow"]["id"]
+    assert curriculum_id != standalone_id
+
+    restored = client.get(
+        f"/api/v1/lessons/{lesson.id}/vocabulary-cycle", headers=auth
+    )
+    assert restored.status_code == 200
+    assert restored.json()["flow"]["id"] == standalone_id
+
+    curriculum_flow = db_session.get(TeachingFlowSession, curriculum_id)
+    curriculum_cursor = curriculum_flow.activity_cursor
+    answered = client.post(
+        f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer",
+        json={"activity_index": 0, "student_response": ""},
+        headers=auth,
+    )
+    assert answered.status_code == 200
+    assert answered.json()["flow"]["id"] == standalone_id
+    db_session.refresh(curriculum_flow)
+    assert curriculum_flow.activity_cursor == curriculum_cursor
+    attempt = db_session.scalar(
+        select(LearningAttempt).order_by(LearningAttempt.created_at.desc())
+    )
+    assert attempt.curriculum_block_id is None
+
+
 def test_cycle_rejects_foreign_lesson(client, auth, db_session, other_user):
     other = db_session.get(User, other_user)
     lesson = _lesson(db_session, _profile(db_session, email=other.email))
@@ -147,6 +217,39 @@ def test_cycle_denies_enabled_entitlement_without_grant(
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "language_locked"
+
+
+@pytest.mark.parametrize(
+    "invalid_root",
+    [["item"], "texto", 7, True, None],
+    ids=["list", "string", "number", "bool", "null"],
+)
+def test_non_mapping_content_root_returns_safe_empty_contract(
+    client, auth, db_session, invalid_root
+):
+    profile = _profile(db_session)
+    lesson = Lesson(
+        user_language_id=profile.id,
+        title="Conteúdo legado",
+        objective="Continuar com segurança",
+        status="active",
+        content_json=invalid_root,
+    )
+    db_session.add(lesson)
+    db_session.commit()
+
+    response = _start(client, auth, lesson.id)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_vocabulary_due"
+    assert _persistence_snapshot(db_session) == {
+        "items": 0,
+        "examples": 0,
+        "memory": 0,
+        "reviews": 0,
+        "progress": 0,
+        "flows": 0,
+    }
 
 
 def test_old_incomplete_content_stays_safe(client, auth, db_session):
@@ -217,6 +320,41 @@ def test_no_vocabulary_due_returns_controlled_contract(client, auth, db_session)
     }
 
 
+def test_standalone_no_due_rolls_back_enrollment_side_effects(
+    client, auth, db_session
+):
+    from app.services.vocabulary_learning import enroll_item
+
+    profile = _profile(db_session)
+    lesson = _lesson(
+        db_session,
+        profile,
+        items=[{"term": "known", "translation": "conhecido"}],
+    )
+    item = enroll_item(
+        db_session,
+        user_language_id=profile.id,
+        term="known",
+        translation_pt="conhecido",
+    )
+    schedule = db_session.scalar(
+        select(MemorySchedule).where(MemorySchedule.subject_key == item.id)
+    )
+    schedule.state = "mastered"
+    schedule.due_at = now() + timedelta(days=30)
+    content = deepcopy(lesson.content_json)
+    content["items"][0]["example"] = "A newly imported example."
+    lesson.content_json = content
+    db_session.commit()
+    before = _persistence_snapshot(db_session)
+
+    response = _start(client, auth, lesson.id)
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "no_vocabulary_due"
+    assert _persistence_snapshot(db_session) == before
+
+
 def test_curriculum_vocabulary_uses_lexical_flow_with_optional_objective(
     client, auth, db_session
 ):
@@ -253,6 +391,72 @@ def test_curriculum_vocabulary_uses_lexical_flow_with_optional_objective(
         headers=auth,
     )
     assert answered.status_code == 200
+
+
+def test_curriculum_rejects_lesson_ref_from_another_profile_without_enrollment(
+    client, auth, db_session, other_user
+):
+    profile = _profile(db_session)
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    other = db_session.get(User, other_user)
+    foreign_lesson = _lesson(
+        db_session,
+        _profile(db_session, email=other.email),
+        items=[{"term": "private", "translation": "privado"}],
+    )
+    block.lesson_ref = foreign_lesson.id
+    db_session.commit()
+    before = _persistence_snapshot(db_session)
+
+    response = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "lesson_not_found"
+    assert _persistence_snapshot(db_session) == before
+
+
+def test_curriculum_no_due_rolls_back_examples_memory_progress_and_flow(
+    client, auth, db_session
+):
+    from app.services.progression import build_block_lesson
+    from app.services.vocabulary_learning import enroll_lesson_content
+
+    profile = _profile(db_session)
+    user = db_session.scalar(
+        select(User).where(User.email == "admin@befluent.local")
+    )
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    day = db_session.get(CurriculumDay, block.day_id)
+    built = build_block_lesson(db_session, user=user, block=block, day=day)
+    lesson = db_session.get(Lesson, built["lesson_id"])
+    items = enroll_lesson_content(
+        db_session,
+        user_language_id=profile.id,
+        content=lesson.content_json,
+    )
+    for item in items:
+        schedule = db_session.scalar(
+            select(MemorySchedule).where(MemorySchedule.subject_key == item.id)
+        )
+        schedule.state = "mastered"
+        schedule.due_at = now() + timedelta(days=30)
+    content = deepcopy(lesson.content_json)
+    content["items"][0]["example"] = "A new curricular example."
+    lesson.content_json = content
+    db_session.commit()
+    before = _persistence_snapshot(db_session)
+
+    response = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+
+    assert response.status_code == 200
+    assert response.json()["teaching"]["status"] == "no_vocabulary_due"
+    assert _persistence_snapshot(db_session) == before
 
 
 def test_curriculum_direct_routes_recheck_entitlement(
@@ -308,6 +512,30 @@ def test_curriculum_lexical_answer_rejects_raw_audio(
     )
 
     assert response.status_code == 422
+
+
+def test_curriculum_lexical_answer_requires_activity_index(
+    client, auth, db_session
+):
+    profile = _profile(db_session)
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    db_session.commit()
+    started = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+    assert started.status_code == 200
+    before_attempts = db_session.scalar(select(func.count(LearningAttempt.id)))
+
+    response = client.post(
+        f"/api/v1/curriculum/block/{block.id}/teaching/answer",
+        json={"student_response": ""},
+        headers=auth,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "activity_index_required"
+    assert db_session.scalar(select(func.count(LearningAttempt.id))) == before_attempts
 
 
 def test_speech_production_contract_accepts_transcript_and_rejects_raw_audio(
@@ -368,6 +596,7 @@ def test_completing_curriculum_block_does_not_duplicate_cycle_enrollment(
     assert started.status_code == 200
     before_items = db_session.scalar(select(func.count(VocabularyItem.id)))
     before_reviews = db_session.scalar(select(func.count(ReviewItem.id)))
+    before_schedules = db_session.scalar(select(func.count(MemorySchedule.id)))
 
     completed = client.post(
         f"/api/v1/curriculum/block/{block.id}/complete", json={}, headers=auth
@@ -377,6 +606,7 @@ def test_completing_curriculum_block_does_not_duplicate_cycle_enrollment(
     assert completed.json()["review_items_added"] == 0
     assert db_session.scalar(select(func.count(VocabularyItem.id))) == before_items
     assert db_session.scalar(select(func.count(ReviewItem.id))) == before_reviews
+    assert db_session.scalar(select(func.count(MemorySchedule.id))) == before_schedules
 
 
 def test_completion_normalizes_legacy_term_before_counting_new_enrollment(

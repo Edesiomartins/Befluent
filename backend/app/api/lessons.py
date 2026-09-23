@@ -95,28 +95,68 @@ def _start_lesson_vocabulary_cycle(
     lesson: Lesson,
     owner: UserLanguage,
 ) -> dict:
-    items = vocabulary_learning.enroll_lesson_content(
-        db,
-        user_language_id=owner.id,
-        content=lesson.content_json or {},
-    )
-    if not items:
-        return _no_vocabulary_due(lesson.id)
+    lesson_id = lesson.id
+    savepoint = db.begin_nested()
     try:
-        session = teaching_flow.start_vocabulary_flow(
+        items = vocabulary_learning.enroll_lesson_content(
             db,
             user_language_id=owner.id,
-            vocabulary_item_ids=[item.id for item in items],
-            lesson_id=lesson.id,
+            content=lesson.content_json,
         )
-    except APIError as exc:
-        if exc.code == "no_vocabulary_due":
-            return _no_vocabulary_due(lesson.id)
+        if not items:
+            savepoint.rollback()
+            return _no_vocabulary_due(lesson_id)
+        try:
+            session = teaching_flow.start_vocabulary_flow(
+                db,
+                user_language_id=owner.id,
+                vocabulary_item_ids=[item.id for item in items],
+                lesson_id=lesson_id,
+            )
+        except APIError as exc:
+            if exc.code == "no_vocabulary_due":
+                savepoint.rollback()
+                return _no_vocabulary_due(lesson_id)
+            raise
+        savepoint.commit()
+    except Exception:
+        if savepoint.is_active:
+            savepoint.rollback()
         raise
     return {
         **teaching_slice.restore_session_payload(db, session),
-        "lesson_id": lesson.id,
+        "lesson_id": lesson_id,
     }
+
+
+def _standalone_lexical_session(
+    db: Session,
+    *,
+    user_language_id: str,
+    lesson_id: str,
+    active_only: bool = False,
+) -> TeachingFlowSession | None:
+    query = select(TeachingFlowSession).where(
+        TeachingFlowSession.user_language_id == user_language_id,
+        TeachingFlowSession.lesson_id == lesson_id,
+        TeachingFlowSession.curriculum_block_id.is_(None),
+    )
+    if active_only:
+        query = query.where(TeachingFlowSession.status == "active")
+    sessions = db.scalars(
+        query.order_by(
+            TeachingFlowSession.updated_at.desc(),
+            TeachingFlowSession.id.desc(),
+        )
+    )
+    return next(
+        (
+            candidate
+            for candidate in sessions
+            if (candidate.payload_json or {}).get("lexical_cycle") is True
+        ),
+        None,
+    )
 
 
 @router.get("")
@@ -318,21 +358,10 @@ def restore_vocabulary_cycle(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
-    sessions = db.scalars(
-        select(TeachingFlowSession)
-        .where(
-            TeachingFlowSession.user_language_id == owner.id,
-            TeachingFlowSession.lesson_id == lesson.id,
-        )
-        .order_by(TeachingFlowSession.updated_at.desc())
-    )
-    session = next(
-        (
-            candidate
-            for candidate in sessions
-            if (candidate.payload_json or {}).get("lexical_cycle")
-        ),
-        None,
+    session = _standalone_lexical_session(
+        db,
+        user_language_id=owner.id,
+        lesson_id=lesson.id,
     )
     if session is None:
         raise APIError(
@@ -354,16 +383,13 @@ def answer_vocabulary_cycle(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
-    session = db.scalar(
-        select(TeachingFlowSession)
-        .where(
-            TeachingFlowSession.user_language_id == owner.id,
-            TeachingFlowSession.lesson_id == lesson.id,
-            TeachingFlowSession.status == "active",
-        )
-        .order_by(TeachingFlowSession.updated_at.desc())
+    session = _standalone_lexical_session(
+        db,
+        user_language_id=owner.id,
+        lesson_id=lesson.id,
+        active_only=True,
     )
-    if session is None or not (session.payload_json or {}).get("lexical_cycle"):
+    if session is None:
         raise APIError(
             404,
             "vocabulary_cycle_not_found",
