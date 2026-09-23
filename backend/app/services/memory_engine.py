@@ -210,6 +210,12 @@ def update_vocabulary_memory(
     if (
         current_attempt is not None
         and current_attempt.result == AttemptResult.INCORRECT
+        and current_attempt.id in processed_lapses
+    ):
+        return schedule
+    if (
+        current_attempt is not None
+        and current_attempt.result == AttemptResult.INCORRECT
         and current_attempt.id not in processed_lapses
     ):
         processed_lapses.append(current_attempt.id)

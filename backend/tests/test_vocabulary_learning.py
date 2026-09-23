@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 import importlib.util
 from pathlib import Path
 
@@ -22,7 +23,7 @@ from app.models import (
     VocabularyExample,
     VocabularyItem,
 )
-from app.services import teaching_engine, vocabulary_learning
+from app.services import memory_engine, teaching_engine, vocabulary_learning
 
 
 def _user_language(db_session) -> UserLanguage:
@@ -335,6 +336,81 @@ def test_post_lapse_epoch_requires_four_new_correct_signals(db_session):
     ):
         remastered = _correct_signal(db_session, profile, item, evidence_type)
     assert remastered["lexical_memory"]["state"] == "mastered"
+
+
+def test_replaying_processed_lapse_preserves_remastered_state(db_session):
+    profile = _user_language(db_session)
+    item = _enroll(db_session, profile.id)
+    _master_item(db_session, profile, item)
+    failed = teaching_engine.record_attempt(
+        db_session,
+        user_language_id=profile.id,
+        objective_id=None,
+        vocabulary_item_id=item.id,
+        activity_type=EvidenceType.RECOGNITION,
+    )
+    failed_result = teaching_engine.evaluate_attempt(
+        db_session, failed, result="incorrect"
+    )
+    assert failed_result["lexical_memory"]["state"] == "learning"
+    _master_item(db_session, profile, item)
+
+    schedule = db_session.get(
+        MemorySchedule, failed_result["lexical_memory"]["memory_schedule_id"]
+    )
+    review = db_session.get(ReviewItem, schedule.review_item_id)
+    db_session.refresh(item)
+    assert schedule.state == review.mastery_state == item.status == "mastered"
+    before = {
+        "schedule": (
+            schedule.state,
+            schedule.lapse_count,
+            schedule.strength,
+            schedule.interval_days,
+            schedule.due_at,
+            deepcopy(schedule.payload_json),
+        ),
+        "review": (
+            review.mastery_state,
+            review.interval_days,
+            review.next_review_at,
+            deepcopy(review.payload_json),
+        ),
+        "item": (
+            item.status,
+            item.interval_days,
+            item.next_review_at,
+        ),
+    }
+
+    replayed = memory_engine.update_vocabulary_memory(
+        db_session, item=item, current_attempt=failed
+    )
+    db_session.refresh(review)
+    db_session.refresh(item)
+    after = {
+        "schedule": (
+            replayed.state,
+            replayed.lapse_count,
+            replayed.strength,
+            replayed.interval_days,
+            replayed.due_at,
+            deepcopy(replayed.payload_json),
+        ),
+        "review": (
+            review.mastery_state,
+            review.interval_days,
+            review.next_review_at,
+            deepcopy(review.payload_json),
+        ),
+        "item": (
+            item.status,
+            item.interval_days,
+            item.next_review_at,
+        ),
+    }
+
+    assert after == before
 
 
 def test_partial_lexical_evidence_never_counts_toward_mastery(db_session):
