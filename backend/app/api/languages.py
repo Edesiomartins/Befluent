@@ -43,4 +43,10 @@ def activate(data:LanguageActivate,db:Session=Depends(get_db),user:User=Depends(
     else: ul.is_active=True
     if not get_settings().language_entitlements_enabled:
         ensure_legacy_language_entitlement(db, user.id, lang.id)
-    db.commit(); return {"code":lang.code,"active":True,"user_language_id":ul.id}
+    db.commit()
+    return {
+        "code": lang.code,
+        "active": True,
+        "user_language_id": ul.id,
+        "onboarding_completed": bool(ul.onboarding_completed),
+    }

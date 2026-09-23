@@ -171,6 +171,7 @@ export function MobileNav() {
 }
 export function AppShell({ children, tutor }: { children: ReactNode; tutor?: ReactNode }) {
   const pathname = usePathname();
+  const languagePicker = pathname === "/languages";
   const focus = /^\/learn\/(?!objetivo(?:\/|$))[^/]+\/?$/.test(pathname)
     || /^\/cronograma\/dia\/[^/]+\/?$/.test(pathname)
     || /^\/placement-test\/[^/]+\/?$/.test(pathname);
@@ -178,7 +179,15 @@ export function AppShell({ children, tutor }: { children: ReactNode; tutor?: Rea
   const practice = pathname.startsWith("/learn/");
   return <>
     <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
-    {focus ? <>
+    {languagePicker ? <>
+      <header className="border-b border-border bg-surface">
+        <div className="mx-auto flex min-h-18 max-w-3xl items-center justify-between gap-4 px-5 md:px-8">
+          <Link href="/dashboard" aria-label="BeFluent — Hoje"><Logo /></Link>
+          <Link href="/profile" aria-label="Seu perfil" className="grid size-11 shrink-0 place-items-center rounded-full border border-border bg-surface text-text-secondary hover:text-primary"><User className="size-5" aria-hidden /></Link>
+        </div>
+      </header>
+      <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-3xl px-5 py-8 md:px-8 md:py-12">{children}</main>
+    </> : focus ? <>
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex min-h-18 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
           <Link href={assessment ? "/placement-test" : practice ? "/learn" : "/cronograma"} className="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-text-secondary hover:text-primary"><ArrowLeft className="size-4" aria-hidden />{assessment ? "Voltar ao teste" : practice ? "Voltar à prática" : "Voltar ao plano"}</Link>

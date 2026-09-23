@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { levelShortCode } from "@/lib/levels";
@@ -27,7 +28,15 @@ type MineLanguage = CatalogLanguage & {
   onboarding_completed: boolean;
 };
 
+type ActivateResponse = {
+  code: string;
+  active: boolean;
+  user_language_id: string;
+  onboarding_completed: boolean;
+};
+
 export default function LanguagesPage() {
+  const router = useRouter();
   const [catalog, setCatalog] = useState<CatalogLanguage[]>([]);
   const [mine, setMine] = useState<MineLanguage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,12 +76,12 @@ export default function LanguagesPage() {
     setSaving(code);
     setError("");
     try {
-      await api("/api/v1/languages/activate", {
+      const result = await api<ActivateResponse>("/api/v1/languages/activate", {
         method: "POST",
         body: { code },
       });
-      await load();
       window.dispatchEvent(new CustomEvent("befluent:language-changed"));
+      router.replace(result.onboarding_completed ? "/dashboard" : "/onboarding");
     } catch (caught) {
       setError(
         caught instanceof ApiError
@@ -90,11 +99,10 @@ export default function LanguagesPage() {
   const activeCode = mine.find((item) => item.active)?.code ?? null;
 
   return (
-    <div>
-      <p className="text-sm font-semibold text-primary">Catálogo de estudo</p>
-      <h1 className="mt-2 page-title">Idiomas</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
-        Escolha o foco da sua próxima sessão. Seu progresso fica separado por idioma.
+    <div className="mx-auto max-w-2xl">
+      <h1 className="page-title text-center">Idiomas</h1>
+      <p className="mt-3 text-center leading-7 text-text-secondary">
+        Escolha o idioma que deseja estudar. Seu progresso fica separado por idioma.
       </p>
 
       {error && (
@@ -155,12 +163,15 @@ export default function LanguagesPage() {
                     <p className="mt-1 text-sm text-text-secondary">
                       {status}
                       {level ? ` · Nível ${level}` : ""}
+                      {` · ${language.code}`}
                     </p>
+                    <div className="mt-2">
+                      <LanguageAccessBadge state={accessState} />
+                    </div>
                   </div>
                 </div>
                 {isActive ? (
                   <div className="flex flex-col items-start gap-2 sm:items-end">
-                    <LanguageAccessBadge state={accessState} />
                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-success">
                       <span className="size-2 rounded-full bg-success" aria-hidden />
                       Ativo
@@ -178,8 +189,11 @@ export default function LanguagesPage() {
                   <Button
                     variant="secondary"
                     loading={saving === language.code}
-                    disabled={isLocked}
-                    onClick={() => void activate(language.code)}
+                    disabled={isLocked || saving !== ""}
+                    onClick={() => {
+                      if (isLocked) return;
+                      void activate(language.code);
+                    }}
                   >
                     {isLocked ? "Idioma bloqueado" : "Estudar este idioma"}
                   </Button>
@@ -189,6 +203,15 @@ export default function LanguagesPage() {
           })}
         </div>
       )}
+
+      <div className="mt-10 text-center">
+        <Link
+          href="/dashboard"
+          className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border px-5 text-sm font-semibold hover:bg-surface-soft"
+        >
+          Voltar para Hoje
+        </Link>
+      </div>
     </div>
   );
 }

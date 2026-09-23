@@ -96,6 +96,8 @@ def test_ativacao_com_flag_desligada_preserva_fluxo_e_cria_grant_legacy(
     assert grant is not None
     assert grant.status == "active"
     assert grant.cancelled_at is None
+    assert response.json()["onboarding_completed"] is False
+    assert response.json()["user_language_id"]
 
 
 def test_ativacao_com_flag_ligada_nega_idioma_sem_grant(client, auth, monkeypatch):
@@ -119,6 +121,8 @@ def test_ativacao_com_flag_ligada_permite_idioma_com_grant(
 
     assert response.status_code == 200
     assert response.json()["code"] == "en"
+    assert "onboarding_completed" in response.json()
+    assert response.json()["user_language_id"]
 
 
 def test_onboarding_com_flag_desligada_cria_grant_legacy(client, auth, db_session, monkeypatch):

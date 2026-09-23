@@ -73,4 +73,32 @@ describe("estrutura editorial", () => {
     expect(screen.getByRole("navigation", { name: "Navegação principal" })).toBeInTheDocument();
     await screen.findByText("Francês");
   });
+
+  it("na tela de idiomas remove sidebar, mobile nav e seletor do header", () => {
+    state.path = "/languages";
+    render(
+      <AppShell tutor={<span>Tutor flutuante</span>}>
+        <h1>Idiomas</h1>
+      </AppShell>,
+    );
+    expect(screen.getByRole("heading", { name: "Idiomas" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "BeFluent — Hoje" })).toHaveAttribute(
+      "href",
+      "/dashboard",
+    );
+    expect(screen.getByRole("link", { name: "Seu perfil" })).toHaveAttribute("href", "/profile");
+    expect(screen.queryByRole("navigation", { name: "Navegação principal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("navigation", { name: "Navegação móvel" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Trocar idioma/ })).not.toBeInTheDocument();
+    expect(screen.queryByText("Tutor flutuante")).not.toBeInTheDocument();
+  });
+
+  it("demais páginas continuam com o AppShell completo", async () => {
+    state.path = "/dashboard";
+    render(<AppShell tutor={<span>Tutor flutuante</span>}><h1>Hoje</h1></AppShell>);
+    expect(screen.getByRole("navigation", { name: "Navegação principal" })).toBeInTheDocument();
+    expect(screen.getByRole("navigation", { name: "Navegação móvel" })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /Francês.*Trocar idioma/ })).toBeInTheDocument();
+    expect(screen.getByText("Tutor flutuante")).toBeInTheDocument();
+  });
 });
