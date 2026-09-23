@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { LessonContent } from "@/components/lesson-modes";
+import { AudioPlayer } from "@/components/study";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -77,6 +78,11 @@ function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | n
   );
 }
 
+type ReviewAudioTarget = {
+  audio_target_type?: string;
+  audio_text?: string;
+};
+
 type DueReview = {
   id: string;
   item_type: string;
@@ -84,6 +90,17 @@ type DueReview = {
   payload: Record<string, unknown>;
   next_review_at: string | null;
 };
+
+function payloadText(payload: Record<string, unknown>, key: string): string | null {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value : null;
+}
+
+function reviewAudioTargets(payload: Record<string, unknown>): ReviewAudioTarget[] {
+  return Array.isArray(payload.audio_targets)
+    ? (payload.audio_targets as ReviewAudioTarget[])
+    : [];
+}
 
 const REVIEW_RATINGS = [
   { value: "again", label: "De novo" },
@@ -176,15 +193,23 @@ function DueReviews() {
   }
 
   const item = items[index];
-  const term = typeof item.payload?.term === "string" ? item.payload.term : null;
+  const term = payloadText(item.payload, "term");
   const prompt =
     term ||
-    (typeof item.payload?.prompt === "string" ? item.payload.prompt : null) ||
+    payloadText(item.payload, "prompt") ||
     `${item.item_type} · ${item.reference_id.slice(0, 8)}`;
   const answer =
-    (typeof item.payload?.translation_pt === "string" && item.payload.translation_pt) ||
-    (typeof item.payload?.answer === "string" && item.payload.answer) ||
+    payloadText(item.payload, "translation_pt") ||
+    payloadText(item.payload, "answer") ||
     "Revise este item e avalie sua lembrança.";
+  const example = payloadText(item.payload, "example");
+  const exampleTranslation = payloadText(item.payload, "example_translation_pt");
+  const lexical = item.payload.review_mode === "lexical_v2";
+  const audioTargets = reviewAudioTargets(item.payload);
+  const termAudio = audioTargets.find((target) => target.audio_target_type === "vocabulary_item");
+  const exampleAudio = audioTargets.find(
+    (target) => target.audio_target_type === "example_sentence",
+  );
 
   async function rate(rating: string) {
     setSaving(true);
@@ -221,10 +246,36 @@ function DueReviews() {
         <p className="label">
           Recupere da memória
         </p>
-        <p className="mt-6 text-2xl font-semibold">{prompt}</p>
+        <div className="mt-6 flex flex-wrap items-center gap-4">
+          <p className="text-2xl font-semibold">{prompt}</p>
+          {lexical && termAudio?.audio_text && (
+            <AudioPlayer
+              variant="compact"
+              accessibleName={`Ouvir expressão ${term ?? ""}`.trim()}
+              text={termAudio.audio_text}
+              languageCode={code}
+            />
+          )}
+        </div>
         {revealed ? (
-          <div className="mt-6 border-t border-border pt-5">
+          <div className="mt-6 border-t border-border pt-5 space-y-3">
             <p className="text-xl font-semibold text-primary">{answer}</p>
+            {example && (
+              <div className="flex flex-wrap items-center gap-3">
+                {exampleAudio?.audio_text && (
+                  <AudioPlayer
+                    variant="compact"
+                    accessibleName="Ouvir frase de exemplo"
+                    text={exampleAudio.audio_text}
+                    languageCode={code}
+                  />
+                )}
+                <p className="text-lg italic text-text-secondary">“{example}”</p>
+              </div>
+            )}
+            {exampleTranslation && (
+              <p className="text-sm text-text-secondary">{exampleTranslation}</p>
+            )}
           </div>
         ) : (
           <p className="mt-4 text-sm text-text-secondary">

@@ -1,6 +1,6 @@
 ﻿# Arquitetura — BeFluent
 
-Documentos relacionados: [stack.md](stack.md), [database.md](database.md), [api-specification.md](api-specification.md), [deployment-coolify.md](deployment-coolify.md).
+Documentos relacionados: [stack.md](stack.md), [database.md](database.md), [api-specification.md](api-specification.md), [deployment-coolify.md](deployment-coolify.md), [vocabulary-learning-cycle.md](vocabulary-learning-cycle.md), [language-entitlements.md](language-entitlements.md).
 
 ## Arquitetura geral
 

@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,7 +8,7 @@ from app.core.deps import current_user
 from app.core.errors import APIError
 from app.models import ReviewItem, User, UserLanguage
 from app.schemas import ReviewAnswer
-from app.services import memory_engine
+from app.services import memory_engine, vocabulary_review
 
 router = APIRouter(prefix="/reviews", tags=["reviews"])
 
@@ -38,21 +36,7 @@ def due(
         if not ul:
             return []
 
-    q = select(ReviewItem).where(
-        ReviewItem.user_language_id == ul.id,
-        ReviewItem.suspended.is_(False),
-        ReviewItem.next_review_at <= datetime.now(timezone.utc),
-    )
-    return [
-        {
-            "id": x.id,
-            "item_type": x.item_type,
-            "reference_id": x.reference_id,
-            "payload": x.payload_json,
-            "next_review_at": x.next_review_at,
-        }
-        for x in db.scalars(q)
-    ]
+    return vocabulary_review.select_due_reviews(db, ul.id)
 
 
 @router.post("/{item_id}/answer")

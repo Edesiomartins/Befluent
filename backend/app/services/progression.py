@@ -62,6 +62,7 @@ from app.services.lesson_thread import (
     week_thread,
 )
 from app.services.study_sessions import complete_session
+from app.services.vocabulary_review import due_review_items
 
 #: A partir de quantos dias vencidos o cronograma oferece reagendamento.
 OVERDUE_THRESHOLD = 5
@@ -109,18 +110,7 @@ def _owner_of(db: Session, day: CurriculumDay) -> UserLanguage:
 
 def review_queue(db: Session, user_language_id: str, *, limit: int = REVIEW_QUEUE_LIMIT) -> list[ReviewItem]:
     """Fila real de revisão vencida daquele idioma (mesma de `/reviews/due`)."""
-    return list(
-        db.scalars(
-            select(ReviewItem)
-            .where(
-                ReviewItem.user_language_id == user_language_id,
-                ReviewItem.suspended.is_(False),
-                ReviewItem.next_review_at <= _now(),
-            )
-            .order_by(ReviewItem.next_review_at)
-            .limit(limit)
-        )
-    )
+    return due_review_items(db, user_language_id, limit=limit)
 
 
 def _review_payload(

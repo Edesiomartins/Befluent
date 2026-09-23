@@ -102,7 +102,7 @@ describe("TTSLabPage", () => {
     await screen.findByRole("heading", { name: "Deepgram Flux" });
 
     apiMock.mockResolvedValueOnce(generateResult());
-    const [gerar] = screen.getAllByRole("button", { name: "Gerar", exact: true });
+    const [gerar] = screen.getAllByRole("button", { name: /^Gerar$/ });
     fireEvent.click(gerar);
 
     expect((await screen.findAllByText("620 ms")).length).toBeGreaterThan(0);

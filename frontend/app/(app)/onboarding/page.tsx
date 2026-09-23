@@ -41,8 +41,16 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
+  const redirectTimer = useRef<number | null>(null);
 
   useEffect(() => { headingRef.current?.focus(); }, [step]);
+  useEffect(() => {
+    return () => {
+      if (redirectTimer.current != null) {
+        window.clearTimeout(redirectTimer.current);
+      }
+    };
+  }, []);
 
   async function finish() {
     if (loading || success) return;
@@ -58,7 +66,10 @@ export default function OnboardingPage() {
         setSuccess(true); router.replace(`/placement-test/${test.id}`); return;
       }
       setSuccess(true);
-      window.setTimeout(() => { router.replace(completed.curriculum_day_href || "/cronograma"); router.refresh(); }, 700);
+      redirectTimer.current = window.setTimeout(() => {
+        router.replace(completed.curriculum_day_href || "/cronograma");
+        router.refresh();
+      }, 700);
     } catch (caught) {
       setError(caught instanceof ApiError ? caught.message : "Não foi possível criar seu plano. Tente novamente.");
     } finally { setLoading(false); }

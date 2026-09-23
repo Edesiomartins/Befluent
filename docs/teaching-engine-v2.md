@@ -33,6 +33,9 @@ Multiple choice, variants, word order, fill-gap, alignment de transcript e SRS *
 Avaliação distingue `lexical` / `structural` / `guided` / `transfer`.
 Resposta só com a palavra-alvo (ex.: `professor`) **não** domina estrutura `I am + profession`.
 
+O modo Vocabulário usa o mesmo motor com um gerador lexical. Ver
+[vocabulary-learning-cycle.md](vocabulary-learning-cycle.md).
+
 ## Memória
 
 | Estrutura | Papel |

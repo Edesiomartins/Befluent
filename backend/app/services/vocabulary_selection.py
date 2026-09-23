@@ -5,7 +5,8 @@ Contrato de papéis (não misturar):
 - **A. new** (`items` / `new_items`): primeira exposição no percurso curricular
   (ainda não apareceu em lição aberta de jornada anterior).
 - **B. revisited** (`revisited_items`): já exposto; spiral learning.
-- **C. SRS**: só no bloco `review` via fila temporal — fora deste módulo.
+- **C. SRS**: só no bloco `review` via `vocabulary_review` / MemorySchedule —
+  fora da seleção curricular deste módulo.
 
 Definição de “exposto”: termo em `items` de bloco vocabulary com `lesson_ref`
 em dia anterior do mesmo currículo (ver `lesson_thread.curriculum_exposed_terms`).
