@@ -291,6 +291,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
             "prompt_pt": noticing.get("prompt_pt"),
             "examples": noticing.get("examples") or expressions[:4],
             "ai_required": False,
+            **({"why_pt": noticing["why_pt"]} if noticing.get("why_pt") else {}),
         },
     ]
 

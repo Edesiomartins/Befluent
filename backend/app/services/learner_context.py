@@ -28,7 +28,8 @@ from app.core.levels import (
     level_at,
     normalize_level,
 )
-from app.models import Language, User, UserLanguage, UserPreference
+from app.models import Language, User, UserLanguage, UserPreference, VocabularyItem
+from app.services.learning_interests import context_keys, load_personal_interests
 
 #: Nível assumido quando o aluno ainda não tem avaliação nem nível declarado.
 #: A2 é o mesmo ponto de partida do teste adaptativo — a faixa que menos
@@ -103,6 +104,8 @@ class LearnerContext:
     confidence_score: float | None = None
 
     goal: str | None = None
+    interests: list[str] = field(default_factory=list)
+    recent_terms: list[str] = field(default_factory=list)
     minutes_per_day: int | None = None
     priority_skills: list[str] = field(default_factory=list)
     recommendations: list = field(default_factory=list)
@@ -229,6 +232,23 @@ class LearnerContext:
 
         if self.goal:
             lines.append(f"Objetivo do aluno: {self.goal}")
+        keys = [key for key in context_keys(self.interests) if key != "general"]
+        if keys:
+            lines.append(
+                "Contexto preferido das frases e da conversa: "
+                + ", ".join(keys)
+                + ". Mude a situação, não a estrutura linguística. "
+                "Se não houver frase específica, use uma situação cotidiana."
+            )
+        else:
+            lines.append(
+                "Sem interesse específico: use situações cotidianas gerais, adequadas ao nível."
+            )
+        if self.recent_terms:
+            lines.append(
+                "Vocabulário recente do aluno, para reutilizar quando couber: "
+                + ", ".join(self.recent_terms)
+            )
         if self.minutes_per_day:
             lines.append(f"Tempo disponível por dia: {self.minutes_per_day} minutos")
         if self.priority_skills:
@@ -290,6 +310,22 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
     )
     preference = db.scalar(select(UserPreference).where(UserPreference.user_id == user.id))
     ui_prefs = dict(preference.ui_prefs_json or {}) if preference else {}
+    interests: list[str] = []
+    recent_terms: list[str] = []
+    if profile:
+        interests = load_personal_interests(db, profile.id)
+        recent_terms = list(
+            db.scalars(
+                select(VocabularyItem.term)
+                .where(VocabularyItem.user_language_id == profile.id)
+                .order_by(VocabularyItem.created_at.desc())
+                .limit(8)
+            )
+        )
+    if not interests:
+        legacy_goal = ui_prefs.get("primary_goal")
+        if isinstance(legacy_goal, str) and legacy_goal.strip():
+            interests = [legacy_goal.strip()]
 
     skill_levels: dict[str, str | None] = {code: None for code in SKILL_COLUMNS}
     level = DEFAULT_LEVEL
@@ -320,7 +356,9 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
         skill_levels=skill_levels,
         weakest_skills=_weakest_skills(skill_levels),
         confidence_score=confidence,
-        goal=ui_prefs.get("primary_goal"),
+        goal=interests[0] if interests else ui_prefs.get("primary_goal"),
+        interests=interests,
+        recent_terms=recent_terms,
         minutes_per_day=ui_prefs.get("minutes_per_day"),
         priority_skills=list(ui_prefs.get("skills") or []),
         recommendations=list(profile.recommendations_json or []) if profile else [],

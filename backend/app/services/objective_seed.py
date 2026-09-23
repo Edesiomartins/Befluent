@@ -89,6 +89,10 @@ EN_A1_CAN_001 = {
         },
         "noticing": {
             "prompt_pt": "Note: My name is… / I'm from… / I live in… / I work as… / I like…",
+            "why_pt": (
+                "A apresentação usa o verbo be logo antes do complemento: "
+                "My name is…, I'm from…, I live in…."
+            ),
             "examples": [
                 "My name is Ana.",
                 "I'm from Brazil.",

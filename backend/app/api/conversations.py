@@ -94,6 +94,15 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
                 conversation_id=item.id, role="assistant", content_text=data.opening
             )
         )
+    from app.services.language_progress import CONVERSATION_STARTED, record_product_event
+
+    record_product_event(
+        db,
+        user_language_id=ul.id,
+        event_type=CONVERSATION_STARTED,
+        dedupe_key=item.id,
+        payload={"topic": item.topic},
+    )
     db.commit()
 
     context = build_context(db, user, data.language_code)
@@ -142,6 +151,17 @@ def message(
     )
 
     context = build_context(db, user, language.code)
+    from app.services.language_progress import LEARNING_CONTEXT_USED, record_product_event
+    from app.services.learning_interests import context_keys
+
+    keys = context_keys(context.interests)
+    record_product_event(
+        db,
+        user_language_id=conversation.user_language_id,
+        event_type=LEARNING_CONTEXT_USED,
+        dedupe_key=f"{conversation.id}:context",
+        payload={"context": keys[0] if keys else "general"},
+    )
     result = get_ai_provider().conversation_turn(data.text, context, history)
 
     reply = ConversationMessage(
@@ -176,6 +196,15 @@ def complete_conversation(
 
     conversation.status = "completed"
     conversation.ended_at = datetime.now(timezone.utc)
+    from app.services.language_progress import CONVERSATION_COMPLETED, record_product_event
+
+    record_product_event(
+        db,
+        user_language_id=conversation.user_language_id,
+        event_type=CONVERSATION_COMPLETED,
+        dedupe_key=conversation.id,
+        payload={"topic": conversation.topic},
+    )
     db.commit()
 
     progress = aggregate_progress(db, user.id, user_language_id=conversation.user_language_id)

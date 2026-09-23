@@ -162,7 +162,14 @@ def _target_items(context: LearnerContext, band: str, count: int = 4) -> list[di
         for item in selected["new_items"]
         if item["term"].casefold() not in known
     ]
-    return [*carried, *extra[: count - len(carried)]]
+    from app.services.learning_interests import apply_interest_context
+
+    chosen = [*carried, *extra[: count - len(carried)]]
+    return apply_interest_context(
+        chosen,
+        language_code=context.language_code,
+        interests=context.interests,
+    )
 
 
 def _phrases(items: list[dict[str, str]]) -> list[dict[str, str]]:
@@ -195,7 +202,17 @@ class MockAIProvider(BaseAIProvider):
 
         # Uma fala do tutor por turno já ocorrido, dando a volta ao fim do roteiro.
         turn = sum(1 for message in history if message.get("role") == "assistant")
-        item = items[turn % len(items)]
+        from app.services.learning_interests import personalize_conversation_item
+
+        item = personalize_conversation_item(
+            items,
+            language_code=context.language_code,
+            interests=getattr(context, "interests", None),
+            recent_terms=getattr(context, "recent_terms", None),
+            turn=turn,
+        )
+        if item is None:
+            item = items[turn % len(items)]
 
         return _conversation_envelope(
             context,
