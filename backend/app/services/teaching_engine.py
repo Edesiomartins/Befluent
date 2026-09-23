@@ -37,6 +37,7 @@ from app.models import (
     LearningObjective,
     Remediation,
     UserObjectiveProgress,
+    VocabularyItem,
 )
 from app.services import memory_engine
 
@@ -89,13 +90,19 @@ def start_objective(db: Session, *, user_language_id: str, objective_id: str) ->
 # ------------------------------------------------------------------ attempts
 
 
-def _next_attempt_number(db: Session, *, user_language_id: str, objective_id: str) -> int:
-    count = db.scalar(
-        select(func.count(LearningAttempt.id)).where(
-            LearningAttempt.user_language_id == user_language_id,
-            LearningAttempt.objective_id == objective_id,
-        )
+def _next_attempt_number(
+    db: Session,
+    *,
+    user_language_id: str,
+    objective_id: str | None,
+    vocabulary_item_id: str | None,
+) -> int:
+    query = select(func.count(LearningAttempt.id)).where(
+        LearningAttempt.user_language_id == user_language_id,
+        LearningAttempt.objective_id == objective_id,
+        LearningAttempt.vocabulary_item_id == vocabulary_item_id,
     )
+    count = db.scalar(query)
     return (count or 0) + 1
 
 
@@ -103,8 +110,9 @@ def record_attempt(
     db: Session,
     *,
     user_language_id: str,
-    objective_id: str,
+    objective_id: str | None,
     activity_type: str,
+    vocabulary_item_id: str | None = None,
     student_response: str | None = None,
     curriculum_block_id: str | None = None,
     lesson_id: str | None = None,
@@ -114,19 +122,43 @@ def record_attempt(
     Não recebe nem guarda áudio bruto: `student_response` é sempre texto
     (transcrição, resposta, redação).
     """
-    _get_objective(db, objective_id)
-    progress = get_or_create_progress(db, user_language_id=user_language_id, objective_id=objective_id)
-    if progress.state == MasteryState.NOT_STARTED:
-        progress.state = MasteryState.LEARNING
-        progress.started_at = _now()
+    if objective_id is None and vocabulary_item_id is None:
+        raise APIError(
+            422,
+            "learning_subject_required",
+            "A tentativa deve referenciar um objetivo ou item de vocabulário.",
+        )
+    if objective_id is not None:
+        _get_objective(db, objective_id)
+        progress = get_or_create_progress(
+            db, user_language_id=user_language_id, objective_id=objective_id
+        )
+        if progress.state == MasteryState.NOT_STARTED:
+            progress.state = MasteryState.LEARNING
+            progress.started_at = _now()
+    if vocabulary_item_id is not None:
+        vocabulary_item = db.get(VocabularyItem, vocabulary_item_id)
+        if (
+            vocabulary_item is None
+            or vocabulary_item.user_language_id != user_language_id
+        ):
+            raise APIError(
+                404, "vocabulary_item_not_found", "Item de vocabulário não encontrado."
+            )
 
     attempt = LearningAttempt(
         user_language_id=user_language_id,
         objective_id=objective_id,
+        vocabulary_item_id=vocabulary_item_id,
         curriculum_block_id=curriculum_block_id,
         lesson_id=lesson_id,
         activity_type=activity_type,
-        attempt_number=_next_attempt_number(db, user_language_id=user_language_id, objective_id=objective_id),
+        attempt_number=_next_attempt_number(
+            db,
+            user_language_id=user_language_id,
+            objective_id=objective_id,
+            vocabulary_item_id=vocabulary_item_id,
+        ),
         student_response=student_response,
         result=AttemptResult.PENDING,
     )
@@ -179,6 +211,7 @@ def evaluate_attempt(
         evidence = LearningEvidence(
             user_language_id=attempt.user_language_id,
             objective_id=attempt.objective_id,
+            vocabulary_item_id=attempt.vocabulary_item_id,
             attempt_id=attempt.id,
             evidence_type=evidence_type,
             is_transfer=is_transfer,
@@ -200,6 +233,7 @@ def evaluate_attempt(
                     evidence = LearningEvidence(
                         user_language_id=attempt.user_language_id,
                         objective_id=attempt.objective_id,
+                        vocabulary_item_id=attempt.vocabulary_item_id,
                         attempt_id=attempt.id,
                         evidence_type="error_repaired",
                     )
@@ -209,10 +243,29 @@ def evaluate_attempt(
     if repaired_error is not None:
         memory_engine.schedule_learner_error(db, error=repaired_error)
 
-    mastery = evaluate_mastery(
-        db, user_language_id=attempt.user_language_id, objective_id=attempt.objective_id
-    )
-    return {"attempt": attempt, "evidence": evidence, "mastery": mastery}
+    mastery = None
+    if attempt.objective_id is not None:
+        mastery = evaluate_mastery(
+            db,
+            user_language_id=attempt.user_language_id,
+            objective_id=attempt.objective_id,
+        )
+    lexical_memory = None
+    if attempt.vocabulary_item_id is not None:
+        item = db.get(VocabularyItem, attempt.vocabulary_item_id)
+        if item is not None:
+            schedule = memory_engine.update_vocabulary_memory(db, item=item)
+            lexical_memory = {
+                "memory_schedule_id": schedule.id,
+                "state": schedule.state,
+                "evidence_summary": schedule.payload_json.get("evidence_summary", {}),
+            }
+    return {
+        "attempt": attempt,
+        "evidence": evidence,
+        "mastery": mastery,
+        "lexical_memory": lexical_memory,
+    }
 
 
 # -------------------------------------------------------------------- errors
@@ -243,6 +296,7 @@ def record_error(
             select(LearningError).where(
                 LearningError.user_language_id == attempt.user_language_id,
                 LearningError.objective_id == attempt.objective_id,
+                LearningError.vocabulary_item_id == attempt.vocabulary_item_id,
                 LearningError.language_feature == language_feature,
                 LearningError.resolved.is_(False),
             )
@@ -252,6 +306,7 @@ def record_error(
             select(LearningError).where(
                 LearningError.user_language_id == attempt.user_language_id,
                 LearningError.objective_id == attempt.objective_id,
+                LearningError.vocabulary_item_id == attempt.vocabulary_item_id,
                 LearningError.category == category,
                 LearningError.original == original,
                 LearningError.resolved.is_(False),
@@ -269,6 +324,7 @@ def record_error(
         error = LearningError(
             user_language_id=attempt.user_language_id,
             objective_id=attempt.objective_id,
+            vocabulary_item_id=attempt.vocabulary_item_id,
             attempt_id=attempt.id,
             category=category,
             original=original,
@@ -280,10 +336,17 @@ def record_error(
         db.add(error)
 
     db.flush()
-    progress = get_or_create_progress(
-        db, user_language_id=attempt.user_language_id, objective_id=attempt.objective_id
-    )
-    progress.state = MasteryState.NEEDS_REMEDIATION
+    if attempt.objective_id is not None:
+        progress = get_or_create_progress(
+            db,
+            user_language_id=attempt.user_language_id,
+            objective_id=attempt.objective_id,
+        )
+        progress.state = MasteryState.NEEDS_REMEDIATION
+    if attempt.vocabulary_item_id is not None:
+        item = db.get(VocabularyItem, attempt.vocabulary_item_id)
+        if item is not None:
+            memory_engine.update_vocabulary_memory(db, item=item)
     db.flush()
     return error
 
@@ -352,17 +415,21 @@ def record_retry(
         raise APIError(404, "error_not_found", "Erro associado à remediação não encontrado.")
     prior_attempt = db.get(LearningAttempt, error.attempt_id) if error.attempt_id else None
     objective_id = error.objective_id or (prior_attempt.objective_id if prior_attempt else None)
-    if not objective_id:
+    vocabulary_item_id = error.vocabulary_item_id or (
+        prior_attempt.vocabulary_item_id if prior_attempt else None
+    )
+    if not objective_id and not vocabulary_item_id:
         raise APIError(
             409,
-            "objective_unresolved",
-            "Não foi possível determinar o objetivo desta remediação.",
+            "learning_subject_unresolved",
+            "Não foi possível determinar o objeto desta remediação.",
         )
 
     attempt = record_attempt(
         db,
         user_language_id=error.user_language_id,
         objective_id=objective_id,
+        vocabulary_item_id=vocabulary_item_id,
         activity_type=activity_type or (prior_attempt.activity_type if prior_attempt else "retry"),
         student_response=student_response,
         curriculum_block_id=curriculum_block_id
@@ -371,8 +438,11 @@ def record_retry(
     )
     remediation.next_attempt_id = attempt.id
 
-    progress = get_or_create_progress(db, user_language_id=error.user_language_id, objective_id=objective_id)
-    progress.state = MasteryState.RETRYING
+    if objective_id is not None:
+        progress = get_or_create_progress(
+            db, user_language_id=error.user_language_id, objective_id=objective_id
+        )
+        progress.state = MasteryState.RETRYING
     db.flush()
     return attempt
 

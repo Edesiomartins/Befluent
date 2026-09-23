@@ -571,7 +571,8 @@ class LearningAttempt(UUIDMixin, Base):
     — `student_response` é sempre texto (transcrição, resposta, texto)."""
     __tablename__="learning_attempts"
     user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
-    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    vocabulary_item_id: Mapped[str|None]=mapped_column(ForeignKey("vocabulary_items.id", ondelete="SET NULL"), index=True)
     curriculum_block_id: Mapped[str|None]=mapped_column(ForeignKey("curriculum_blocks.id", ondelete="SET NULL"), index=True)
     lesson_id: Mapped[str|None]=mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"))
     activity_type: Mapped[str]=mapped_column(String(50))
@@ -590,7 +591,8 @@ class LearningEvidence(UUIDMixin, Base):
     além de LEARNING/PRACTICING. "Clicou em concluir" nunca gera isto."""
     __tablename__="learning_evidence"
     user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
-    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    vocabulary_item_id: Mapped[str|None]=mapped_column(ForeignKey("vocabulary_items.id", ondelete="SET NULL"), index=True)
     attempt_id: Mapped[str]=mapped_column(ForeignKey("learning_attempts.id", ondelete="CASCADE"), index=True)
     #: `app.core.teaching.EvidenceType`.
     evidence_type: Mapped[str]=mapped_column(String(40))
@@ -604,6 +606,7 @@ class LearningError(UUIDMixin, Base):
     __tablename__="learning_errors"
     user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
     objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="SET NULL"), index=True)
+    vocabulary_item_id: Mapped[str|None]=mapped_column(ForeignKey("vocabulary_items.id", ondelete="SET NULL"), index=True)
     attempt_id: Mapped[str|None]=mapped_column(ForeignKey("learning_attempts.id", ondelete="SET NULL"))
     #: `app.core.teaching.ErrorCategory`.
     category: Mapped[str]=mapped_column(String(40), index=True)
@@ -638,7 +641,8 @@ class TeachingFlowSession(UUIDMixin, Base):
     """
     __tablename__="teaching_flow_sessions"
     user_language_id: Mapped[str]=mapped_column(ForeignKey("user_languages.id", ondelete="CASCADE"), index=True)
-    objective_id: Mapped[str]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    objective_id: Mapped[str|None]=mapped_column(ForeignKey("learning_objectives.id", ondelete="CASCADE"), index=True)
+    lesson_id: Mapped[str|None]=mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"), index=True)
     curriculum_block_id: Mapped[str|None]=mapped_column(ForeignKey("curriculum_blocks.id", ondelete="SET NULL"), index=True)
     #: `app.core.teaching.FlowPhase`
     phase: Mapped[str]=mapped_column(String(30), default="not_started", index=True)

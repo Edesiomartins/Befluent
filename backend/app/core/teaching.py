@@ -143,6 +143,11 @@ class EvidenceType(StrEnum):
     #: domínio real, não de memorização do exemplo treinado.
     TRANSFER = "transfer"
     ERROR_REPAIRED = "error_repaired"
+    EXPOSURE = "exposure"
+    RECOGNITION = "recognition"
+    REVERSE_RECOGNITION = "reverse_recognition"
+    LISTENING_RECOGNITION = "listening_recognition"
+    LEXICAL_PRODUCTION = "lexical_production"
 
 
 class ErrorCategory(StrEnum):

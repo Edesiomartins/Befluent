@@ -21,8 +21,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
-from app.core.teaching import MemorySubjectType
-from app.models import LearningError, LearningObjective, MemoryReviewEvent, MemorySchedule, ReviewItem
+from app.core.teaching import AttemptResult, EvidenceType, MemorySubjectType
+from app.models import (
+    LearningAttempt,
+    LearningError,
+    LearningEvidence,
+    LearningObjective,
+    MemoryReviewEvent,
+    MemorySchedule,
+    ReviewItem,
+    VocabularyItem,
+)
 from app.services.srs.simple_scheduler import SimpleScheduler
 
 logger = logging.getLogger(__name__)
@@ -141,6 +150,106 @@ def schedule_learner_error(
     return schedule
 
 
+LEXICAL_MASTERY_EVIDENCE = frozenset(
+    {
+        EvidenceType.RECOGNITION,
+        EvidenceType.REVERSE_RECOGNITION,
+        EvidenceType.LISTENING_RECOGNITION,
+        EvidenceType.LEXICAL_PRODUCTION,
+    }
+)
+
+
+def update_vocabulary_memory(
+    db: Session, *, item: VocabularyItem
+) -> MemorySchedule:
+    """Materializa o progresso lexical e mantém a projeção legada sincronizada."""
+    evidences = list(
+        db.scalars(
+            select(LearningEvidence).where(
+                LearningEvidence.user_language_id == item.user_language_id,
+                LearningEvidence.vocabulary_item_id == item.id,
+            )
+        )
+    )
+    counts: dict[str, int] = {}
+    for evidence in evidences:
+        counts[evidence.evidence_type] = counts.get(evidence.evidence_type, 0) + 1
+    attempts = list(
+        db.scalars(
+            select(LearningAttempt)
+            .where(
+                LearningAttempt.user_language_id == item.user_language_id,
+                LearningAttempt.vocabulary_item_id == item.id,
+            )
+            .order_by(LearningAttempt.created_at.asc(), LearningAttempt.id.asc())
+        )
+    )
+    latest_attempt = attempts[-1] if attempts else None
+    incorrect_count = sum(
+        attempt.result == AttemptResult.INCORRECT for attempt in attempts
+    )
+    evaluated_types = sorted(set(counts).intersection(LEXICAL_MASTERY_EVIDENCE))
+    mastered = LEXICAL_MASTERY_EVIDENCE.issubset(set(evaluated_types)) and (
+        latest_attempt is None or latest_attempt.result != AttemptResult.INCORRECT
+    )
+    payload = {
+        "vocabulary_item_id": item.id,
+        "term": item.term,
+        "translation_pt": item.translation_pt,
+        "evidence_summary": {
+            "counts": counts,
+            "evaluated_types": evaluated_types,
+            "required_types": sorted(LEXICAL_MASTERY_EVIDENCE),
+            "incorrect_attempt_count": incorrect_count,
+            "latest_attempt_id": latest_attempt.id if latest_attempt else None,
+            "mastered": mastered,
+        },
+    }
+    schedule = get_or_create_schedule(
+        db,
+        user_language_id=item.user_language_id,
+        subject_type=MemorySubjectType.VOCABULARY,
+        subject_key=item.id,
+        payload=payload,
+    )
+    previous_summary = (schedule.payload_json or {}).get("evidence_summary", {})
+    if (
+        latest_attempt is not None
+        and latest_attempt.result == AttemptResult.INCORRECT
+        and previous_summary.get("latest_attempt_id") != latest_attempt.id
+    ):
+        schedule.lapse_count += 1
+        schedule.interval_days = 1
+        schedule.due_at = _now()
+        schedule.strength = max(0.0, schedule.strength - 0.2)
+    schedule.payload_json = payload
+    schedule.state = "mastered" if mastered else ("practicing" if evaluated_types else "learning")
+    if latest_attempt is not None and latest_attempt.result == AttemptResult.INCORRECT:
+        schedule.state = "learning"
+    item.status = "mastered" if mastered else "learning"
+    item.interval_days = schedule.interval_days
+    item.next_review_at = schedule.due_at
+
+    if schedule.review_item_id is None:
+        review = ReviewItem(
+            user_language_id=item.user_language_id,
+            item_type=MemorySubjectType.VOCABULARY,
+            reference_id=item.id,
+            priority=2,
+            interval_days=schedule.interval_days,
+            next_review_at=schedule.due_at,
+            mastery_state=schedule.state,
+            payload_json=payload,
+        )
+        db.add(review)
+        db.flush()
+        schedule.review_item_id = review.id
+    _project_review_item(db, schedule)
+    db.flush()
+    return schedule
+
+
 def normalize_key(text: str) -> str:
     return " ".join((text or "").strip().lower().split())[:80]
 
@@ -190,6 +299,7 @@ def _project_review_item(db: Session, schedule: MemorySchedule) -> None:
     review.next_review_at = schedule.due_at
     review.interval_days = schedule.interval_days
     review.mastery_state = schedule.state
+    review.payload_json = schedule.payload_json
     if schedule.state == "mastered":
         review.mastery_state = "mastered"
     review.suspended = schedule.state == "suspended" or bool(review.suspended)
