@@ -21,7 +21,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
-from app.core.teaching import AttemptResult, EvidenceType, MemorySubjectType
+from app.core.teaching import AttemptResult, MemorySubjectType
 from app.models import (
     LearningAttempt,
     LearningError,
@@ -150,14 +150,10 @@ def schedule_learner_error(
     return schedule
 
 
-LEXICAL_MASTERY_EVIDENCE = frozenset(
-    {
-        EvidenceType.RECOGNITION,
-        EvidenceType.REVERSE_RECOGNITION,
-        EvidenceType.LISTENING_RECOGNITION,
-        EvidenceType.LEXICAL_PRODUCTION,
-    }
-)
+def _lexical_mastery_evidence() -> frozenset[str]:
+    from app.services.lexical_policy import required_evidence_types
+
+    return required_evidence_types()
 
 
 def _after_lexical_epoch(attempt: LearningAttempt, epoch: dict | None) -> bool:
@@ -246,8 +242,9 @@ def update_vocabulary_memory(
         ):
             continue
         counts[evidence.evidence_type] = counts.get(evidence.evidence_type, 0) + 1
-    evaluated_types = sorted(set(counts).intersection(LEXICAL_MASTERY_EVIDENCE))
-    mastered = LEXICAL_MASTERY_EVIDENCE.issubset(set(evaluated_types))
+    required = _lexical_mastery_evidence()
+    evaluated_types = sorted(set(counts).intersection(required))
+    mastered = required.issubset(set(evaluated_types))
     payload = {
         "vocabulary_item_id": item.id,
         "term": item.term,
@@ -255,7 +252,7 @@ def update_vocabulary_memory(
         "evidence_summary": {
             "counts": counts,
             "evaluated_types": evaluated_types,
-            "required_types": sorted(LEXICAL_MASTERY_EVIDENCE),
+            "required_types": sorted(required),
             "incorrect_attempt_count": incorrect_count,
             "latest_attempt_id": latest_attempt.id if latest_attempt else None,
             "processed_lapse_attempt_ids": processed_lapses,

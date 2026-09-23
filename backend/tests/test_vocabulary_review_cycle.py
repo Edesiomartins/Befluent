@@ -157,6 +157,8 @@ def test_incorrect_item_returns_in_review_without_repeating_same_exercise(db_ses
     assert card["payload"]["example"] == "Bonjour, Ana!"
     assert card["item_type"] == MemorySubjectType.VOCABULARY
     assert card["payload"].get("activity_type") != "recognition"
+    assert card["payload"]["suggested_modality"] != "recognition"
+    assert card["payload"]["suggested_modality"] == "reverse_recognition"
 
 
 def test_legacy_review_item_without_memory_schedule_still_works(db_session):

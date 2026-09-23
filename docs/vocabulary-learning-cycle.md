@@ -24,7 +24,8 @@ domínio continuam em `LearningAttempt`, `LearningEvidence` e `MemorySchedule`.
 | Review | needs_review | fila adaptativa (`/reviews/due`) | memória / rating |
 
 Um único acerto não marca domínio. O item só é `mastered` quando as quatro
-evidências avaliadas existem no epoch atual.
+evidências avaliadas existem no epoch atual. A lista obrigatória mora em
+`lexical_policy.lexical_mastery_policy`, não em constantes soltas.
 
 ## Contrato de áudio
 

@@ -13,8 +13,15 @@ from datetime import datetime, timezone
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.teaching import MemorySubjectType
-from app.models import MemorySchedule, ReviewItem, VocabularyExample, VocabularyItem
+from app.core.teaching import AttemptResult, MemorySubjectType
+from app.models import (
+    LearningAttempt,
+    MemorySchedule,
+    ReviewItem,
+    VocabularyExample,
+    VocabularyItem,
+)
+from app.services.lexical_policy import next_review_modality
 
 #: Com itens fracos vencidos, no máximo um item dominado entra na sessão.
 MAX_MASTERED_WHEN_WEAK = 1
@@ -140,6 +147,21 @@ def _serialize_payload(
 
     if schedule is not None:
         payload["review_mode"] = "lexical_v2"
+        summary = (schedule.payload_json or {}).get("evidence_summary") or {}
+        evaluated = set(summary.get("evaluated_types") or [])
+        last_incorrect = None
+        if vocabulary is not None:
+            last_attempt = db.scalar(
+                select(LearningAttempt)
+                .where(
+                    LearningAttempt.vocabulary_item_id == vocabulary.id,
+                    LearningAttempt.result == AttemptResult.INCORRECT,
+                )
+                .order_by(LearningAttempt.evaluated_at.desc(), LearningAttempt.id.desc())
+            )
+            if last_attempt is not None:
+                last_incorrect = last_attempt.activity_type
+        payload["suggested_modality"] = next_review_modality(evaluated, last_incorrect)
         audio_targets: list[dict[str, str]] = []
         term = payload.get("term")
         if isinstance(term, str) and term.strip():
