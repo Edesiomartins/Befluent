@@ -463,5 +463,5 @@ def test_kokoro_voice_lab_does_not_change_production_tts_config():
     assert "speech" not in dir(kv_module) or not hasattr(kv_module, "_KOKORO_VOICE_BY_LANGUAGE")
     from app.services.speech import _KOKORO_VOICE_BY_LANGUAGE
 
-    assert set(_KOKORO_VOICE_BY_LANGUAGE) == {"en", "es", "fr", "ja", "zh"}
+    assert set(_KOKORO_VOICE_BY_LANGUAGE) == {"en", "es", "fr", "it", "ja", "zh"}
     assert all(isinstance(v, str) and v for v in _KOKORO_VOICE_BY_LANGUAGE.values())
