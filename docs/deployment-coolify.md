@@ -113,7 +113,7 @@ Grupos:
 - Auth/session
 - OpenRouter
 - STT (`STT_PROVIDER`, `GROQ_API_KEY`, etc.)
-- TTS (`TTS_PROVIDER=piper_api`, `TTS_BASE_URL=https://piper.medquesthub.com.br`, `TTS_API_KEY`, `TTS_SPEED=1.0`; `kokoro_api` e `openrouter` ficam como rollback)
+- TTS (`TTS_PROVIDER=piper_api`, `TTS_BASE_URL=https://piper.medquesthub.com.br`, `TTS_API_KEY`, `TTS_SPEED=1.0`)
 - CORS / URLs públicas
 - Flags de ambiente (`production`)
 

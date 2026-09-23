@@ -4,7 +4,7 @@
  *
  * - NÃO alterar o texto pedagógico exibido, gabaritos ou currículo.
  * - NÃO usar esta saída como texto visível ao aluno.
- * - NÃO passar `la-classical` para voz Kokoro / `_voice_for_language`.
+ * - NÃO enviar `la-classical` ao Piper.
  * - A qualidade depende da voz do navegador; validação auditiva humana é
  *   obrigatória antes de declarar o áudio “validado”.
  *

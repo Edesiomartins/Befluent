@@ -644,16 +644,17 @@ def test_speech_synthesize_rejects_empty_text(client, auth):
 
 
 def test_speech_synthesize_sends_ui_speed_to_provider(client, auth, monkeypatch):
-    """O seletor de velocidade do `AudioPlayer` (frontend) precisa chegar de
-    verdade ao Kokoro — não pode ser silenciosamente ignorado pelo backend."""
+    """O seletor de velocidade do `AudioPlayer` precisa chegar ao Piper."""
     settings = get_settings()
-    monkeypatch.setattr(settings, "tts_provider", "openrouter")
-    monkeypatch.setattr(settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(settings, "tts_provider", "piper_api")
+    monkeypatch.setattr(settings, "tts_base_url", "https://piper.medquesthub.com.br")
+    monkeypatch.setattr(settings, "tts_api_key", "piper-test-key")
 
     captured = {}
 
     class FakeResponse:
-        content = b"fake-mp3-bytes"
+        content = b"fake-wav-bytes"
+        headers = {"content-type": "audio/wav"}
 
         def raise_for_status(self):
             return None
@@ -674,20 +675,20 @@ def test_speech_synthesize_sends_ui_speed_to_provider(client, auth, monkeypatch)
 
 
 def test_speech_synthesize_unsupported_language_returns_controlled_error(client, auth, monkeypatch):
-    """Idioma fora do allowlist Kokoro (`_KOKORO_VOICE_BY_LANGUAGE`) nunca
-    chega a chamar a OpenRouter — o frontend cai no Web Speech com esse erro."""
+    """Idioma fora do mapa do Piper não chama o serviço."""
     settings = get_settings()
-    monkeypatch.setattr(settings, "tts_provider", "openrouter")
-    monkeypatch.setattr(settings, "openrouter_api_key", "sk-secret-key")
+    monkeypatch.setattr(settings, "tts_provider", "piper_api")
+    monkeypatch.setattr(settings, "tts_base_url", "https://piper.medquesthub.com.br")
+    monkeypatch.setattr(settings, "tts_api_key", "piper-test-key")
 
     def fake_post(url, **kwargs):
-        raise AssertionError("não deveria chamar a OpenRouter para idioma sem voz Kokoro")
+        raise AssertionError("não deveria chamar o Piper para idioma sem voz")
 
     monkeypatch.setattr(httpx, "post", fake_post)
 
     response = client.post(
         "/api/v1/speech/synthesize",
-        json={"text": "Hallo", "language_code": "de"},
+        json={"text": "こんにちは", "language_code": "ja"},
         headers=auth,
     )
     assert response.status_code == 400

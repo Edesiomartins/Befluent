@@ -130,14 +130,11 @@ def test_pronunciation_focus_classical_not_ecclesiastical():
     assert "/tʃ/" not in joined
 
 
-def test_kokoro_voice_rejects_la_classical():
-    from app.services.speech import UnsupportedTTSLanguage, _voice_for_language
-
-    class _S:
-        tts_voice = None
+def test_piper_rejects_la_classical():
+    from app.services.speech import UnsupportedTTSLanguage, _piper_language
 
     with pytest.raises(UnsupportedTTSLanguage) as exc:
-        _voice_for_language("la-classical", _S())
+        _piper_language("la-classical")
     assert exc.value.language_code == "la-classical"
 
 

@@ -17,14 +17,6 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-const EMPTY_KOKORO_VOICES = { model: "hexgrad/kokoro-82m", languages: [] };
-
-/** A página agora dispara duas chamadas GET no mount (modelos genéricos +
- * vozes do Kokoro Voice Lab), em uma ordem que não é garantida pelo React.
- * `mockApi` resolve/rejeita por path em vez de depender da ordem das
- * chamadas, e ainda permite empilhar `.mockResolvedValueOnce`/
- * `.mockRejectedValueOnce` por cima para as chamadas de geração feitas
- * depois do mount (essas continuam consumidas em fila, na ordem de clique). */
 function mockApi(handlers: Record<string, unknown>) {
   apiMock.mockImplementation((path: string) => {
     if (!(path in handlers)) return Promise.reject(new Error(`unmocked path: ${path}`));
@@ -35,20 +27,20 @@ function mockApi(handlers: Record<string, unknown>) {
 const MODELS = {
   models: [
     {
-      id: "hexgrad/kokoro-82m",
-      display_name: "Kokoro 82M",
-      provider: "hexgrad",
-      supports_speed: true,
-      supports_voice: true,
-      supported_formats: ["mp3"],
-      default_voice: "af_heart",
-      free: false,
-    },
-    {
       id: "deepgram/flux-tts:free",
       display_name: "Deepgram Flux",
       provider: "deepgram",
       supports_speed: false,
+      supports_voice: false,
+      supported_formats: ["mp3"],
+      default_voice: null,
+      free: true,
+    },
+    {
+      id: "fish-audio/s2.1-pro-free:free",
+      display_name: "Fish Audio S2.1 Pro",
+      provider: "fish-audio",
+      supports_speed: true,
       supports_voice: false,
       supported_formats: ["mp3"],
       default_voice: null,
@@ -59,7 +51,7 @@ const MODELS = {
 
 function generateResult(overrides: Partial<Record<string, unknown>> = {}) {
   return {
-    model: "hexgrad/kokoro-82m",
+    model: "deepgram/flux-tts:free",
     audio_base64: btoa("fake-audio-bytes"),
     content_type: "audio/mpeg",
     latency_ms: 620,
@@ -85,18 +77,18 @@ describe("TTSLabPage", () => {
   });
 
   it("carrega e lista os modelos configurados", async () => {
-    mockApi({ "/api/v1/tts-lab/models": MODELS, "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES });
+    mockApi({ "/api/v1/tts-lab/models": MODELS });
     render(<TTSLabPage />);
 
     expect(screen.getByText("TTS Lab")).toBeInTheDocument();
-    expect(await screen.findByRole("heading", { name: "Kokoro 82M" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Deepgram Flux" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Deepgram Flux" })).toBeInTheDocument();
   });
 
   it("preenche o texto ao escolher um preset", async () => {
-    mockApi({ "/api/v1/tts-lab/models": MODELS, "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES });
+    mockApi({ "/api/v1/tts-lab/models": MODELS });
     render(<TTSLabPage />);
-    await screen.findByRole("heading", { name: "Kokoro 82M" });
+    await screen.findByRole("heading", { name: "Deepgram Flux" });
 
     fireEvent.click(screen.getByRole("button", { name: "Direções" }));
     expect(screen.getByLabelText("Texto para teste")).toHaveValue(
@@ -105,13 +97,13 @@ describe("TTSLabPage", () => {
   });
 
   it("gera individualmente e mostra player, latência e tamanho", async () => {
-    mockApi({ "/api/v1/tts-lab/models": MODELS, "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES });
+    mockApi({ "/api/v1/tts-lab/models": MODELS });
     render(<TTSLabPage />);
-    await screen.findByRole("heading", { name: "Kokoro 82M" });
+    await screen.findByRole("heading", { name: "Deepgram Flux" });
 
     apiMock.mockResolvedValueOnce(generateResult());
-    const [gerarKokoro] = screen.getAllByRole("button", { name: "Gerar" });
-    fireEvent.click(gerarKokoro);
+    const [gerar] = screen.getAllByRole("button", { name: "Gerar", exact: true });
+    fireEvent.click(gerar);
 
     expect((await screen.findAllByText("620 ms")).length).toBeGreaterThan(0);
     expect(screen.getByText("84 KB")).toBeInTheDocument();
@@ -121,16 +113,16 @@ describe("TTSLabPage", () => {
         "/api/v1/tts-lab/generate",
         expect.objectContaining({
           method: "POST",
-          body: expect.objectContaining({ model: "hexgrad/kokoro-82m" }),
+          body: expect.objectContaining({ model: "deepgram/flux-tts:free" }),
         }),
       ),
     );
   });
 
   it("erro em um modelo não interrompe os demais ao gerar em todos", async () => {
-    mockApi({ "/api/v1/tts-lab/models": MODELS, "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES });
+    mockApi({ "/api/v1/tts-lab/models": MODELS });
     render(<TTSLabPage />);
-    await screen.findByRole("heading", { name: "Kokoro 82M" });
+    await screen.findByRole("heading", { name: "Deepgram Flux" });
 
     const { ApiError } = await import("@/lib/api");
     apiMock
@@ -141,25 +133,24 @@ describe("TTSLabPage", () => {
 
     expect(await screen.findByText(/Provedor indisponível/)).toBeInTheDocument();
     expect((await screen.findAllByText("620 ms")).length).toBeGreaterThan(0);
-    expect(apiMock).toHaveBeenCalledTimes(4); // models + kokoro voices + 2 generate calls
+    expect(apiMock).toHaveBeenCalledTimes(3);
   });
 
   it("registra avaliação manual sem persistir no backend", async () => {
-    mockApi({ "/api/v1/tts-lab/models": MODELS, "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES });
+    mockApi({ "/api/v1/tts-lab/models": MODELS });
     render(<TTSLabPage />);
-    await screen.findByRole("heading", { name: "Kokoro 82M" });
+    await screen.findByRole("heading", { name: "Deepgram Flux" });
 
-    const select = screen.getByLabelText("naturalidade — Kokoro 82M");
+    const select = screen.getByLabelText("naturalidade — Deepgram Flux");
     fireEvent.change(select, { target: { value: "4" } });
     expect(select).toHaveValue("4");
-    expect(apiMock).toHaveBeenCalledTimes(2); // chamadas iniciais de /models e /kokoro/voices
+    expect(apiMock).toHaveBeenCalledTimes(1);
   });
 
   it("mostra mensagem de acesso restrito em 403", async () => {
     const { ApiError } = await import("@/lib/api");
     mockApi({
       "/api/v1/tts-lab/models": Promise.reject(new ApiError("Acesso não autorizado", 403, "tts_lab_forbidden")),
-      "/api/v1/tts-lab/kokoro/voices": EMPTY_KOKORO_VOICES,
     });
     render(<TTSLabPage />);
 

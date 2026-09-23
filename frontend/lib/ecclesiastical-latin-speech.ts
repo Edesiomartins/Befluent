@@ -7,7 +7,7 @@
  * - A voz italiana é aproximação controlada, não pronúncia litúrgica perfeita.
  *
  * Fontes das regras: SCRIPT_RULES em `learner_context.py`, notas em
- * `lesson_bank_la.py`, decisão Obsidian (latim eclesiástico, sem Kokoro para `la`).
+ * `lesson_bank_la.py`. O Piper recebe o texto já preparado, com idioma `la`.
  *
  * Limitações conhecidas (documentadas de propósito):
  * - `ti` + vogal → /tsi/ só via léxico explícito (regex ampla seria insegura

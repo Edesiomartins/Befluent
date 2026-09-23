@@ -19,7 +19,7 @@ Separar claramente:
 | STT primário | Groq `whisper-large-v3-turbo` (`STT_PROVIDER=groq` + `GROQ_API_KEY`) |
 | STT fallback | OpenRouter multimodal (`STT_FALLBACK_PROVIDER=openrouter` + `STT_FALLBACK_MODEL`) |
 | STT mock | Só com `STT_PROVIDER=mock` explícito; em production, falha → `503 stt_unavailable` (sem transcript fabricado) |
-| TTS servidor | Piper em `TTS_BASE_URL` (`TTS_PROVIDER=piper_api`, header `X-API-Key`). Kokoro (`kokoro_api` / `openrouter`) permanece como rollback. Mock só fora de production com `TTS_PROVIDER=mock` |
+| TTS servidor | Piper em `TTS_BASE_URL` (`TTS_PROVIDER=piper_api`, header `X-API-Key`). Mock só fora de production com `TTS_PROVIDER=mock` |
 | TTS produto | Piper (backend) como voz principal para en, es-ES, fr, it, de e latim eclesiástico; **SpeechSynthesis do navegador** se a chamada falhar. Latim clássico não chama o backend |
 | Pronúncia | Sem score fonético; API devolve `status=unavailable` / `score=null` |
 | Duração WebM | Só limite por bytes no backend; duração WAV via `wave`; WebM sem ffprobe (sem mudar Docker) |
@@ -77,7 +77,7 @@ troubleshooting): [TTS.md](TTS.md). Resumo:
 - Latim eclesiástico: o frontend envia o texto já passado por `prepareEcclesiasticalLatinForSpeech`. Se a preparação falhar ou vier vazia, o latim ortográfico bruto não é enviado.
 - Velocidade da UI vai no campo `speed`. Timeout do Piper: 20s.
 - Se a chamada falhar (rede, timeout, 5xx, `tts_unavailable`, ou o `<audio>` disparar `onError`), o `AudioPlayer` cai no `window.speechSynthesis`.
-- `TTS_PROVIDER=kokoro_api` e `openrouter` continuam no código como rollback. `TTS_PROVIDER=web_speech` desativa a síntese de servidor. `TTS_PROVIDER=mock` só fora de production.
+- `TTS_PROVIDER=web_speech` desativa a síntese de servidor. `TTS_PROVIDER=mock` só fora de production.
 
 ## Reprodução, interrupção, repetição e velocidade
 

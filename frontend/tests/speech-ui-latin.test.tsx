@@ -38,7 +38,7 @@ describe("AudioPlayer — fallback latim eclesiástico (it-IT)", () => {
     apiBlobMock.mockReset();
     const { ApiError } = await import("@/lib/api");
     apiBlobMock.mockRejectedValue(
-      new ApiError("idioma sem voz Kokoro", 400, "tts_unsupported_language"),
+      new ApiError("idioma sem voz no Piper", 400, "tts_unsupported_language"),
     );
 
     speak = vi.fn();

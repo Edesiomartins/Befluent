@@ -19,7 +19,7 @@ vi.mock("@/lib/api", () => ({
   },
 }));
 
-describe("AudioPlayer (Kokoro-82M com fallback local)", () => {
+describe("AudioPlayer (Piper com fallback local)", () => {
   beforeEach(() => {
     apiMock.mockReset();
     apiBlobMock.mockReset();
@@ -41,7 +41,7 @@ describe("AudioPlayer (Kokoro-82M com fallback local)", () => {
     });
   });
 
-  it("toca o áudio do backend (Kokoro) quando a síntese funciona", async () => {
+  it("toca o áudio do backend quando a síntese funciona", async () => {
     apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
 
     render(<AudioPlayer text="Hello" languageCode="en" />);

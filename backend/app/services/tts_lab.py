@@ -14,8 +14,6 @@ com um teste manual real contra a OpenRouter (ver `docs/TTS_LAB.md`, seção
   vozes confirmadas.
 - `fish-audio/s2.1-pro-free:free` aceitou `speed` sem erro; `voice`
   explícita não foi testada, então `supports_voice` continua `False`.
-- `hexgrad/kokoro-82m` é o modelo já validado em produção (`speech.py`):
-  aceita `speed` e `voice`.
 - `google/gemini-3.1-flash-tts-preview` exige `voice` explícita e só
   devolve `response_format="pcm"` — nunca mp3/wav. `speed` não foi testado
   (modelo pago; evitado excesso de chamadas), então `supports_speed`
@@ -64,16 +62,6 @@ TTS_LAB_MODELS: dict[str, dict] = {
         "supported_formats": ["mp3"],
         "default_voice": None,
         "free": True,
-    },
-    "hexgrad/kokoro-82m": {
-        "display_name": "Kokoro 82M",
-        "provider": "hexgrad",
-        "supports_speed": True,
-        "supports_voice": True,
-        "supports_streaming": False,
-        "supported_formats": ["mp3"],
-        "default_voice": "af_heart",
-        "free": False,
     },
     "google/gemini-3.1-flash-tts-preview": {
         "display_name": "Gemini 3.1 Flash TTS (Preview)",

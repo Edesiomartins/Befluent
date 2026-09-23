@@ -83,7 +83,7 @@ export function AudioPlayer({
   const [phoneticUnavailable, setPhoneticUnavailable] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
-  /** Cancela uma geração Kokoro ainda em voo ao parar, trocar de áudio, ou
+  /** Cancela uma geração de áudio ainda em voo ao parar, trocar de áudio, ou
    * desmontar — evita que uma resposta tardia comece a tocar depois que o
    * aluno já saiu da tela ou pediu outro áudio. */
   const abortRef = useRef<AbortController | null>(null);

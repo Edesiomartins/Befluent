@@ -95,7 +95,7 @@ Diretrizes:
 
 - mesma trilha dos idiomas falados de alfabeto latino (inglês e francês);
 - pronúncia três vezes por semana, como no inglês — não é trilha diária de tom ou mora;
-- o Kokoro não tem voz alemã: a escuta cai na voz do navegador, sem emprestar voz de outro idioma;
+- o Piper tem voz alemã (`de`); japonês e mandarim continuam na voz do navegador;
 - explicar caso e ordem da frase em português no início, e reduzir esse apoio conforme o nível sobe.
 
 ## Japonês

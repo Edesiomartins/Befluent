@@ -59,8 +59,6 @@ class Settings(BaseSettings):
     tts_provider: str = "mock"
     tts_api_key: str = ""
     tts_base_url: str = ""
-    tts_model: str = "hexgrad/kokoro-82m"
-    tts_voice: str = ""
     tts_speed: float = 1.0
     initial_admin_name: str = ""
     initial_admin_email: str = ""

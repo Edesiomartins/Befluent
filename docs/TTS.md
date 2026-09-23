@@ -5,10 +5,8 @@ aulas, pelo Speech Coach e por qualquer outro lugar que reproduza fala do
 BeFluent. Para o laboratório de comparação de modelos/vozes (ferramenta
 administrativa, não usada pelo aluno), ver [TTS_LAB.md](TTS_LAB.md) — os
 dois documentos são deliberadamente separados: este aqui é produção, o
-outro é experimentação. As vozes documentadas aqui foram escolhidas
-**depois de** testes manuais no Kokoro Voice Lab (seção do TTS Lab), mas o
-TTS Lab em si não decide nem altera a configuração de produção — ela é
-sempre uma edição manual deste lado.
+outro é experimentação. O TTS Lab não decide nem altera a configuração
+de produção.
 
 ## Provider principal
 
@@ -21,9 +19,6 @@ Contrato: POST {TTS_BASE_URL}/v1/tts
 Formato:  audio/wav
 Timeout:  20s
 ```
-
-Kokoro não foi removido. `TTS_PROVIDER=kokoro_api` e `TTS_PROVIDER=openrouter`
-continuam como rollback. `TTS_VOICE` só vale para esses caminhos Kokoro.
 
 Variáveis, sem chave real:
 
@@ -68,18 +63,18 @@ Texto a falar + idioma explícito da lição/turno
                  │
         ┌────────┴─────────┐
         │                  │
-  idioma no allowlist   idioma fora do allowlist
+  idioma no mapa Piper  idioma fora do mapa
         │                  │
         ▼                  ▼
-  Kokoro via OpenRouter   400 tts_unsupported_language
-  (voz por idioma)          (nunca "adivinha" voz)
+  POST /v1/tts            400 tts_unsupported_language
+  (idioma + texto)          (nunca "adivinha" voz)
         │
-   sucesso? ──── não (rede/timeout/4xx/5xx/API key ausente)
+   sucesso? ──── não (rede/timeout/5xx)
         │                  │
        sim                 ▼
         │            APIError (tts_unavailable / tts_unsupported_language)
         ▼                  │
-  audio/mpeg (bytes) ◄──────┘ (erro sobe pro frontend, sem stack trace)
+  audio/wav (bytes) ◄──────┘ (erro sobe pro frontend, sem stack trace)
         │
         ▼
   Frontend: toca no <audio>
@@ -91,9 +86,9 @@ Texto a falar + idioma explícito da lição/turno
   window.speechSynthesis (Web Speech API do navegador)
 ```
 
-O frontend **nunca** chama a OpenRouter diretamente — só conhece
-`text`/`language_code`/`speed`. Modelo, voz e `OPENROUTER_API_KEY` só
-existem no backend (`app/services/speech.py`).
+O frontend **nunca** chama o Piper diretamente — só conhece
+`text`/`language_code`/`speed`. A URL e a chave ficam no backend
+(`app/services/speech.py`).
 
 ## Endpoint
 
@@ -101,8 +96,7 @@ existem no backend (`app/services/speech.py`).
 POST /api/v1/speech/synthesize
 ```
 
-Já existia antes desta tarefa (usado por `AudioPlayer` desde a introdução
-do Kokoro em produção) — nenhum endpoint novo foi criado, só evoluído:
+Já existia antes do Piper — nenhum endpoint novo foi criado, só o provedor:
 
 Request:
 
@@ -115,57 +109,18 @@ Request:
 - `language_code`: código do projeto (`en`, `es-ES`, `fr`, `ja`, `zh-CN`,
   etc.) — 1 a 20 caracteres. A voz é decidida **inteiramente pelo
   backend**; o frontend nunca envia `voice` nem `model`.
-- `speed`: opcional, 0.5–2.0. Repassado de verdade ao Kokoro (não é
-  `playbackRate` do navegador).
+- `speed`: opcional, 0.5–2.0. Repassado ao Piper (não é `playbackRate`
+  do navegador).
 
-Resposta: bytes de áudio, `Content-Type: audio/mpeg` (200) ou um erro
+Resposta: bytes de áudio, `Content-Type: audio/wav` (200) ou um erro
 JSON estruturado (ver "Erros" abaixo) — nunca base64 desnecessário.
 
-## Voice mapping final
+### Idioma fora do mapa
 
-Escolhido manualmente por escuta comparativa no Kokoro Voice Lab — **não**
-é um ranking automático e não deve ser sobrescrito por um. Única fonte de
-verdade: `_KOKORO_VOICE_BY_LANGUAGE` em `backend/app/services/speech.py`.
-
-```text
-en     → af_sky      (Sky)
-es-ES  → em_alex      (Alex)
-fr     → ff_siwis     (Siwis)
-ja     → jf_nezumi    (Nezumi)
-zh-CN  → zf_xiaoxiao  (Xiaoxiao)
-```
-
-`language_code` é reduzido ao prefixo ISO-639-1 antes do lookup
-(`_language_hint`: `"es-ES".split("-")[0].lower()` → `"es"`) — é um
-`dict.get` exato sobre esse prefixo, não `startsWith`/substring matching,
-então não há risco de casar o idioma errado.
-
-### Idioma fora do allowlist
-
-Só os 5 idiomas acima têm voz Kokoro configurada. Um `language_code` fora
-disso (`de`, `it`, etc.) **não** cai silenciosamente em `af_sky` nem em
-nenhuma voz "parecida" — mandar texto de um idioma desconhecido para a
-voz errada produziria fala incorreta, não uma rede de segurança. O backend
-devolve `400 tts_unsupported_language` sem sequer chamar a OpenRouter, e o
-`AudioPlayer` cai no Web Speech do navegador (que lê qualquer idioma
-BCP-47 corretamente). Não há detecção de idioma a partir do texto em
-nenhum ponto deste fluxo.
-
-### Como trocar uma voz no futuro
-
-1. Compare vozes no Kokoro Voice Lab (`/admin/tts-lab`) — escolha por
-   clareza/inteligibilidade para o aluno, não só por naturalidade (ver
-   docs/TTS_LAB.md).
-2. Edite o valor correspondente em `_KOKORO_VOICE_BY_LANGUAGE`
-   (`backend/app/services/speech.py`).
-3. Rode `pytest backend/tests/test_ai_speech_providers.py` — os testes de
-   mapeamento (`test_tts_openrouter_picks_voice_by_language`) travam o
-   voice ID esperado por idioma; atualize-os junto.
-4. Nenhuma migration, nenhum dado a migrar — é só uma constante em código.
-
-`TTS_VOICE` (env var) força uma voz única para **todos** os idiomas,
-ignorando o mapeamento — é uma escolha explícita do operador (ex. teste
-manual em produção), não um mecanismo de seleção por idioma.
+Um `language_code` que não está em `_PIPER_LANGUAGE_BY_CODE` não cai num
+idioma parecido. O backend devolve `400 tts_unsupported_language` sem
+chamar o Piper, e o `AudioPlayer` cai no Web Speech do navegador.
+`la-classical` nem chega a essa chamada: o frontend vai direto ao navegador.
 
 ## Configuração / env vars
 
@@ -182,12 +137,9 @@ TTS_SPEED=1.0
 ```
 
 - `TTS_PROVIDER=piper_api`: Piper em `TTS_BASE_URL` — modo de produção.
-- `TTS_PROVIDER=kokoro_api`: Kokoro próprio em `TTS_BASE_URL` — rollback.
-- `TTS_PROVIDER=openrouter`: Kokoro-82M via OpenRouter — rollback.
 - `TTS_PROVIDER=mock`: síntese fake (`RIFF` vazio), permitida só fora de
   `production`; em produção falha explicitamente (nunca fabrica áudio).
-- `TTS_PROVIDER=web_speech`: **rollback** — ver seção abaixo.
-- `TTS_MODEL` e `TTS_VOICE` só entram no caminho Kokoro.
+- `TTS_PROVIDER=web_speech`: desativa a síntese de servidor — ver seção abaixo.
 
 **Este documento não altera nem lê o `.env` real de nenhum ambiente.**
 Mudar essas variáveis em produção é uma ação humana deliberada (Coolify),
@@ -314,14 +266,14 @@ cancelar.
 Nenhuma segmentação nova foi introduzida — o texto enviado é o mesmo texto
 pedagógico já usado pelo produto (frase/parágrafo da lição), sem chunking
 por palavra nem blocos gigantes artificiais. Nenhuma tag SSML é enviada
-(suporte não confirmado pelo Kokoro/OpenRouter).
+(o Piper recebe só texto, idioma e velocidade).
 
 ## Erros
 
 | Código | Status | Quando |
 |---|---|---|
 | `tts_unavailable` | 503 | API key ausente, provider indisponível, timeout, erro 5xx do provedor, ou `TTS_PROVIDER=web_speech` (rollback) |
-| `tts_unsupported_language` | 400 | `language_code` fora do allowlist Kokoro (nunca chega a chamar a OpenRouter) |
+| `tts_unsupported_language` | 400 | `language_code` fora do mapa do Piper (o serviço não é chamado) |
 | `422` (validação Pydantic) | 422 | `text` vazio ou acima de 2000 caracteres; `speed` fora de 0.5–2.0 |
 
 Nenhum erro devolve stack trace, corpo bruto do provedor, nem a
@@ -348,7 +300,7 @@ Engine), não truncados silenciosamente aqui.
 
 ## Logs
 
-`OpenRouterTTSProvider`/`synthesize_audio` logam via `logger.warning`/
+`PiperAPITTSProvider`/`synthesize_audio` logam via `logger.warning`/
 `logger.info` em falha (provider, tipo de erro, idioma sem voz
 configurada); sucesso não é logado individualmente hoje (mesmo padrão que
 o resto do módulo de fala). Nenhum log inclui texto completo do aluno,
@@ -356,22 +308,11 @@ o resto do módulo de fala). Nenhum log inclui texto completo do aluno,
 
 ## Custo
 
-Não há preço hardcoded no código. A resposta da OpenRouter para
-`/audio/speech` não traz custo estruturado — se isso mudar no futuro, deve
-ser lido do response/headers, nunca inventado.
+Não há preço de síntese hardcoded no BeFluent. O Piper responde áudio,
+sem campo de custo.
 
 ## Rollback
 
-Para voltar ao Kokoro próprio sem tocar em código, aponte as mesmas
-variáveis genéricas:
-
-```env
-TTS_PROVIDER=kokoro_api
-TTS_BASE_URL=<url do Kokoro>
-TTS_API_KEY=<secret>
-```
-
-`TTS_PROVIDER=openrouter` volta ao Kokoro via OpenRouter.
 `TTS_PROVIDER=web_speech` devolve `503 tts_unavailable` imediatamente e o
 `AudioPlayer` cai no `window.speechSynthesis`. **Esta implementação não
 altera o `.env` de nenhum ambiente**; a troca é sempre manual.
@@ -383,7 +324,7 @@ altera o `.env` de nenhum ambiente**; a troca é sempre manual.
 | Todo mundo ouve voz do navegador, nunca a do BeFluent | `TTS_API_KEY` ou `TTS_BASE_URL` ausente, ou `TTS_PROVIDER` diferente de `piper_api` | logs do backend (`tts_unavailable`), variáveis do Coolify |
 | Um idioma específico sempre cai no navegador | `language_code` fora de `_PIPER_LANGUAGE_BY_CODE` (`la-classical`, `ja`, `zh-CN`) | log `tts_unsupported_language`; clássico nem chama o backend |
 | Latência alta / timeouts frequentes | Piper acima de ~3s por frase; timeout do cliente é 20s | logs `TTS provider piper_api falhou` |
-| Quero comparar vozes antes de trocar uma | Use o Kokoro Voice Lab, não produção | [TTS_LAB.md](TTS_LAB.md) |
+| Quero comparar outros modelos de TTS | Use o TTS Lab, não a voz das aulas | [TTS_LAB.md](TTS_LAB.md) |
 
 ## Limitações conhecidas
 
@@ -393,6 +334,5 @@ altera o `.env` de nenhum ambiente**; a troca é sempre manual.
   agregada (contagem de sucesso/erro/fallback) não existe ainda; não foi
   adicionada plataforma de analytics externa para esta tarefa (fora de
   escopo).
-- `speed` agora é repassado de verdade ao Kokoro (antes desta tarefa, o
-  seletor de velocidade da UI existia mas era ignorado pelo backend — ver
-  `test_speech_synthesize_sends_ui_speed_to_provider`).
+- `speed` é repassado ao Piper. O teste
+  `test_speech_synthesize_sends_ui_speed_to_provider` trava esse contrato.

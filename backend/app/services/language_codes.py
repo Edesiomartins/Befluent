@@ -2,7 +2,7 @@
 
 `la-classical` não é um tag BCP 47 padrão. Integrações externas (STT/TTS
 de terceiros, metadados) devem usar `to_bcp47` em vez de passar o código
-interno cru — e nunca tratar `la-classical` como voz Kokoro suportada.
+interno cru — e nunca tratar `la-classical` como voz Piper suportada.
 """
 
 from __future__ import annotations

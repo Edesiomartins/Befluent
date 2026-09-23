@@ -5,7 +5,6 @@ import { Play } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { base64ToBlob } from "@/lib/audio";
 import { Button } from "@/components/ui";
-import { KokoroVoiceLab } from "@/components/kokoro-voice-lab";
 
 type ModelCapability = {
   id: string;
@@ -473,9 +472,6 @@ export default function TTSLabPage() {
         </div>
       )}
 
-      <hr className="border-border" />
-
-      <KokoroVoiceLab />
     </div>
   );
 }
