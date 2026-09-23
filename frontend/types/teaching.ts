@@ -81,8 +81,15 @@ export type SliceSession = {
     completed: number;
     total: number;
     percent: number;
+    target_total?: number;
     current_label: string | null;
     next_label: string | null;
+    areas?: Array<{
+      key: string;
+      label: string;
+      completed: number;
+      total: number;
+    }>;
   };
   attempt?: {
     id: string;

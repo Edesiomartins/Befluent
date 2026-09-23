@@ -3,6 +3,13 @@
 import { Check } from "lucide-react";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
+export type SessionAreaProgress = {
+  key: string;
+  label: string;
+  completed: number;
+  total: number;
+};
+
 export function SessionProgress({
   completed,
   total,
@@ -10,6 +17,7 @@ export function SessionProgress({
   currentLabel,
   nextLabel,
   justCompleted = false,
+  areas = [],
 }: {
   completed: number;
   total: number;
@@ -17,6 +25,7 @@ export function SessionProgress({
   currentLabel?: string | null;
   nextLabel?: string | null;
   justCompleted?: boolean;
+  areas?: SessionAreaProgress[];
 }) {
   const reduced = usePrefersReducedMotion();
   if (total <= 0) return null;
@@ -27,7 +36,7 @@ export function SessionProgress({
       <div className="flex items-center justify-between gap-3 text-xs text-text-secondary">
         <p>
           <span className="font-semibold text-text-primary">
-            {completed} de {total} atividades
+            Aula de hoje · {completed} / {total}
           </span>
           {currentLabel ? ` · ${currentLabel}` : ""}
         </p>
@@ -46,8 +55,32 @@ export function SessionProgress({
           style={{ width: `${width}%` }}
         />
       </div>
+      {areas.length > 0 && (
+        <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {areas.map((area) => {
+            const done = area.completed >= area.total && area.total > 0;
+            return (
+              <li
+                key={area.key}
+                className="rounded-lg bg-surface-soft px-2.5 py-2 text-xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-text-secondary">{area.label}</span>
+                  {done ? (
+                    <Check className="size-3.5 shrink-0 text-primary" aria-label="concluído" />
+                  ) : (
+                    <span className="tabular-nums text-text-primary">
+                      {area.completed}/{area.total}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-text-secondary">
-        <p>{nextLabel ? `Próxima: ${nextLabel}` : "Última atividade deste bloco"}</p>
+        <p>{nextLabel ? `Próxima: ${nextLabel}` : "Última atividade desta sessão"}</p>
         {justCompleted && (
           <span className={`inline-flex items-center gap-1 text-primary ${reduced ? "" : "session-check"}`}>
             <Check className="size-3.5" aria-hidden />

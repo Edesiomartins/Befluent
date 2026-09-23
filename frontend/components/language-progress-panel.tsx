@@ -5,7 +5,13 @@ import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 export type ProgressSkill = {
   skill: string;
   label: string;
-  percent: number;
+  percent: number | null;
+  total_objectives?: number | null;
+  evidenced_objectives?: number | null;
+  mastered_objectives?: number | null;
+  coverage_percent?: number | null;
+  mastery_seen_percent?: number | null;
+  effective_progress_percent?: number | null;
 };
 
 export type LanguageProgress = {
@@ -58,17 +64,42 @@ export function LanguageProgressPanel({ progress }: { progress: LanguageProgress
         <div className="mt-6">
           <h3 className="text-sm font-semibold">Habilidades</h3>
           <ul className="mt-3 space-y-3">
-            {skills.map((skill) => (
-              <li key={skill.skill}>
-                <div className="flex justify-between gap-4 text-sm">
-                  <span>{skill.label}</span>
-                  <span className="tabular-nums text-text-secondary">{skill.percent}%</span>
-                </div>
-                <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-soft">
-                  <div className="h-full rounded-full bg-primary" style={{ width: `${skill.percent}%` }} />
-                </div>
-              </li>
-            ))}
+            {skills.map((skill) => {
+              const bar =
+                skill.effective_progress_percent ??
+                (skill.percent != null ? skill.percent : null);
+              const worked = skill.evidenced_objectives;
+              const total = skill.total_objectives;
+              return (
+                <li key={skill.skill}>
+                  <div className="flex justify-between gap-4 text-sm">
+                    <span>{skill.label}</span>
+                    {bar != null ? (
+                      <span className="tabular-nums text-text-secondary">{bar}%</span>
+                    ) : (
+                      <span className="text-text-secondary">
+                        {worked != null
+                          ? `${worked} objetivo${worked === 1 ? "" : "s"} trabalhado${worked === 1 ? "" : "s"}`
+                          : "Em andamento"}
+                      </span>
+                    )}
+                  </div>
+                  {bar != null && (
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-soft">
+                      <div className="h-full rounded-full bg-primary" style={{ width: `${bar}%` }} />
+                    </div>
+                  )}
+                  {worked != null && total != null && (
+                    <p className="mt-1 text-xs text-text-secondary">
+                      {worked} de {total} objetivos trabalhados
+                      {skill.mastered_objectives != null
+                        ? ` · ${skill.mastered_objectives} dominados`
+                        : ""}
+                    </p>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

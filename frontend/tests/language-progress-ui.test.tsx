@@ -20,19 +20,26 @@ describe("progresso visível", () => {
   it("mostra o progresso real da sessão sem número inventado", () => {
     render(
       <SessionProgress
-        completed={3}
-        total={5}
-        percent={60}
+        completed={22}
+        total={36}
+        percent={61}
         currentLabel="Reconhecimento"
         nextLabel="Escuta"
         justCompleted
+        areas={[
+          { key: "vocabulary", label: "Vocabulário", completed: 8, total: 8 },
+          { key: "listening", label: "Listening", completed: 8, total: 8 },
+          { key: "grammar", label: "Gramática", completed: 6, total: 8 },
+        ]}
       />,
     );
-    expect(screen.getByText("3 de 5 atividades")).toBeInTheDocument();
-    expect(screen.getByText("60%")).toBeInTheDocument();
+    expect(screen.getByText("Aula de hoje · 22 / 36")).toBeInTheDocument();
+    expect(screen.getByText("61%")).toBeInTheDocument();
     expect(screen.getByText("Próxima: Escuta")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Progresso da sessão" })).toHaveAttribute("aria-valuenow", "60");
+    expect(screen.getByRole("progressbar", { name: "Progresso da sessão" })).toHaveAttribute("aria-valuenow", "61");
     expect(screen.getByText("Concluída")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("concluído").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("6/8")).toBeInTheDocument();
   });
 
   it("omite a barra quando a sessão não tem atividades", () => {
@@ -60,6 +67,29 @@ describe("progresso visível", () => {
     expect(screen.getByText("Você avançou para A1-4.")).toBeInTheDocument();
     expect(screen.queryByText(/Progresso para/)).not.toBeInTheDocument();
     expect(screen.queryByText("Listening")).not.toBeInTheDocument();
+  });
+
+  it("não mostra 100% só porque poucos objetivos vistos estão dominados", () => {
+    render(
+      <LanguageProgressPanel
+        progress={{
+          cefr: { current: "A1", next: "A2", progress_to_next_percent: null },
+          skills: [
+            {
+              skill: "listening",
+              label: "Compreensão auditiva",
+              percent: null,
+              mastery_seen_percent: 100,
+              evidenced_objectives: 3,
+              total_objectives: null,
+              effective_progress_percent: null,
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.queryByText("100%")).not.toBeInTheDocument();
+    expect(screen.getByText("3 objetivos trabalhados")).toBeInTheDocument();
   });
 
   it("respeita prefers-reduced-motion e mantém o texto", () => {

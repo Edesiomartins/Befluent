@@ -683,7 +683,9 @@ function Vocabulary({
     );
   }
   if (cycle.kind === "closed") {
-    const finishedTotal = finishedSession.current?.activities_total;
+    const finished = finishedSession.current;
+    const finishedTotal = finished?.activities_total;
+    const areas = finished?.session_progress?.areas ?? [];
     return (
       <div className="panel p-7 text-center" role="status">
         <h2 className="text-xl font-semibold">Sessão concluída</h2>
@@ -691,8 +693,18 @@ function Vocabulary({
           Este bloco terminou. Os itens que precisam de reforço voltam depois.
         </p>
         {finishedTotal ? (
-          <p className="mt-2 text-sm text-text-secondary">{finishedTotal} atividades neste bloco.</p>
+          <p className="mt-2 text-sm text-text-secondary">{finishedTotal} exercícios nesta sessão.</p>
         ) : null}
+        {areas.length > 0 && (
+          <ul className="mx-auto mt-4 max-w-sm space-y-1 text-left text-sm text-text-secondary">
+            {areas.map((area) => (
+              <li key={area.key} className="flex justify-between gap-3">
+                <span>{area.label}</span>
+                <span className="tabular-nums">{area.total}</span>
+              </li>
+            ))}
+          </ul>
+        )}
         <Button
           className="mt-6"
           onClick={() => {
@@ -714,6 +726,7 @@ function Vocabulary({
                 if (isSliceSession(payload)) {
                   const session = payload;
                   setJustCompleted(false);
+                  finishedSession.current = null;
                   setCycle(
                     session.status !== "active" || !session.current_activity
                       ? { kind: "closed" }
@@ -753,6 +766,7 @@ function Vocabulary({
         currentLabel={sessionProgress?.current_label}
         nextLabel={sessionProgress?.next_label}
         justCompleted={justCompleted}
+        areas={sessionProgress?.areas}
       />
       <div className="panel p-7 sm:p-9">
         <TeachingActivityBody

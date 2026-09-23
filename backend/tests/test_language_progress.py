@@ -32,11 +32,14 @@ from app.services.language_progress import (
     MILESTONE_ADVANCED,
     adjacent_cefr,
     detect_progress_transition,
+    effective_level_progress,
     evaluate_language_progress,
     evaluate_skill_progress,
     milestone_index_for_mean,
     observe_language_progress,
+    official_curriculum_total,
     record_product_event,
+    skill_metrics,
 )
 from app.services.language_progress import ProgressView
 from app.services.lexical_policy import lexical_mastery_policy, required_evidence_types
@@ -112,9 +115,10 @@ def test_progresso_fica_separado_por_idioma(db_session):
     german_skills = evaluate_skill_progress(db_session, german.id)
 
     assert [item["skill"] for item in english_skills] == ["reading"]
-    assert english_skills[0]["percent"] == 100
+    assert english_skills[0]["mastery_seen_percent"] == 100
+    assert english_skills[0]["percent"] is None
     assert [item["skill"] for item in german_skills] == ["listening"]
-    assert german_skills[0]["percent"] == 25
+    assert german_skills[0]["mastery_seen_percent"] == 25
     assert evaluate_language_progress(db_session, english)["cefr"]["current"] == "A1"
     assert evaluate_language_progress(db_session, german)["cefr"]["current"] == "A2"
 
@@ -127,14 +131,12 @@ def test_skill_progress_omite_habilidade_sem_evidencia(db_session):
 
     skills = evaluate_skill_progress(db_session, profile.id)
 
-    assert skills == [
-        {
-            "skill": "vocabulary_grammar",
-            "label": "Vocabulário e gramática",
-            "percent": 50,
-            "sample_size": 1,
-        }
-    ]
+    assert skills[0]["skill"] == "vocabulary_grammar"
+    assert skills[0]["label"] == "Vocabulário e gramática"
+    assert skills[0]["mastery_seen_percent"] == 50
+    assert skills[0]["percent"] is None
+    assert skills[0]["coverage_percent"] is None
+    assert skills[0]["sample_size"] == 1
     assert all(item["skill"] != "speaking" for item in skills)
 
 
@@ -171,11 +173,13 @@ def test_cefr_nao_pula_nivel_intermediario():
     assert skipped == []
 
 
-def test_marco_sai_das_faixas_reais_de_dominio():
-    assert milestone_index_for_mean(25) == 1
-    assert milestone_index_for_mean(35) == 2
-    assert milestone_index_for_mean(50) == 3
-    assert milestone_index_for_mean(70) == 4
+def test_marco_usa_faixas_do_progresso_efetivo():
+    assert milestone_index_for_mean(0) == 1
+    assert milestone_index_for_mean(19.99) == 1
+    assert milestone_index_for_mean(20) == 2
+    assert milestone_index_for_mean(40) == 3
+    assert milestone_index_for_mean(60) == 4
+    assert milestone_index_for_mean(80) == 5
     assert milestone_index_for_mean(100) == 5
 
 
@@ -189,7 +193,7 @@ def test_marco_e_cefr_disparam_uma_vez_e_dashboard_nao_repete(db_session):
     second = observe_language_progress(db_session, profile.id)
     assert first["celebrations"] == []
     assert second["celebrations"] == []
-    assert first["milestone"]["code"] == "A1-1"
+    assert first["milestone"] is None
 
     progress = db_session.scalar(
         select(UserObjectiveProgress).where(UserObjectiveProgress.objective_id == objective.id)
@@ -200,10 +204,9 @@ def test_marco_e_cefr_disparam_uma_vez_e_dashboard_nao_repete(db_session):
     advanced = observe_language_progress(db_session, profile.id)
     repeated = observe_language_progress(db_session, profile.id)
 
-    assert [item["event_type"] for item in advanced["celebrations"]] == [MILESTONE_ADVANCED]
-    assert advanced["celebrations"][0]["payload"]["to_code"] == "A1-5"
+    assert advanced["celebrations"] == []
+    assert advanced["milestone"] is None
     assert repeated["celebrations"] == []
-    assert repeated["latest_achievement"]["title"] == "Você avançou para A1-5."
     assert (
         db_session.scalar(
             select(func.count(LearningProgressEvent.id)).where(
@@ -211,7 +214,7 @@ def test_marco_e_cefr_disparam_uma_vez_e_dashboard_nao_repete(db_session):
                 LearningProgressEvent.event_type == MILESTONE_ADVANCED,
             )
         )
-        == 1
+        == 0
     )
 
     profile.current_level = "A2"
@@ -229,6 +232,67 @@ def test_marco_e_cefr_disparam_uma_vez_e_dashboard_nao_repete(db_session):
         )
         == 1
     )
+
+
+def test_cobertura_e_progresso_efetivo_separam_o_que_foi_visto():
+    case_a = skill_metrics(mastery_percents=[100, 100, 100], total_objectives=20)
+    assert case_a["coverage_percent"] == 15
+    assert case_a["mastery_seen_percent"] == 100
+    assert case_a["effective_progress_percent"] == 15
+
+    case_b = skill_metrics(mastery_percents=[80] * 10, total_objectives=20)
+    assert case_b["coverage_percent"] == 50
+    assert case_b["mastery_seen_percent"] == 80
+    assert case_b["effective_progress_percent"] == 40
+
+    case_c = skill_metrics(mastery_percents=[100] * 20, total_objectives=20)
+    assert case_c["coverage_percent"] == 100
+    assert case_c["mastery_seen_percent"] == 100
+    assert case_c["effective_progress_percent"] == 100
+
+
+def test_skill_sem_objetivos_nao_divide_por_zero():
+    empty = skill_metrics(mastery_percents=[], total_objectives=0)
+    assert empty["coverage_percent"] is None
+    assert empty["effective_progress_percent"] is None
+
+    missing = skill_metrics(mastery_percents=[100], total_objectives=None)
+    assert missing["effective_progress_percent"] is None
+    assert missing["mastery_seen_percent"] == 100
+
+
+def test_marco_usa_progresso_efetivo_e_nao_promove_cefr(db_session):
+    low = skill_metrics(mastery_percents=[100, 100, 100], total_objectives=20)
+    high = skill_metrics(mastery_percents=[100] * 20, total_objectives=20)
+    assert milestone_index_for_mean(low["effective_progress_percent"]) == 1
+    assert milestone_index_for_mean(high["effective_progress_percent"]) == 5
+    level = effective_level_progress(
+        [
+            {"total_objectives": 20, "effective_progress_percent": 15},
+            {"total_objectives": 10, "effective_progress_percent": 15},
+        ]
+    )
+    assert level == 15
+    assert official_curriculum_total("en", "A1", "listening") is None
+    profile = _profile(db_session, "en", level="A1")
+    _demonstrated(db_session, profile, skill="listening", level="A1", state=MasteryState.MASTERED)
+    _demonstrated(db_session, profile, skill="listening", level="B1", state=MasteryState.MASTERED)
+    skills = evaluate_skill_progress(db_session, profile.id)
+    assert skills[0]["evidenced_objectives"] == 1
+    assert evaluate_language_progress(db_session, profile)["milestone"] is None
+    assert profile.current_level == "A1"
+
+
+def test_evento_de_marco_dispara_uma_vez():
+    created = detect_progress_transition(
+        ProgressView("A1", "A1-1", 1),
+        ProgressView("A1", "A1-2", 2),
+    )
+    assert [item["event_type"] for item in created] == [MILESTONE_ADVANCED]
+    assert detect_progress_transition(
+        ProgressView("A1", "A1-2", 2),
+        ProgressView("A1", "A1-2", 2),
+    ) == []
 
 
 def test_promocao_automatica_permanece_desligada(db_session):

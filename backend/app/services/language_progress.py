@@ -37,6 +37,7 @@ from app.models import (
     UserObjectiveProgress,
 )
 from app.services.progress import mastery_percent_for_state
+from app.services.session_budget import MILESTONE_UPPER_BOUNDS
 
 CEFR_AUTO_PROMOTION_ENABLED = False
 PROMOTION_BLOCK_REASON = "insufficient_cross_skill_evidence"
@@ -50,11 +51,9 @@ VOCABULARY_REVIEWED = "vocabulary_reviewed"
 CONVERSATION_STARTED = "conversation_started"
 CONVERSATION_COMPLETED = "conversation_completed"
 LEARNING_CONTEXT_USED = "learning_context_used"
-
-#: Limites entre os percentuais reais de `mastery_percent_for_state`
-#: (25 learning, 35 revisão/remediação, 45 retry, 50 practicing, 100 mastered).
-#: Fatias iguais de 20 pontos deixariam o marco 1 inalcançável.
-_MILESTONE_UPPER_BOUNDS = (30, 43, 56, 85)
+SESSION_STARTED = "session_started"
+SESSION_RESUMED = "session_resumed"
+SESSION_COMPLETED = "session_completed"
 
 _NEXT_MILESTONE_HINT = {
     1: "O próximo marco aparece quando os objetivos deste nível passarem do contato inicial.",
@@ -93,10 +92,62 @@ def adjacent_cefr(level: str | None) -> str | None:
 
 
 def milestone_index_for_mean(mean: float) -> int:
-    for index, bound in enumerate(_MILESTONE_UPPER_BOUNDS, start=1):
+    """Marco do progresso efetivo. 80–100 continua no estágio 5 e não promove CEFR."""
+    for index, bound in enumerate(MILESTONE_UPPER_BOUNDS, start=1):
         if mean < bound:
             return index
     return 5
+
+
+def official_curriculum_total(language_code: str, level: str, skill: str) -> int | None:
+    """Denominador de cobertura. Ausente de propósito.
+
+    Não existe catálogo fechado de objetivos para idioma + CEFR + skill.
+    `LearningObjective` hoje guarda um can-do A1, a semana piloto B2 e
+    âncoras de tema. Contar essas linhas inventaria o total.
+    """
+    del language_code, level, skill
+    return None
+
+
+def skill_metrics(*, mastery_percents: list[int], total_objectives: int | None) -> dict:
+    """Separa domínio do que já foi visto e progresso efetivo do currículo.
+
+    Objetivo sem evidência entra como 0 no progresso efetivo. Sem total
+    oficial, cobertura e progresso efetivo ficam ausentes — não viram 100%.
+    """
+    evidenced = len(mastery_percents)
+    mastered = sum(1 for value in mastery_percents if value >= 100)
+    mastery_seen = round(sum(mastery_percents) / evidenced) if evidenced else None
+    if not total_objectives:
+        return {
+            "total_objectives": total_objectives,
+            "evidenced_objectives": evidenced,
+            "mastered_objectives": mastered,
+            "coverage_percent": None,
+            "mastery_seen_percent": mastery_seen if total_objectives != 0 else mastery_seen,
+            "effective_progress_percent": None,
+        }
+    return {
+        "total_objectives": total_objectives,
+        "evidenced_objectives": evidenced,
+        "mastered_objectives": mastered,
+        "coverage_percent": round(100 * evidenced / total_objectives),
+        "mastery_seen_percent": mastery_seen if evidenced else 0,
+        "effective_progress_percent": round(sum(mastery_percents) / total_objectives),
+    }
+
+
+def effective_level_progress(skills: list[dict]) -> float | None:
+    """Média das skills que têm catálogo. Uma skill com muitos objetivos não pesa mais."""
+    known = [
+        item["effective_progress_percent"]
+        for item in skills
+        if item.get("total_objectives") and item.get("effective_progress_percent") is not None
+    ]
+    if not known:
+        return None
+    return sum(known) / len(known)
 
 
 def milestone_code(level: str, index: int) -> str:
@@ -196,41 +247,53 @@ def _demonstrated_rows(db: Session, user_language_id: str):
 
 
 def evaluate_skill_progress(db: Session, user_language_id: str) -> list[dict]:
-    """Percentuais só de habilidades com evidência. Sem skill, o item some."""
+    """Habilidades do CEFR atual. A barra principal é o progresso efetivo, se houver total."""
+    profile = db.get(UserLanguage, user_language_id)
+    level = normalize_level(profile.current_level if profile else None)
+    language_code = ""
+    if profile is not None:
+        from app.models import Language
+
+        language = db.get(Language, profile.language_id)
+        language_code = language.code if language else ""
     grouped: dict[str, list[int]] = {}
-    for objective, percent in _demonstrated_rows(db, user_language_id):
-        grouped.setdefault(objective.skill_focus, []).append(percent)
-    return [
-        {
-            "skill": skill,
-            "label": skill_display_label(skill),
-            "percent": round(sum(values) / len(values)),
-            "sample_size": len(values),
-        }
-        for skill, values in sorted(grouped.items())
-    ]
+    if level is not None:
+        for objective, percent in _demonstrated_rows(db, user_language_id):
+            if normalize_level(objective.level) != level:
+                continue
+            grouped.setdefault(objective.skill_focus, []).append(percent)
+    skills = []
+    for skill, values in sorted(grouped.items()):
+        metrics = skill_metrics(
+            mastery_percents=values,
+            total_objectives=official_curriculum_total(language_code, level or "", skill),
+        )
+        skills.append(
+            {
+                "skill": skill,
+                "label": skill_display_label(skill),
+                "percent": metrics["effective_progress_percent"],
+                "sample_size": len(values),
+                **metrics,
+            }
+        )
+    return skills
 
 
-def _milestone_for_level(rows: list[tuple], level: str | None) -> dict | None:
-    if level is None:
+def _milestone_for_level(level: str | None, skills: list[dict]) -> dict | None:
+    progress = effective_level_progress(skills)
+    if level is None or progress is None:
         return None
-    percents = [
-        percent
-        for objective, percent in rows
-        if normalize_level(objective.level) == level
-    ]
-    if not percents:
-        return None
-    mean = sum(percents) / len(percents)
-    index = milestone_index_for_mean(mean)
+    index = milestone_index_for_mean(progress)
     code = milestone_code(level, index)
     next_index = index + 1 if index < 5 else None
     return {
         "code": code,
         "index": index,
         "level": level,
-        "sample_size": len(percents),
-        "basis": "objectives_at_current_level_with_evidence",
+        "sample_size": len(skills),
+        "basis": "effective_level_progress",
+        "effective_percent": round(progress),
         "next_code": milestone_code(level, next_index) if next_index else None,
         "next_hint": _NEXT_MILESTONE_HINT.get(index),
     }
@@ -239,10 +302,17 @@ def _milestone_for_level(rows: list[tuple], level: str | None) -> dict | None:
 def evaluate_language_progress(db: Session, user_language) -> dict:
     """Estado atual. Não grava CEFR e não promove faixa."""
     level = normalize_level(user_language.current_level if user_language else None)
-    rows = _demonstrated_rows(db, user_language.id) if user_language else []
     skills = evaluate_skill_progress(db, user_language.id) if user_language else []
-    milestone = _milestone_for_level(rows, level)
-    developed = sorted(skills, key=lambda item: item["percent"], reverse=True)[:3]
+    milestone = _milestone_for_level(level, skills)
+    developed = sorted(
+        skills,
+        key=lambda item: (
+            item.get("effective_progress_percent")
+            if item.get("effective_progress_percent") is not None
+            else item.get("mastery_seen_percent") or 0
+        ),
+        reverse=True,
+    )[:3]
     return {
         "auto_promotion_enabled": CEFR_AUTO_PROMOTION_ENABLED,
         "promotion_block_reason": None

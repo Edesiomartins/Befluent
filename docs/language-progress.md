@@ -4,23 +4,57 @@ O progresso visível tem três medidas que não se misturam.
 
 | Medida | Fonte | O que não entra |
 |---|---|---|
-| Sessão | cursor das atividades já geradas | domínio, CEFR |
-| Habilidade | `UserObjectiveProgress` com `LearningEvidence`, no `skill_focus` real | skill sem evidência |
-| Idioma | `UserLanguage.current_level` e marco derivado | XP, minutos, número de lições |
+| Sessão | orçamento de exercícios (alvo 36, teto 40) | domínio, CEFR |
+| Habilidade | evidência por `skill_focus` no CEFR atual | XP, minutos |
+| Idioma | `UserLanguage.current_level` | promoção automática |
+
+## Sessão (Session Engine V2)
+
+A sessão é planejada por exercícios, não por “completar o ciclo de cada palavra”.
+Configuração em `session_budget.py`:
+
+- alvo 36, máximo 40;
+- vocabulary 8, listening 8, grammar 8, production 6, conversation 6;
+- no máximo 3 exercícios consecutivos da mesma modalidade, quando houver alternativa.
+
+Evidências lexicais (recognition, reverse, listening, production) podem
+ficar em sessões diferentes. Revisão vencida disputa o orçamento; o restante
+volta depois. Retomar a sessão ativa continua de onde parou. “Continuar
+estudando” abre uma sessão nova.
+
+## Domínio visto × cobertura × progresso efetivo
+
+Quando existir catálogo oficial de objetivos para `idioma + CEFR + skill`:
+
+- `coverage` = evidenciados / total;
+- `mastery_seen` = média do domínio só nos evidenciados;
+- `effective_progress` = soma dos percentuais (não vistos = 0) / total.
+
+Hoje **não** existe esse catálogo fechado. `LearningObjective` guarda um
+can-do A1, a semana piloto B2 e âncoras de tema do cronograma. Contar essas
+linhas inventaria o denominador.
+
+Enquanto `official_curriculum_total(...)` retornar `None`:
+
+- a API expõe `mastery_seen_percent` e a contagem de evidências;
+- `coverage_percent`, `effective_progress_percent` e a barra principal
+  ficam ausentes;
+- o marco derivado também fica ausente (ele depende do progresso efetivo).
+
+A menor correção para coverage real: um inventário estável de objetivos
+por idioma, CEFR e skill (seed ou tabela), e só então ligar o denominador.
 
 ## Marco
 
-Só entram objetivos do CEFR atual que já têm evidência. A média usa os
-percentuais existentes de estado (`25`, `35`, `45`, `50`, `100`). Os cortes
-ficam entre esses valores:
+Com progresso efetivo disponível, as faixas são:
 
-| Média | Marco |
+| Progresso efetivo | Marco |
 |---|---|
-| abaixo de 30 | 1 |
-| abaixo de 43 | 2 |
-| abaixo de 56 | 3 |
-| abaixo de 85 | 4 |
-| 85 ou mais | 5 |
+| 0–19,99% | 1 |
+| 20–39,99% | 2 |
+| 40–59,99% | 3 |
+| 60–79,99% | 4 |
+| 80–100% | 5 |
 
 O marco 5 não promove o CEFR. Não há percentual “até o próximo CEFR”.
 
@@ -35,11 +69,11 @@ Repetir objetivos fáceis não pode subir A1 para A2.
 
 A menor alteração futura, se o produto quiser promoção automática:
 
-1. tarefas do nível seguinte nas competências reais (`vocabulary_grammar`,
-   `reading`, `listening`, `writing`, `speaking`);
-2. evidência correta nessas tarefas, não só conclusão;
-3. limiar estável (mais de uma amostra), sem pular faixa;
-4. só então ligar a promoção no domínio, nunca no frontend.
+1. catálogo oficial de objetivos do nível atual (para coverage);
+2. tarefas do nível seguinte nas competências reais;
+3. evidência correta nessas tarefas, não só conclusão;
+4. limiar estável, sem pular faixa;
+5. só então ligar a promoção no domínio, nunca no frontend.
 
 ## Transição
 
