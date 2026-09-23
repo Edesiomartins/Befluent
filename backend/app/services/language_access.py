@@ -9,6 +9,10 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models import Language, LanguageEntitlement
 
+ACCESS_AVAILABLE = "available"
+ACCESS_ENTITLED = "entitled"
+ACCESS_LOCKED = "locked"
+
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -45,6 +49,15 @@ def user_can_access_language(db: Session, user_id: str, language_code: str) -> b
     )
     now = _utcnow()
     return any(entitlement_is_current(entitlement, now=now) for entitlement in entitlements)
+
+
+def language_access_state(db: Session, user_id: str, language_code: str) -> str:
+    """Contrato público: available = flag off, entitled = grant vigente, locked = sem acesso."""
+    if not get_settings().language_entitlements_enabled:
+        return ACCESS_AVAILABLE
+    if user_can_access_language(db, user_id, language_code):
+        return ACCESS_ENTITLED
+    return ACCESS_LOCKED
 
 
 def ensure_legacy_language_entitlement(

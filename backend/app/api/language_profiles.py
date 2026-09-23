@@ -14,6 +14,7 @@ from app.core.errors import APIError
 from app.core.levels import SKILL_LABELS, LevelSource, Skill, level_payload
 from app.models import Language, LearningGoal, User, UserLanguage, UserPreference
 from app.schemas import LanguageProfileUpdate
+from app.services.language_access import language_access_state, user_can_access_language
 
 router = APIRouter(prefix="/language-profiles", tags=["language-profiles"])
 
@@ -26,7 +27,9 @@ SKILL_COLUMNS = {
 }
 
 
-def _profile_payload(profile: UserLanguage, language: Language, ui_prefs: dict) -> dict:
+def _profile_payload(
+    profile: UserLanguage, language: Language, ui_prefs: dict, access_state: str
+) -> dict:
     skills = []
     for skill, column in SKILL_COLUMNS.items():
         level = getattr(profile, column)
@@ -56,6 +59,7 @@ def _profile_payload(profile: UserLanguage, language: Language, ui_prefs: dict) 
         "recommendations": profile.recommendations_json or [],
         "onboarding_completed": profile.onboarding_completed,
         "is_active": profile.is_active,
+        "access_state": access_state,
         "goal": ui_prefs.get("primary_goal"),
         "minutes_per_day": ui_prefs.get("minutes_per_day"),
         "priority_skills": ui_prefs.get("skills") or [],
@@ -76,7 +80,13 @@ def list_profiles(db: Session = Depends(get_db), user: User = Depends(current_us
         .where(UserLanguage.user_id == user.id)
         .order_by(UserLanguage.is_active.desc(), UserLanguage.updated_at.desc())
     ).all()
-    return {"profiles": [_profile_payload(profile, language, ui_prefs) for profile, language in rows]}
+    return {
+        "profiles": [
+            _profile_payload(profile, language, ui_prefs, language_access_state(db, user.id, language.code))
+            for profile, language in rows
+            if user_can_access_language(db, user.id, language.code)
+        ]
+    }
 
 
 def _owned_profile(db: Session, user: User, language_code: str) -> tuple[UserLanguage, Language]:
@@ -87,6 +97,8 @@ def _owned_profile(db: Session, user: User, language_code: str) -> tuple[UserLan
     ).first()
     if not row:
         raise APIError(404, "language_profile_not_found", "Perfil linguístico não encontrado.")
+    if not user_can_access_language(db, user.id, language_code):
+        raise APIError(403, "language_locked", "Idioma bloqueado para este usuário.")
     return row
 
 
@@ -96,7 +108,7 @@ def get_profile(
 ):
     profile, language = _owned_profile(db, user, language_code)
     _, ui_prefs = _ui_prefs(db, user)
-    return _profile_payload(profile, language, ui_prefs)
+    return _profile_payload(profile, language, ui_prefs, language_access_state(db, user.id, language.code))
 
 
 @router.patch("/{language_code}")
@@ -154,4 +166,4 @@ def update_profile(
 
     db.commit()
     db.refresh(profile)
-    return _profile_payload(profile, language, ui_prefs)
+    return _profile_payload(profile, language, ui_prefs, language_access_state(db, user.id, language.code))

@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { LanguageAccessState } from "@/components/language-access";
 
-type Profile = { language_code: string; is_active: boolean };
+type Profile = {
+  language_code: string;
+  is_active: boolean;
+  access_state?: LanguageAccessState;
+};
 
 /**
  * Idioma ativo do usuário, com fallback silencioso para inglês.
@@ -18,8 +23,11 @@ export function useActiveLanguage(): { code: string; resolved: boolean } {
     api<{ profiles: Profile[] }>("/api/v1/language-profiles")
       .then((response) => {
         if (!active) return;
+        const accessibleProfiles = response.profiles.filter(
+          (item) => item.access_state !== "locked",
+        );
         const profile =
-          response.profiles.find((item) => item.is_active) ?? response.profiles[0];
+          accessibleProfiles.find((item) => item.is_active) ?? accessibleProfiles[0];
         if (profile) setCode(profile.language_code);
       })
       .catch(() => {})

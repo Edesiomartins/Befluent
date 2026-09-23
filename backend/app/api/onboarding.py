@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.curriculum import GeneratedFrom
 from app.core.database import get_db
 from app.core.deps import current_user
@@ -20,6 +21,7 @@ from app.models import (
 )
 from app.schemas import OnboardingIn
 from app.services.curriculum_generator import ensure_active_curriculum, hydrate_skill_levels
+from app.services.language_access import ensure_legacy_language_entitlement, user_can_access_language
 
 router = APIRouter(prefix="/onboarding", tags=["onboarding"])
 
@@ -55,6 +57,8 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
     lang = db.scalar(select(Language).where(Language.code == data.language_code))
     if not lang:
         raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    if not user_can_access_language(db, user.id, lang.code):
+        raise APIError(403, "language_locked", "Idioma bloqueado para este usuário.")
 
     level = data.resolved_level
     choice = data.resolved_choice
@@ -78,6 +82,8 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
         ul = UserLanguage(user_id=user.id, language_id=lang.id)
         db.add(ul)
         db.flush()
+    if not get_settings().language_entitlements_enabled:
+        ensure_legacy_language_entitlement(db, user.id, lang.id)
 
     ul.level_estimate = level or cefr_level
     ul.onboarding_completed = True

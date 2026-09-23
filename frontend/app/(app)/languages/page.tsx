@@ -5,6 +5,10 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { Button, EmptyState, Loading } from "@/components/ui";
 import { levelShortCode } from "@/lib/levels";
+import {
+  LanguageAccessBadge,
+  type LanguageAccessState,
+} from "@/components/language-access";
 
 type CatalogLanguage = {
   id: string;
@@ -12,6 +16,7 @@ type CatalogLanguage = {
   name_pt: string;
   native_name: string;
   description?: string;
+  access_state: LanguageAccessState;
 };
 
 type MineLanguage = CatalogLanguage & {
@@ -115,6 +120,8 @@ export default function LanguagesPage() {
           {catalog.map((language) => {
             const owned = mineByCode.get(language.code);
             const isActive = activeCode === language.code;
+            const accessState = owned?.access_state ?? language.access_state ?? "available";
+            const isLocked = accessState === "locked";
             const level =
               levelShortCode(owned?.current_level) ||
               owned?.level_estimate ||
@@ -153,6 +160,7 @@ export default function LanguagesPage() {
                 </div>
                 {isActive ? (
                   <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <LanguageAccessBadge state={accessState} />
                     <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-success">
                       <span className="size-2 rounded-full bg-success" aria-hidden />
                       Ativo
@@ -170,9 +178,10 @@ export default function LanguagesPage() {
                   <Button
                     variant="secondary"
                     loading={saving === language.code}
+                    disabled={isLocked}
                     onClick={() => void activate(language.code)}
                   >
-                    Estudar este idioma
+                    {isLocked ? "Idioma bloqueado" : "Estudar este idioma"}
                   </Button>
                 )}
               </article>

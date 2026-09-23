@@ -1,4 +1,5 @@
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -81,6 +82,9 @@ class ResetPasswordIn(BaseModel):
 
 class LanguageActivate(BaseModel):
     code: str
+
+
+LanguageAccessState = Literal["available", "entitled", "locked"]
 
 
 LEVEL_CHOICES = {"beginner", "take_test", "self_declared", "later"}
