@@ -418,6 +418,60 @@ def test_curriculum_rejects_lesson_ref_from_another_profile_without_enrollment(
     assert _persistence_snapshot(db_session) == before
 
 
+def test_curriculum_vocabulary_handles_legacy_lesson_with_non_mapping_root(
+    client, auth, db_session
+):
+    profile = _profile(db_session)
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    legacy = Lesson(
+        user_language_id=profile.id,
+        title="Lição legada inválida",
+        objective="Continuar sem erro interno",
+        status="active",
+        content_json=["formato", "antigo"],
+    )
+    db_session.add(legacy)
+    db_session.flush()
+    block.lesson_ref = legacy.id
+    db_session.commit()
+
+    response = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["lesson"] == {"lesson_id": legacy.id}
+    assert body["teaching"]["status"] == "no_vocabulary_due"
+    assert db_session.scalar(select(func.count(VocabularyItem.id))) == 0
+
+
+def test_curriculum_orphan_lesson_ref_regenerates_owned_lesson(
+    client, auth, db_session
+):
+    profile = _profile(db_session)
+    curriculum = generate_curriculum(db_session, profile.id, 90)
+    block = _first_vocabulary_block(db_session, curriculum.id)
+    orphan_id = "00000000-0000-0000-0000-000000000404"
+    block.lesson_ref = orphan_id
+    db_session.commit()
+
+    response = client.post(
+        f"/api/v1/curriculum/block/{block.id}/start", headers=auth
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    generated_id = body["lesson"]["lesson_id"]
+    assert generated_id != orphan_id
+    generated = db_session.get(Lesson, generated_id)
+    assert generated is not None
+    assert generated.user_language_id == profile.id
+    db_session.refresh(block)
+    assert block.lesson_ref == generated_id
+
+
 def test_curriculum_no_due_rolls_back_examples_memory_progress_and_flow(
     client, auth, db_session
 ):
