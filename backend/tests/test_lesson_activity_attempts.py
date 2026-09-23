@@ -363,6 +363,7 @@ def test_concurrent_submits_only_one_wins(db_session, admin):
 
 
 def test_retry_variant_without_two_patterns():
+    """Sem padrão alternativo genuíno → fallback_continue (não embaralha a mesma MCQ)."""
     activity = {
         "type": "multiple_choice",
         "prompt": "Pick",
@@ -372,11 +373,9 @@ def test_retry_variant_without_two_patterns():
     }
     variant = build_retry_variant(activity, patterns=[{"canonical": "A"}])
     assert variant.get("post_reveal") is True
-    assert variant.get("retry_strategy") in {
-        "recontextualized_same_skill",
-        "fallback_continue",
-    }
-    assert variant.get("retry_safe") is not False or variant.get("type") == "recognition"
+    assert variant.get("retry_strategy") == "fallback_continue"
+    assert variant.get("retry_safe") is False
+    assert variant.get("type") == "recognition"
 
 
 def test_grammar_bank_has_option_rationales():

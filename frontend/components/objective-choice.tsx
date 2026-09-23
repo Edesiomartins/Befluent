@@ -325,11 +325,14 @@ export function ObjectiveChoice({
 
   async function startRetry() {
     if (!lessonId || !retry?.available || !retry.activity?.options?.length) return;
+    const nextPrompt = (retry.activity.prompt || "").trim();
+    if (!nextPrompt) return;
     setDisplayQuestion({
-      prompt: retry.activity.prompt || displayQuestion.prompt,
+      prompt: nextPrompt,
       options: retry.activity.options,
       rationale: retry.activity.rationale,
       option_rationales: retry.activity.option_rationales,
+      is_retry_variant: true,
     });
     setSelected("");
     setFeedback(null);
@@ -414,7 +417,7 @@ export function ObjectiveChoice({
       {showContinueFallback && (
         <p className="mt-3 text-sm text-text-secondary" role="status">
           {retry?.message ||
-            "Não há variante segura agora. Continue o percurso; o erro fica para revisão."}
+            "Continue o percurso; este ponto ficará marcado para revisão futura."}
         </p>
       )}
       {restoreError && (

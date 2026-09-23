@@ -15,6 +15,11 @@ from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.models import Lesson, LessonActivityAttempt, UserLanguage
 from app.services.answer_feedback import build_answer_feedback
+from app.services.question_identity import (
+    content_fingerprint,
+    fingerprints_from_snapshots,
+    question_fingerprint,
+)
 
 
 def make_activity_key(surface: str, kind: str, index: int) -> str:
@@ -132,28 +137,57 @@ def attempt_to_dict(attempt: LessonActivityAttempt) -> dict[str, Any]:
     }
 
 
+def _seen_question_fingerprints(
+    db: Session, *, lesson_id: str, activity_key: str
+) -> frozenset[str]:
+    attempts = list(
+        db.scalars(
+            select(LessonActivityAttempt).where(
+                LessonActivityAttempt.lesson_id == lesson_id,
+                LessonActivityAttempt.activity_key == activity_key,
+            )
+        )
+    )
+    return fingerprints_from_snapshots(
+        [attempt.question_snapshot_json for attempt in attempts]
+    )
+
+
 def _build_legacy_retry_activity(
     *,
     content: dict[str, Any],
     activity_key: str,
     current: dict[str, Any],
+    seen_fingerprints: frozenset[str] | set[str] | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
-    """Hierarquia: outro item da lição → banco curado → fallback seguro."""
+    """Hierarquia: outro item da lição → banco curado da mesma faixa → continuar.
+
+    Nunca reapresenta uma questão cujo fingerprint já aparece no histórico
+    desta activity_key. Embaralhar opções não conta como variante.
+    """
     from app.services import lesson_bank
 
-    surface, kind, index = parse_activity_key(activity_key)
+    surface, kind, _index = parse_activity_key(activity_key)
     pool_key = "exercises" if kind == "exercise" else "questions"
     pool = [x for x in (content.get(pool_key) or []) if isinstance(x, dict)]
-    current_prompt = str(current.get("prompt") or "")
-    current_answer = str(current.get("answer") or "")
+    seen = set(seen_fingerprints or ())
+    current_fp = question_fingerprint(current)
+    if current_fp:
+        seen.add(current_fp)
+    current_content = content_fingerprint(current)
+    if current_content:
+        seen.add(current_content)
 
     def _usable(candidate: dict[str, Any]) -> bool:
-        return bool(
-            candidate.get("prompt") != current_prompt
-            and candidate.get("answer")
-            and candidate.get("options")
-            and str(candidate.get("answer")) != current_answer
-        )
+        if not candidate.get("answer") or not candidate.get("options"):
+            return False
+        fingerprint = question_fingerprint(candidate)
+        content = content_fingerprint(candidate)
+        if content and content in seen:
+            return False
+        if fingerprint and fingerprint in seen:
+            return False
+        return bool(fingerprint or content)
 
     for candidate in pool:
         if _usable(candidate):
@@ -162,22 +196,19 @@ def _build_legacy_retry_activity(
             variant["is_retry_variant"] = True
             return variant, "lesson_sibling"
 
-    # Banco curado (grammar): outro exercício do mesmo idioma em outra faixa.
+    # Banco curado: mesma faixa/nível. Sem faixa explícita ou outra CEFR → não.
     if kind == "exercise":
         language_code = str(content.get("language_code") or "")
-        if language_code in lesson_bank.SUPPORTED_LANGUAGES:
-            band = str(content.get("band") or content.get("level_band") or "")
-            for other_band in lesson_bank.ALL_BANDS:
-                if band and other_band == band:
-                    continue
-                for candidate in lesson_bank.grammar_exercises(language_code, other_band):
-                    if isinstance(candidate, dict) and _usable(candidate):
-                        variant = dict(candidate)
-                        variant["post_reveal"] = True
-                        variant["is_retry_variant"] = True
-                        return variant, "curated_bank"
+        band = str(content.get("band") or content.get("level_band") or "")
+        if language_code in lesson_bank.SUPPORTED_LANGUAGES and band:
+            for candidate in lesson_bank.grammar_exercises(language_code, band):
+                if isinstance(candidate, dict) and _usable(candidate):
+                    variant = dict(candidate)
+                    variant["post_reveal"] = True
+                    variant["is_retry_variant"] = True
+                    return variant, "curated_bank"
 
-    _ = surface, index
+    _ = surface
     return None, "fallback_continue"
 
 
@@ -206,8 +237,14 @@ def prepare_retry(
     snap = latest.question_snapshot_json or {}
     if snap.get("options") and snap.get("answer"):
         current = snap
+    seen = _seen_question_fingerprints(
+        db, lesson_id=lesson.id, activity_key=activity_key
+    )
     variant, strategy = _build_legacy_retry_activity(
-        content=content, activity_key=activity_key, current=current
+        content=content,
+        activity_key=activity_key,
+        current=current,
+        seen_fingerprints=seen,
     )
     feedback = dict(latest.feedback_json or {})
     if variant:
@@ -232,8 +269,7 @@ def prepare_retry(
             "strategy": strategy,
             "activity": None,
             "message": (
-                "Não há variante segura agora. Continue o percurso; "
-                "o erro fica marcado para revisão futura."
+                "Continue o percurso; este ponto ficará marcado para revisão futura."
             ),
         }
         feedback.pop("retry_activity", None)
@@ -330,8 +366,22 @@ def submit_objective_answer(
     }
     retry_activity_full: dict[str, Any] | None = None
     if not is_correct:
+        seen = set(
+            _seen_question_fingerprints(
+                db, lesson_id=lesson.id, activity_key=activity_key
+            )
+        )
+        for marker in (
+            question_fingerprint(question),
+            content_fingerprint(question),
+        ):
+            if marker:
+                seen.add(marker)
         variant, strategy = _build_legacy_retry_activity(
-            content=content, activity_key=activity_key, current=question
+            content=content,
+            activity_key=activity_key,
+            current=question,
+            seen_fingerprints=seen,
         )
         if variant:
             retry_activity_full = variant
@@ -353,8 +403,7 @@ def submit_objective_answer(
                 "strategy": strategy,
                 "activity": None,
                 "message": (
-                    "Não há variante segura agora. Continue o percurso; "
-                    "o erro fica marcado para revisão futura."
+                    "Continue o percurso; este ponto ficará marcado para revisão futura."
                 ),
             }
 

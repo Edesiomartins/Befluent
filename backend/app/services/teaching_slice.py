@@ -33,9 +33,49 @@ from app.services.answer_feedback import (
     option_texts,
 )
 from app.services.objective_seed import ensure_en_a1_can_001
+from app.services.question_identity import content_fingerprint, question_fingerprint
 from app.services.session_progress import session_progress_from_flow
 
 logger = logging.getLogger(__name__)
+
+
+def _seen_retry_fingerprints(payload: dict[str, Any]) -> set[str]:
+    raw = payload.get("seen_question_fingerprints") or []
+    return {str(item) for item in raw if item}
+
+
+def _record_seen_question(
+    payload: dict[str, Any], activity: dict[str, Any] | None
+) -> set[str]:
+    """Acumula fingerprints já apresentados nesta sessão/objetivo."""
+    seen = _seen_retry_fingerprints(payload)
+    for marker in (
+        question_fingerprint(activity),
+        content_fingerprint(activity),
+    ):
+        if marker:
+            seen.add(marker)
+    payload["seen_question_fingerprints"] = sorted(seen)
+    return seen
+
+
+def _set_retry_activity(
+    payload: dict[str, Any],
+    activity: dict[str, Any],
+    patterns: list[dict],
+) -> dict[str, Any]:
+    seen = _record_seen_question(payload, activity)
+    # Também registrar a variante atual (se já era um retry).
+    current_retry = payload.get("retry_activity")
+    if isinstance(current_retry, dict):
+        seen = _record_seen_question(payload, current_retry)
+    variant = build_retry_variant(
+        activity, patterns, seen_fingerprints=seen
+    )
+    payload["retry_activity"] = variant
+    if variant.get("retry_safe") is not False:
+        _record_seen_question(payload, variant)
+    return variant
 
 #: Fases da atividade → fase do flow (quando a resposta é correta).
 _SUCCESS_PHASE: dict[str, str] = {
@@ -372,7 +412,7 @@ def submit_slice_answer(
             payload = dict(session.payload_json or {})
             payload["pending_remediation"] = remediation_payload
             payload["last_answer_feedback"] = answer_feedback
-            payload["retry_activity"] = build_retry_variant(activity, patterns)
+            _set_retry_activity(payload, activity, patterns)
             session.payload_json = payload
             db.flush()
     else:
@@ -556,7 +596,7 @@ def retry_slice(
         payload = dict(session.payload_json or {})
         payload["pending_remediation"] = remediation_payload
         payload["last_answer_feedback"] = answer_feedback
-        payload["retry_activity"] = build_retry_variant(activity, patterns)
+        _set_retry_activity(payload, activity, patterns)
         session.payload_json = payload
         db.flush()
 

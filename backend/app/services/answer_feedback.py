@@ -8,6 +8,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.services.question_identity import (
+    content_fingerprint,
+    is_same_question,
+    normalize_question_text,
+    question_fingerprint,
+)
+
 
 def _option_entries(activity: dict[str, Any]) -> list[dict[str, str]]:
     """Normaliza `options` (str ou {id,text,rationale}) para entradas tipadas."""
@@ -113,126 +120,146 @@ def option_texts(activity: dict[str, Any]) -> list[str]:
     return [entry["text"] for entry in _option_entries(activity)]
 
 
-def build_retry_variant(activity: dict[str, Any], patterns: list[dict] | None = None) -> dict[str, Any]:
-    """Variante da mesma distinção para retry pós-revelação.
+def _fallback_continue(activity: dict[str, Any], *, message: str | None = None) -> dict[str, Any]:
+    """Ack de continuidade — não reabre item já revelado."""
+    return {
+        "type": "recognition",
+        "phase_hint": activity.get("phase_hint") or "practicing",
+        "prompt_pt": message
+        or (
+            "Continue o percurso; este ponto ficará marcado para revisão futura."
+        ),
+        "title_pt": "Continuar após o feedback",
+        "examples": [],
+        "ai_required": False,
+        "post_reveal": True,
+        "is_retry_variant": True,
+        "retry_safe": False,
+        "retry_strategy": "fallback_continue",
+    }
 
-    Hierarquia:
-    1. Outro padrão do objetivo (variante determinística)
-    2. Mesmo padrão com prompt/contexto reformulado (ainda post_reveal)
-    3. Fallback seguro: marca `retry_safe=False` — UI deve oferecer Continuar,
-       não desbloquear a questão revelada nem fabricar falso acerto.
 
-    Em todos os casos com conteúdo reapresentado, `post_reveal=True` impede
-    CORRECT_RESPONSE forte (só ERROR_REPAIRED no TE V2).
-    """
-    patterns = patterns or []
-    base_meta = {
+def _mcq_from_pattern(
+    activity: dict[str, Any],
+    pattern: dict[str, Any],
+    patterns: list[dict],
+    *,
+    strategy: str,
+) -> dict[str, Any]:
+    canonical = pattern.get("canonical") or activity.get("canonical_answer")
+    accepted = list(pattern.get("accepted") or [canonical])
+    distractors = [
+        p.get("canonical")
+        for p in patterns
+        if p.get("canonical") and p.get("canonical") != canonical
+    ][:3]
+    options = [canonical, *[d for d in distractors if d]]
+    return {
+        **dict(activity),
         "post_reveal": True,
         "is_retry_variant": True,
         "retry_safe": True,
-        "retry_strategy": "none",
+        "retry_strategy": strategy,
+        "prompt_pt": "Nova situação — escolha a frase correta para o mesmo objetivo.",
+        "prompt": "New context — choose the correct sentence for the same skill.",
+        "options": options[:4],
+        "canonical_answer": canonical,
+        "accepted_variants": accepted,
+        "correct_explanation": (
+            f"O padrão alvo continua o mesmo; a forma adequada é «{canonical}»."
+        ),
+        "remember_pt": activity.get("scaffold_pt")
+        or activity.get("remember_pt")
+        or "Aplique a mesma estrutura em um contexto novo.",
     }
 
+
+def build_retry_variant(
+    activity: dict[str, Any],
+    patterns: list[dict] | None = None,
+    *,
+    seen_fingerprints: frozenset[str] | set[str] | None = None,
+) -> dict[str, Any]:
+    """Variante da mesma distinção para retry pós-revelação.
+
+    Hierarquia:
+    1. Outro padrão do objetivo ainda não visto (variante determinística)
+    2. Fallback seguro: `retry_safe=False` + `fallback_continue`
+
+    Embaralhar alternativas ou repetir o mesmo prompt/gabarito NÃO conta
+    como questão nova. `post_reveal=True` impede evidência forte de 1ª tentativa.
+    """
+    patterns = patterns or []
+    seen = set(seen_fingerprints or ())
+    for marker in (
+        question_fingerprint(activity),
+        content_fingerprint(activity),
+    ):
+        if marker:
+            seen.add(marker)
+
+    def _is_fresh(candidate: dict[str, Any]) -> bool:
+        if is_same_question(candidate, activity):
+            return False
+        fp = question_fingerprint(candidate)
+        content = content_fingerprint(candidate)
+        if content and content in seen:
+            return False
+        if fp and fp in seen:
+            return False
+        return bool(fp or content)
+
     if activity.get("type") == "multiple_choice":
-        if len(patterns) >= 2:
-            alt = patterns[1]
-            canonical = alt.get("canonical") or activity.get("canonical_answer")
-            accepted = list(alt.get("accepted") or [canonical])
-            distractors = [
-                p.get("canonical")
-                for p in patterns
-                if p.get("canonical") and p.get("canonical") != canonical
-            ][:3]
-            options = [canonical, *[d for d in distractors if d]]
-            return {
-                **dict(activity),
-                **base_meta,
-                "retry_strategy": "deterministic_variant",
-                "prompt_pt": "Nova situação — escolha a frase correta para o mesmo objetivo.",
-                "prompt": "New context — choose the correct sentence for the same skill.",
-                "options": options[:4],
-                "canonical_answer": canonical,
-                "accepted_variants": accepted,
-                "correct_explanation": (
-                    f"O padrão alvo continua o mesmo; a forma adequada é «{canonical}»."
-                ),
-                "remember_pt": activity.get("scaffold_pt")
-                or activity.get("remember_pt")
-                or "Aplique a mesma estrutura em um contexto novo.",
-            }
-
-        # Um único pattern: reformular apresentação sem revelar pela forma idêntica.
-        canonical = activity.get("canonical_answer") or (
-            (activity.get("accepted_variants") or [None])[0]
+        current_answer = normalize_question_text(
+            activity.get("canonical_answer")
+            or ((activity.get("accepted_variants") or [None])[0])
         )
-        if canonical:
-            opts = option_texts(activity)
-            # Reordenar opções para reduzir “mesma posição = resposta”.
-            rotated = list(reversed(opts)) if len(opts) > 1 else opts
-            return {
-                **dict(activity),
-                **base_meta,
-                "retry_strategy": "recontextualized_same_skill",
-                "prompt_pt": (
-                    "Nova tentativa do mesmo objetivo — escolha a forma adequada "
-                    "(a questão anterior permanece fechada)."
-                ),
-                "prompt": activity.get("prompt") or "Choose the correct form.",
-                "options": rotated,
-                "canonical_answer": canonical,
-                "correct_explanation": activity.get("correct_explanation")
-                or f"A forma adequada continua sendo «{canonical}».",
-                "remember_pt": activity.get("remember_pt")
-                or activity.get("scaffold_pt")
-                or "Foque na estrutura, não na posição da opção.",
-            }
+        # Tentar cada padrão alternativo — nunca o gabarito já revelado.
+        if len(patterns) >= 2:
+            for alt in patterns:
+                alt_canonical = normalize_question_text(alt.get("canonical"))
+                if not alt_canonical or alt_canonical == current_answer:
+                    continue
+                candidate = _mcq_from_pattern(
+                    activity,
+                    alt,
+                    patterns,
+                    strategy="deterministic_variant",
+                )
+                if _is_fresh(candidate):
+                    return candidate
 
-        # Continuar sem reabrir MCQ revelada (reconhecimento / ack).
-        return {
-            "type": "recognition",
-            "phase_hint": activity.get("phase_hint") or "practicing",
-            "prompt_pt": (
-                "Não há variante segura agora. Leia a correção acima e continue — "
-                "a questão anterior permanece fechada."
-            ),
-            "title_pt": "Continuar após o feedback",
-            "examples": [],
-            "ai_required": False,
-            **base_meta,
-            "retry_strategy": "fallback_continue",
-        }
+        # Um único pattern (ou todos esgotados): NÃO embaralhar a mesma MCQ.
+        return _fallback_continue(activity)
 
     if activity.get("type") == "fill_gap" and patterns:
-        alt = patterns[min(1, len(patterns) - 1)]
-        canonical = str(alt.get("canonical") or activity.get("canonical_answer") or "")
-        tokens = canonical.split()
-        if len(tokens) >= 2:
+        for index, alt in enumerate(patterns):
+            canonical = str(alt.get("canonical") or "")
+            tokens = canonical.split()
+            if len(tokens) < 2:
+                continue
             answer = tokens[-1].rstrip(".,!?")
             stem = " ".join(tokens[:-1]) + " ___."
-            return {
+            candidate = {
                 **dict(activity),
-                **base_meta,
-                "retry_strategy": "deterministic_variant"
-                if len(patterns) >= 2
-                else "recontextualized_same_skill",
+                "post_reveal": True,
+                "is_retry_variant": True,
+                "retry_safe": True,
+                "retry_strategy": (
+                    "deterministic_variant"
+                    if len(patterns) >= 2
+                    else "recontextualized_same_skill"
+                ),
                 "prompt": stem,
                 "prompt_pt": "Complete a nova frase (mesmo padrão).",
                 "canonical_answer": answer,
                 "accepted_variants": [answer, answer.lower()],
                 "correct_explanation": f"A lacuna pede «{answer}» neste padrão.",
             }
+            if index == 0 and is_same_question(candidate, activity):
+                continue
+            if _is_fresh(candidate):
+                return candidate
+        return _fallback_continue(activity)
 
-    # Fallback pedagógico seguro: ack de continuidade, sem reabrir item revelado.
-    return {
-        "type": "recognition",
-        "phase_hint": activity.get("phase_hint") or "practicing",
-        "prompt_pt": (
-            "Não há variante segura para nova tentativa agora. "
-            "Continue; o erro fica registrado para revisão futura."
-        ),
-        "title_pt": "Continuar após o feedback",
-        "examples": [],
-        "ai_required": False,
-        **base_meta,
-        "retry_strategy": "fallback_continue",
-    }
+    return _fallback_continue(activity)

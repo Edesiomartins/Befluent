@@ -207,4 +207,194 @@ describe("ObjectiveChoice — tentativa única (backend)", () => {
     expect(screen.getByRole("radio", { name: /Who/i })).toBeChecked();
     expect(screen.getByText(/resposta incorreta/i)).toBeInTheDocument();
   });
+
+  it("ao clicar Nova tentativa, troca a questão pela variante do backend", async () => {
+    apiMock
+      .mockResolvedValueOnce({ attempts: [] })
+      .mockResolvedValueOnce({
+        attempt_id: "a1",
+        activity_key: "reading:question:0",
+        attempt_number: 1,
+        submitted: true,
+        correct: false,
+        selected_answer: "Porque é mais caro",
+        correct_answer: "Porque evita engarrafamentos",
+        feedback: {
+          is_correct: false,
+          selected: "Porque é mais caro",
+          correct_option: "Porque evita engarrafamentos",
+          why_correct: "O texto liga velocidade à ausência de engarrafamentos.",
+        },
+        retry: {
+          available: true,
+          strategy: "lesson_sibling",
+          activity: {
+            prompt: "Qual vantagem o texto destaca para o ciclista na cidade?",
+            options: ["Contornar o trânsito", "Gastar mais combustível", "Ser obrigatório"],
+            is_retry_variant: true,
+          },
+        },
+      });
+
+    render(
+      <ObjectiveChoice
+        lessonId="lesson-retry-1"
+        surface="reading"
+        kind="question"
+        question={{
+          prompt: "Segundo o texto, por que a bicicleta pode ser mais rápida na cidade?",
+          options: [
+            "Porque evita engarrafamentos",
+            "Porque é mais caro",
+            "Porque consome mais gasolina",
+          ],
+          answer: "Porque evita engarrafamentos",
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByLabelText("Porque é mais caro"));
+    fireEvent.click(screen.getByRole("button", { name: /enviar resposta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /nova tentativa/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /nova tentativa/i }));
+
+    expect(
+      screen.getByText("Qual vantagem o texto destaca para o ciclista na cidade?"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        "Segundo o texto, por que a bicicleta pode ser mais rápida na cidade?",
+      ),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Contornar o trânsito")).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /nova tentativa/i })).not.toBeInTheDocument();
+  });
+
+  it("não mostra Nova tentativa quando retry.available=false", async () => {
+    apiMock
+      .mockResolvedValueOnce({ attempts: [] })
+      .mockResolvedValueOnce({
+        attempt_id: "a1",
+        activity_key: "reading:question:0",
+        attempt_number: 1,
+        submitted: true,
+        correct: false,
+        selected_answer: "B",
+        correct_answer: "A",
+        feedback: {
+          is_correct: false,
+          selected: "B",
+          correct_option: "A",
+          why_correct: "A é a forma adequada.",
+        },
+        retry: {
+          available: false,
+          strategy: "fallback_continue",
+          message:
+            "Continue o percurso; este ponto ficará marcado para revisão futura.",
+        },
+      });
+
+    render(
+      <ObjectiveChoice
+        lessonId="lesson-retry-2"
+        surface="reading"
+        kind="question"
+        question={{
+          prompt: "Pergunta única",
+          options: ["A", "B"],
+          answer: "A",
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(apiMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByLabelText("B"));
+    fireEvent.click(screen.getByRole("button", { name: /enviar resposta/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/resposta incorreta/i)).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("button", { name: /nova tentativa/i })).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/continue o percurso; este ponto ficará marcado/i),
+    ).toBeInTheDocument();
+  });
+
+  it("restore mantém a última tentativa sem ressuscitar questão já usada", async () => {
+    apiMock.mockResolvedValue({
+      attempts: [
+        {
+          attempt_id: "a2",
+          activity_key: "reading:question:0",
+          attempt_number: 2,
+          submitted: true,
+          correct: false,
+          selected_answer: "Opção errada B",
+          correct_answer: "Resposta B",
+          feedback: {
+            is_correct: false,
+            selected: "Opção errada B",
+            correct_option: "Resposta B",
+            why_correct: "Explicação B.",
+          },
+          question_snapshot: {
+            prompt: "Variante B já apresentada",
+            options: ["Resposta B", "Opção errada B"],
+          },
+          retry: {
+            available: false,
+            strategy: "fallback_continue",
+            message: "Continue o percurso; este ponto ficará marcado para revisão futura.",
+          },
+        },
+        {
+          attempt_id: "a1",
+          activity_key: "reading:question:0",
+          attempt_number: 1,
+          submitted: true,
+          correct: false,
+          selected_answer: "Opção errada A",
+          correct_answer: "Resposta A",
+          feedback: {
+            is_correct: false,
+            selected: "Opção errada A",
+            correct_option: "Resposta A",
+            why_correct: "Explicação A.",
+          },
+          question_snapshot: {
+            prompt: "Questão A original",
+            options: ["Resposta A", "Opção errada A"],
+          },
+        },
+      ],
+    });
+
+    render(
+      <ObjectiveChoice
+        lessonId="lesson-retry-3"
+        surface="reading"
+        kind="question"
+        question={{
+          prompt: "Questão A original",
+          options: ["Resposta A", "Opção errada A"],
+          answer: "Resposta A",
+        }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/resposta incorreta/i)).toBeInTheDocument();
+    });
+    // Restaura a tentativa mais recente (nº 2), não a questão A.
+    expect(screen.getByText("Variante B já apresentada")).toBeInTheDocument();
+    expect(screen.queryByText("Questão A original")).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Opção errada B/i })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Opção errada B/i })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /nova tentativa/i })).not.toBeInTheDocument();
+  });
 });
