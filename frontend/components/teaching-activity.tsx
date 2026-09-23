@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChoiceFeedbackPanel } from "@/components/objective-choice";
+import { NoticingWhy } from "@/components/noticing-why";
 import { AudioPlayer, Recorder } from "@/components/study";
 import type { AnswerFeedback, TeachingActivity } from "@/types/teaching";
 
@@ -32,6 +33,7 @@ export function TeachingActivityBody({
         {activity.prompt_pt && (
           <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
         )}
+        <NoticingWhy why={activity.why_pt} examples={activity.examples} />
         <div>
           <p className="label">Expressão</p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
@@ -198,6 +200,7 @@ export function TeachingActivityBody({
     return (
       <div className="space-y-4">
         <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        <NoticingWhy why={activity.why_pt} examples={activity.examples} />
         {activity.title_pt && (
           <p className="text-lg font-semibold text-text-primary">{activity.title_pt}</p>
         )}

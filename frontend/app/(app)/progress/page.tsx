@@ -6,6 +6,7 @@ import { api, ApiError } from "@/lib/api";
 import { EmptyState, Loading } from "@/components/ui";
 import { ProgressActivityChart, type DailyActivity } from "@/components/progress-activity-chart";
 import { MasteryProgressChart, type MasteryTimelinePoint } from "@/components/mastery-progress-chart";
+import { AchievementCelebration, LanguageProgressPanel, type LanguageProgress } from "@/components/language-progress-panel";
 import { levelShortCode } from "@/lib/levels";
 
 type MasteryData = {
@@ -43,6 +44,9 @@ type ProgressData = {
     goal: string | null;
     skills: string[];
   } | null;
+  language_progress?: LanguageProgress & {
+    celebrations?: Array<{ event_type: string; payload: { title?: string; to_code?: string; to_level?: string } }>;
+  };
 };
 
 const skillLabels: Record<string, string> = {
@@ -82,6 +86,9 @@ export default function ProgressPage() {
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
   const [periodDays, setPeriodDays] = useState<7 | 30>(7);
+  const [celebrations, setCelebrations] = useState<
+    Array<{ event_type: string; payload: { title?: string; to_code?: string; to_level?: string } }>
+  >([]);
 
   useEffect(() => {
     let active = true;
@@ -89,7 +96,10 @@ export default function ProgressPage() {
     setError("");
     api<ProgressData>(periodDays === 7 ? "/api/v1/progress" : "/api/v1/progress?days=30")
       .then((payload) => {
-        if (active) setData(payload);
+        if (active) {
+          setData(payload);
+          setCelebrations(payload.language_progress?.celebrations ?? []);
+        }
       })
       .catch((caught) => {
         if (!active) return;
@@ -189,7 +199,7 @@ export default function ProgressPage() {
             <div className="rounded-xl border border-border bg-surface-soft px-4 py-3 sm:text-right">
               <p className="text-xs text-text-secondary">Caminho CEFR</p>
               <p className="mt-1 font-display text-2xl leading-none">{mastery.cefr.current} → {mastery.cefr.next}</p>
-              <p className="mt-2 text-xs text-text-secondary">{mastery.cefr.readiness_percent}% de prontidão</p>
+              <p className="mt-2 text-xs text-text-secondary">Faixa registrada no perfil. O estudo de hoje não promove o nível sozinho.</p>
             </div>
           )}
         </div>
@@ -215,6 +225,16 @@ export default function ProgressPage() {
         )}
         {hasDemonstratedMastery && <MasteryProgressChart timeline={mastery.timeline} />}
       </section>
+
+      {data?.language_progress && <LanguageProgressPanel progress={data.language_progress} />}
+      {celebrations[0] && (
+        <AchievementCelebration
+          kind={celebrations[0].event_type === "cefr_level_advanced" ? "cefr" : "milestone"}
+          title={celebrations[0].payload.to_level ?? celebrations[0].payload.to_code ?? celebrations[0].payload.title ?? ""}
+          detail={celebrations[0].payload.title}
+          onClose={() => setCelebrations((current) => current.slice(1))}
+        />
+      )}
 
       <section className="panel mt-8 grid grid-cols-2 divide-border md:grid-cols-4 md:divide-x" aria-label="Métricas de hábito">
         {[

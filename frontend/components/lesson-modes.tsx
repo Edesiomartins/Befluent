@@ -14,6 +14,7 @@ import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
+import { SessionProgress } from "@/components/session-progress";
 import { Button, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { visibleContextualForm } from "@/lib/lexical-form";
@@ -533,6 +534,8 @@ function Vocabulary({
   const [response, setResponse] = useState("");
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [justCompleted, setJustCompleted] = useState(false);
+  const finishedSession = useRef<import("@/types/teaching").SliceSession | null>(null);
 
   useEffect(() => {
     if (!lesson.lesson_id || !enableCycle) {
@@ -633,6 +636,10 @@ function Vocabulary({
         },
       );
       setResponse("");
+      setJustCompleted(true);
+      if (next.status !== "active" || !next.current_activity) {
+        finishedSession.current = next;
+      }
       setCycle(
         next.status !== "active" || !next.current_activity
           ? { kind: "closed" }
@@ -676,12 +683,56 @@ function Vocabulary({
     );
   }
   if (cycle.kind === "closed") {
+    const finishedTotal = finishedSession.current?.activities_total;
     return (
       <div className="panel p-7 text-center" role="status">
-        <h2 className="text-xl font-semibold">Sessão de vocabulário concluída</h2>
+        <h2 className="text-xl font-semibold">Sessão concluída</h2>
         <p className="mt-3 text-sm leading-6 text-text-secondary">
-          Suas respostas foram registradas. Os itens que precisam de reforço voltarão depois.
+          Este bloco terminou. Os itens que precisam de reforço voltam depois.
         </p>
+        {finishedTotal ? (
+          <p className="mt-2 text-sm text-text-secondary">{finishedTotal} atividades neste bloco.</p>
+        ) : null}
+        <Button
+          className="mt-6"
+          onClick={() => {
+            if (!lesson.lesson_id) return;
+            setCycle({ kind: "loading" });
+            void api(`/api/v1/lessons/${lesson.lesson_id}/vocabulary-cycle/start`, {
+              method: "POST",
+              body: {},
+            })
+              .then((payload) => {
+                if (
+                  payload &&
+                  typeof payload === "object" &&
+                  (payload as { status?: string }).status === "no_vocabulary_due"
+                ) {
+                  setCycle({ kind: "no_due" });
+                  return;
+                }
+                if (isSliceSession(payload)) {
+                  const session = payload;
+                  setJustCompleted(false);
+                  setCycle(
+                    session.status !== "active" || !session.current_activity
+                      ? { kind: "closed" }
+                      : { kind: "active", session },
+                  );
+                  return;
+                }
+                setCycle({ kind: "legacy" });
+              })
+              .catch((caught) => {
+                setCycle({
+                  kind: "error",
+                  message: caught instanceof ApiError ? caught.message : "Não foi possível continuar.",
+                });
+              });
+          }}
+        >
+          Continuar estudando
+        </Button>
       </div>
     );
   }
@@ -689,12 +740,20 @@ function Vocabulary({
   const activity = cycle.session.current_activity;
   if (!activity) return null;
   const isPresentation = activity.type === "presentation";
+  const sessionProgress = cycle.session.session_progress;
+  const completed = sessionProgress?.completed ?? cycle.session.flow.activity_cursor;
+  const total = sessionProgress?.total ?? cycle.session.activities_total;
+  const percent = sessionProgress?.percent ?? (total ? Math.round((completed / total) * 100) : 0);
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-3 flex justify-between text-xs text-text-secondary">
-        <span>Atividade {cycle.session.flow.activity_cursor + 1} de {cycle.session.activities_total}</span>
-        <span>{cycle.session.flow.phase_label_pt}</span>
-      </div>
+      <SessionProgress
+        completed={completed}
+        total={total}
+        percent={percent}
+        currentLabel={sessionProgress?.current_label}
+        nextLabel={sessionProgress?.next_label}
+        justCompleted={justCompleted}
+      />
       <div className="panel p-7 sm:p-9">
         <TeachingActivityBody
           key={`${cycle.session.flow.id}-${cycle.session.flow.activity_cursor}`}

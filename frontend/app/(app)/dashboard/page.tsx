@@ -7,6 +7,7 @@ import { api, ApiError } from "@/lib/api";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 import { EmptyState } from "@/components/ui";
 import { ModeCard } from "@/components/mode-card";
+import { LanguageProgressPanel, type LanguageProgress } from "@/components/language-progress-panel";
 import { getMode } from "@/lib/modes";
 import { LEVEL_SOURCE_LABELS, levelShortCode } from "@/lib/levels";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -66,6 +67,7 @@ type DashboardData = {
     ended_at: string | null;
     minutes?: number;
   }>;
+  language_progress?: LanguageProgress | null;
 };
 
 // "voice" é o card "Conversação" do hub (ver lib/modes.ts) — o slug antigo
@@ -334,6 +336,8 @@ export default function DashboardPage() {
           ))}
         </dl>
       </header>
+
+      {data?.language_progress && <LanguageProgressPanel progress={data.language_progress} />}
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {today ? (

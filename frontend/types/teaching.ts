@@ -34,6 +34,7 @@ export type TeachingActivity = {
   can_do?: string;
   models?: string[];
   examples?: string[];
+  why_pt?: string | null;
   show_text?: boolean;
   tokens?: string[];
   options?: string[];
@@ -76,6 +77,13 @@ export type SliceSession = {
   progress_state: string;
   current_activity: TeachingActivity | null;
   activities_total: number;
+  session_progress?: {
+    completed: number;
+    total: number;
+    percent: number;
+    current_label: string | null;
+    next_label: string | null;
+  };
   attempt?: {
     id: string;
     result: string;

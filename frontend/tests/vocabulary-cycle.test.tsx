@@ -274,7 +274,8 @@ describe("ciclo lexical standalone", () => {
         },
       ),
     );
-    expect(await screen.findByText("Sessão de vocabulário concluída")).toBeInTheDocument();
+    expect(await screen.findByText("Sessão concluída")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Continuar estudando" })).toBeInTheDocument();
   });
 
   it("inicia quando ainda não há ciclo e mostra estado sem itens devidos", async () => {
