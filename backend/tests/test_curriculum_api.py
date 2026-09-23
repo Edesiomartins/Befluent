@@ -489,14 +489,21 @@ class TestReagendamento:
     def test_comprimir_nao_descarta_bloco_ja_concluido(self, client, auth, db_session):
         profile = setup_profile(db_session)
         curriculum = self._atrasado(db_session, profile)
-        day = first_day(db_session, curriculum)
         # Um bloco não essencial: seria descartado pela compressão se estivesse
         # pendente, mas concluído tem de sobreviver.
-        block = next(
-            b
-            for b in blocks_of(db_session, day)
-            if b.skill in {BlockSkill.CONVERSATION, BlockSkill.WRITING}
+        block = db_session.scalar(
+            select(CurriculumBlock)
+            .join(CurriculumDay, CurriculumDay.id == CurriculumBlock.day_id)
+            .join(CurriculumWeek, CurriculumWeek.id == CurriculumDay.week_id)
+            .where(
+                CurriculumWeek.curriculum_id == curriculum.id,
+                CurriculumBlock.skill.in_(
+                    {BlockSkill.CONVERSATION, BlockSkill.WRITING}
+                ),
+            )
+            .order_by(CurriculumDay.day_number, CurriculumBlock.position)
         )
+        assert block is not None
         client.post(f"/api/v1/curriculum/block/{block.id}/complete", headers=auth)
 
         client.post(

@@ -110,8 +110,10 @@ def test_first_exposure_goes_to_items_second_to_revisited():
     assert second["new_as_exposed_violations"] == []
 
 
-def test_revisited_does_not_create_srs_by_itself(client, auth, db_session):
-    """revisited_items no payload ≠ ReviewItem devido."""
+def test_starting_vocabulary_cycle_enrolls_items_before_completion(
+    client, auth, db_session
+):
+    """Task 5: iniciar o ciclo matricula itens; concluir não é mais o gatilho."""
     from app.models import ReviewItem
 
     profile = _b2_profile(db_session)
@@ -131,8 +133,9 @@ def test_revisited_does_not_create_srs_by_itself(client, auth, db_session):
             select(ReviewItem).where(ReviewItem.user_language_id == profile.id)
         )
     )
-    # Sem complete → nada na fila SRS só por gerar revisited.
-    assert due == []
+    assert due
+    assert start.json()["teaching"]["flow"]["id"]
+    assert start.json()["teaching"]["current_activity"]["type"] == "presentation"
 
 
 def test_item_never_returns_as_new_after_exposure():
@@ -248,11 +251,16 @@ def test_teaching_attempt_evidence_error_remediation_retry_transfer(
     db_session.commit()
     _, days = _week1_days(db_session, curriculum)
     day = days[0]
-    # Abrir até um bloco de produção se existir; senão vocabulary.
+    # Este teste cobre o fluxo objetivo. Vocabulário agora usa o fluxo lexical,
+    # coberto separadamente por test_vocabulary_cycle_api.py.
     blocks = _blocks(db_session, day)
     target = next(
         (b for b in blocks if b.skill == BlockSkill.CONVERSATION),
-        next(b for b in blocks if b.skill == BlockSkill.VOCABULARY),
+        next(
+            b
+            for b in blocks
+            if b.skill not in {BlockSkill.VOCABULARY, BlockSkill.REVIEW}
+        ),
     )
     # Desbloquear: completar anteriores
     for block in blocks:

@@ -8,7 +8,13 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
-from app.models import UserLanguage, VocabularyExample, VocabularyItem
+from app.core.teaching import MemorySubjectType
+from app.models import (
+    MemorySchedule,
+    UserLanguage,
+    VocabularyExample,
+    VocabularyItem,
+)
 from app.services import memory_engine
 
 
@@ -64,7 +70,8 @@ def enroll_item(
         .order_by(VocabularyItem.created_at.asc(), VocabularyItem.id.asc())
         .limit(1)
     )
-    if item is None:
+    created = item is None
+    if created:
         item = VocabularyItem(
             user_language_id=user_language_id,
             term=normalized_term,
@@ -108,9 +115,83 @@ def enroll_item(
             )
 
     db.flush()
-    memory_engine.update_vocabulary_memory(db, item=item)
+    schedule = db.scalar(
+        select(MemorySchedule).where(
+            MemorySchedule.user_language_id == user_language_id,
+            MemorySchedule.subject_type == MemorySubjectType.VOCABULARY,
+            MemorySchedule.subject_key == item.id,
+        )
+    )
+    if created or schedule is None:
+        memory_engine.update_vocabulary_memory(db, item=item)
     return item
 
 
 # Nome explícito para consumidores que preferem a entidade no verbo.
 enroll_vocabulary_item = enroll_item
+
+
+def enroll_lesson_content(
+    db: Session,
+    *,
+    user_language_id: str,
+    content: Mapping[str, object] | None,
+) -> list[VocabularyItem]:
+    """Matricula os itens válidos de uma lição, tolerando contratos antigos.
+
+    Itens incompletos são ignorados: uma lição antiga não pode derrubar a
+    sessão inteira por não ter exemplo, áudio ou os nomes de campo atuais.
+    """
+    enrolled: list[VocabularyItem] = []
+    raw_items = (content or {}).get("items")
+    if not isinstance(raw_items, list):
+        return enrolled
+
+    for raw in raw_items:
+        if not isinstance(raw, Mapping):
+            continue
+        term = raw.get("term")
+        translation = raw.get("translation_pt") or raw.get("translation")
+        if not isinstance(term, str) or not isinstance(translation, str):
+            continue
+
+        examples: list[dict[str, str | None]] = []
+        raw_examples = raw.get("examples")
+        if isinstance(raw_examples, list):
+            for example in raw_examples:
+                if not isinstance(example, Mapping):
+                    continue
+                examples.append(
+                    {
+                        "example_text": example.get("example_text")
+                        or example.get("example"),
+                        "translation_pt": example.get("translation_pt")
+                        or example.get("example_translation"),
+                        "audio_ref": example.get("audio_ref"),
+                    }
+                )
+        singular_example = raw.get("example_text") or raw.get("example")
+        if isinstance(singular_example, str):
+            examples.append(
+                {
+                    "example_text": singular_example,
+                    "translation_pt": raw.get("example_translation_pt")
+                    or raw.get("example_translation"),
+                    "audio_ref": raw.get("example_audio_ref"),
+                }
+            )
+
+        enrolled.append(
+            enroll_item(
+                db,
+                user_language_id=user_language_id,
+                term=term,
+                translation_pt=translation,
+                reading_or_pinyin=raw.get("reading_or_pinyin")
+                if isinstance(raw.get("reading_or_pinyin"), str)
+                else None,
+                notes=raw.get("notes") if isinstance(raw.get("notes"), str) else None,
+                examples=examples,
+            )
+        )
+    return enrolled

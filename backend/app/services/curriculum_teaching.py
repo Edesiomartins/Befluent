@@ -27,10 +27,16 @@ from app.core.teaching import FlowPhase, MasteryState
 from app.models import (
     CurriculumBlock,
     LearningObjective,
+    Lesson,
     TeachingFlowSession,
     UserObjectiveProgress,
 )
-from app.services import teaching_engine, teaching_flow, teaching_slice
+from app.services import (
+    teaching_engine,
+    teaching_flow,
+    teaching_slice,
+    vocabulary_learning,
+)
 
 #: Skills que compartilham o Can-Do do dia. Review fica de fora.
 PEDAGOGICAL_SKILLS: frozenset[str] = frozenset(
@@ -130,6 +136,53 @@ def ensure_block_teaching(
 
     Idempotente. Review nunca entra. Não altera completion do bloco.
     """
+    if block.skill == BlockSkill.VOCABULARY and block.lesson_ref:
+        lesson = db.get(Lesson, block.lesson_ref)
+        if lesson is None:
+            return None
+        items = vocabulary_learning.enroll_lesson_content(
+            db,
+            user_language_id=user_language_id,
+            content=lesson.content_json or {},
+        )
+        if not items:
+            return _no_vocabulary_due(lesson.id)
+        objective = (
+            db.get(LearningObjective, block.objective_id)
+            if block.objective_id
+            else None
+        )
+        progress_state = MasteryState.NOT_STARTED
+        if objective is not None:
+            progress = teaching_engine.start_objective(
+                db,
+                user_language_id=user_language_id,
+                objective_id=objective.id,
+            )
+            progress_state = progress.state
+        try:
+            session = teaching_flow.start_vocabulary_flow(
+                db,
+                user_language_id=user_language_id,
+                vocabulary_item_ids=[item.id for item in items],
+                objective_id=objective.id if objective else None,
+                lesson_id=lesson.id,
+                curriculum_block_id=block.id,
+            )
+        except APIError as exc:
+            if exc.code == "no_vocabulary_due":
+                return _no_vocabulary_due(lesson.id)
+            raise
+        return {
+            **teaching_slice.restore_session_payload(
+                db,
+                session,
+                objective=objective,
+                progress_state=progress_state,
+            ),
+            "lesson_id": lesson.id,
+        }
+
     if not block.objective_id or block.skill == BlockSkill.REVIEW:
         return None
     if block.skill not in PEDAGOGICAL_SKILLS:
@@ -167,6 +220,46 @@ def get_block_teaching(
     user_language_id: str,
     block: CurriculumBlock,
 ) -> dict[str, Any] | None:
+    if block.skill == BlockSkill.VOCABULARY and block.lesson_ref:
+        session = db.scalar(
+            select(TeachingFlowSession)
+            .where(
+                TeachingFlowSession.user_language_id == user_language_id,
+                TeachingFlowSession.lesson_id == block.lesson_ref,
+                TeachingFlowSession.curriculum_block_id == block.id,
+            )
+            .order_by(TeachingFlowSession.updated_at.desc())
+            .limit(1)
+        )
+        if session is None or not (session.payload_json or {}).get("lexical_cycle"):
+            return None
+        objective = (
+            db.get(LearningObjective, session.objective_id)
+            if session.objective_id
+            else None
+        )
+        progress = (
+            db.scalar(
+                select(UserObjectiveProgress).where(
+                    UserObjectiveProgress.user_language_id == user_language_id,
+                    UserObjectiveProgress.objective_id == objective.id,
+                )
+            )
+            if objective
+            else None
+        )
+        return {
+            **teaching_slice.restore_session_payload(
+                db,
+                session,
+                objective=objective,
+                progress_state=(
+                    progress.state if progress else MasteryState.NOT_STARTED
+                ),
+            ),
+            "lesson_id": block.lesson_ref,
+        }
+
     if not block.objective_id or block.skill == BlockSkill.REVIEW:
         return None
     objective = db.get(LearningObjective, block.objective_id)
@@ -176,22 +269,37 @@ def get_block_teaching(
     if pedagogy.get("source") == "curriculum_theme":
         return None
 
-    session = db.scalar(
+    active_sessions = db.scalars(
         select(TeachingFlowSession).where(
             TeachingFlowSession.user_language_id == user_language_id,
             TeachingFlowSession.objective_id == objective.id,
             TeachingFlowSession.status == "active",
         )
     )
+    session = next(
+        (
+            candidate
+            for candidate in active_sessions
+            if not (candidate.payload_json or {}).get("lexical_cycle")
+        ),
+        None,
+    )
     if session is None:
-        session = db.scalar(
+        sessions = db.scalars(
             select(TeachingFlowSession)
             .where(
                 TeachingFlowSession.user_language_id == user_language_id,
                 TeachingFlowSession.objective_id == objective.id,
             )
             .order_by(TeachingFlowSession.updated_at.desc())
-            .limit(1)
+        )
+        session = next(
+            (
+                candidate
+                for candidate in sessions
+                if not (candidate.payload_json or {}).get("lexical_cycle")
+            ),
+            None,
         )
     if session is None:
         return None
@@ -261,3 +369,13 @@ def retry_block_answer(
 
 def skill_flow_hint(skill: str) -> str | None:
     return SKILL_FLOW_HINT.get(skill)
+
+
+def _no_vocabulary_due(lesson_id: str) -> dict[str, Any]:
+    return {
+        "status": "no_vocabulary_due",
+        "lesson_id": lesson_id,
+        "flow": None,
+        "current_activity": None,
+        "activities_total": 0,
+    }

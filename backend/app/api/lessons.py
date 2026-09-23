@@ -7,14 +7,22 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.helpers import user_language
+from app.api.helpers import ensure_language_access, user_language
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
 from app.core.levels import SKILL_LABELS
-from app.models import Lesson, LessonActivity, StudySession, User, UserLanguage
+from app.models import (
+    Language,
+    Lesson,
+    LessonActivity,
+    StudySession,
+    TeachingFlowSession,
+    User,
+    UserLanguage,
+)
 from app.prompts.library import MODE_SKILL, SUPPORTED_MODES
-from app.schemas import LessonGenerateIn
+from app.schemas import LessonGenerateIn, VocabularyCycleAnswerIn
 from app.services.ai import get_ai_provider
 from app.services.content_repository import fetch_approved_unit, record_lesson_usage
 from app.services.learner_context import build_context, recommended_modes
@@ -27,6 +35,7 @@ from app.services.lesson_attempts import (
 from app.services.lesson_envelope import apply_lesson_envelope
 from app.services.progress import aggregate_progress
 from app.services.study_sessions import abandon_session, complete_session
+from app.services import teaching_flow, teaching_slice, vocabulary_learning
 
 
 class Create(BaseModel):
@@ -63,7 +72,51 @@ def _owned_lesson(db: Session, user: User, lesson_id: str) -> tuple[Lesson, User
     owner = db.get(UserLanguage, lesson.user_language_id)
     if not owner or owner.user_id != user.id:
         raise APIError(404, "lesson_not_found", "Lição não encontrada.")
+    language = db.get(Language, owner.language_id)
+    if not language:
+        raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    ensure_language_access(db, user.id, language.code)
     return lesson, owner
+
+
+def _no_vocabulary_due(lesson_id: str) -> dict:
+    return {
+        "status": "no_vocabulary_due",
+        "lesson_id": lesson_id,
+        "flow": None,
+        "current_activity": None,
+        "activities_total": 0,
+    }
+
+
+def _start_lesson_vocabulary_cycle(
+    db: Session,
+    *,
+    lesson: Lesson,
+    owner: UserLanguage,
+) -> dict:
+    items = vocabulary_learning.enroll_lesson_content(
+        db,
+        user_language_id=owner.id,
+        content=lesson.content_json or {},
+    )
+    if not items:
+        return _no_vocabulary_due(lesson.id)
+    try:
+        session = teaching_flow.start_vocabulary_flow(
+            db,
+            user_language_id=owner.id,
+            vocabulary_item_ids=[item.id for item in items],
+            lesson_id=lesson.id,
+        )
+    except APIError as exc:
+        if exc.code == "no_vocabulary_due":
+            return _no_vocabulary_due(lesson.id)
+        raise
+    return {
+        **teaching_slice.restore_session_payload(db, session),
+        "lesson_id": lesson.id,
+    }
 
 
 @router.get("")
@@ -244,6 +297,86 @@ def create(
     )
     db.commit()
     return {"id": x.id, "title": x.title, "status": x.status}
+
+
+@router.post("/{lesson_id}/vocabulary-cycle/start")
+def start_vocabulary_cycle(
+    lesson_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    lesson, owner = _owned_lesson(db, user, lesson_id)
+    payload = _start_lesson_vocabulary_cycle(db, lesson=lesson, owner=owner)
+    db.commit()
+    return payload
+
+
+@router.get("/{lesson_id}/vocabulary-cycle")
+def restore_vocabulary_cycle(
+    lesson_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    lesson, owner = _owned_lesson(db, user, lesson_id)
+    sessions = db.scalars(
+        select(TeachingFlowSession)
+        .where(
+            TeachingFlowSession.user_language_id == owner.id,
+            TeachingFlowSession.lesson_id == lesson.id,
+        )
+        .order_by(TeachingFlowSession.updated_at.desc())
+    )
+    session = next(
+        (
+            candidate
+            for candidate in sessions
+            if (candidate.payload_json or {}).get("lexical_cycle")
+        ),
+        None,
+    )
+    if session is None:
+        raise APIError(
+            404,
+            "vocabulary_cycle_not_found",
+            "Ciclo de vocabulário não iniciado para esta lição.",
+        )
+    return {
+        **teaching_slice.restore_session_payload(db, session),
+        "lesson_id": lesson.id,
+    }
+
+
+@router.post("/{lesson_id}/vocabulary-cycle/answer")
+def answer_vocabulary_cycle(
+    lesson_id: str,
+    data: VocabularyCycleAnswerIn,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    lesson, owner = _owned_lesson(db, user, lesson_id)
+    session = db.scalar(
+        select(TeachingFlowSession)
+        .where(
+            TeachingFlowSession.user_language_id == owner.id,
+            TeachingFlowSession.lesson_id == lesson.id,
+            TeachingFlowSession.status == "active",
+        )
+        .order_by(TeachingFlowSession.updated_at.desc())
+    )
+    if session is None or not (session.payload_json or {}).get("lexical_cycle"):
+        raise APIError(
+            404,
+            "vocabulary_cycle_not_found",
+            "Ciclo de vocabulário não iniciado para esta lição.",
+        )
+    payload = teaching_slice.submit_slice_answer(
+        db,
+        session,
+        activity_index=data.activity_index,
+        student_response=data.student_response,
+    )
+    db.commit()
+    return payload
 
 
 @router.get("/{lesson_id}")

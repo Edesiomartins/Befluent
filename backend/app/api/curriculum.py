@@ -11,11 +11,11 @@ from __future__ import annotations
 from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.helpers import user_language
+from app.api.helpers import ensure_language_access, user_language
 from app.core.curriculum import (
     block_phase,
     block_phase_label,
@@ -35,6 +35,7 @@ from app.models import (
     CurriculumBlock,
     CurriculumDay,
     CurriculumWeek,
+    Language,
     User,
     UserLanguage,
 )
@@ -75,6 +76,8 @@ class BlockCompleteIn(BaseModel):
 
 
 class BlockTeachingAnswerIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     student_response: str = Field(default="", max_length=4000)
     activity_index: int | None = Field(default=None, ge=0)
 
@@ -100,6 +103,7 @@ def _owned_curriculum(db: Session, curriculum_id: str, user: User) -> Curriculum
     )
     if not curriculum:
         raise APIError(404, "curriculum_not_found", "Cronograma não encontrado.")
+    _ensure_profile_access(db, user, curriculum.user_language_id)
     return curriculum
 
 
@@ -114,7 +118,20 @@ def _owned_block(db: Session, block_id: str, user: User) -> tuple[CurriculumBloc
     ).first()
     if not row:
         raise APIError(404, "curriculum_block_not_found", "Bloco de estudo não encontrado.")
+    _ensure_profile_access(db, user, row[2].user_language_id)
     return row[0], row[1], row[2]
+
+
+def _ensure_profile_access(
+    db: Session, user: User, user_language_id: str
+) -> None:
+    profile = db.get(UserLanguage, user_language_id)
+    if profile is None or profile.user_id != user.id:
+        raise APIError(404, "language_not_configured", "Idioma não configurado.")
+    language = db.get(Language, profile.language_id)
+    if language is None:
+        raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    ensure_language_access(db, user.id, language.code)
 
 
 def _active_curriculum(db: Session, user: User, language_code: str) -> Curriculum:
@@ -546,6 +563,7 @@ def day_detail(
     if not row:
         raise APIError(404, "curriculum_day_not_found", "Dia de estudo não encontrado.")
     day, week, curriculum = row
+    _ensure_profile_access(db, user, curriculum.user_language_id)
     blocks = _blocks_of(db, [day.id])
     day_blocks = blocks.get(day.id, [])
     return {

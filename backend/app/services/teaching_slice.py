@@ -120,7 +120,24 @@ def _restore_payload(
     objective: LearningObjective,
     progress_state: str,
 ) -> dict[str, Any]:
+    return restore_session_payload(
+        db,
+        session,
+        objective=objective,
+        progress_state=progress_state,
+    )
+
+
+def restore_session_payload(
+    db: Session,
+    session: TeachingFlowSession,
+    *,
+    objective: LearningObjective | None = None,
+    progress_state: str = "learning",
+) -> dict[str, Any]:
+    """Contrato público restaurável para fluxos objetivos ou lexicais."""
     base = _session_payload(db, session, objective, progress_state)
+    base["status"] = session.status
     pending = (session.payload_json or {}).get("pending_remediation")
     if pending and session.phase in {
         FlowPhase.NEEDS_REMEDIATION,
@@ -129,7 +146,9 @@ def _restore_payload(
         base["remediation"] = pending
     else:
         base["remediation"] = None
-    if progress_state == "mastered" or session.phase == FlowPhase.MASTERED:
+    if objective is not None and (
+        progress_state == "mastered" or session.phase == FlowPhase.MASTERED
+    ):
         base["mastery"] = {
             "state": "mastered",
             "reasons": ["Restaurado do servidor — domínio já registrado."],

@@ -365,19 +365,22 @@ def enroll(db: Session, *, user_language_id: str, thread: LessonThread) -> int:
     if not reviewable:
         return 0
 
+    # Dados antigos podem carregar caixa e espaços externos diferentes. A
+    # mesma normalização retrocompatível da matrícula lexical impede uma
+    # segunda VocabularyItem/ReviewItem ao concluir o bloco.
     existing = {
-        row.casefold()
+        row.strip().casefold()
         for row in db.scalars(
             select(VocabularyItem.term).where(
                 VocabularyItem.user_language_id == user_language_id,
-                VocabularyItem.term.in_([term.term for term in reviewable]),
             )
         )
     }
 
     created = 0
     for term in reviewable:
-        if term.term.casefold() in existing:
+        normalized_term = term.term.strip().casefold()
+        if normalized_term in existing:
             continue
         item = VocabularyItem(
             user_language_id=user_language_id,
@@ -400,7 +403,7 @@ def enroll(db: Session, *, user_language_id: str, thread: LessonThread) -> int:
                 },
             )
         )
-        existing.add(term.term.casefold())
+        existing.add(normalized_term)
         created += 1
 
     if created:

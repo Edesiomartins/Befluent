@@ -433,6 +433,15 @@ class SliceAnswerIn(BaseModel):
     activity_index: int | None = Field(default=None, ge=0)
 
 
+class VocabularyCycleAnswerIn(BaseModel):
+    """Resposta lexical textual; fala chega aqui somente como transcrição."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    activity_index: int = Field(ge=0)
+    student_response: str = Field(default="", max_length=4000)
+
+
 class SliceRetryIn(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

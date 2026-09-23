@@ -52,6 +52,7 @@ def _get_objective(db: Session, objective_id: str) -> LearningObjective:
 def _vocabulary_context_key(
     *,
     vocabulary_item_ids: list[str],
+    objective_id: str | None,
     lesson_id: str | None,
     curriculum_block_id: str | None,
 ) -> str:
@@ -59,6 +60,7 @@ def _vocabulary_context_key(
         {
             "curriculum_block_id": curriculum_block_id,
             "lesson_id": lesson_id,
+            "objective_id": objective_id,
             "vocabulary_item_ids": sorted(set(vocabulary_item_ids)),
         },
         ensure_ascii=True,
@@ -94,12 +96,20 @@ def start_flow(
 ) -> TeachingFlowSession:
     """Inicia (ou reabre) uma sessão ativa para o objetivo."""
     objective = _get_objective(db, objective_id)
-    existing = db.scalar(
+    active_sessions = db.scalars(
         select(TeachingFlowSession).where(
             TeachingFlowSession.user_language_id == user_language_id,
             TeachingFlowSession.objective_id == objective_id,
             TeachingFlowSession.status == "active",
         )
+    )
+    existing = next(
+        (
+            candidate
+            for candidate in active_sessions
+            if not (candidate.payload_json or {}).get("lexical_cycle")
+        ),
+        None,
     )
     if existing is not None:
         return existing
@@ -133,6 +143,7 @@ def start_vocabulary_flow(
     *,
     user_language_id: str,
     vocabulary_item_ids: list[str],
+    objective_id: str | None = None,
     lesson_id: str | None = None,
     curriculum_block_id: str | None = None,
 ) -> TeachingFlowSession:
@@ -140,13 +151,13 @@ def start_vocabulary_flow(
     unique_ids = list(dict.fromkeys(vocabulary_item_ids))
     context_key = _vocabulary_context_key(
         vocabulary_item_ids=unique_ids,
+        objective_id=objective_id,
         lesson_id=lesson_id,
         curriculum_block_id=curriculum_block_id,
     )
     active_sessions = db.scalars(
         select(TeachingFlowSession).where(
             TeachingFlowSession.user_language_id == user_language_id,
-            TeachingFlowSession.objective_id.is_(None),
             TeachingFlowSession.status == "active",
         )
     )
@@ -202,7 +213,7 @@ def start_vocabulary_flow(
         )
     session = TeachingFlowSession(
         user_language_id=user_language_id,
-        objective_id=None,
+        objective_id=objective_id,
         lesson_id=lesson_id,
         curriculum_block_id=curriculum_block_id,
         phase=FlowPhase.ACTIVATING,

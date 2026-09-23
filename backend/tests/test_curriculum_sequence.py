@@ -186,8 +186,10 @@ def test_grammar_applies_to_the_words_just_introduced(client, auth, db_session):
     assert set(lessons[BlockSkill.GRAMMAR]["apply_to_terms"]) <= studied
 
 
-def test_completing_a_block_feeds_the_spaced_repetition_queue(client, auth, db_session):
-    """O ciclo fecha: o que foi estudado hoje passa a existir na fila do SRS."""
+def test_start_enrolls_srs_and_completion_does_not_duplicate(
+    client, auth, db_session
+):
+    """Task 5: start matricula; complete preserva a fila sem duplicação."""
     profile, _ = _profile(db_session)
     curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
     db_session.commit()
@@ -199,23 +201,26 @@ def test_completing_a_block_feeds_the_spaced_repetition_queue(client, auth, db_s
     ).json()
     studied = {item["term"] for item in started["lesson"]["items"]}
 
-    before = db_session.scalar(
-        select(ReviewItem).where(ReviewItem.user_language_id == profile.id)
+    before = list(
+        db_session.scalars(
+            select(ReviewItem).where(ReviewItem.user_language_id == profile.id)
+        )
     )
-    assert before is None
+    assert before
 
     done = client.post(
         f"/api/v1/curriculum/block/{vocabulary.id}/complete", headers=auth, json={}
     ).json()
-    assert done["review_items_added"] > 0
+    assert done["review_items_added"] == 0
 
     db_session.expire_all()
-    enrolled = {
-        (item.payload_json or {}).get("term")
-        for item in db_session.scalars(
+    after = list(
+        db_session.scalars(
             select(ReviewItem).where(ReviewItem.user_language_id == profile.id)
         )
-    }
+    )
+    assert len(after) == len(before)
+    enrolled = {(item.payload_json or {}).get("term") for item in after}
     assert enrolled <= studied
     assert enrolled
 
