@@ -63,3 +63,15 @@ role improvisada, preço, Asaas, Stripe, webhook ou tela de compra.
 4. Só então setar `LANGUAGE_ENTITLEMENTS_ENABLED=true` no backend.
 5. O frontend passará a receber `locked` para idiomas sem grant; a UI de
    compra ainda não existe e não deve ser improvisada neste passo.
+
+## Risco do backfill legacy
+
+`UserLanguage` não tem estado `deleted`, `disabled` ou `archived`.
+`is_active` significa “idioma selecionado agora”, não “acesso válido”.
+`onboarding_completed` pode ser falso.
+
+A migration `0012` concedeu grant `legacy` ativo e sem expiração para **toda**
+linha de `user_languages`, inclusive perfil incompleto. A migration histórica
+não foi alterada. Com `LANGUAGE_ENTITLEMENTS_ENABLED=false` isso não bloqueia
+nem libera ninguém além do comportamento atual. Antes de ligar a flag, revisar
+se algum par usuário↔idioma foi criado sem intenção de acesso.

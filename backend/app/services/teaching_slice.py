@@ -33,6 +33,7 @@ from app.services.answer_feedback import (
     option_texts,
 )
 from app.services.objective_seed import ensure_en_a1_can_001
+from app.services.session_progress import session_progress_from_flow
 
 logger = logging.getLogger(__name__)
 
@@ -716,6 +717,7 @@ def _session_payload(
         "progress_state": progress_state,
         "current_activity": current,
         "activities_total": len(payload.get("activities") or []),
+        "session_progress": session_progress_from_flow(session),
         "answer_feedback": payload.get("last_answer_feedback"),
         # Em remediação/retry a UI mostra variante nova — desbloqueada.
         "activity_locked": session.phase

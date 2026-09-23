@@ -314,8 +314,22 @@ def transition(
 def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> TeachingFlowSession:
     activities = (session.payload_json or {}).get("activities") or []
     if session.activity_cursor < len(activities):
+        completed_index = session.activity_cursor
+        activity = activities[completed_index]
         session.activity_cursor += 1
         db.flush()
+        from app.services.language_progress import ACTIVITY_COMPLETED, record_product_event
+
+        record_product_event(
+            db,
+            user_language_id=session.user_language_id,
+            event_type=ACTIVITY_COMPLETED,
+            dedupe_key=f"{session.id}:{completed_index}",
+            payload={
+                "activity_index": completed_index,
+                "activity_type": activity.get("type") if isinstance(activity, dict) else None,
+            },
+        )
     return session
 
 

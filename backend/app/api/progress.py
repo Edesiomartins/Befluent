@@ -7,6 +7,7 @@ from app.core.deps import current_user
 from app.core.errors import APIError
 from app.models import Language, LearningGoal, User, UserLanguage
 from app.services.progress import aggregate_mastery_progress, aggregate_progress, resolve_timezone
+from app.services.language_progress import observe_language_progress
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 
@@ -73,7 +74,7 @@ def progress(
             ).order_by(LearningGoal.priority)
         )
 
-    return {
+    payload = {
         **stats,
         "mastery": mastery,
         "active_language": (
@@ -89,4 +90,7 @@ def progress(
             if ul and lang
             else None
         ),
+        "language_progress": observe_language_progress(db, ul.id) if ul else None,
     }
+    db.commit()
+    return payload

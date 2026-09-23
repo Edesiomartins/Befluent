@@ -23,6 +23,7 @@ from app.models import (
     UserPreference,
 )
 from app.services.progress import aggregate_progress
+from app.services.language_progress import observe_language_progress
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -342,6 +343,13 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         "curriculum_day_href": curriculum_path["href"] if curriculum_path else None,
     }
 
+    language_progress = (
+        observe_language_progress(db, active_language["user_language_id"])
+        if active_language
+        else None
+    )
+    db.commit()
+
     return {
         "onboarding_completed": onboarding_completed,
         "active_language": active_language,
@@ -359,4 +367,5 @@ def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user))
         "reviews_due_count": len(reviews_due),
         "reviews_due": reviews_due,
         "recent_activity": stats["recent_activity"][:5],
+        "language_progress": language_progress,
     }

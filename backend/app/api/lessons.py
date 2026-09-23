@@ -96,6 +96,21 @@ def _start_lesson_vocabulary_cycle(
     owner: UserLanguage,
 ) -> dict:
     lesson_id = lesson.id
+    active = _standalone_lexical_session(
+        db,
+        user_language_id=owner.id,
+        lesson_id=lesson_id,
+        active_only=True,
+    )
+    if active is not None:
+        return {
+            **teaching_slice.restore_session_payload(db, active),
+            "lesson_id": lesson_id,
+        }
+
+    from app.services.language_progress import LESSON_STARTED, record_product_event
+    from app.services.session_progress import select_short_batch
+
     savepoint = db.begin_nested()
     try:
         items = vocabulary_learning.enroll_lesson_content(
@@ -106,11 +121,21 @@ def _start_lesson_vocabulary_cycle(
         if not items:
             savepoint.rollback()
             return _no_vocabulary_due(lesson_id)
+        previous = _standalone_lexical_session(
+            db, user_language_id=owner.id, lesson_id=lesson_id
+        )
+        offset = 0
+        if previous is not None:
+            offset = int((previous.payload_json or {}).get("next_item_offset") or 0)
+        batch, next_offset = select_short_batch(items, previous_offset=offset)
+        if not batch:
+            savepoint.rollback()
+            return _no_vocabulary_due(lesson_id)
         try:
             session = teaching_flow.start_vocabulary_flow(
                 db,
                 user_language_id=owner.id,
-                vocabulary_item_ids=[item.id for item in items],
+                vocabulary_item_ids=[item.id for item in batch],
                 lesson_id=lesson_id,
             )
         except APIError as exc:
@@ -118,6 +143,17 @@ def _start_lesson_vocabulary_cycle(
                 savepoint.rollback()
                 return _no_vocabulary_due(lesson_id)
             raise
+        payload = dict(session.payload_json or {})
+        payload["next_item_offset"] = next_offset
+        payload["short_session"] = True
+        session.payload_json = payload
+        record_product_event(
+            db,
+            user_language_id=owner.id,
+            event_type=LESSON_STARTED,
+            dedupe_key=lesson_id,
+            payload={"lesson_id": lesson_id},
+        )
         savepoint.commit()
     except Exception:
         if savepoint.is_active:
@@ -489,6 +525,15 @@ def complete_lesson(
             complete_session(db, session, summary=summary)
 
     lesson.status = "completed"
+    from app.services.language_progress import LESSON_COMPLETED, record_product_event
+
+    record_product_event(
+        db,
+        user_language_id=owner.id,
+        event_type=LESSON_COMPLETED,
+        dedupe_key=lesson.id,
+        payload={"lesson_id": lesson.id, "title": lesson.title},
+    )
     db.commit()
 
     progress = aggregate_progress(db, user.id, user_language_id=owner.id)

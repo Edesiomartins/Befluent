@@ -55,6 +55,15 @@ def answer(
     if not item:
         raise APIError(404, "review_not_found", "Item de revisão não encontrado.")
     out = memory_engine.answer_review_item(db, item, rating=data.rating)
+    from app.services.language_progress import VOCABULARY_REVIEWED, record_product_event
+
+    record_product_event(
+        db,
+        user_language_id=item.user_language_id,
+        event_type=VOCABULARY_REVIEWED,
+        dedupe_key=str(out.get("memory_event_id") or f"{item.id}:{data.rating}:{out.get('next_review_at')}"),
+        payload={"rating": data.rating, "item_type": item.item_type},
+    )
     db.commit()
     return {
         "id": out["id"],

@@ -693,6 +693,49 @@ class MemoryReviewEvent(UUIDMixin, Base):
     reviewed_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
 
 
+class LearningProgressSnapshot(UUIDMixin, Base):
+    """Último estado de progresso já mostrado ao aluno.
+
+    Existe para separar estado de transição: reabrir o dashboard não celebra
+    de novo um CEFR ou marco que já estava observado. O marco em si continua
+    derivado do domínio.
+    """
+    __tablename__ = "learning_progress_snapshots"
+    __table_args__ = (UniqueConstraint("user_language_id"),)
+    user_language_id: Mapped[str] = mapped_column(
+        ForeignKey("user_languages.id", ondelete="CASCADE"), index=True
+    )
+    cefr_level: Mapped[str | None] = mapped_column(String(10))
+    milestone_code: Mapped[str | None] = mapped_column(String(20))
+    milestone_index: Mapped[int | None] = mapped_column(Integer)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
+class LearningProgressEvent(UUIDMixin, Base):
+    """Transição de progresso e telemetria pedagógica não sensível.
+
+    Não é um segundo domínio nem um analytics externo. `dedupe_key` impede
+    que a mesma transição seja gravada outra vez.
+    """
+    __tablename__ = "learning_progress_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_language_id",
+            "event_type",
+            "dedupe_key",
+            name="uq_learning_progress_event",
+        ),
+        Index("ix_learning_progress_events_user_language", "user_language_id", "created_at"),
+    )
+    user_language_id: Mapped[str] = mapped_column(
+        ForeignKey("user_languages.id", ondelete="CASCADE"), index=True
+    )
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    dedupe_key: Mapped[str] = mapped_column(String(160))
+    payload_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+
+
 class AiResponseCache(UUIDMixin, Base):
     """Cache pedagógico global — nunca deve conter respostas personalizadas
     do aluno. Chave determinística (capability + language + level + hashes)."""
