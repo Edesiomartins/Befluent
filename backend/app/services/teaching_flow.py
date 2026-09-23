@@ -146,6 +146,8 @@ def start_vocabulary_flow(
     objective_id: str | None = None,
     lesson_id: str | None = None,
     curriculum_block_id: str | None = None,
+    activities: list[dict] | None = None,
+    session_plan: dict | None = None,
 ) -> TeachingFlowSession:
     """Inicia uma sessão lexical usando os itens persistidos como identidade."""
     unique_ids = list(dict.fromkeys(vocabulary_item_ids))
@@ -200,11 +202,12 @@ def start_vocabulary_flow(
             )
         )
     )
-    activities = activity_generator.generate_vocabulary_activities(
-        items,
-        examples_by_item=examples_by_item,
-        memory_by_item={schedule.subject_key: schedule for schedule in schedules},
-    )
+    if activities is None:
+        activities = activity_generator.generate_vocabulary_activities(
+            items,
+            examples_by_item=examples_by_item,
+            memory_by_item={schedule.subject_key: schedule for schedule in schedules},
+        )
     if not activities:
         raise APIError(
             409,
@@ -224,6 +227,8 @@ def start_vocabulary_flow(
             "lexical_cycle": True,
             "vocabulary_item_ids": unique_ids,
             "context_key": context_key,
+            "session_engine_v2": bool(session_plan),
+            "session_plan": session_plan or {},
             "history": [{"phase": FlowPhase.ACTIVATING, "at": _now().isoformat()}],
         },
         status="active",
@@ -387,6 +392,26 @@ def advance_lexical_activity(
 ) -> TeachingFlowSession:
     advance_activity_cursor(db, session)
     _align_lexical_phase(db, session, _lexical_target_phase(current_activity(session)))
+    if (
+        (session.payload_json or {}).get("session_engine_v2")
+        and current_activity(session) is None
+    ):
+        from app.services.language_progress import SESSION_COMPLETED, record_product_event
+
+        plan = (session.payload_json or {}).get("session_plan") or {}
+        record_product_event(
+            db,
+            user_language_id=session.user_language_id,
+            event_type=SESSION_COMPLETED,
+            dedupe_key=f"session:{session.id}:completed",
+            payload={
+                "total_exercises": len((session.payload_json or {}).get("activities") or []),
+                **{
+                    f"{key}_count": value
+                    for key, value in (plan.get("counts") or {}).items()
+                },
+            },
+        )
     return session
 
 

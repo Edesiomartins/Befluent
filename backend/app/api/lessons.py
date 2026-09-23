@@ -103,13 +103,26 @@ def _start_lesson_vocabulary_cycle(
         active_only=True,
     )
     if active is not None:
+        from app.services.language_progress import SESSION_RESUMED, record_product_event
+
+        record_product_event(
+            db,
+            user_language_id=owner.id,
+            event_type=SESSION_RESUMED,
+            dedupe_key=f"session:{active.id}:resumed",
+            payload={"lesson_id": lesson_id, "activity_cursor": active.activity_cursor},
+        )
         return {
             **teaching_slice.restore_session_payload(db, active),
             "lesson_id": lesson_id,
         }
 
-    from app.services.language_progress import LESSON_STARTED, record_product_event
-    from app.services.session_progress import select_short_batch
+    from app.services.language_progress import (
+        LESSON_STARTED,
+        SESSION_STARTED,
+        record_product_event,
+    )
+    from app.services.session_engine import load_session_candidates, plan_session
 
     savepoint = db.begin_nested()
     try:
@@ -121,38 +134,67 @@ def _start_lesson_vocabulary_cycle(
         if not items:
             savepoint.rollback()
             return _no_vocabulary_due(lesson_id)
-        previous = _standalone_lexical_session(
-            db, user_language_id=owner.id, lesson_id=lesson_id
+        language = db.get(Language, owner.language_id)
+        language_code = language.code if language else "en"
+        plan = plan_session(
+            load_session_candidates(
+                db,
+                user_language_id=owner.id,
+                lesson_items=items,
+                language_code=language_code,
+                level=owner.current_level,
+            )
         )
-        offset = 0
-        if previous is not None:
-            offset = int((previous.payload_json or {}).get("next_item_offset") or 0)
-        batch, next_offset = select_short_batch(items, previous_offset=offset)
-        if not batch:
+        if not plan["activities"]:
             savepoint.rollback()
             return _no_vocabulary_due(lesson_id)
+        item_ids = list(
+            dict.fromkeys(
+                activity["vocabulary_item_id"]
+                for activity in plan["activities"]
+                if activity.get("vocabulary_item_id")
+            )
+        )
+        from app.services.objective_seed import ensure_theme_objective
+
+        objective = ensure_theme_objective(
+            db,
+            language_code=language_code,
+            level=owner.current_level or "A1",
+            theme=lesson.title or "Sessão de estudo",
+        )
         try:
             session = teaching_flow.start_vocabulary_flow(
                 db,
                 user_language_id=owner.id,
-                vocabulary_item_ids=[item.id for item in batch],
+                vocabulary_item_ids=item_ids,
                 lesson_id=lesson_id,
+                objective_id=objective.id if objective else None,
+                activities=plan["activities"],
+                session_plan=plan,
             )
         except APIError as exc:
             if exc.code == "no_vocabulary_due":
                 savepoint.rollback()
                 return _no_vocabulary_due(lesson_id)
             raise
-        payload = dict(session.payload_json or {})
-        payload["next_item_offset"] = next_offset
-        payload["short_session"] = True
-        session.payload_json = payload
         record_product_event(
             db,
             user_language_id=owner.id,
             event_type=LESSON_STARTED,
             dedupe_key=lesson_id,
             payload={"lesson_id": lesson_id},
+        )
+        record_product_event(
+            db,
+            user_language_id=owner.id,
+            event_type=SESSION_STARTED,
+            dedupe_key=f"session:{session.id}:started",
+            payload={
+                "lesson_id": lesson_id,
+                "total_exercises": plan["total"],
+                **{f"{key}_count": value for key, value in plan["counts"].items()},
+            },
         )
         savepoint.commit()
     except Exception:

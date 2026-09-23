@@ -45,6 +45,9 @@ def activity_label(activity: dict | None) -> str | None:
 
 
 def session_progress_from_activities(activities: list, cursor: int) -> dict:
+    from app.services.session_budget import TARGET_SESSION_EXERCISES
+    from app.services.session_engine import area_summary
+
     total = len(activities)
     completed = min(max(cursor, 0), total)
     current = activities[cursor] if 0 <= cursor < total else None
@@ -54,8 +57,10 @@ def session_progress_from_activities(activities: list, cursor: int) -> dict:
         "completed": completed,
         "total": total,
         "percent": percent,
+        "target_total": TARGET_SESSION_EXERCISES,
         "current_label": activity_label(current if isinstance(current, dict) else None),
         "next_label": activity_label(nxt if isinstance(nxt, dict) else None),
+        "areas": area_summary(activities, completed),
         "short_session_phases": list(SHORT_SESSION_PHASES),
     }
 

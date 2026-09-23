@@ -221,7 +221,7 @@ def submit_slice_answer(
         )
 
     # Atividades expositivas: "continuar" sem produção.
-    ack_types = {"listen", "matching", "presentation"}
+    ack_types = {"listen", "matching", "presentation", "conversation_prompt"}
     if not is_lexical_activity:
         ack_types.add("recognition")
     if activity.get("type") in ack_types and not student_response.strip():
@@ -328,17 +328,18 @@ def submit_slice_answer(
             else ErrorSeverity.MODERATE,
             language_feature=_feature_key(activity),
         )
-        if is_lexical_activity:
+        if is_lexical_activity or (session.payload_json or {}).get("session_engine_v2"):
             payload = dict(session.payload_json or {})
-            deferred = list(payload.get("deferred_vocabulary_items") or [])
-            deferred.append(
-                {
-                    "vocabulary_item_id": activity["vocabulary_item_id"],
-                    "activity_type": activity.get("type"),
-                    "attempt_id": attempt.id,
-                }
-            )
-            payload["deferred_vocabulary_items"] = deferred
+            if activity.get("vocabulary_item_id"):
+                deferred = list(payload.get("deferred_vocabulary_items") or [])
+                deferred.append(
+                    {
+                        "vocabulary_item_id": activity["vocabulary_item_id"],
+                        "activity_type": activity.get("type"),
+                        "attempt_id": attempt.id,
+                    }
+                )
+                payload["deferred_vocabulary_items"] = deferred
             payload["last_answer_feedback"] = answer_feedback
             payload.pop("retry_activity", None)
             payload.pop("pending_remediation", None)
@@ -380,13 +381,18 @@ def submit_slice_answer(
         payload.pop("retry_activity", None)
         session.payload_json = payload
         db.flush()
-        if is_lexical_activity:
+        if is_lexical_activity or (session.payload_json or {}).get("session_engine_v2"):
             teaching_flow.advance_lexical_activity(db, session)
         else:
             _advance_after_success(db, session, activity)
 
     mastery = eval_out["mastery"]
-    if mastery is not None and mastery["state"] == "mastered" and session.status == "active":
+    if (
+        mastery is not None
+        and mastery["state"] == "mastered"
+        and session.status == "active"
+        and not (session.payload_json or {}).get("session_engine_v2")
+    ):
         _close_as_mastered(db, session)
 
     progress_state = (

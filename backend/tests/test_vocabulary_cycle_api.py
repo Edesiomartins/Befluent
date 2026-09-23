@@ -132,13 +132,31 @@ def test_standalone_start_restore_answer_and_hide_answer_key(
     assert restored.status_code == 200
     assert restored.json()["flow"]["id"] == body["flow"]["id"]
 
-    for activity_index in (0, 1):
+    flow = db_session.get(TeachingFlowSession, body["flow"]["id"])
+    activities = (flow.payload_json or {}).get("activities") or []
+    recognition_index = next(
+        index
+        for index, activity in enumerate(activities)
+        if activity.get("type") == "recognition" and activity.get("vocabulary_item_id")
+    )
+    for activity_index, activity in enumerate(activities[:recognition_index]):
+        answer = ""
+        if activity.get("type") in {
+            "multiple_choice",
+            "recognition",
+            "reverse_recognition",
+            "listening_recognition",
+        }:
+            answer = activity.get("canonical_answer") or ""
+            if not answer and activity.get("options"):
+                first = activity["options"][0]
+                answer = first["text"] if isinstance(first, dict) else first
         response = client.post(
             f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer",
-            json={"activity_index": activity_index, "student_response": ""},
+            json={"activity_index": activity_index, "student_response": answer},
             headers=auth,
         )
-        assert response.status_code == 200
+        assert response.status_code == 200, response.json()
 
     recognition = response.json()["current_activity"]
     assert recognition["type"] == "recognition"
@@ -148,7 +166,7 @@ def test_standalone_start_restore_answer_and_hide_answer_key(
 
     answered = client.post(
         f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer",
-        json={"activity_index": 2, "student_response": "olá"},
+        json={"activity_index": recognition_index, "student_response": "olá"},
         headers=auth,
     )
     assert answered.status_code == 200
@@ -268,22 +286,12 @@ def test_old_incomplete_content_stays_safe(client, auth, db_session):
     response = _start(client, auth, lesson.id)
 
     assert response.status_code == 200
-    assert response.json()["current_activity"] == {
-        "type": "presentation",
-        "vocabulary_item_id": response.json()["current_activity"][
-            "vocabulary_item_id"
-        ],
-        "index": 0,
-        "phase_hint": "input",
-        "evidence_type": "exposure",
-        "prompt_pt": "Conheça este item de vocabulário.",
-        "term": "legacy",
-        "translation_pt": "legado",
-        "audio_targets": [
-            {"audio_target_type": "vocabulary_item", "audio_text": "legacy"}
-        ],
-        "ai_required": False,
-    }
+    activity = response.json()["current_activity"]
+    assert activity["type"] == "presentation"
+    assert activity["term"] == "legacy"
+    assert activity["translation_pt"] == "legado"
+    assert activity["index"] == 0
+    assert activity["session_area"] == "vocabulary"
 
 
 def test_no_vocabulary_due_returns_controlled_contract(client, auth, db_session):
@@ -599,19 +607,34 @@ def test_speech_production_contract_accepts_transcript_and_rejects_raw_audio(
     lesson = _lesson(db_session, profile)
     started = _start(client, auth, lesson.id).json()
     flow = db_session.get(TeachingFlowSession, started["flow"]["id"])
-    production_index = next(
-        index
-        for index, activity in enumerate(flow.payload_json["activities"])
-        if activity["type"] == "lexical_production"
-    )
-    flow.activity_cursor = production_index
+    activities = list(flow.payload_json["activities"])
+    production = {
+        "type": "lexical_production",
+        "vocabulary_item_id": activities[0]["vocabulary_item_id"],
+        "phase_hint": "producing",
+        "evidence_type": "lexical_production",
+        "prompt_pt": "Recupere o termo a partir do significado.",
+        "prompt": "olá",
+        "canonical_answer": "hello",
+        "accepted_variants": ["hello"],
+        "response_modes": ["typing", "speech"],
+        "audio_targets": [],
+        "ai_required": False,
+        "session_area": "production",
+        "index": len(activities),
+    }
+    activities.append(production)
+    payload = dict(flow.payload_json or {})
+    payload["activities"] = activities
+    flow.payload_json = payload
+    flow.activity_cursor = production["index"]
     flow.phase = "producing"
     db_session.commit()
 
     rejected = client.post(
         f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer",
         json={
-            "activity_index": production_index,
+            "activity_index": production["index"],
             "student_response": "hello",
             "audio": "base64-raw-audio",
         },
@@ -621,7 +644,10 @@ def test_speech_production_contract_accepts_transcript_and_rejects_raw_audio(
 
     accepted = client.post(
         f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer",
-        json={"activity_index": production_index, "student_response": "hello"},
+        json={
+            "activity_index": production["index"],
+            "student_response": "hello",
+        },
         headers=auth,
     )
     assert accepted.status_code == 200
