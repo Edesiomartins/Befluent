@@ -33,7 +33,7 @@ from app.services.answer_feedback import (
     option_texts,
 )
 from app.services.objective_seed import ensure_en_a1_can_001
-from app.services.question_identity import content_fingerprint, question_fingerprint
+from app.services.question_identity import question_fingerprint
 from app.services.session_progress import session_progress_from_flow
 
 logger = logging.getLogger(__name__)
@@ -49,12 +49,9 @@ def _record_seen_question(
 ) -> set[str]:
     """Acumula fingerprints já apresentados nesta sessão/objetivo."""
     seen = _seen_retry_fingerprints(payload)
-    for marker in (
-        question_fingerprint(activity),
-        content_fingerprint(activity),
-    ):
-        if marker:
-            seen.add(marker)
+    fingerprint = question_fingerprint(activity)
+    if fingerprint:
+        seen.add(fingerprint)
     payload["seen_question_fingerprints"] = sorted(seen)
     return seen
 

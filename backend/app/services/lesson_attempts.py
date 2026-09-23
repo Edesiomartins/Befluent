@@ -16,7 +16,6 @@ from app.core.errors import APIError
 from app.models import Lesson, LessonActivityAttempt, UserLanguage
 from app.services.answer_feedback import build_answer_feedback
 from app.services.question_identity import (
-    content_fingerprint,
     fingerprints_from_snapshots,
     question_fingerprint,
 )
@@ -174,20 +173,12 @@ def _build_legacy_retry_activity(
     current_fp = question_fingerprint(current)
     if current_fp:
         seen.add(current_fp)
-    current_content = content_fingerprint(current)
-    if current_content:
-        seen.add(current_content)
 
     def _usable(candidate: dict[str, Any]) -> bool:
         if not candidate.get("answer") or not candidate.get("options"):
             return False
         fingerprint = question_fingerprint(candidate)
-        content = content_fingerprint(candidate)
-        if content and content in seen:
-            return False
-        if fingerprint and fingerprint in seen:
-            return False
-        return bool(fingerprint or content)
+        return bool(fingerprint) and fingerprint not in seen
 
     for candidate in pool:
         if _usable(candidate):
@@ -371,12 +362,9 @@ def submit_objective_answer(
                 db, lesson_id=lesson.id, activity_key=activity_key
             )
         )
-        for marker in (
-            question_fingerprint(question),
-            content_fingerprint(question),
-        ):
-            if marker:
-                seen.add(marker)
+        current_fp = question_fingerprint(question)
+        if current_fp:
+            seen.add(current_fp)
         variant, strategy = _build_legacy_retry_activity(
             content=content,
             activity_key=activity_key,

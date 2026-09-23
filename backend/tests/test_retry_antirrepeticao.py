@@ -112,6 +112,80 @@ def test_fingerprint_ignores_shuffle_case_and_punctuation():
     assert normalize_question_text("  A  B ") == "a b"
 
 
+def test_fingerprint_same_prompt_options_answer_is_duplicate():
+    a = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    b = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    assert is_same_question(a, b)
+    assert question_fingerprint(a) == question_fingerprint(b)
+
+
+def test_fingerprint_shuffled_options_is_duplicate():
+    a = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    b = {
+        "prompt": "I ___ to work every day.",
+        "options": ["going", "go", "goes"],
+        "answer": "go",
+    }
+    assert is_same_question(a, b)
+
+
+def test_fingerprint_whitespace_case_punctuation_is_duplicate():
+    a = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    b = {
+        "prompt": "  i ___ to work every day!  ",
+        "options": [" Go ", "GOES", "Going."],
+        "answer": "GO",
+    }
+    assert is_same_question(a, b)
+
+
+def test_fingerprint_nova_tentativa_prefix_is_duplicate():
+    a = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    b = {
+        "prompt": "Nova tentativa — I ___ to work every day.",
+        "options": ["going", "goes", "go"],
+        "answer": "go",
+    }
+    assert is_same_question(a, b)
+    assert question_fingerprint(a) == question_fingerprint(b)
+
+
+def test_fingerprint_different_prompt_same_options_is_new():
+    """Mesmas alternativas/gabarito com contexto distinto = questões diferentes."""
+    a = {
+        "prompt": "I ___ to work every day.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    b = {
+        "prompt": "They ___ to school by bus.",
+        "options": ["go", "goes", "going"],
+        "answer": "go",
+    }
+    assert not is_same_question(a, b)
+    assert question_fingerprint(a) != question_fingerprint(b)
+
+
 def test_legacy_retry_not_same_as_a(db_session):
     admin = _admin(db_session)
     lesson = _lesson_with_questions(db_session, admin, FR_QUESTIONS[:2])

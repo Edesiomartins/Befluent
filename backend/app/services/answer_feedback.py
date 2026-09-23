@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any
 
 from app.services.question_identity import (
-    content_fingerprint,
     is_same_question,
     normalize_question_text,
     question_fingerprint,
@@ -191,23 +190,15 @@ def build_retry_variant(
     """
     patterns = patterns or []
     seen = set(seen_fingerprints or ())
-    for marker in (
-        question_fingerprint(activity),
-        content_fingerprint(activity),
-    ):
-        if marker:
-            seen.add(marker)
+    current_fp = question_fingerprint(activity)
+    if current_fp:
+        seen.add(current_fp)
 
     def _is_fresh(candidate: dict[str, Any]) -> bool:
         if is_same_question(candidate, activity):
             return False
         fp = question_fingerprint(candidate)
-        content = content_fingerprint(candidate)
-        if content and content in seen:
-            return False
-        if fp and fp in seen:
-            return False
-        return bool(fp or content)
+        return bool(fp) and fp not in seen
 
     if activity.get("type") == "multiple_choice":
         current_answer = normalize_question_text(
