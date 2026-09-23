@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import StudyModePage from "@/app/(app)/learn/[mode]/page";
 import LearnPage from "@/app/(app)/learn/page";
@@ -92,6 +92,76 @@ describe("Lição adaptada ao nível", () => {
     routeApi({
       "/api/v1/language-profiles": profiles,
       "/api/v1/lessons/generate": vocabularyLesson,
+    });
+
+    render(<StudyModePage />);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith("/api/v1/lessons/generate", {
+        method: "POST",
+        body: { language_code: "en", mode: "vocabulary" },
+      }),
+    );
+  });
+
+  it("com francês ativo não dispara generate em inglês antes da resolução", async () => {
+    let resolveProfiles: (value: unknown) => void = () => undefined;
+    const generateCalls: unknown[] = [];
+    apiMock.mockImplementation((path: string, options?: unknown) => {
+      if (path.startsWith("/api/v1/language-profiles")) {
+        return new Promise((resolve) => {
+          resolveProfiles = resolve;
+        });
+      }
+      if (path.startsWith("/api/v1/lessons/generate")) {
+        generateCalls.push(options);
+        return Promise.resolve({
+          ...vocabularyLesson,
+          mode: "voice",
+          language_code: "fr",
+          title: "Conversação · FR",
+        });
+      }
+      return Promise.reject(new Error(`sem handler: ${path}`));
+    });
+
+    currentMode = "voice";
+    render(<StudyModePage />);
+
+    expect(screen.getByText(/Preparando Conversação/)).toBeInTheDocument();
+    expect(generateCalls).toHaveLength(0);
+
+    await act(async () => {
+      resolveProfiles({
+        profiles: [{ language_code: "fr", is_active: true }],
+      });
+    });
+
+    await waitFor(() => expect(generateCalls).toHaveLength(1));
+    expect(generateCalls[0]).toEqual({
+      method: "POST",
+      body: { language_code: "fr", mode: "voice" },
+    });
+    expect(
+      generateCalls.some(
+        (call) =>
+          call &&
+          typeof call === "object" &&
+          (call as { body?: { language_code?: string } }).body?.language_code === "en",
+      ),
+    ).toBe(false);
+    expect(await screen.findByText("Conversação · FR")).toBeInTheDocument();
+  });
+
+  it("fallback para inglês após falha ao carregar o perfil", async () => {
+    apiMock.mockImplementation((path: string) => {
+      if (path.startsWith("/api/v1/language-profiles")) {
+        return Promise.reject(new Error("rede indisponível"));
+      }
+      if (path.startsWith("/api/v1/lessons/generate")) {
+        return Promise.resolve(vocabularyLesson);
+      }
+      return Promise.reject(new Error(`sem handler: ${path}`));
     });
 
     render(<StudyModePage />);

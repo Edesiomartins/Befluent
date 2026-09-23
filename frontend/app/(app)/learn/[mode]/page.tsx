@@ -328,8 +328,11 @@ function Assessment() {
 }
 
 function AdaptiveLesson({ mode }: { mode: string }) {
-  const { code } = useActiveLanguage();
-  const { status, lesson, error, rawError, reload } = useLesson(mode, code);
+  const { code, resolved } = useActiveLanguage();
+  const { status, lesson, error, rawError, reload } = useLesson(
+    mode,
+    resolved ? code : null,
+  );
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader mode={mode} lesson={lesson} />

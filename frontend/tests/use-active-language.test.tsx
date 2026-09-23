@@ -24,4 +24,13 @@ describe("useActiveLanguage", () => {
     expect(result.current.code).toBe("fr");
     expect(result.current.accessState).toBe("locked");
   });
+
+  it("mantém inglês como fallback quando o perfil falha", async () => {
+    apiMock.mockRejectedValue(new Error("offline"));
+
+    const { result } = renderHook(() => useActiveLanguage());
+
+    await waitFor(() => expect(result.current.resolved).toBe(true));
+    expect(result.current.code).toBe("en");
+  });
 });
