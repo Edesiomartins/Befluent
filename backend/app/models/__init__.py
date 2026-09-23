@@ -1,7 +1,7 @@
 from __future__ import annotations
 import uuid
 from datetime import date, datetime, timezone
-from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 def uid(): return str(uuid.uuid4())
@@ -59,6 +59,23 @@ class UserLanguage(UUIDMixin, Base):
     speaking_level: Mapped[str|None]=mapped_column(String(10))
     confidence_score: Mapped[float|None]=mapped_column(Float)
     recommendations_json: Mapped[list|None]=mapped_column(JSON, default=list)
+
+class LanguageEntitlement(UUIDMixin, Base):
+    __tablename__ = "language_entitlements"
+    __table_args__ = (
+        Index("ix_language_entitlements_user_language", "user_id", "language_id"),
+        Index("ix_language_entitlements_status_period", "status", "starts_at", "expires_at"),
+    )
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    language_id: Mapped[str] = mapped_column(ForeignKey("languages.id"), index=True)
+    source: Mapped[str] = mapped_column(String(30), index=True)
+    status: Mapped[str] = mapped_column(String(20), default="active", index=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    metadata_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, onupdate=now)
 
 class LearningGoal(UUIDMixin, Base):
     __tablename__="learning_goals"

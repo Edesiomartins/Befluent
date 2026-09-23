@@ -72,6 +72,7 @@ class Settings(BaseSettings):
     content_similarity_review_threshold: float = 0.35
     content_similarity_block_threshold: float = 0.55
     content_short_excerpt_max_chars: int = 240
+    language_entitlements_enabled: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
