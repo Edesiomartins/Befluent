@@ -77,13 +77,16 @@ VALID_FLOW_TRANSITIONS: dict[str, frozenset[str]] = {
 class ActivityType(StrEnum):
     """Formas de prática geráveis a partir de um LearningObjective."""
 
+    PRESENTATION = "presentation"
     RECOGNITION = "recognition"
+    REVERSE_RECOGNITION = "reverse_recognition"
     MULTIPLE_CHOICE = "multiple_choice"
     MATCHING = "matching"
     CONTROLLED_RECALL = "controlled_recall"
     FILL_GAP = "fill_gap"
     WORD_ORDER = "word_order"
     LISTENING_RECOGNITION = "listening_recognition"
+    LEXICAL_PRODUCTION = "lexical_production"
     GUIDED_PRODUCTION = "guided_production"
     FREE_PRODUCTION = "free_production"
     CONVERSATION_PROMPT = "conversation_prompt"

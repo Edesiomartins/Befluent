@@ -144,8 +144,13 @@ def submit_slice_answer(
     student_response: str,
     activity_index: int | None = None,
 ) -> dict[str, Any]:
-    objective = db.get(LearningObjective, session.objective_id)
-    if objective is None:
+    objective = (
+        db.get(LearningObjective, session.objective_id)
+        if session.objective_id is not None
+        else None
+    )
+    is_lexical_session = bool((session.payload_json or {}).get("lexical_cycle"))
+    if objective is None and not is_lexical_session:
         raise APIError(404, "objective_not_found", "Objetivo de aprendizagem não encontrado.")
 
     if session.phase == FlowPhase.NEEDS_REMEDIATION:
@@ -179,6 +184,7 @@ def submit_slice_answer(
             "Esta tentativa já foi enviada e não pode ser alterada.",
         )
     activity = activities[index]
+    is_lexical_activity = bool(activity.get("vocabulary_item_id"))
 
     if activity_generator.activity_requires_ai(activity):
         raise APIError(
@@ -187,11 +193,20 @@ def submit_slice_answer(
             "Esta atividade exigiria IA; o vertical slice usa só regras determinísticas.",
         )
 
-    # Atividades de input/ativação/noticing/matching: "continuar" sem produção.
-    if activity.get("type") in {"listen", "recognition", "matching"} and not student_response.strip():
+    # Atividades expositivas: "continuar" sem produção.
+    ack_types = {"listen", "matching", "presentation"}
+    if not is_lexical_activity:
+        ack_types.add("recognition")
+    if activity.get("type") in ack_types and not student_response.strip():
         student_response = "__ack__"
 
-    if activity.get("type") == "multiple_choice" and student_response != "__ack__":
+    choice_types = {
+        "multiple_choice",
+        "recognition",
+        "reverse_recognition",
+        "listening_recognition",
+    }
+    if activity.get("type") in choice_types and student_response != "__ack__":
         allowed = {deterministic_evaluator.normalize_text(t) for t in option_texts(activity)}
         if deterministic_evaluator.normalize_text(student_response) not in allowed:
             raise APIError(
@@ -202,7 +217,7 @@ def submit_slice_answer(
 
     evaluation = None
     result = AttemptResult.CORRECT
-    evidence_type = EvidenceType.COMPREHENSION
+    evidence_type = activity.get("evidence_type") or EvidenceType.COMPREHENSION
     is_transfer = activity.get("type") == "transfer_question"
 
     if student_response != "__ack__":
@@ -210,7 +225,9 @@ def submit_slice_answer(
             student_response=student_response, activity=activity
         )
         result = evaluation["result"]
-        if activity.get("type") == "guided_production":
+        if activity.get("evidence_type"):
+            evidence_type = activity["evidence_type"]
+        elif activity.get("type") == "guided_production":
             evidence_type = EvidenceType.WRITTEN_PRODUCTION
         elif is_transfer:
             evidence_type = EvidenceType.TRANSFER
@@ -223,9 +240,11 @@ def submit_slice_answer(
         db,
         user_language_id=session.user_language_id,
         objective_id=session.objective_id,
+        vocabulary_item_id=activity.get("vocabulary_item_id"),
         activity_type=activity.get("type") or "practice",
         student_response=None if student_response == "__ack__" else student_response,
         curriculum_block_id=session.curriculum_block_id,
+        lesson_id=session.lesson_id,
     )
 
     eval_out = teaching_engine.evaluate_attempt(
@@ -260,9 +279,16 @@ def submit_slice_answer(
         error = teaching_engine.record_error(
             db,
             attempt,
-            category=ErrorCategory.GRAMMAR
-            if activity.get("type") in {"fill_gap", "word_order", "guided_production"}
-            else ErrorCategory.COMPREHENSION,
+            category=(
+                ErrorCategory.VOCABULARY
+                if is_lexical_activity
+                else (
+                    ErrorCategory.GRAMMAR
+                    if activity.get("type")
+                    in {"fill_gap", "word_order", "guided_production"}
+                    else ErrorCategory.COMPREHENSION
+                )
+            ),
             original=student_response,
             expected=activity.get("canonical_answer")
             or (activity.get("accepted_variants") or [None])[0],
@@ -275,35 +301,52 @@ def submit_slice_answer(
             else ErrorSeverity.MODERATE,
             language_feature=_feature_key(activity),
         )
-        remediation = teaching_engine.choose_remediation(
-            db,
-            error,
-            escalate=True,
-            reason="Vertical slice — remediação escalonada sem IA.",
-        )
-        teaching_flow.transition(
-            db, session, target_phase=FlowPhase.NEEDS_REMEDIATION, reason="incorrect_attempt"
-        )
-        remediation_payload = {
-            "id": remediation.id,
-            "action": remediation.action,
-            "error_id": error.id,
-            "explanation": error.explanation,
-            "contrast": {
-                "incorrect": error.original,
-                "correct": error.expected,
-            },
-            "hint_pt": _hint_for(remediation.action, activity),
-            "answer_feedback": answer_feedback,
-        }
-        # Variante para o retry — não reabrir a mesma questão já revelada.
-        patterns = list(objective.target_patterns_json or [])
-        payload = dict(session.payload_json or {})
-        payload["pending_remediation"] = remediation_payload
-        payload["last_answer_feedback"] = answer_feedback
-        payload["retry_activity"] = build_retry_variant(activity, patterns)
-        session.payload_json = payload
-        db.flush()
+        if is_lexical_activity:
+            payload = dict(session.payload_json or {})
+            deferred = list(payload.get("deferred_vocabulary_items") or [])
+            deferred.append(
+                {
+                    "vocabulary_item_id": activity["vocabulary_item_id"],
+                    "activity_type": activity.get("type"),
+                    "attempt_id": attempt.id,
+                }
+            )
+            payload["deferred_vocabulary_items"] = deferred
+            payload["last_answer_feedback"] = answer_feedback
+            payload.pop("retry_activity", None)
+            payload.pop("pending_remediation", None)
+            session.payload_json = payload
+            teaching_flow.advance_activity_cursor(db, session)
+        else:
+            remediation = teaching_engine.choose_remediation(
+                db,
+                error,
+                escalate=True,
+                reason="Vertical slice — remediação escalonada sem IA.",
+            )
+            teaching_flow.transition(
+                db, session, target_phase=FlowPhase.NEEDS_REMEDIATION, reason="incorrect_attempt"
+            )
+            remediation_payload = {
+                "id": remediation.id,
+                "action": remediation.action,
+                "error_id": error.id,
+                "explanation": error.explanation,
+                "contrast": {
+                    "incorrect": error.original,
+                    "correct": error.expected,
+                },
+                "hint_pt": _hint_for(remediation.action, activity),
+                "answer_feedback": answer_feedback,
+            }
+            # Variante para o retry — não reabrir a mesma questão já revelada.
+            patterns = list(objective.target_patterns_json or [])
+            payload = dict(session.payload_json or {})
+            payload["pending_remediation"] = remediation_payload
+            payload["last_answer_feedback"] = answer_feedback
+            payload["retry_activity"] = build_retry_variant(activity, patterns)
+            session.payload_json = payload
+            db.flush()
     else:
         payload = dict(session.payload_json or {})
         payload["last_answer_feedback"] = answer_feedback
@@ -313,10 +356,14 @@ def submit_slice_answer(
         _advance_after_success(db, session, activity)
 
     mastery = eval_out["mastery"]
-    if mastery["state"] == "mastered" and session.status == "active":
+    if mastery is not None and mastery["state"] == "mastered" and session.status == "active":
         _close_as_mastered(db, session)
 
-    progress_state = mastery["state"]
+    progress_state = (
+        mastery["state"]
+        if mastery is not None
+        else (eval_out.get("lexical_memory") or {}).get("state", "learning")
+    )
     return {
         **_session_payload(db, session, objective, progress_state),
         "attempt": {
@@ -621,6 +668,12 @@ def _session_payload(
     if isinstance(current, dict) and current.get("options"):
         texts = option_texts(current)
         current = {**current, "options": texts or current.get("options")}
+    if (
+        isinstance(current, dict)
+        and current.get("type") == "listening_recognition"
+    ):
+        current.pop("canonical_answer", None)
+        current.pop("accepted_variants", None)
     return {
         "flow": {
             "id": session.id,

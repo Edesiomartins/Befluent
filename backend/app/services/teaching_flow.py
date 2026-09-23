@@ -18,9 +18,17 @@ from app.core.teaching import (
     MAX_REMEDIATION_CYCLES,
     FlowPhase,
     MasteryState,
+    MemorySubjectType,
     is_valid_flow_transition,
 )
-from app.models import LearningObjective, TeachingFlowSession, UserObjectiveProgress
+from app.models import (
+    LearningObjective,
+    MemorySchedule,
+    TeachingFlowSession,
+    UserObjectiveProgress,
+    VocabularyExample,
+    VocabularyItem,
+)
 from app.services import activity_generator
 
 logger = logging.getLogger(__name__)
@@ -77,6 +85,87 @@ def start_flow(
         objective.code,
         session.phase,
     )
+    return session
+
+
+def start_vocabulary_flow(
+    db: Session,
+    *,
+    user_language_id: str,
+    vocabulary_item_ids: list[str],
+    lesson_id: str | None = None,
+    curriculum_block_id: str | None = None,
+) -> TeachingFlowSession:
+    """Inicia uma sessão lexical usando os itens persistidos como identidade."""
+    existing_query = select(TeachingFlowSession).where(
+        TeachingFlowSession.user_language_id == user_language_id,
+        TeachingFlowSession.objective_id.is_(None),
+        TeachingFlowSession.lesson_id == lesson_id,
+        TeachingFlowSession.status == "active",
+    )
+    existing = db.scalar(existing_query)
+    if existing is not None:
+        return existing
+
+    unique_ids = list(dict.fromkeys(vocabulary_item_ids))
+    found = list(
+        db.scalars(
+            select(VocabularyItem).where(
+                VocabularyItem.id.in_(unique_ids),
+                VocabularyItem.user_language_id == user_language_id,
+            )
+        )
+    )
+    by_id = {item.id: item for item in found}
+    if len(by_id) != len(unique_ids):
+        raise APIError(
+            404,
+            "vocabulary_item_not_found",
+            "Um ou mais itens de vocabulário não foram encontrados.",
+        )
+    items = [by_id[item_id] for item_id in unique_ids]
+    examples_by_item: dict[str, list[VocabularyExample]] = {
+        item_id: [] for item_id in unique_ids
+    }
+    if unique_ids:
+        for example in db.scalars(
+            select(VocabularyExample)
+            .where(VocabularyExample.vocabulary_item_id.in_(unique_ids))
+            .order_by(VocabularyExample.id.asc())
+        ):
+            examples_by_item[example.vocabulary_item_id].append(example)
+    schedules = list(
+        db.scalars(
+            select(MemorySchedule).where(
+                MemorySchedule.user_language_id == user_language_id,
+                MemorySchedule.subject_type == MemorySubjectType.VOCABULARY,
+                MemorySchedule.subject_key.in_(unique_ids),
+            )
+        )
+    )
+    activities = activity_generator.generate_vocabulary_activities(
+        items,
+        examples_by_item=examples_by_item,
+        memory_by_item={schedule.subject_key: schedule for schedule in schedules},
+    )
+    session = TeachingFlowSession(
+        user_language_id=user_language_id,
+        objective_id=None,
+        lesson_id=lesson_id,
+        curriculum_block_id=curriculum_block_id,
+        phase=FlowPhase.ACTIVATING,
+        activity_cursor=0,
+        remediation_cycles=0,
+        payload_json={
+            "activities": activities,
+            "lexical_cycle": True,
+            "vocabulary_item_ids": unique_ids,
+            "history": [{"phase": FlowPhase.ACTIVATING, "at": _now().isoformat()}],
+        },
+        status="active",
+    )
+    db.add(session)
+    db.flush()
     return session
 
 

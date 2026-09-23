@@ -7,10 +7,17 @@ menos tradução e mais produção/contexto.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping, Sequence
+from datetime import datetime, timezone
 from typing import Any
 
-from app.core.teaching import ActivityType
-from app.models import LearningObjective
+from app.core.teaching import ActivityType, EvidenceType
+from app.models import (
+    LearningObjective,
+    MemorySchedule,
+    VocabularyExample,
+    VocabularyItem,
+)
 
 
 def _patterns(objective: LearningObjective) -> list[dict[str, Any]]:
@@ -50,6 +57,172 @@ def _gap_prompt(canonical: str) -> tuple[str, str]:
     answer = tokens[-1].rstrip(".,!?")
     stem = " ".join(tokens[:-1]) + " ___."
     return stem, answer
+
+
+def _aware(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
+
+def _deterministic_options(
+    values: Sequence[str], *, correct: str, item_index: int
+) -> list[str]:
+    """Ordena alternativas sem aleatoriedade e sem criar conteúdo externo."""
+    unique = list(dict.fromkeys(str(value) for value in values if value))
+    if correct not in unique:
+        unique.insert(0, correct)
+    if len(unique) <= 1:
+        return unique
+    others = [value for value in unique if value != correct]
+    position = item_index % len(unique)
+    return others[:position] + [correct] + others[position:]
+
+
+def generate_vocabulary_activities(
+    items: Sequence[VocabularyItem],
+    *,
+    examples_by_item: Mapping[str, Sequence[VocabularyExample]] | None = None,
+    memory_by_item: Mapping[str, MemorySchedule] | None = None,
+    now: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Gera um ciclo lexical por conjunto, intercalado por modalidade.
+
+    Itens dominados e ainda não vencidos ficam fora desta sessão. Conteúdo
+    incompleto reduz as opções disponíveis; nenhum distrator ou exemplo é
+    inventado.
+    """
+    current_time = _aware(now or datetime.now(timezone.utc))
+    examples_by_item = examples_by_item or {}
+    memory_by_item = memory_by_item or {}
+    selected: list[VocabularyItem] = []
+    for item in items:
+        schedule = memory_by_item.get(item.id)
+        if (
+            schedule is not None
+            and schedule.state == "mastered"
+            and _aware(schedule.due_at) > current_time
+        ):
+            continue
+        selected.append(item)
+
+    meanings = [item.translation_pt for item in selected]
+    terms = [item.term for item in selected]
+    stages: list[list[dict[str, Any]]] = [[], [], [], [], []]
+
+    for item_index, item in enumerate(selected):
+        examples = list(examples_by_item.get(item.id) or ())
+        example = examples[0] if examples else None
+        audio_targets = [
+            {
+                "audio_target_type": "vocabulary_item",
+                "audio_text": item.term,
+            }
+        ]
+        presentation: dict[str, Any] = {
+            "type": ActivityType.PRESENTATION,
+            "vocabulary_item_id": item.id,
+            "phase_hint": "input",
+            "evidence_type": EvidenceType.EXPOSURE,
+            "prompt_pt": "Conheça este item de vocabulário.",
+            "term": item.term,
+            "translation_pt": item.translation_pt,
+            "audio_targets": audio_targets,
+            "ai_required": False,
+        }
+        if item.reading_or_pinyin:
+            presentation["reading_or_pinyin"] = item.reading_or_pinyin
+        if example is not None:
+            presentation["example_sentence"] = example.example_text
+            presentation["example_translation_pt"] = example.translation_pt
+            audio_targets.append(
+                {
+                    "audio_target_type": "example_sentence",
+                    "audio_text": example.example_text,
+                }
+            )
+        stages[0].append(presentation)
+
+        meaning_options = _deterministic_options(
+            meanings, correct=item.translation_pt, item_index=item_index
+        )
+        term_options = _deterministic_options(
+            terms, correct=item.term, item_index=item_index
+        )
+        stages[1].append(
+            {
+                "type": ActivityType.RECOGNITION,
+                "vocabulary_item_id": item.id,
+                "phase_hint": "practicing",
+                "evidence_type": EvidenceType.RECOGNITION,
+                "prompt_pt": "Escolha o significado do termo.",
+                "prompt": item.term,
+                "show_text": True,
+                "options": meaning_options,
+                "canonical_answer": item.translation_pt,
+                "accepted_variants": [item.translation_pt],
+                "audio_targets": [],
+                "ai_required": False,
+            }
+        )
+        stages[2].append(
+            {
+                "type": ActivityType.REVERSE_RECOGNITION,
+                "vocabulary_item_id": item.id,
+                "phase_hint": "practicing",
+                "evidence_type": EvidenceType.REVERSE_RECOGNITION,
+                "prompt_pt": "Escolha o termo correspondente ao significado.",
+                "prompt": item.translation_pt,
+                "show_text": True,
+                "options": term_options,
+                "canonical_answer": item.term,
+                "accepted_variants": [item.term],
+                "audio_targets": [],
+                "ai_required": False,
+            }
+        )
+        stages[3].append(
+            {
+                "type": ActivityType.LISTENING_RECOGNITION,
+                "vocabulary_item_id": item.id,
+                "phase_hint": "practicing",
+                "evidence_type": EvidenceType.LISTENING_RECOGNITION,
+                "prompt_pt": "Ouça e escolha o significado.",
+                "show_text": False,
+                "options": meaning_options,
+                "canonical_answer": item.translation_pt,
+                "accepted_variants": [item.translation_pt],
+                "audio_target_type": "vocabulary_item",
+                "audio_text": item.term,
+                "audio_targets": [
+                    {
+                        "audio_target_type": "vocabulary_item",
+                        "audio_text": item.term,
+                    }
+                ],
+                "ai_required": False,
+            }
+        )
+        stages[4].append(
+            {
+                "type": ActivityType.LEXICAL_PRODUCTION,
+                "vocabulary_item_id": item.id,
+                "phase_hint": "producing",
+                "evidence_type": EvidenceType.LEXICAL_PRODUCTION,
+                "prompt_pt": "Recupere o termo a partir do significado.",
+                "prompt": item.translation_pt,
+                "canonical_answer": item.term,
+                "accepted_variants": [item.term],
+                "response_modes": ["typing", "speech"],
+                "audio_targets": [],
+                "ai_required": False,
+            }
+        )
+
+    activities = [activity for stage in stages for activity in stage]
+    for index, activity in enumerate(activities):
+        activity["index"] = index
+    return activities
 
 
 def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
