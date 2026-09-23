@@ -30,6 +30,7 @@ frontend/coverage/
 # IDE / OS
 .idea/
 .vscode/
+.superpowers/
 *.swp
 .DS_Store
 Thumbs.db
