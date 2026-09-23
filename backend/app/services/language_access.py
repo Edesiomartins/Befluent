@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -19,7 +20,8 @@ def _as_aware_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
-def _is_current_entitlement(entitlement: LanguageEntitlement, *, now: datetime) -> bool:
+def entitlement_is_current(entitlement: LanguageEntitlement, *, now: datetime) -> bool:
+    """Regra canônica: só `active` sem cancelamento e dentro da janela é vigente."""
     if entitlement.status != "active" or entitlement.cancelled_at is not None:
         return False
     starts_at = _as_aware_utc(entitlement.starts_at)
@@ -42,32 +44,40 @@ def user_can_access_language(db: Session, user_id: str, language_code: str) -> b
         )
     )
     now = _utcnow()
-    return any(_is_current_entitlement(entitlement, now=now) for entitlement in entitlements)
+    return any(entitlement_is_current(entitlement, now=now) for entitlement in entitlements)
 
 
 def ensure_legacy_language_entitlement(
     db: Session, user_id: str, language_id: str
 ) -> LanguageEntitlement:
+    query = select(LanguageEntitlement).where(
+        LanguageEntitlement.user_id == user_id,
+        LanguageEntitlement.language_id == language_id,
+        LanguageEntitlement.source == "legacy",
+    )
     existing = db.scalar(
-        select(LanguageEntitlement).where(
-            LanguageEntitlement.user_id == user_id,
-            LanguageEntitlement.language_id == language_id,
-            LanguageEntitlement.source == "legacy",
-        )
+        query
     )
     if existing is not None:
         return existing
 
-    entitlement = LanguageEntitlement(
-        user_id=user_id,
-        language_id=language_id,
-        source="legacy",
-        status="active",
-        starts_at=_utcnow(),
-        expires_at=None,
-        cancelled_at=None,
-        metadata_json={},
-    )
-    db.add(entitlement)
-    db.flush()
-    return entitlement
+    try:
+        with db.begin_nested():
+            entitlement = LanguageEntitlement(
+                user_id=user_id,
+                language_id=language_id,
+                source="legacy",
+                status="active",
+                starts_at=_utcnow(),
+                expires_at=None,
+                cancelled_at=None,
+                metadata_json={},
+            )
+            db.add(entitlement)
+            db.flush()
+            return entitlement
+    except IntegrityError:
+        winner = db.scalar(query)
+        if winner is None:
+            raise
+        return winner

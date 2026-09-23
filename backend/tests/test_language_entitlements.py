@@ -4,15 +4,18 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
+import pytest
 from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
 
 from app.core.config import get_settings
 from app.models import Language, LanguageEntitlement, User
 from app.services.language_access import (
     ensure_legacy_language_entitlement,
+    entitlement_is_current,
     user_can_access_language,
 )
 
@@ -106,6 +109,34 @@ def test_flag_ligada_nega_concessao_cancelada(db_session, monkeypatch):
     assert user_can_access_language(db_session, user_id, "en") is False
 
 
+def test_entitlement_vigente_nega_estados_inconsistentes():
+    """Quebra se status/cancelamento deixarem de usar a mesma regra canônica."""
+    now = datetime.now(timezone.utc)
+    active_cancelled = LanguageEntitlement(
+        user_id="user-1",
+        language_id="lang-en",
+        source="trial",
+        status="active",
+        starts_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=1),
+        cancelled_at=now - timedelta(minutes=1),
+        metadata_json={},
+    )
+    cancelled_without_timestamp = LanguageEntitlement(
+        user_id="user-1",
+        language_id="lang-en",
+        source="trial",
+        status="cancelled",
+        starts_at=now - timedelta(days=1),
+        expires_at=now + timedelta(days=1),
+        cancelled_at=None,
+        metadata_json={},
+    )
+
+    assert entitlement_is_current(active_cancelled, now=now) is False
+    assert entitlement_is_current(cancelled_without_timestamp, now=now) is False
+
+
 def test_admin_e_trial_autorizam_sem_pagamento(db_session, monkeypatch):
     """Quebra se fontes explícitas sem billing forem tratadas como inválidas."""
     _set_entitlements_enabled(monkeypatch, True)
@@ -151,6 +182,66 @@ def test_helper_legacy_cria_concessao_idempotente(db_session):
     assert len(grants) == 1
     assert grants[0].status == "active"
     assert grants[0].expires_at is None
+
+
+def test_constraint_impede_grant_duplicado_por_origem(db_session):
+    """Quebra se duas concessões da mesma origem puderem coexistir."""
+    user_id = _user_id(db_session)
+    language_id = _language_id(db_session)
+    _add_entitlement(
+        db_session,
+        user_id=user_id,
+        language_id=language_id,
+        source="legacy",
+    )
+    db_session.add(
+        LanguageEntitlement(
+            user_id=user_id,
+            language_id=language_id,
+            source="legacy",
+            status="active",
+            starts_at=datetime.now(timezone.utc),
+            metadata_json={},
+        )
+    )
+
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()
+
+
+def test_helper_legacy_recupera_grant_vencedor_apos_conflito(db_session, monkeypatch):
+    """Quebra se uma corrida de insert deixar duplicata ou vazar IntegrityError."""
+    user_id = _user_id(db_session)
+    language_id = _language_id(db_session)
+    winner = _add_entitlement(
+        db_session,
+        user_id=user_id,
+        language_id=language_id,
+        source="legacy",
+    )
+    original_scalar = db_session.scalar
+    calls = {"count": 0}
+
+    def hide_existing_once(statement, *args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return None
+        return original_scalar(statement, *args, **kwargs)
+
+    monkeypatch.setattr(db_session, "scalar", hide_existing_once)
+
+    recovered = ensure_legacy_language_entitlement(db_session, user_id, language_id)
+
+    grants = db_session.scalars(
+        select(LanguageEntitlement).where(
+            LanguageEntitlement.user_id == user_id,
+            LanguageEntitlement.language_id == language_id,
+            LanguageEntitlement.source == "legacy",
+        )
+    ).all()
+    assert recovered.id == winner.id
+    assert len(grants) == 1
 
 
 def test_migration_cria_entitlements_legacy_para_user_languages_existentes(tmp_path):
@@ -203,3 +294,15 @@ def test_migration_cria_entitlements_legacy_para_user_languages_existentes(tmp_p
             )
         ).one()
     assert row == (user_language_id, "user-1", "lang-en", "legacy", "active", None, None)
+    with engine.begin() as conn:
+        with pytest.raises(IntegrityError):
+            conn.execute(
+                text(
+                    "INSERT INTO language_entitlements "
+                    "(id, user_id, language_id, source, status, starts_at, metadata_json, "
+                    " created_at, updated_at) "
+                    "VALUES ('22222222-2222-4222-8222-222222222222', 'user-1', "
+                    "'lang-en', 'legacy', 'active', '2026-01-01', '{}', "
+                    "'2026-01-01', '2026-01-01')"
+                )
+            )

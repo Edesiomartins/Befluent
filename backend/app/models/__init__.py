@@ -63,6 +63,12 @@ class UserLanguage(UUIDMixin, Base):
 class LanguageEntitlement(UUIDMixin, Base):
     __tablename__ = "language_entitlements"
     __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "language_id",
+            "source",
+            name="uq_language_entitlements_user_language_source",
+        ),
         Index("ix_language_entitlements_user_language", "user_id", "language_id"),
         Index("ix_language_entitlements_status_period", "status", "starts_at", "expires_at"),
     )

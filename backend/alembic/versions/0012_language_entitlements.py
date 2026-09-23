@@ -24,11 +24,38 @@ def _existing_indexes(table_name: str) -> set[str]:
     return {idx["name"] for idx in inspect(op.get_bind()).get_indexes(table_name) if idx.get("name")}
 
 
+def _existing_unique_column_sets(table_name: str) -> set[tuple[str, ...]]:
+    inspector = inspect(op.get_bind())
+    uniques: set[tuple[str, ...]] = set()
+    for constraint in inspector.get_unique_constraints(table_name):
+        columns = tuple(constraint.get("column_names") or ())
+        if columns:
+            uniques.add(columns)
+    for index in inspector.get_indexes(table_name):
+        if index.get("unique"):
+            columns = tuple(index.get("column_names") or ())
+            if columns:
+                uniques.add(columns)
+    return uniques
+
+
 def _create_index_if_missing(
     name: str, table_name: str, columns: list[str], *, unique: bool = False
 ) -> None:
     if name not in _existing_indexes(table_name):
         op.create_index(name, table_name, columns, unique=unique)
+
+
+def _ensure_unique_grant_source() -> None:
+    columns = ("user_id", "language_id", "source")
+    if columns in _existing_unique_column_sets("language_entitlements"):
+        return
+    op.create_index(
+        "uq_language_entitlements_user_language_source",
+        "language_entitlements",
+        list(columns),
+        unique=True,
+    )
 
 
 def _create_table() -> None:
@@ -49,6 +76,12 @@ def _create_table() -> None:
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["language_id"], ["languages.id"]),
+        sa.UniqueConstraint(
+            "user_id",
+            "language_id",
+            "source",
+            name="uq_language_entitlements_user_language_source",
+        ),
     )
 
 
@@ -129,6 +162,7 @@ def _backfill_legacy() -> None:
 
 def upgrade() -> None:
     _create_table()
+    _ensure_unique_grant_source()
     _ensure_indexes()
     _backfill_legacy()
 
