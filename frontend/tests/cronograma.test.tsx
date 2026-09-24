@@ -382,7 +382,7 @@ describe("Execução do dia", () => {
     );
     expect(await screen.findByText("Vocabulário essencial · A2")).toBeInTheDocument();
     // O tópico do bloco aparece na tela: é o que diferencia esta semana das outras.
-    expect(screen.getByText("Apresentações e rotina — vocabulário")).toBeInTheDocument();
+    expect(screen.getAllByText("Apresentações e rotina — vocabulário").length).toBeGreaterThan(0);
   });
 
   it("conclui o bloco pelo endpoint do cronograma", async () => {
@@ -578,8 +578,9 @@ describe("Execução do dia", () => {
 
     render(<CurriculumDayPage />);
 
-    expect(await screen.findByText(/Dia 1 concluído/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Continuar para o Dia 2/ })).toHaveAttribute(
+    expect(await screen.findByRole("heading", { name: "Missão concluída" })).toBeInTheDocument();
+    expect(screen.getByText(/não equivale a domínio/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuar" })).toHaveAttribute(
       "href",
       "/cronograma/dia/day-2",
     );

@@ -17,6 +17,8 @@ import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teach
 import { SessionProgress } from "@/components/session-progress";
 import { Button, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { coachFor } from "@/lib/coach";
+import { conversationTopic } from "@/lib/journey";
 import { visibleContextualForm } from "@/lib/lexical-form";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import type {
@@ -119,14 +121,33 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
   );
 }
 
-function Conversation({ lesson }: { lesson: ConversationLesson }) {
+function Conversation({
+  lesson,
+  missionScenario,
+  coachLanguageCode,
+}: {
+  lesson: ConversationLesson;
+  missionScenario?: string;
+  coachLanguageCode?: string;
+}) {
+  const coach = coachFor(coachLanguageCode);
+  const topic = conversationTopic({
+    lessonSituation: lesson.situation,
+    missionScenario,
+    freePractice: !missionScenario,
+  });
   return (
     <div className="grid gap-5">
+      {missionScenario && (
+        <p className="text-sm text-text-secondary">
+          {coach.display_name} conduz esta prática dentro da missão.
+        </p>
+      )}
       <div className="panel p-5">
         <p className="label">
           Situação
         </p>
-        <p className="mt-2 font-medium">{lesson.situation}</p>
+        <p className="mt-2 font-medium">{topic}</p>
         {lesson.target_expressions.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {lesson.target_expressions.map((expression) => (
@@ -142,7 +163,7 @@ function Conversation({ lesson }: { lesson: ConversationLesson }) {
       </div>
       <Chat
         languageCode={lesson.language_code}
-        situation={lesson.situation}
+        situation={topic}
         opening={lesson.opening}
         openingTranslation={lesson.opening_translation}
         studySessionId={lesson.study_session_id}
@@ -1298,6 +1319,8 @@ export function LessonContent({
   lesson,
   onPracticeReady,
   enableVocabularyCycle = true,
+  missionScenario,
+  coachLanguageCode,
 }: {
   mode: string;
   lesson: LessonEnvelope;
@@ -1305,12 +1328,21 @@ export function LessonContent({
   onPracticeReady?: (ready: boolean) => void;
   /** O cronograma já recebe a sessão lexical no payload do bloco. */
   enableVocabularyCycle?: boolean;
+  /** Cenário da missão, só quando a conversa nasce da Journey. */
+  missionScenario?: string;
+  coachLanguageCode?: string;
 }) {
   switch (mode) {
     case "guided":
       return <Guided lesson={lesson as GuidedLesson} />;
     case "conversation":
-      return <Conversation lesson={lesson as ConversationLesson} />;
+      return (
+        <Conversation
+          lesson={lesson as ConversationLesson}
+          missionScenario={missionScenario}
+          coachLanguageCode={coachLanguageCode}
+        />
+      );
     case "voice":
       return <Voice lesson={lesson as ConversationLesson} />;
     case "pronunciation":

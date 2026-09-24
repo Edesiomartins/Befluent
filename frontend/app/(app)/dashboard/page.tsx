@@ -12,6 +12,8 @@ import { getMode } from "@/lib/modes";
 import { LEVEL_SOURCE_LABELS, levelShortCode } from "@/lib/levels";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import { useTodayInCurriculum } from "@/hooks/use-curriculum";
+import { coachFor } from "@/lib/coach";
+import { deriveDailyMission, missionCta } from "@/lib/journey";
 import type { DashboardLevel } from "@/types/placement";
 import type { TodayPayload } from "@/types/curriculum";
 
@@ -162,71 +164,81 @@ function LevelBlock({
  *  Os blocos são uma sequência real (Ativar → … → Consolidar), por isso aparecem
  *  numerados. Sem cronograma ativo, o painel mostra a próxima atividade no lugar.
  */
-function TodayInCurriculum({ today }: { today: TodayPayload }) {
+function TodayInCurriculum({
+  today,
+  languageName,
+  languageCode,
+}: {
+  today: TodayPayload;
+  languageName: string;
+  languageCode: string;
+}) {
   const { day, week, curriculum } = today;
   if (!day) return null;
   const late = curriculum.progress.overdue_days;
+  const mission = deriveDailyMission({
+    day,
+    weekTheme: week?.theme,
+    languageName,
+    level: week?.cefr_focus,
+  });
+  const coach = coachFor(languageCode);
+  const cta = missionCta(mission.status);
 
   return (
-    <section className="rounded-2xl bg-[var(--primary-deep)] p-6 text-white sm:p-8">
+    <section className="rounded-2xl bg-[var(--primary-deep)] p-6 text-white sm:p-8" aria-labelledby="daily-mission-title">
       <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-sm text-white/65">
-        <p>Hoje no seu cronograma</p>
+        <p>Missão de hoje</p>
         <p className="tabular-nums">
-          Dia {day.day_number} de {curriculum.progress.days_total} · {day.total_minutes} min
+          {mission.language_name}
+          {mission.level ? ` · ${levelShortCode(mission.level) ?? mission.level}` : ""} · {mission.estimated_minutes} min
         </p>
       </div>
 
-      <h2 className="page-title mt-3 text-white">
-        {week ? week.theme : `Dia ${day.day_number}`}
+      <h2 id="daily-mission-title" className="page-title mt-3 text-white">
+        {mission.title}
       </h2>
+      {mission.subtitle && mission.subtitle !== mission.title && (
+        <p className="mt-3 max-w-xl text-sm leading-6 text-white/75">{mission.subtitle}</p>
+      )}
+      <p className="mt-2 text-xs text-white/55">
+        {coach.display_name} · {coach.short_role}
+      </p>
       {week?.is_checkpoint && (
         <p className="mt-2 text-sm text-[var(--gold)]">Semana de checkpoint</p>
       )}
 
-      <ol className="mt-7 grid gap-px overflow-hidden rounded-xl bg-white/10 sm:grid-cols-5">
-        {day.blocks.map((block, index) => {
-          const done = block.status === "completed";
-          const current = Boolean(block.is_current);
-          return (
-            <li
-              key={block.id}
-              className={`flex items-center gap-3 px-4 py-3 sm:block sm:px-3 sm:py-4 ${
-                current ? "bg-white text-[var(--primary-deep)]" : "bg-[var(--primary-deep)]"
-              }`}
-              aria-current={current ? "step" : undefined}
-            >
-              <span
-                className={`display-number grid size-7 shrink-0 place-items-center rounded-full text-sm sm:mb-3 ${
-                  done
-                    ? "bg-white/15 text-white"
-                    : current
-                      ? "bg-primary text-white"
-                      : "border border-white/25 text-white/70"
-                }`}
-              >
-                {done ? <Check className="size-3.5" aria-label="Concluído" /> : index + 1}
-              </span>
-              <span className="min-w-0">
-                <span className={`block text-sm font-semibold leading-5 ${done ? "text-white/55" : ""}`}>
-                  {block.skill_label}
-                </span>
-                {block.phase_label && (
-                  <span className={`block text-xs ${current ? "text-text-secondary" : "text-white/50"}`}>
-                    {block.phase_label}
-                  </span>
-                )}
-              </span>
-            </li>
-          );
-        })}
+      <ol
+        className="mt-7 flex flex-wrap gap-2"
+        aria-label="Progresso da missão"
+      >
+        {mission.phases.map((phase) => (
+          <li
+            key={phase.key}
+            className={`inline-flex min-h-9 items-center gap-2 rounded-full px-3 text-xs font-semibold ${
+              phase.state === "current"
+                ? "bg-white text-[var(--primary-deep)]"
+                : "bg-white/10 text-white/80"
+            }`}
+            aria-current={phase.state === "current" ? "step" : undefined}
+          >
+            <span aria-hidden>
+              {phase.state === "done" ? "✓" : phase.state === "current" ? "●" : "○"}
+            </span>
+            {phase.label}
+          </li>
+        ))}
       </ol>
+      <p className="mt-3 text-xs text-white/55">
+        {mission.progress_current} de {mission.progress_total} blocos
+      </p>
 
       <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
         <Link
-          href={`/cronograma/dia/${day.id}`}
+          href={`/cronograma/dia/${mission.day_id}`}
           className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 text-sm font-semibold text-[var(--primary-deep)] hover:bg-white/90"
         >
-          {day.blocks_completed > 0 ? "Continuar o dia" : "Começar o dia"}
+          {cta}
           <ArrowRight className="size-4" aria-hidden />
         </Link>
         {late > 0 && (
@@ -341,7 +353,11 @@ export default function DashboardPage() {
 
       <div className="mt-8 grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         {today ? (
-          <TodayInCurriculum today={today} />
+          <TodayInCurriculum
+            today={today}
+            languageName={language?.name_pt || "Seu idioma"}
+            languageCode={code}
+          />
         ) : (
           <article className="rounded-2xl bg-[var(--primary-deep)] p-6 text-white sm:p-8">
             <p className="text-sm text-white/65">Próxima atividade</p>

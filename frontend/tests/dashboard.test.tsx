@@ -246,4 +246,120 @@ describe("DashboardPage — nível linguístico", () => {
     expect(screen.getByText("Confirmar com o teste")).toBeInTheDocument();
     expect(screen.queryByText("Ver resultado completo")).not.toBeInTheDocument();
   });
+
+  it("mostra a missão de hoje do idioma ativo", async () => {
+    apiMock.mockImplementation((path: string) => {
+      if (String(path).includes("/language-profiles")) {
+        return Promise.resolve({
+          profiles: [{ language_code: "fr", is_active: true, access_state: "available" }],
+        });
+      }
+      if (String(path).includes("/curriculum/day/today")) {
+        return Promise.resolve({
+          curriculum: {
+            id: "c1",
+            duration_days: 90,
+            start_date: "2026-09-01",
+            entry_level: "B1",
+            target_level: "B2",
+            status: "active",
+            generated_from: "test",
+            weeks_total: 13,
+            disclaimer: "",
+            entry: { code: "B1", name_pt: "Intermediário", short_description: "", order_index: 3, testable: true },
+            target: { code: "B2", name_pt: "Intermediário", short_description: "", order_index: 4, testable: true },
+            progress: {
+              days_total: 90,
+              days_completed: 11,
+              percent_complete: 12,
+              current_day_number: 12,
+              overdue_days: 0,
+              needs_reschedule: false,
+              next_checkpoint_week: null,
+            },
+          },
+          week: {
+            id: "w1",
+            week_number: 2,
+            theme: "Hotel",
+            cefr_focus: "B1",
+            is_checkpoint: false,
+          },
+          day: {
+            id: "day-12",
+            day_number: 12,
+            scheduled_date: "2026-09-23",
+            status: "in_progress",
+            completed_at: null,
+            total_minutes: 18,
+            blocks_total: 2,
+            blocks_completed: 1,
+            blocks: [
+              {
+                id: "b1",
+                skill: "vocabulary",
+                skill_label: "Vocabulário",
+                mode: "vocabulary",
+                position: 1,
+                estimated_minutes: 8,
+                cefr_level: "B1",
+                topic: "Fazer check-in em um hotel",
+                lesson_ref: null,
+                status: "completed",
+                score: null,
+                phase: "activate",
+              },
+              {
+                id: "b2",
+                skill: "listening",
+                skill_label: "Listening",
+                mode: "listening",
+                position: 2,
+                estimated_minutes: 10,
+                cefr_level: "B1",
+                topic: "Recepção",
+                lesson_ref: null,
+                status: "pending",
+                score: null,
+                phase: "input",
+                is_current: true,
+              },
+            ],
+            learning_objective: {
+              id: "o1",
+              code: "x",
+              title: "Hotel",
+              can_do: "check in",
+              learner_goal: "Confirmar a reserva na recepção.",
+              level: "B1",
+              state: "practicing",
+              status_label: "Em prática",
+              reasons: [],
+            },
+          },
+          overdue_days: [],
+        });
+      }
+      return Promise.resolve({
+        ...dashboardWithPlan,
+        active_language: {
+          ...dashboardWithPlan.active_language,
+          code: "fr",
+          name_pt: "Francês",
+        },
+      });
+    });
+
+    render(<DashboardPage />);
+
+    expect(await screen.findByText("Missão de hoje")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Confirmar a reserva na recepção." })).toBeInTheDocument();
+    expect(screen.getAllByText(/Francês/).length).toBeGreaterThan(0);
+    expect(screen.getByRole("link", { name: /Continuar missão/ })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-12",
+    );
+    expect(screen.getByText("Preparar")).toBeInTheDocument();
+    expect(screen.getByText("Compreender")).toBeInTheDocument();
+  });
 });

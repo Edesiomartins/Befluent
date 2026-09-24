@@ -236,12 +236,21 @@ def _next_day_ref(db: Session, curriculum: Curriculum, day: CurriculumDay) -> di
     nxt = _find_next_day(db, curriculum.id, day.day_number)
     if nxt is None:
         return None
+    week = db.get(CurriculumWeek, nxt.week_id)
+    first_topic = db.scalar(
+        select(CurriculumBlock.topic)
+        .where(CurriculumBlock.day_id == nxt.id)
+        .order_by(CurriculumBlock.position)
+        .limit(1)
+    )
     return {
         "id": nxt.id,
         "day_number": nxt.day_number,
         "available": day.status == DayStatus.COMPLETED,
         "scheduled_date": nxt.scheduled_date.isoformat(),
         "status": nxt.status,
+        "theme": week.theme if week else None,
+        "topic": first_topic or None,
     }
 
 

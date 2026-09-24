@@ -7,7 +7,10 @@ import { Check, Lock } from "lucide-react";
 import { LessonContent } from "@/components/lesson-modes";
 import { Button, ErrorState, Loading, Note } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { coachFor } from "@/lib/coach";
+import { deriveDailyMission, journeyPhaseLabel } from "@/lib/journey";
 import { levelShortCode } from "@/lib/levels";
+import { useActiveLanguage } from "@/hooks/use-active-language";
 import { useCurriculumDay } from "@/hooks/use-curriculum";
 import type { LessonEnvelope } from "@/types/lesson";
 import type {
@@ -32,22 +35,27 @@ function ThreadBanner({ lesson }: { lesson: BlockLesson }) {
   const recycled = thread?.recycled_terms ?? [];
   if (carried.length === 0 && recycled.length === 0) return null;
 
-  const origin = thread?.sources?.length ? thread.sources.join(" → ") : "blocos anteriores";
+  const origin = thread?.sources?.length ? thread.sources.join(" → ") : "";
 
   return (
     <div
       className="mb-6 border-l-2 border-primary/40 pl-4"
       title={
-        thread?.guaranteed === false
-          ? "Conteúdo de biblioteca: o reuso destes itens é sugerido, não garantido dentro do material."
-          : undefined
+        [
+          origin ? `Origem: ${origin}` : "",
+          thread?.guaranteed === false
+            ? "Conteúdo de biblioteca: o reuso destes itens é sugerido, não garantido dentro do material."
+            : "",
+        ]
+          .filter(Boolean)
+          .join(" ")
       }
     >
-      <p className="label">Continua de {origin}</p>
+      <p className="label">Da etapa anterior</p>
       {carried.length > 0 && (
         <p className="mt-2 text-sm leading-6 text-text-secondary">
-          Você vai reaproveitar aqui:{" "}
-          <span className="font-semibold text-text-primary">{carried.join(", ")}</span>
+          Você vai usar novamente:{" "}
+          <span className="font-semibold text-text-primary">{carried.join(" · ")}</span>
         </p>
       )}
       {recycled.length > 0 && (
@@ -364,9 +372,13 @@ function MiniTeachingPractice({
 
 function BlockRunner({
   block,
+  missionScenario,
+  languageCode,
   onCompleted,
 }: {
   block: CurriculumBlock;
+  missionScenario?: string;
+  languageCode?: string;
   onCompleted: () => void;
 }) {
   const [lesson, setLesson] = useState<BlockLesson | null>(null);
@@ -436,8 +448,10 @@ function BlockRunner({
     <div>
       <div className="mb-7">
         <p className="text-sm text-text-secondary">
-          <span className="font-semibold text-primary">{block.phase_label ?? "Etapa"}</span> ·{" "}
-          {block.skill_label} · {block.estimated_minutes} min · {levelShortCode(block.cefr_level)}
+          <span className="font-semibold text-primary">
+            {journeyPhaseLabel(block.phase, block.phase_label)}
+          </span>{" "}
+          · {block.skill_label} · {block.estimated_minutes} min · {levelShortCode(block.cefr_level)}
         </p>
         <h2 className="mt-2 font-display text-[1.75rem] font-medium leading-tight tracking-[-0.015em]">
           {lesson.title}
@@ -478,6 +492,16 @@ function BlockRunner({
           lesson={lesson as LessonEnvelope}
           onPracticeReady={grammarGate ? setPracticeReady : undefined}
           enableVocabularyCycle={!vocabularyBlock}
+          missionScenario={
+            block.skill === "conversation" || block.mode === "conversation" || block.mode === "voice"
+              ? missionScenario
+              : undefined
+          }
+          coachLanguageCode={
+            block.skill === "conversation" || block.mode === "conversation" || block.mode === "voice"
+              ? languageCode
+              : undefined
+          }
         />
       )}
 
@@ -508,12 +532,20 @@ function BlockRunner({
 export default function CurriculumDayPage() {
   const params = useParams<{ id: string }>();
   const { status, data, error, reload } = useCurriculumDay(params.id);
+  const { code: languageCode } = useActiveLanguage();
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   if (status === "loading") return <Loading label="Carregando o dia de estudo" />;
   if (status === "error") return <ErrorState message={error} retry={() => void reload()} />;
 
   const { day, week, curriculum } = data;
+  const mission = deriveDailyMission({
+    day,
+    weekTheme: week.theme,
+    languageName: "",
+    level: week.cefr_focus,
+  });
+  const coach = coachFor(languageCode);
   const current =
     day.blocks.find((block) => block.is_current) ??
     day.blocks.find((block) => block.status === "pending" && !block.locked) ??
@@ -533,17 +565,33 @@ export default function CurriculumDayPage() {
             <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">Checkpoint</span>
           )}
         </p>
-        <h1 className="mt-2 page-title">
+        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
+          Missão {day.day_number}
+        </p>
+        <h1 className="mt-2 page-title">{mission.title}</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+          {mission.learner_goal}
+        </p>
+        <p className="mt-2 text-xs text-text-secondary">
+          {coach.display_name} acompanha esta missão
+          {mission.level ? ` · ${levelShortCode(mission.level) ?? mission.level}` : ""}
+          {" · "}
+          {day.total_minutes} min
+        </p>
+        <p className="mt-2 text-sm text-text-secondary">
           Dia {day.day_number}
           {curriculum.duration_days ? ` de ${curriculum.duration_days}` : ""}
-        </h1>
-        <p
-          className="mt-2 text-sm text-text-secondary"
-          title={`Planejado originalmente para ${day.scheduled_date.split("-").reverse().join("/")} (ritmo recomendado)`}
-        >
-          {day.blocks_completed} de {day.blocks_total} blocos · {day.total_minutes} min estimados
+          {" · "}
+          {day.blocks_completed} de {day.blocks_total} blocos
         </p>
-        <div className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated">
+        <div
+          className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated"
+          role="progressbar"
+          aria-label="Progresso da missão"
+          aria-valuemin={0}
+          aria-valuemax={day.blocks_total}
+          aria-valuenow={day.blocks_completed}
+        >
           <div
             className="h-full rounded-full bg-primary transition-all"
             style={{ width: `${progressPct}%` }}
@@ -631,13 +679,11 @@ export default function CurriculumDayPage() {
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className={`block leading-5 ${done ? "text-text-secondary" : ""}`}>
+                        {journeyPhaseLabel(block.phase, block.skill_label)}
+                      </span>
+                      <span className="block text-[.7rem] font-medium text-text-secondary">
                         {block.skill_label}
                       </span>
-                      {block.phase_label && (
-                        <span className="block text-[.7rem] font-medium text-text-secondary">
-                          {block.phase_label}
-                        </span>
-                      )}
                     </span>
                     <span className="shrink-0 text-xs font-normal text-text-secondary tabular-nums">
                       {block.estimated_minutes} min
@@ -652,37 +698,47 @@ export default function CurriculumDayPage() {
 
         <div className="min-w-0 max-w-3xl">
           {finished && !activeBlockId ? (
-            <div className="panel p-8 text-center" role="status">
-              <h2 className="text-xl font-semibold">
-                Dia {day.day_number} concluído ✓
-              </h2>
+            <div className="panel p-8" role="status">
+              <h2 className="text-xl font-semibold">Missão concluída</h2>
               <p className="mt-3 text-sm leading-6 text-text-secondary">
-                Você completou a sequência completa: léxico, estrutura, input, produção e
-                revisão. A próxima jornada já pode começar — sem esperar o calendário.
+                Você praticou esta sequência. Concluir a missão registra o percurso do dia;
+                não equivale a domínio da habilidade.
+              </p>
+              <ul className="mt-4 grid gap-1 text-sm text-text-secondary">
+                {day.blocks.map((block) => (
+                  <li key={block.id}>
+                    Você praticou {journeyPhaseLabel(block.phase, block.skill_label).toLowerCase()}
+                    {" · "}
+                    {block.skill_label}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-sm text-text-secondary">
+                {day.blocks_completed} blocos concluídos
               </p>
               {day.thread && day.thread.terms.length > 0 && (
                 <p className="mt-2 text-sm leading-6 text-text-secondary">
-                  {day.thread.terms.length}{" "}
-                  {day.thread.terms.length === 1 ? "item entrou" : "itens entraram"} na sua
-                  fila de revisão espaçada. Revisões futuras continuam no prazo do SRS.
+                  Vocabulário deste dia: {day.thread.terms.map((item) => item.term).join(" · ")}.
+                  A revisão espaçada segue o prazo do SRS.
                 </p>
               )}
-              <div className="mt-6 flex flex-col items-center gap-3">
+              {day.next_day?.available && (
+                <p className="mt-4 text-sm text-text-primary">
+                  Amanhã: {day.next_day.topic || day.next_day.theme || `Dia ${day.next_day.day_number}`}
+                </p>
+              )}
+              <div className="mt-6 flex flex-col items-start gap-3">
                 {day.next_day?.available && (
                   <Link
                     href={`/cronograma/dia/${day.next_day.id}`}
                     className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
                   >
-                    Continuar para o Dia {day.next_day.day_number}
+                    Continuar
                   </Link>
                 )}
                 <Link
                   href="/cronograma"
-                  className={
-                    day.next_day?.available
-                      ? "text-sm font-semibold text-text-secondary hover:text-primary"
-                      : "inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
-                  }
+                  className="text-sm font-semibold text-text-secondary hover:text-primary"
                 >
                   Voltar ao cronograma
                 </Link>
@@ -692,6 +748,8 @@ export default function CurriculumDayPage() {
             <BlockRunner
               key={active.id}
               block={active}
+              missionScenario={mission.scenario}
+              languageCode={languageCode}
               onCompleted={() => {
                 setActiveBlockId(null);
                 void reload();

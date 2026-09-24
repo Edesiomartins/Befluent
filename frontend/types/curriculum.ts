@@ -103,6 +103,10 @@ export type NextDayRef = {
   available: boolean;
   scheduled_date: string;
   status: DayStatus;
+  /** Tema da semana do próximo dia, quando o currículo já o tem. */
+  theme?: string | null;
+  /** Tópico do primeiro bloco do próximo dia. */
+  topic?: string | null;
 };
 
 export type PaceStatus = "ahead" | "on_track" | "behind";
