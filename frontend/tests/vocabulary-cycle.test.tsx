@@ -278,6 +278,74 @@ describe("ciclo lexical standalone", () => {
     expect(screen.getByRole("button", { name: "Continuar estudando" })).toBeInTheDocument();
   });
 
+  it("libera reconhecimento expositivo sem resposta e avança a sessão", async () => {
+    const noticing = session({
+      type: "recognition",
+      index: 1,
+      prompt_pt: "Observe o padrão destas frases.",
+      examples: ["Je réserve une chambre.", "Je confirme la réservation.", "Je demande la clé."],
+    }, 1);
+    const next = session({
+      type: "multiple_choice",
+      index: 2,
+      prompt_pt: "Escolha a forma adequada.",
+      prompt: "Je ___ une chambre.",
+      options: ["réserve", "réserves"],
+    }, 2);
+    apiMock.mockResolvedValueOnce(noticing).mockResolvedValueOnce(next);
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+
+    expect(await screen.findByText("Observe o padrão destas frases.")).toBeInTheDocument();
+    expect(screen.getByText("Je réserve une chambre.")).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    const continueButton = screen.getByRole("button", { name: "Continuar" });
+    expect(continueButton).toBeEnabled();
+
+    fireEvent.click(continueButton);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith(
+        "/api/v1/lessons/lesson-1/vocabulary-cycle/answer",
+        {
+          method: "POST",
+          body: { activity_index: 1, student_response: "" },
+        },
+      ),
+    );
+    expect(await screen.findByText("Escolha a forma adequada.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Enviar tentativa" })).toBeDisabled();
+  });
+
+  it.each(["presentation", "listen", "matching", "conversation_prompt"] as const)(
+    "trata %s como continuar, sem exigir resposta",
+    async (type) => {
+      apiMock.mockResolvedValueOnce(
+        session({ type, prompt_pt: "Leia e siga.", examples: ["Exemplo."] }),
+      );
+      render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+      expect(await screen.findByRole("button", { name: "Continuar" })).toBeEnabled();
+      expect(screen.queryByRole("button", { name: "Enviar tentativa" })).not.toBeInTheDocument();
+    },
+  );
+
+  it("reconhecimento lexical continua exigindo uma alternativa", async () => {
+    apiMock.mockResolvedValueOnce(
+      session({
+        type: "recognition",
+        vocabulary_item_id: "v-1",
+        prompt_pt: "Escolha o significado.",
+        prompt: "clé",
+        options: ["chave", "porta"],
+      }),
+    );
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+    const send = await screen.findByRole("button", { name: "Enviar tentativa" });
+    expect(send).toBeDisabled();
+    fireEvent.click(screen.getByRole("radio", { name: "chave" }));
+    expect(send).toBeEnabled();
+  });
+
   it("inicia quando ainda não há ciclo e mostra estado sem itens devidos", async () => {
     const { ApiError } = await import("@/lib/api");
     apiMock

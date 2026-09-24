@@ -19,6 +19,7 @@ import { Button, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { coachFor } from "@/lib/coach";
 import { conversationTopic } from "@/lib/journey";
+import { activityIsAcknowledgement } from "@/lib/teaching-response";
 import { visibleContextualForm } from "@/lib/lexical-form";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import type {
@@ -183,7 +184,21 @@ type TutorTurn = { reply: string };
  * é renderizada como `<p>`/texto na tela — ver docs do Practice Hub sobre
  * por que a experiência é "ouça e responda", não "leia e responda".
  */
-function Voice({ lesson }: { lesson: ConversationLesson }) {
+function Voice({
+  lesson,
+  missionScenario,
+  coachLanguageCode,
+}: {
+  lesson: ConversationLesson;
+  missionScenario?: string;
+  coachLanguageCode?: string;
+}) {
+  const coach = coachFor(coachLanguageCode);
+  const topic = conversationTopic({
+    lessonSituation: lesson.situation,
+    missionScenario,
+    freePractice: !missionScenario,
+  });
   const [turnText, setTurnText] = useState(lesson.opening);
   const [turnCount, setTurnCount] = useState(0);
   const [lastHeard, setLastHeard] = useState("");
@@ -199,7 +214,7 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
       method: "POST",
       body: {
         language_code: lesson.language_code,
-        topic: lesson.situation,
+        topic,
         opening: lesson.opening,
         study_session_id: lesson.study_session_id,
       },
@@ -231,13 +246,47 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
     }
   }
 
+  async function endPractice() {
+    if (ending || closed) return;
+    setEnding(true);
+    setError(null);
+    try {
+      const id = conversationId.current;
+      if (id) {
+        await api(`/api/v1/conversations/${id}/complete`, { method: "POST", body: {} });
+      }
+      if (lesson.lesson_id) {
+        try {
+          await api(`/api/v1/lessons/${lesson.lesson_id}/complete`, { method: "POST", body: {} });
+        } catch (err) {
+          const alreadyDone =
+            err instanceof ApiError &&
+            (err.status === 409 || err.code === "lesson_already_completed");
+          if (!alreadyDone) throw err;
+        }
+      }
+      setClosed(true);
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Não foi possível encerrar a prática.",
+      );
+    } finally {
+      setEnding(false);
+    }
+  }
+
   return (
     <div className="mx-auto grid max-w-3xl gap-5">
       <div className="panel p-5">
+        {missionScenario && (
+          <p className="mb-3 text-sm text-text-secondary">
+            {coach.display_name} conduz esta prática dentro da missão.
+          </p>
+        )}
         <p className="label">
           Situação
         </p>
-        <p className="mt-2 font-medium">{lesson.situation}</p>
+        <p className="mt-2 font-medium">{topic}</p>
 
         <div className="mt-6 rounded-xl bg-surface-elevated p-5 text-center">
           <p className="label">
@@ -269,12 +318,8 @@ function Voice({ lesson }: { lesson: ConversationLesson }) {
           <Button
             variant="secondary"
             loading={ending}
-            disabled={closed}
-            onClick={() => {
-              setEnding(true);
-              setClosed(true);
-              void completeLesson(lesson.lesson_id).finally(() => setEnding(false));
-            }}
+            disabled={closed || ending}
+            onClick={() => void endPractice()}
           >
             {closed ? "Encerrada" : "Encerrar prática"}
           </Button>
@@ -634,7 +679,7 @@ function Vocabulary({
     }
     const activity = cycle.session.current_activity;
     if (!activity) return;
-    const acknowledgement = activity.type === "presentation";
+    const acknowledgement = activityIsAcknowledgement(activity);
     if (!acknowledgement && !response.trim()) {
       setSubmitError(
         ["recognition", "reverse_recognition", "listening_recognition"].includes(activity.type)
@@ -773,7 +818,7 @@ function Vocabulary({
 
   const activity = cycle.session.current_activity;
   if (!activity) return null;
-  const isPresentation = activity.type === "presentation";
+  const acknowledgement = activityIsAcknowledgement(activity);
   const sessionProgress = cycle.session.session_progress;
   const completed = sessionProgress?.completed ?? cycle.session.flow.activity_cursor;
   const total = sessionProgress?.total ?? cycle.session.activities_total;
@@ -805,10 +850,10 @@ function Vocabulary({
         <div className="mt-6 border-t border-border pt-5">
           <Button
             loading={sending}
-            disabled={sending || (!isPresentation && !response.trim())}
+            disabled={sending || (!acknowledgement && !response.trim())}
             onClick={() => void submitCycle()}
           >
-            {isPresentation ? "Continuar" : "Enviar tentativa"}
+            {acknowledgement ? "Continuar" : "Enviar tentativa"}
           </Button>
         </div>
       </div>
@@ -1344,7 +1389,13 @@ export function LessonContent({
         />
       );
     case "voice":
-      return <Voice lesson={lesson as ConversationLesson} />;
+      return (
+        <Voice
+          lesson={lesson as ConversationLesson}
+          missionScenario={missionScenario}
+          coachLanguageCode={coachLanguageCode}
+        />
+      );
     case "pronunciation":
       return <Pronunciation lesson={lesson as PronunciationLesson} />;
     case "vocabulary":

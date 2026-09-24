@@ -10,6 +10,7 @@ import { api, ApiError } from "@/lib/api";
 import { coachFor } from "@/lib/coach";
 import { deriveDailyMission, journeyPhaseLabel } from "@/lib/journey";
 import { levelShortCode } from "@/lib/levels";
+import { activityIsAcknowledgement } from "@/lib/teaching-response";
 import { useActiveLanguage } from "@/hooks/use-active-language";
 import { useCurriculumDay } from "@/hooks/use-curriculum";
 import type { LessonEnvelope } from "@/types/lesson";
@@ -267,16 +268,12 @@ function MiniTeachingPractice({
     session.flow.phase === "retrying" ||
     Boolean(session.remediation);
   const locked = Boolean(session.activity_locked) && !inRemediation;
-  const isLexical = Boolean(activity.vocabulary_item_id);
-  const needsChoice = isLexical
-    ? activity.type !== "presentation"
-    : activity.type !== "listen" &&
-      activity.type !== "recognition" &&
-      activity.type !== "matching";
+  const acknowledgement = activityIsAcknowledgement(activity);
+  const needsResponse = !acknowledgement;
 
   async function submit() {
     if (busy || (locked && !inRemediation)) return;
-    if (needsChoice && !response.trim()) {
+    if (needsResponse && !response.trim()) {
       setError(
         activity.type === "multiple_choice"
           ? "Escolha uma alternativa antes de enviar."
@@ -297,7 +294,7 @@ function MiniTeachingPractice({
           }
         : {
             student_response: response || "__ack__",
-            ...(isLexical
+            ...(activity.vocabulary_item_id
               ? { activity_index: session!.flow.activity_cursor }
               : {}),
           };
@@ -350,20 +347,15 @@ function MiniTeachingPractice({
           disabled={
             busy ||
             (locked && !inRemediation) ||
-            (needsChoice &&
-              !response.trim() &&
-              inRemediation &&
-              !["listen", "recognition", "matching"].includes(activity.type))
+            (needsResponse && !response.trim() && inRemediation && !acknowledgement)
           }
           onClick={() => void submit()}
         >
-          {inRemediation
-            ? ["listen", "recognition", "matching"].includes(activity.type)
-              ? "Continuar"
-              : "Tentar novamente"
-            : needsChoice
-              ? "Enviar tentativa"
-              : "Continuar"}
+          {acknowledgement
+            ? "Continuar"
+            : inRemediation
+              ? "Tentar novamente"
+              : "Enviar tentativa"}
         </Button>
       </div>
     </div>

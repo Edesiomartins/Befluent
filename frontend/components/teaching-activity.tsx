@@ -5,6 +5,7 @@ import { ChoiceFeedbackPanel } from "@/components/objective-choice";
 import { NoticingWhy } from "@/components/noticing-why";
 import { AudioPlayer, Recorder } from "@/components/study";
 import type { AnswerFeedback, TeachingActivity } from "@/types/teaching";
+import { activityIsAcknowledgement } from "@/lib/teaching-response";
 
 export function TeachingActivityBody({
   activity,
@@ -280,6 +281,20 @@ export function TeachingActivityBody({
     );
   }
 
+  if (activity.type === "conversation_prompt") {
+    return (
+      <div className="space-y-4">
+        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {activity.prompt && activity.prompt !== activity.prompt_pt && (
+          <p className="font-medium text-text-primary">{activity.prompt}</p>
+        )}
+        <p className="text-sm text-text-secondary">
+          Leia a situação e continue quando estiver pronto.
+        </p>
+      </div>
+    );
+  }
+
   if (activity.type === "matching") {
     return (
       <div className="space-y-4">
@@ -295,6 +310,18 @@ export function TeachingActivityBody({
         <p className="text-sm text-text-secondary">
           Leia os pares e continue quando estiver pronto.
         </p>
+      </div>
+    );
+  }
+
+  if (activityIsAcknowledgement(activity)) {
+    return (
+      <div className="space-y-4">
+        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {activity.prompt && (
+          <p className="font-medium text-text-primary">{activity.prompt}</p>
+        )}
+        <p className="text-sm text-text-secondary">Continue quando estiver pronto.</p>
       </div>
     );
   }

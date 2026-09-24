@@ -6,6 +6,7 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { activityIsAcknowledgement } from "@/lib/teaching-response";
 import type { SliceSession } from "@/types/teaching";
 
 export default function ObjectiveSlicePage() {
@@ -75,10 +76,8 @@ export default function ObjectiveSlicePage() {
     setAwaitingResult(true);
     setError(null);
     try {
-      const needsText = !["listen", "recognition", "matching"].includes(
-        session.current_activity?.type ?? "",
-      );
-      if (needsText && !response.trim()) {
+      const acknowledgement = activityIsAcknowledgement(session.current_activity);
+      if (!acknowledgement && !response.trim()) {
         setError(
           session.current_activity?.type === "multiple_choice"
             ? "Escolha uma alternativa antes de enviar."
@@ -111,13 +110,13 @@ export default function ObjectiveSlicePage() {
     setError(null);
     try {
       const actType = session.current_activity?.type ?? "";
-      const isAck = ["listen", "recognition", "matching"].includes(actType);
+      const acknowledgement = activityIsAcknowledgement(session.current_activity);
       if (!response.trim() && actType === "multiple_choice") {
         setError("Escolha uma alternativa na nova tentativa.");
         setLoading(false);
         return;
       }
-      if (!response.trim() && !isAck) {
+      if (!response.trim() && !acknowledgement) {
         setError("Escreva uma resposta para a nova tentativa.");
         setLoading(false);
         return;
@@ -143,6 +142,7 @@ export default function ObjectiveSlicePage() {
   }
 
   const activity = session?.current_activity ?? null;
+  const acknowledgement = activityIsAcknowledgement(activity);
   const mastered = session?.mastery?.state === "mastered" || session?.flow.phase === "mastered";
   const feedback = session?.answer_feedback ?? session?.remediation?.answer_feedback;
 
@@ -245,19 +245,11 @@ export default function ObjectiveSlicePage() {
                 {inRemediation ? (
                   <Button
                     onClick={() => void retry()}
-                    disabled={
-                      loading ||
-                      (!response.trim() &&
-                        !["listen", "recognition", "matching"].includes(
-                          activity.type,
-                        ))
-                    }
+                    disabled={loading || (!response.trim() && !acknowledgement)}
                     loading={loading}
                   >
                     <RotateCcw className="mr-2 size-4" aria-hidden />
-                    {["listen", "recognition", "matching"].includes(activity.type)
-                      ? "Continuar"
-                      : "Tentar novamente"}
+                    {acknowledgement ? "Continuar" : "Tentar novamente"}
                   </Button>
                 ) : (
                   <Button
@@ -265,9 +257,7 @@ export default function ObjectiveSlicePage() {
                     disabled={loading || locked}
                     loading={loading}
                   >
-                    {["listen", "recognition", "matching"].includes(activity.type)
-                      ? "Continuar"
-                      : "Enviar tentativa"}
+                    {acknowledgement ? "Continuar" : "Enviar tentativa"}
                   </Button>
                 )}
               </div>
