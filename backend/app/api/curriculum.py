@@ -48,6 +48,7 @@ from app.services.curriculum_teaching import (
     skill_flow_hint,
     submit_block_answer,
 )
+from app.services import narrative_en
 from app.services.lesson_thread import day_thread
 from app.services.progression import (
     OVERDUE_THRESHOLD,
@@ -254,6 +255,13 @@ def _next_day_ref(db: Session, curriculum: Curriculum, day: CurriculumDay) -> di
     }
 
 
+def _profile_language_code(db: Session, user_language_id: str) -> str:
+    """Código do idioma do perfil. A série depende dele, não do rótulo do tema."""
+    profile = db.get(UserLanguage, user_language_id)
+    language = db.get(Language, profile.language_id) if profile else None
+    return language.code if language else ""
+
+
 def _day_payload(
     day: CurriculumDay,
     blocks: list[CurriculumBlock],
@@ -261,6 +269,7 @@ def _day_payload(
     thread: dict | None = None,
     next_day: dict | None = None,
     learning_objective: dict | None = None,
+    story: dict | None = None,
 ) -> dict:
     ordered = sorted(blocks, key=lambda item: item.position)
     done = [block for block in ordered if block.status == BlockStatus.COMPLETED]
@@ -287,6 +296,9 @@ def _day_payload(
         "next_day": next_day,
         # Can-Do da jornada (piloto TE V2). Null = fluxo legado.
         "learning_objective": learning_objective,
+        # Cena da série narrativa. Null onde não há série (todo idioma fora de
+        # `en`) ou tema sem episódio — nunca uma cena genérica no lugar.
+        "story": story,
     }
 
 
@@ -499,6 +511,11 @@ def today(
                     blocks=current_blocks,
                     user_language_id=curriculum.user_language_id,
                 ),
+                story=narrative_en.episode_for_language(
+                    language_code,
+                    week.theme if week else None,
+                    day_number=current.day_number,
+                ),
             )
             if current
             else None
@@ -587,6 +604,11 @@ def day_detail(
                 db,
                 blocks=day_blocks,
                 user_language_id=curriculum.user_language_id,
+            ),
+            story=narrative_en.episode_for_language(
+                _profile_language_code(db, curriculum.user_language_id),
+                week.theme,
+                day_number=day.day_number,
             ),
         ),
     }

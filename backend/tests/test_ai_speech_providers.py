@@ -330,20 +330,6 @@ def test_tts_piper_forwards_speed(monkeypatch, _settings):
     assert captured["speed"] == 0.75
 
 
-def test_tts_piper_classical_latin_never_calls_the_service(monkeypatch, _settings):
-    _piper_settings(monkeypatch, _settings)
-
-    def fake_post(url, **kwargs):
-        raise AssertionError("la-classical não deve chamar o Piper")
-
-    monkeypatch.setattr(httpx, "post", fake_post)
-
-    with pytest.raises(APIError) as exc_info:
-        speech_service.synthesize_audio("Caesar", "la-classical")
-    assert exc_info.value.status_code == 400
-    assert exc_info.value.code == "tts_unsupported_language"
-
-
 def test_tts_piper_unknown_language_does_not_guess(monkeypatch, _settings):
     _piper_settings(monkeypatch, _settings)
 

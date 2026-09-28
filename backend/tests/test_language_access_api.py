@@ -60,7 +60,7 @@ def test_catalogo_anota_estado_de_acesso_sem_ocultar_idiomas(client, auth, db_se
 
     assert response.status_code == 200
     by_code = {item["code"]: item for item in response.json()}
-    assert {"en", "fr", "la-classical"}.issubset(by_code)
+    assert {"en", "fr", "la"}.issubset(by_code)
     assert by_code["en"]["access_state"] == "locked"
     assert by_code["fr"]["access_state"] == "entitled"
 

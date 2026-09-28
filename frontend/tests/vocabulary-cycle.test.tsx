@@ -275,7 +275,7 @@ describe("ciclo lexical standalone", () => {
       ),
     );
     expect(await screen.findByText("Sessão concluída")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Continuar estudando" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Dose do dia" })).toBeInTheDocument();
   });
 
   it("libera reconhecimento expositivo sem resposta e avança a sessão", async () => {
@@ -363,7 +363,7 @@ describe("ciclo lexical standalone", () => {
     expect(await screen.findByText("Vocabulário em dia")).toBeInTheDocument();
     expect(apiMock).toHaveBeenCalledWith(
       "/api/v1/lessons/lesson-1/vocabulary-cycle/start",
-      { method: "POST", body: {} },
+      { method: "POST", body: { size: "short" } },
     );
   });
 
@@ -377,5 +377,77 @@ describe("ciclo lexical standalone", () => {
 
     expect(await screen.findByRole("heading", { name: "können" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+});
+
+describe("tamanho da sessão", () => {
+  beforeEach(() => {
+    apiMock.mockReset();
+    apiBlobMock.mockReset();
+    apiBlobMock.mockResolvedValue(new Blob(["wav"], { type: "audio/wav" }));
+  });
+
+  function closedSession(): SliceSession {
+    return { ...session(null), status: "completed" };
+  }
+
+  it("a sessão encerrada oferece a sessão longa como alternativa", async () => {
+    apiMock.mockResolvedValueOnce(closedSession());
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+
+    const longa = await screen.findByRole("button", { name: /Sessão longa/ });
+    apiMock.mockResolvedValueOnce(session(null));
+    fireEvent.click(longa);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenLastCalledWith(
+        "/api/v1/lessons/lesson-1/vocabulary-cycle/start",
+        { method: "POST", body: { size: "full" } },
+      ),
+    );
+  });
+
+  it("continuar estudando repete a dose do dia", async () => {
+    apiMock.mockResolvedValueOnce(closedSession());
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+
+    const dose = await screen.findByRole("button", { name: /Dose do dia/ });
+    apiMock.mockResolvedValueOnce(session(null));
+    fireEvent.click(dose);
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenLastCalledWith(
+        "/api/v1/lessons/lesson-1/vocabulary-cycle/start",
+        { method: "POST", body: { size: "short" } },
+      ),
+    );
+  });
+
+  it("declara o tempo estimado como aproximação, não como medida", async () => {
+    apiMock.mockResolvedValueOnce(closedSession());
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+
+    expect(await screen.findByText(/cerca de 12 min/)).toBeInTheDocument();
+    expect(screen.getByText(/cerca de 35 min/)).toBeInTheDocument();
+  });
+});
+
+describe("boletim a partir da sessão encerrada", () => {
+  beforeEach(() => {
+    apiMock.mockReset();
+    apiBlobMock.mockReset();
+    apiBlobMock.mockResolvedValue(new Blob(["wav"], { type: "audio/wav" }));
+  });
+
+  it("oferece o boletim da lição ao encerrar", async () => {
+    apiMock.mockResolvedValueOnce({ ...session(null), status: "completed" });
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+
+    const link = await screen.findByRole("link", { name: /boletim/i });
+    expect(link).toHaveAttribute("href", "/boletim/lesson-1");
   });
 });

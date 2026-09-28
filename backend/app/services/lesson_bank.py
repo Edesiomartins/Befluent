@@ -1278,21 +1278,18 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "ja",
     "zh-CN",
     "la",
-    "la-classical",
 )
 
 #: Idioma usado quando um código desconhecido chega até aqui. Só protege contra
 #: dado inesperado — para os idiomas oficiais o fallback nunca dispara.
 FALLBACK_LANGUAGE = "en"
 
-# Latim eclesiástico e clássico: conteúdo em módulos próprios para não inflar este arquivo.
+# Latim eclesiástico: conteúdo em módulo próprio para não inflar este arquivo.
 from app.services.lesson_bank_de import register as _register_de
 from app.services.lesson_bank_it import register as _register_it
 from app.services.lesson_bank_la import register as _register_la
-from app.services.lesson_bank_la_classical import register as _register_la_classical
 
 _register_la(globals())
-_register_la_classical(globals())
 _register_it(globals())
 _register_de(globals())
 

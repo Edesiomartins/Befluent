@@ -144,7 +144,7 @@ describe("Journey", () => {
     expect(coachFor("fr").display_name).toBe("Camille");
     expect(coachFor("ja").language_code).toBe("ja");
     expect(coachFor("zh-CN").display_name).toBe("Mei");
-    expect(coachFor("la-classical").short_role).toContain("clássico");
+    expect(coachFor("la").short_role).toContain("eclesiástico");
     expect(coachFor("xx").display_name).toBe("Coach");
   });
 });

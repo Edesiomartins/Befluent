@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
-import { prepareClassicalLatinForSpeech } from "@/lib/classical-latin-speech";
 import { prepareEcclesiasticalLatinForSpeech } from "@/lib/ecclesiastical-latin-speech";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
@@ -19,8 +18,6 @@ const SPEECH_LANGS: Record<string, string> = {
   ja: "ja-JP",
   "zh-CN": "zh-CN",
   la: "la",
-  // Modo de teste: tag BCP-47 `la`; preparação clássica é feita à parte.
-  "la-classical": "la",
 };
 
 /** Voz italiana instalada (aproximação fonética para latim eclesiástico). */
@@ -46,12 +43,14 @@ function pickRecorderMimeType(): string {
 /**
  * TTS: Piper via backend (`/speech/synthesize`) como voz principal;
  * se a chamada falhar, cai no SpeechSynthesis do navegador como rede de
- * segurança (nunca deixa o aluno sem áudio nenhum). Latim clássico não
- * chama o backend: vai direto para a voz do navegador.
+ * segurança (nunca deixa o aluno sem áudio nenhum).
  *
  * `variant="compact"`: botão único “Ouvir” (cards de vocabulário).
  * `variant="full"` (padrão): player com status e velocidade.
  */
+/** Velocidade da repetição lenta. Uma toque, sem mexer na velocidade padrão. */
+const SLOW_REPLAY_SPEED = 0.75;
+
 export function AudioPlayer({
   text = "Áudio da atividade",
   languageCode = "en",
@@ -138,7 +137,7 @@ export function AudioPlayer({
     setPhoneticUnavailable(false);
   }, [text, languageCode]);
 
-  function playBrowserFallback() {
+  function playBrowserFallback(playbackSpeed: number = speed) {
     setLoading(false);
     if (
       typeof window === "undefined" ||
@@ -174,40 +173,12 @@ export function AudioPlayer({
         }
         return;
       }
-      // Aproximação controlada: voz italiana (não latim clássico do navegador).
+      // Aproximação controlada: voz italiana (para latim eclesiástico no navegador).
       utteranceLang = "it-IT";
       selectedVoice = pickItalianVoice(voicesRef.current);
       if (!selectedVoice && process.env.NODE_ENV === "development") {
         console.info(
           "[BeFluent] Nenhuma voz it-* instalada; usando lang=it-IT sem voice explícita (aproximação).",
-        );
-      }
-    } else if (languageCode === "la-classical") {
-      try {
-        speechText = prepareClassicalLatinForSpeech(displayText);
-      } catch {
-        speechText = "";
-      }
-      if (!speechText.trim()) {
-        setUsingBrowserVoice(false);
-        setPlaying(false);
-        if (phoneticActivity) {
-          setPhoneticUnavailable(true);
-          setUnsupported(false);
-        } else {
-          setPhoneticUnavailable(false);
-          setUnsupported(true);
-        }
-        return;
-      }
-      // Modo de teste: speechSynthesis com lang=la; NÃO usar voz italiana eclesiástica.
-      // Qualidade do áudio clássico exige validação auditiva humana — não declarar validado só porque o código roda.
-      utteranceLang = "la";
-      selectedVoice =
-        voicesRef.current.find((voice) => voice.lang.toLowerCase().startsWith("la")) ?? null;
-      if (!selectedVoice && process.env.NODE_ENV === "development") {
-        console.info(
-          "[BeFluent] Latim clássico em modo de teste (speechSynthesis lang=la); validação auditiva humana pendente.",
         );
       }
     }
@@ -219,7 +190,7 @@ export function AudioPlayer({
     const utterance = new SpeechSynthesisUtterance(speechText);
     utterance.lang = utteranceLang;
     if (selectedVoice) utterance.voice = selectedVoice;
-    utterance.rate = speed;
+    utterance.rate = playbackSpeed;
     utterance.onend = () => setPlaying(false);
     utterance.onerror = () => {
       setPlaying(false);
@@ -242,7 +213,7 @@ export function AudioPlayer({
     }
   }
 
-  async function play() {
+  async function play(playbackSpeed: number = speed) {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -251,14 +222,6 @@ export function AudioPlayer({
     setPhoneticUnavailable(false);
     setLoading(true);
     setPlaying(true);
-
-    // Latim clássico não tem voz no Piper. Ir ao navegador evita uma
-    // ida ao backend só para receber 400.
-    if (languageCode === "la-classical") {
-      setLoading(false);
-      playBrowserFallback();
-      return;
-    }
 
     let textForServer = text;
     if (languageCode === "la") {
@@ -278,7 +241,7 @@ export function AudioPlayer({
     try {
       const blob = await apiBlob("/api/v1/speech/synthesize", {
         method: "POST",
-        body: { text: textForServer, language_code: languageCode, speed },
+        body: { text: textForServer, language_code: languageCode, speed: playbackSpeed },
         signal: controller.signal,
       });
       if (controller.signal.aborted) return;
@@ -295,7 +258,7 @@ export function AudioPlayer({
         setLoading(false);
         return;
       }
-      playBrowserFallback();
+      playBrowserFallback(playbackSpeed);
     }
   }
 
@@ -335,6 +298,15 @@ export function AudioPlayer({
         >
           <span aria-hidden="true">{playing ? "Ⅱ" : "▶"}</span>
           {loading ? "Gerando…" : playing ? "Parar" : label}
+        </button>
+        <button
+          type="button"
+          onClick={() => void play(SLOW_REPLAY_SPEED)}
+          disabled={loading || !text.trim()}
+          className="text-xs text-text-secondary underline hover:text-text-primary disabled:opacity-50"
+          aria-label={`Mais devagar: ${text}`}
+        >
+          Mais devagar
         </button>
         {unsupported && (
           <p role="alert" className="text-xs text-danger">

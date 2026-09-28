@@ -6,8 +6,7 @@ export type LanguageCode =
   | "de"
   | "ja"
   | "zh-CN"
-  | "la"
-  | "la-classical";
+  | "la";
 
 export type User = {
   id: string;

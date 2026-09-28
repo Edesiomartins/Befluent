@@ -598,4 +598,51 @@ describe("Execução do dia", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("Dia não encontrado.");
   });
+
+  const story = {
+    series: "Bell & Sons",
+    title: "First morning",
+    setting: "Segunda-feira, 7h40.",
+    expressions: ["I'm", "Nice to meet you"],
+    episode_index: 1,
+    episodes_in_theme: 3,
+    cast: [{ name: "Theo", role: "Barista do café." }],
+    lines: [
+      {
+        speaker: "Theo",
+        text: "Good morning. We open at eight.",
+        translation_pt: "Bom dia. A gente abre às oito.",
+      },
+      {
+        speaker: "Priya",
+        text: "I know. I'm Priya.",
+        translation_pt: "Eu sei. Sou a Priya.",
+      },
+    ],
+  };
+
+  it("abre a jornada com a cena do dia, com fala e tradução", async () => {
+    routeApi([
+      ["/api/v1/curriculum/day/day-1", { ...dayDetail, day: { ...day, story } }],
+      ["/api/v1/curriculum/block/b-1/start", { block: day.blocks[0], lesson }],
+    ]);
+
+    render(<CurriculumDayPage />);
+
+    expect(await screen.findByText("First morning")).toBeInTheDocument();
+    expect(screen.getByText("Good morning. We open at eight.")).toBeInTheDocument();
+    expect(screen.getByText("Bom dia. A gente abre às oito.")).toBeInTheDocument();
+  });
+
+  it("sem cena, a jornada não inventa história", async () => {
+    routeApi([
+      ["/api/v1/curriculum/day/day-1", { ...dayDetail, day: { ...day, story: null } }],
+      ["/api/v1/curriculum/block/b-1/start", { block: day.blocks[0], lesson }],
+    ]);
+
+    render(<CurriculumDayPage />);
+
+    expect(await screen.findByText(/Dia 1/)).toBeInTheDocument();
+    expect(screen.queryByText(/Bell & Sons/)).not.toBeInTheDocument();
+  });
 });

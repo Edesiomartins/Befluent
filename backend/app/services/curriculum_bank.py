@@ -156,32 +156,6 @@ LANGUAGE_THEMES: dict[str, dict[str, list[str]]] = {
             "Teologia latina: termos técnicos",
         ],
     },
-    "la-classical": {
-        CEFRLevel.PRE_A1: [
-            "Alfabeto e pronúncia clássica reconstruída",
-            "Saudacoes e apresentação no fórum",
-            "Nominativo e acusativo na 1ª/2ª declinação",
-        ],
-        CEFRLevel.A1: [
-            "Presente do indicativo e genitivo",
-            "Vocabulário da cidade e das vias",
-            "Frases pedagógicas da República",
-        ],
-        CEFRLevel.A2: [
-            "Ablativo e dativo na prosa simples",
-            "Perfeito e narrativa histórica graduada",
-            "SPQR e instituições da República",
-        ],
-        CEFRLevel.B1: [
-            "Subjuntivo e orações subordinadas",
-            "Cícero e César em nível graduado",
-            "Casos em períodos compostos",
-        ],
-        CEFRLevel.B2: [
-            "Prosa argumentativa e mos maiorum",
-            "Início do Império: vocabulário político",
-        ],
-    },
 }
 
 
@@ -233,8 +207,6 @@ def script_focus(language_code: str, week_number: int) -> str | None:
         return f"hanzi — lote {min(week_number, 26)}"
     if language_code == "la":
         return "morfologia eclesiástica (casos e desinências)"
-    if language_code == "la-classical":
-        return "morfologia clássica (casos e desinências)"
     return None
 
 
@@ -249,7 +221,6 @@ PRONUNCIATION_OPENING: dict[str, str] = {
     "it": "consoantes duplas, gli/gn e e/o abertos",
     "de": "ch (ich/ach), umlauts e ensurdecimento final",
     "la": "c/g eclesiásticos (/tʃ/, /dʒ/) e v = /v/",
-    "la-classical": "c/g duros (/k/, /g/), v≈/w/ e ditongos ae/oe",
 }
 
 
@@ -283,7 +254,7 @@ def coverage_report() -> dict[str, list[str]]:
     """Níveis sem tema por idioma. Usado por teste: uma célula vazia aqui vira
     uma semana sem tema no cronograma do aluno."""
     gaps: dict[str, list[str]] = {}
-    for language_code in ("en", "es-ES", "fr", "it", "de", "ja", "zh-CN", "la", "la-classical"):
+    for language_code in ("en", "es-ES", "fr", "it", "de", "ja", "zh-CN", "la"):
         missing = [
             level
             for level in LEVEL_ORDER

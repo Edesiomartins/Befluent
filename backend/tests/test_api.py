@@ -314,7 +314,6 @@ def test_languages_and_onboarding(client, auth):
         "ja",
         "zh-CN",
         "la",
-        "la-classical",
     }
     assert client.post("/api/v1/languages/activate", json={"code": "en"}, headers=auth).status_code == 200
     response = client.post(

@@ -87,6 +87,45 @@ describe("AudioPlayer (Piper com fallback local)", () => {
     );
   });
 
+  it("na variante compacta a repetição lenta pede 0,75×", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+
+    render(<AudioPlayer variant="compact" label="Ouvir" text="Hello" languageCode="en" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Mais devagar/ }));
+
+    await waitFor(() =>
+      expect(apiBlobMock).toHaveBeenCalledWith(
+        "/api/v1/speech/synthesize",
+        expect.objectContaining({
+          body: expect.objectContaining({ text: "Hello", speed: 0.75 }),
+        }),
+      ),
+    );
+  });
+
+  it("a repetição lenta não altera a velocidade do botão normal", async () => {
+    apiBlobMock.mockResolvedValue(new Blob(["fake-mp3"], { type: "audio/mpeg" }));
+
+    render(<AudioPlayer variant="compact" label="Ouvir" text="Hello" languageCode="en" />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Mais devagar/ }));
+    await waitFor(() => expect(apiBlobMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Parar áudio" }));
+    apiBlobMock.mockClear();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ouvir: Hello" }));
+
+    await waitFor(() =>
+      expect(apiBlobMock).toHaveBeenCalledWith(
+        "/api/v1/speech/synthesize",
+        expect.objectContaining({
+          body: expect.objectContaining({ text: "Hello", speed: 1 }),
+        }),
+      ),
+    );
+  });
+
   it("cai para SpeechSynthesis do navegador quando o backend de TTS falha", async () => {
     const { ApiError } = await import("@/lib/api");
     apiBlobMock.mockRejectedValue(

@@ -14,10 +14,12 @@ O frontend cai no SpeechSynthesis do navegador se a síntese de servidor falhar.
 import base64
 import io
 import logging
+import threading
 import os
 import tempfile
 import wave
 from abc import ABC, abstractmethod
+from collections import OrderedDict
 
 import httpx
 
@@ -218,7 +220,7 @@ class UnsupportedTTSLanguage(ValueError):
 
 #: Códigos BeFluent → códigos aceitos pelo serviço Piper. Sem entrada aqui,
 #: o idioma não é enviado (nunca se reduz `es-ES` por split nem se escolhe
-#: uma voz parecida). `la-classical` fica de fora de propósito.
+#: uma voz parecida).
 _PIPER_LANGUAGE_BY_CODE = {
     "en": "en",
     "es": "es",
@@ -271,7 +273,7 @@ class PiperAPITTSProvider(BaseTTSProvider):
         return response.content, content_type
 
 
-def synthesize_audio(text: str, language_code: str, speed: float | None = None) -> tuple[bytes, str]:
+def _synthesize_uncached(text: str, language_code: str, speed: float | None = None) -> tuple[bytes, str]:
     """Ponto único de síntese: seleciona o provedor pela configuração.
 
     Mesma regra do STT: `TTS_PROVIDER=mock` é um interruptor explícito que só
@@ -383,3 +385,67 @@ def save_temp_audio(data: bytes) -> str:
         os.close(fd)
         os.unlink(path)
         raise
+
+
+# ------------------------------------------------------- cache de áudio
+
+#: Teto de entradas do cache. O mesmo texto pedido de novo não deve custar outra
+#: síntese, mas o processo também não pode virar depósito de áudio: passando do
+#: teto, a entrada usada há mais tempo sai (LRU).
+TTS_CACHE_MAX_ENTRIES = 256
+
+_tts_cache: "OrderedDict[tuple, tuple[bytes, str]]" = OrderedDict()
+_tts_cache_lock = threading.Lock()
+
+
+def _voice_configuration() -> tuple:
+    """Identidade da configuração de voz ativa.
+
+    Entra na chave do cache porque áudio gerado por um provedor (ou base de
+    vozes, ou ambiente) não pode continuar sendo servido depois de trocar a
+    configuração: seria devolver a voz antiga como se fosse a nova.
+    """
+    s = get_settings()
+    return (s.tts_provider, s.tts_base_url, s.environment)
+
+
+def clear_tts_cache() -> None:
+    """Esvazia o cache. Usado em teste e ao trocar configuração de voz."""
+    with _tts_cache_lock:
+        _tts_cache.clear()
+
+
+def tts_cache_size() -> int:
+    with _tts_cache_lock:
+        return len(_tts_cache)
+
+
+def synthesize_audio_cached(
+    text: str, language_code: str, speed: float | None = None
+) -> tuple[bytes, str]:
+    """Síntese com cache em memória do processo.
+
+    Limites declarados: o cache é **local ao processo** (dois workers têm caches
+    separados), **morre no restart** e guarda no máximo `TTS_CACHE_MAX_ENTRIES`
+    áudios. Falha de provedor nunca entra no cache — erro não é resultado.
+    """
+    key = (text, language_code, speed, _voice_configuration())
+    with _tts_cache_lock:
+        hit = _tts_cache.get(key)
+        if hit is not None:
+            _tts_cache.move_to_end(key)
+            return hit
+
+    result = _synthesize_uncached(text, language_code, speed)
+
+    with _tts_cache_lock:
+        _tts_cache[key] = result
+        _tts_cache.move_to_end(key)
+        while len(_tts_cache) > TTS_CACHE_MAX_ENTRIES:
+            _tts_cache.popitem(last=False)
+    return result
+
+
+#: Nome histórico do ponto de entrada. Continua sendo o que o resto do backend
+#: chama; agora passa pelo cache.
+synthesize_audio = synthesize_audio_cached

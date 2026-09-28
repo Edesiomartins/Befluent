@@ -127,6 +127,25 @@ export type CurriculumDay = {
   blocks: CurriculumBlock[];
   next_day?: NextDayRef | null;
   learning_objective?: DayLearningObjective | null;
+  /** Cena da série narrativa. Null onde não há série (fora de `en`). */
+  story?: DayStory | null;
+};
+
+export type StoryLine = {
+  speaker: string;
+  text: string;
+  translation_pt: string;
+};
+
+export type DayStory = {
+  series: string;
+  title: string;
+  setting: string;
+  expressions: string[];
+  lines: StoryLine[];
+  cast: Array<{ name: string; role: string }>;
+  episode_index: number;
+  episodes_in_theme: number;
 };
 
 export type CurriculumWeek = {

@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     )
     session_days: int = 30
     resend_api_key: str = ""
+    #: Chave da tarefa agendada que dispara o e-mail diário. Vazio = rota fechada.
+    daily_email_key: str = ""
     resend_from_email: str = "no-reply@medquesthub.com.br"
     password_reset_token_minutes: int = 30
     ai_mock_mode: bool = True

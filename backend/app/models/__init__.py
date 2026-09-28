@@ -583,6 +583,10 @@ class LearningAttempt(UUIDMixin, Base):
     #: Quem avaliou: "heuristic", "openrouter", "groq", "self" etc. Rastreável,
     #: mas nunca autoridade para marcar mastery sozinho — ver `evaluate_mastery`.
     provider: Mapped[str|None]=mapped_column(String(30))
+    #: Snapshot da correção como o aluno a viu (enunciado, resposta certa, porquê).
+    #: Nulo em tentativa sem produção ("continuar") e nas anteriores à migration
+    #: 0015 — o boletim declara a ausência em vez de reconstruir a correção.
+    report_json: Mapped[dict|None]=mapped_column(JSON)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
     evaluated_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True))
 

@@ -31,6 +31,12 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | D-019 | SRS da 1ª versão: agendador simples substituível (não FSRS) | Confirmada | P-010 permanece pendente para algoritmo final | 2026-07-27 | Reviews |
 | D-020 | Cookie de sessão `befluent_session`; containers `befluent-*`; DB exemplo `befluent` | Confirmada | Migração de identidade sem migration destrutiva de tabelas | 2026-07-27 | Auth/Infra |
 | D-021 | Domínio planejado `befluent.medquesthub.com.br` (app independente do MedQuestHub) | Confirmada | Produção futura; sem SSO nesta fase | 2026-07-27 | Ops/Auth |
+| D-022 | Sessão em dois tamanhos: dose do dia (12 exercícios) padrão e sessão longa (36) por escolha | Confirmada | Sessão única de 36 é tarefa que se adia; adesão diária depende de dose curta | 2026-09-25 | Session Engine/UI |
+| D-023 | E-mail diário da missão do dia, disparado por tarefa agendada do Coolify em rota com chave (`X-Dispatch-Key`) | Confirmada | Nada trazia o aluno de volta; agendador no processo duplicaria envio com mais de um worker | 2026-09-25 | E-mail/Ops |
+| D-024 | Boletim da lição: correção gravada em `learning_attempts.report_json` no momento da resposta | Confirmada | Feedback existia só na tela e se perdia; snapshot preserva o que o aluno viu, sem reconstruir depois | 2026-09-25 | Teaching/DB |
+| D-025 | Série narrativa "Bell & Sons" apenas em `en`, curada em código e determinística | Confirmada | Adesão vem da história; série exige elenco e revisão próprios por idioma, e cena traduzida seria conteúdo inglês com rótulo errado | 2026-09-25 | Conteúdo/Currículo |
+| D-026 | Cache de áudio TTS em memória do processo, com a configuração de voz na chave | Confirmada | Mesmo texto re-sintetizava a cada toque; chave sem configuração serviria voz de provedor antigo | 2026-09-25 | Áudio |
+| D-027 | E-mail de correção pós-sessão enviado por varredura agendada (janela de 24h), não dentro da requisição do aluno | Confirmada | Resposta do exercício não deve esperar o provedor; varredura repete tentativa sozinha, envio inline perderia a correção em silêncio | 2026-09-25 | E-mail/Ops |
 
 ## Decisões pendentes
 
@@ -41,7 +47,7 @@ Relacionados: [stack.md](stack.md), [architecture.md](architecture.md), [roadmap
 | P-003 | Limites de tokens por tarefa | Pendente | Medir uso real | 2026-07-27 | Custo/UX |
 | P-004 | Temperatura por tarefa | Pendente | Calibrar criatividade vs precisão | 2026-07-27 | Qualidade |
 | P-005 | Provedor STT | Em uso via env | Groq primário + OpenRouter fallback; acurácia por idioma ainda a validar | 2026-08-07 | Voz |
-| P-006 | Provedor TTS | Navegador (fase atual) | SpeechSynthesis no frontend; sem TTS pago no servidor | 2026-08-07 | Voz |
+| P-006 | Provedor TTS | Em uso: Piper auto-hospedado | `TTS_PROVIDER=piper_api` em `TTS_BASE_URL` (VPS do proprietário); SpeechSynthesis do navegador só como fallback. Uma voz por idioma, escolhida pelo serviço; `ja` e `zh-CN` seguem fora do mapa Piper | 2026-09-25 | Voz |
 | P-007 | Serviço de avaliação de pronúncia | Pendente | STT ≠ fonética precisa | 2026-07-27 | Pronúncia |
 | P-008 | Paleta definitiva / tokens de cor | Pendente | Validação visual | 2026-07-27 | Design |
 | P-009 | Biblioteca de componentes UI | Pendente | Alinhar a design system | 2026-07-27 | FE |

@@ -19,11 +19,50 @@ import type {
   CompleteBlockResponse,
   CurriculumBlock,
   DayLearningObjective,
+  DayStory,
   LessonThread,
   StartBlockResponse,
 } from "@/types/curriculum";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import type { SliceSession } from "@/types/teaching";
+
+/**
+ * Cena da série narrativa que abre a jornada.
+ *
+ * Existe para dar um motivo de voltar amanhã que não seja disciplina: os mesmos
+ * personagens, um episódio curto por dia. Só o inglês tem série; nos outros
+ * idiomas o backend manda `story: null` e nada é renderizado — a ausência é
+ * declarada lá, não preenchida aqui.
+ */
+function DayStoryScene({ story }: { story: DayStory }) {
+  return (
+    <section className="panel mb-6 p-6" aria-labelledby="cena-do-dia">
+      <p className="label">
+        {story.series} · episódio {story.episode_index} de {story.episodes_in_theme}
+      </p>
+      <h2 id="cena-do-dia" className="mt-1 text-xl font-semibold">
+        {story.title}
+      </h2>
+      {story.setting && (
+        <p className="mt-2 text-sm leading-6 text-text-secondary">{story.setting}</p>
+      )}
+      <ol className="mt-5 grid gap-4">
+        {story.lines.map((line, index) => (
+          <li key={`${line.speaker}-${index}`}>
+            <p className="text-xs font-medium text-text-secondary">{line.speaker}</p>
+            <p className="mt-0.5 leading-7">{line.text}</p>
+            <p className="mt-0.5 text-sm leading-6 text-text-secondary">{line.translation_pt}</p>
+          </li>
+        ))}
+      </ol>
+      {story.expressions.length > 0 && (
+        <p className="mt-5 text-sm text-text-secondary">
+          Expressões da cena: {story.expressions.join(" · ")}
+        </p>
+      )}
+    </section>
+  );
+}
 
 /**
  * O que este bloco herdou dos anteriores. É a peça que torna a sequência
@@ -689,6 +728,7 @@ export default function CurriculumDayPage() {
         </nav>
 
         <div className="min-w-0 max-w-3xl">
+          {day.story && <DayStoryScene story={day.story} />}
           {finished && !activeBlockId ? (
             <div className="panel p-8" role="status">
               <h2 className="text-xl font-semibold">Missão concluída</h2>

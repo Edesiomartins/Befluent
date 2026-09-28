@@ -573,6 +573,15 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
   );
 }
 
+const SHORT_SESSION_SIZE = "short" as const;
+const FULL_SESSION_SIZE = "full" as const;
+
+/** Estimativas declaradas, não medidas — espelham `session_budget.py`. */
+const SESSION_SIZES = [
+  { size: SHORT_SESSION_SIZE, label: "Dose do dia", minutes: 12 },
+  { size: FULL_SESSION_SIZE, label: "Sessão longa", minutes: 35 },
+] as const;
+
 type VocabularyCycleState =
   | { kind: "loading" }
   | { kind: "legacy" }
@@ -625,9 +634,11 @@ function Vocabulary({
           ) {
             throw caught;
           }
+          // Dose do dia é o padrão: o dia comum começa curto. A sessão longa
+          // continua disponível na tela de encerramento, por escolha.
           payload = await api(`/api/v1/lessons/${lessonId}/vocabulary-cycle/start`, {
             method: "POST",
-            body: {},
+            body: { size: SHORT_SESSION_SIZE },
           });
         }
         if (!active) return;
@@ -729,6 +740,43 @@ function Vocabulary({
     }
   }
 
+  function startCycle(size: typeof SHORT_SESSION_SIZE | typeof FULL_SESSION_SIZE) {
+    if (!lesson.lesson_id) return;
+    setCycle({ kind: "loading" });
+    void api(`/api/v1/lessons/${lesson.lesson_id}/vocabulary-cycle/start`, {
+      method: "POST",
+      body: { size },
+    })
+      .then((payload) => {
+        if (
+          payload &&
+          typeof payload === "object" &&
+          (payload as { status?: string }).status === "no_vocabulary_due"
+        ) {
+          setCycle({ kind: "no_due" });
+          return;
+        }
+        if (isSliceSession(payload)) {
+          const next = payload;
+          setJustCompleted(false);
+          finishedSession.current = null;
+          setCycle(
+            next.status !== "active" || !next.current_activity
+              ? { kind: "closed" }
+              : { kind: "active", session: next },
+          );
+          return;
+        }
+        setCycle({ kind: "legacy" });
+      })
+      .catch((caught) => {
+        setCycle({
+          kind: "error",
+          message: caught instanceof ApiError ? caught.message : "Não foi possível continuar.",
+        });
+      });
+  }
+
   if (cycle.kind === "legacy") return <LegacyVocabulary lesson={lesson} />;
   if (cycle.kind === "loading") return <Loading label="Preparando prática de vocabulário" />;
   if (cycle.kind === "error") {
@@ -771,47 +819,28 @@ function Vocabulary({
             ))}
           </ul>
         )}
-        <Button
-          className="mt-6"
-          onClick={() => {
-            if (!lesson.lesson_id) return;
-            setCycle({ kind: "loading" });
-            void api(`/api/v1/lessons/${lesson.lesson_id}/vocabulary-cycle/start`, {
-              method: "POST",
-              body: {},
-            })
-              .then((payload) => {
-                if (
-                  payload &&
-                  typeof payload === "object" &&
-                  (payload as { status?: string }).status === "no_vocabulary_due"
-                ) {
-                  setCycle({ kind: "no_due" });
-                  return;
-                }
-                if (isSliceSession(payload)) {
-                  const session = payload;
-                  setJustCompleted(false);
-                  finishedSession.current = null;
-                  setCycle(
-                    session.status !== "active" || !session.current_activity
-                      ? { kind: "closed" }
-                      : { kind: "active", session },
-                  );
-                  return;
-                }
-                setCycle({ kind: "legacy" });
-              })
-              .catch((caught) => {
-                setCycle({
-                  kind: "error",
-                  message: caught instanceof ApiError ? caught.message : "Não foi possível continuar.",
-                });
-              });
-          }}
-        >
-          Continuar estudando
-        </Button>
+        <div className="mt-6 flex flex-wrap justify-center gap-3">
+          {SESSION_SIZES.map((option, index) => (
+            <Button
+              key={option.size}
+              variant={index === 0 ? undefined : "secondary"}
+              onClick={() => startCycle(option.size)}
+            >
+              {option.label}
+            </Button>
+          ))}
+        </div>
+        <p className="mt-3 text-sm text-text-secondary">
+          {SESSION_SIZES.map((option) => `${option.label}: cerca de ${option.minutes} min`).join(" · ")}. É
+          estimativa, não medição.
+        </p>
+        {lesson.lesson_id && (
+          <p className="mt-4 text-sm">
+            <Link href={`/boletim/${lesson.lesson_id}`} className="text-primary hover:underline">
+              Ver o boletim desta lição
+            </Link>
+          </p>
+        )}
       </div>
     );
   }

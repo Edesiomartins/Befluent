@@ -19,11 +19,6 @@ const COACHES: Record<string, CoachProfile> = {
   ja: { language_code: "ja", display_name: "Hana", short_role: "coach de japonês" },
   "zh-CN": { language_code: "zh-CN", display_name: "Mei", short_role: "coach de mandarim" },
   la: { language_code: "la", display_name: "Clara", short_role: "coach de latim eclesiástico" },
-  "la-classical": {
-    language_code: "la-classical",
-    display_name: "Marcus",
-    short_role: "coach de latim clássico",
-  },
 };
 
 const FALLBACK: CoachProfile = {

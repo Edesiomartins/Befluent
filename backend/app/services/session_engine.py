@@ -22,11 +22,10 @@ from app.services.lexical_policy import next_review_modality
 from app.services.session_budget import (
     AREA_LABELS,
     AREA_ORDER,
-    MAXIMUM_SESSION_EXERCISES,
+    FULL_SESSION_BUDGET,
     MAX_CONSECUTIVE_SAME_MODALITY,
     PHASE_RANK,
-    SESSION_ACTIVITY_BUDGET,
-    TARGET_SESSION_EXERCISES,
+    SessionBudget,
 )
 
 _LATER_MODALITIES = frozenset(
@@ -68,8 +67,14 @@ def activity_area(activity_type: str) -> str | None:
     return _AREA_BY_TYPE.get(activity_type)
 
 
-def plan_session(candidates: list[dict]) -> dict:
-    """Seleciona e ordena exercícios. Não completa o alvo com atividade vazia."""
+def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None) -> dict:
+    """Seleciona e ordena exercícios. Não completa o alvo com atividade vazia.
+
+    `budget` escolhe o tamanho da sessão (dose do dia ou longa). Sem ele, a
+    sessão longa continua sendo o padrão — nenhuma chamada antiga muda de
+    comportamento.
+    """
+    budget = budget or FULL_SESSION_BUDGET
     selected: list[dict] = []
     counts = {area: 0 for area in AREA_ORDER}
     chosen: dict[str, set[str]] = {}
@@ -82,10 +87,10 @@ def plan_session(candidates: list[dict]) -> dict:
     ]
     overflow = [candidate for candidate in ranked if candidate.get("overflow")]
     pool = [candidate for candidate in ranked if not candidate.get("overflow")]
-    while sum(counts.values()) < TARGET_SESSION_EXERCISES:
+    while sum(counts.values()) < budget.target_total:
         progressed = False
         for area in AREA_ORDER:
-            if counts[area] >= SESSION_ACTIVITY_BUDGET[area]:
+            if counts[area] >= budget.areas.get(area, 0):
                 continue
             choice = _next_in_area(area, pool, selected, chosen)
             if choice is None:
@@ -97,7 +102,7 @@ def plan_session(candidates: list[dict]) -> dict:
             break
 
     for candidate in overflow:
-        if len(selected) >= MAXIMUM_SESSION_EXERCISES:
+        if len(selected) >= budget.maximum_total:
             break
         item_key = candidate.get("item_key")
         modality = str(candidate.get("modality") or "")
@@ -116,8 +121,11 @@ def plan_session(candidates: list[dict]) -> dict:
         "activities": activities,
         "counts": {area: counts[area] for area in AREA_ORDER if counts[area]},
         "total": len(activities),
-        "target_total": TARGET_SESSION_EXERCISES,
-        "maximum_total": MAXIMUM_SESSION_EXERCISES,
+        "target_total": budget.target_total,
+        "maximum_total": budget.maximum_total,
+        "size": budget.key,
+        "size_label": budget.label,
+        "estimated_minutes": budget.estimated_minutes,
     }
 
 
@@ -433,7 +441,10 @@ def load_session_candidates(
                 MemorySchedule.due_at <= now,
             )
             .order_by(MemorySchedule.due_at.asc())
-            .limit(TARGET_SESSION_EXERCISES)
+            # Carrega pelo maior orçamento: o planejador corta depois, conforme
+            # o tamanho escolhido. Limitar aqui pela dose do dia esconderia
+            # revisão vencida de quem escolhesse a sessão longa.
+            .limit(FULL_SESSION_BUDGET.target_total)
         )
     )
     extra_ids = [item_id for item_id in due_ids if item_id not in lesson_ids]

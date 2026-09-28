@@ -7,6 +7,9 @@ EXEMPT={
     "/api/v1/auth/register",
     "/api/v1/auth/forgot-password",
     "/api/v1/auth/reset-password",
+    # Chamadas por tarefa agendada, sem cookie. Autenticadas por X-Dispatch-Key.
+    "/api/v1/daily-email/dispatch",
+    "/api/v1/correction-email/dispatch",
 }
 async def csrf_guard(request:Request, call_next):
     if request.method not in SAFE and request.url.path not in EXEMPT:

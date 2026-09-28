@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -62,6 +64,16 @@ class ObjectiveRetryIn(BaseModel):
     activity_key: str = Field(min_length=3, max_length=120)
 
 
+class SessionStartIn(BaseModel):
+    """Tamanho da sessão pedido pelo aluno.
+
+    `Literal` em vez de `str`: tamanho desconhecido é erro de contrato (422),
+    não uma sessão longa entregue em silêncio no lugar do que se pediu.
+    """
+
+    size: Literal["short", "full"] = "full"
+
+
 router = APIRouter(prefix="/lessons", tags=["lessons"])
 
 
@@ -94,8 +106,12 @@ def _start_lesson_vocabulary_cycle(
     *,
     lesson: Lesson,
     owner: UserLanguage,
+    size: str = "full",
 ) -> dict:
     lesson_id = lesson.id
+    # `size` só vale para sessão nova. Sessão ativa é retomada como foi
+    # planejada: mudar o orçamento no meio invalidaria o cursor e o progresso
+    # já mostrado ao aluno.
     active = _standalone_lexical_session(
         db,
         user_language_id=owner.id,
@@ -122,6 +138,7 @@ def _start_lesson_vocabulary_cycle(
         SESSION_STARTED,
         record_product_event,
     )
+    from app.services.session_budget import budget_for
     from app.services.session_engine import load_session_candidates, plan_session
 
     savepoint = db.begin_nested()
@@ -143,7 +160,8 @@ def _start_lesson_vocabulary_cycle(
                 lesson_items=items,
                 language_code=language_code,
                 level=owner.current_level,
-            )
+            ),
+            budget=budget_for(size),
         )
         if not plan["activities"]:
             savepoint.rollback()
@@ -420,11 +438,17 @@ def create(
 @router.post("/{lesson_id}/vocabulary-cycle/start")
 def start_vocabulary_cycle(
     lesson_id: str,
+    body: SessionStartIn | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
-    payload = _start_lesson_vocabulary_cycle(db, lesson=lesson, owner=owner)
+    payload = _start_lesson_vocabulary_cycle(
+        db,
+        lesson=lesson,
+        owner=owner,
+        size=body.size if body else "full",
+    )
     db.commit()
     return payload
 
@@ -497,6 +521,19 @@ def one(lesson_id: str, db: Session = Depends(get_db), user: User = Depends(curr
         "objective": lesson.objective,
         "content": content,
     }
+
+
+@router.get("/{lesson_id}/report")
+def lesson_report_view(
+    lesson_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(current_user),
+):
+    """Boletim permanente da lição: o que foi respondido, o certo e o porquê."""
+    from app.services.lesson_report import lesson_report
+
+    lesson, _owner = _owned_lesson(db, user, lesson_id)
+    return lesson_report(db, lesson)
 
 
 @router.get("/{lesson_id}/objective-attempts")

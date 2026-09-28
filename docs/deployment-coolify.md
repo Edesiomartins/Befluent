@@ -115,9 +115,76 @@ Grupos:
 - STT (`STT_PROVIDER`, `GROQ_API_KEY`, etc.)
 - TTS (`TTS_PROVIDER=piper_api`, `TTS_BASE_URL=https://piper.medquesthub.com.br`, `TTS_API_KEY`, `TTS_SPEED=1.0`)
 - CORS / URLs públicas
+- E-mail (`RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `DAILY_EMAIL_KEY`)
 - Flags de ambiente (`production`)
 
 Nunca inventar valores reais neste documento.
+
+## E-mail diário (tarefa agendada)
+
+O e-mail com a missão do dia **não** sai sozinho: o backend não tem agendador.
+Quem dispara é uma tarefa agendada (*Scheduled Task*) do Coolify chamando a
+rota de disparo.
+
+1. Gerar uma chave longa e aleatória e colocá-la em `DAILY_EMAIL_KEY` no
+   serviço do backend. **Sem essa variável a rota responde 503 e nada é
+   enviado** — é assim de propósito: ausência de configuração fecha a porta.
+2. Criar a tarefa agendada no backend, com a frequência desejada (ex.: `0 7 * * *`
+   para 7h no fuso do servidor) e o comando:
+
+   ```sh
+   curl -fsS -X POST https://api-befluent.medquesthub.com.br/api/v1/daily-email/dispatch -H "X-Dispatch-Key: $DAILY_EMAIL_KEY"
+   ```
+
+3. Conferir a resposta: `{"sent":n,"skipped":n,"failed":n,"date":"AAAA-MM-DD"}`.
+
+### Segunda tarefa: e-mail de correção
+
+O e-mail de correção sai depois que uma sessão é encerrada. O gatilho é interno
+(a sessão fecha dentro de uma requisição do próprio aluno), mas o **envio** é
+feito por varredura, para a resposta do último exercício não esperar o provedor
+de e-mail e para uma falha do Resend ser tentada de novo em vez de perdida.
+
+Criar uma segunda tarefa agendada, com a **mesma** `DAILY_EMAIL_KEY`:
+
+- Frequência sugerida: `*/15 * * * *` (a cada 15 minutos).
+- Comando:
+
+  ```sh
+  curl -fsS -X POST https://api-befluent.medquesthub.com.br/api/v1/correction-email/dispatch -H "X-Dispatch-Key: $DAILY_EMAIL_KEY"
+  ```
+
+- Resposta: `{"sent":n,"skipped":n,"failed":n,"window_hours":24}`.
+
+Regras desta tarefa:
+
+- **Uma correção por sessão.** Rodar de novo devolve `skipped`, não um segundo
+  e-mail.
+- **Janela de 24 horas.** Sessão encerrada há mais tempo não é varrida — é o que
+  impede a primeira execução de despejar o histórico inteiro na caixa de
+  entrada. A janela cobre com folga um cron de 15 minutos e ainda absorve horas
+  de indisponibilidade do provedor.
+- **Sessão sem resposta corrigível é pulada** (sessão só de "continuar", sem
+  produção): não há o que corrigir, então não há e-mail.
+- O conteúdo vem do boletim já gravado na hora da resposta. A correção nunca é
+  recalculada no momento do envio.
+
+Volume esperado, para dimensionar o plano do Resend: **um e-mail de cada tipo
+por usuário ativo por dia** — o disparo diário usa o idioma ativo, e `is_active`
+é exclusivo por usuário. Com o plano gratuito (3.000/mês, teto de 100/dia) o
+limite prático é ~50 usuários ativos, não o volume de um dono só.
+
+Regras que valem em produção:
+
+- **Um e-mail por perfil por dia.** Rodar a tarefa duas vezes no mesmo dia não
+  manda dois e-mails (o segundo volta como `skipped`).
+- **Falha de envio não consome o dia:** `failed` significa que a próxima
+  execução tenta de novo.
+- **Perfil sem cronograma ativo é pulado**, sem e-mail dizendo "não há nada".
+- **Desligar** = remover a tarefa agendada ou limpar `DAILY_EMAIL_KEY`. Não há
+  link de descadastro no e-mail; o app é privado, de um dono.
+- O dia usado é a data UTC do servidor, igual ao resto do cronograma. O horário
+  de entrega é o horário do cron.
 
 ## Volumes
 

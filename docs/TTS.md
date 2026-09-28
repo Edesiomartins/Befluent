@@ -40,9 +40,9 @@ Mapa explícito BeFluent → idioma Piper (sem chute para código desconhecido):
 | `de` | `de` |
 | `la` | `la-ecclesiastical` |
 
-`la-classical`, japonês e mandarim não entram nesse mapa. O backend responde
-`400 tts_unsupported_language` e não chama o Piper. No navegador, `la-classical`
-nem tenta o backend: vai direto ao `speechSynthesis`.
+Japonês e mandarim não entram nesse mapa. O backend responde
+`400 tts_unsupported_language` e não chama o Piper. No navegador, esses idiomas
+caem no `speechSynthesis`.
 
 O serviço Piper escolhe a voz internamente (`en_US-ryan-high`,
 `fr_FR-siwis-medium`, `es_ES-davefx-medium`, `it_IT-serena-medium`,
@@ -120,7 +120,6 @@ JSON estruturado (ver "Erros" abaixo) — nunca base64 desnecessário.
 Um `language_code` que não está em `_PIPER_LANGUAGE_BY_CODE` não cai num
 idioma parecido. O backend devolve `400 tts_unsupported_language` sem
 chamar o Piper, e o `AudioPlayer` cai no Web Speech do navegador.
-`la-classical` nem chega a essa chamada: o frontend vai direto ao navegador.
 
 ## Configuração / env vars
 
@@ -210,34 +209,6 @@ tentativa, timeout de 30s (`REQUEST_TIMEOUT_SECONDS`-equivalente do
 `httpx.post`), e cai pro navegador. Falar rápido demais esperando retries
 numa conversa não é aceitável.
 
-## Latim clássico (`la-classical`)
-
-Modalidade **independente** de `la`. Não é enviada ao Piper. O `AudioPlayer`
-vai direto ao navegador, sem uma ida ao backend só para receber 400.
-
-```text
-AudioPlayer (languageCode=la-classical)
-  → prepareClassicalLatinForSpeech(displayText)
-  → speechSynthesis com lang=la (sem voz italiana eclesiástica)
-```
-
-Se alguém chamar `POST /speech/synthesize` com `la-classical` mesmo assim,
-o backend responde `400 tts_unsupported_language` e não chama o Piper.
-
-Regras importantes:
-
-- Progresso, placement, SRS e banco de lições de `la-classical` **não**
-  compartilham estado com `la`.
-- Preparação em `frontend/lib/classical-latin-speech.ts` (c duro → `k`,
-  v≈`w`, ae/oe como ditongos aproximados). Léxico e regras são distintos
-  do eclesiástico.
-- BCP-47 interno → `la-x-classical` (`app/services/language_codes.py`).
-- O áudio clássico está em **modo de teste**: o fato de o código executar
-  **não** valida a pronúncia. Exige escuta humana antes de qualquer
-  declaração de qualidade.
-- Não reutilizar questões eclesiásticas cuja resposta fonética seja
-  incompatível com o clássico.
-
 ## Cancelamento / playback
 
 - Cada `play()` cria um `AbortController` novo e cancela qualquer geração
@@ -322,17 +293,26 @@ altera o `.env` de nenhum ambiente**; a troca é sempre manual.
 | Sintoma | Causa provável | Onde olhar |
 |---|---|---|
 | Todo mundo ouve voz do navegador, nunca a do BeFluent | `TTS_API_KEY` ou `TTS_BASE_URL` ausente, ou `TTS_PROVIDER` diferente de `piper_api` | logs do backend (`tts_unavailable`), variáveis do Coolify |
-| Um idioma específico sempre cai no navegador | `language_code` fora de `_PIPER_LANGUAGE_BY_CODE` (`la-classical`, `ja`, `zh-CN`) | log `tts_unsupported_language`; clássico nem chama o backend |
+| Um idioma específico sempre cai no navegador | `language_code` fora de `_PIPER_LANGUAGE_BY_CODE` (`ja`, `zh-CN`) | log `tts_unsupported_language` |
 | Latência alta / timeouts frequentes | Piper acima de ~3s por frase; timeout do cliente é 20s | logs `TTS provider piper_api falhou` |
 | Quero comparar outros modelos de TTS | Use o TTS Lab, não a voz das aulas | [TTS_LAB.md](TTS_LAB.md) |
 
 ## Limitações conhecidas
 
-- Sem cache de áudio repetido (mesmo texto+idioma gera de novo a cada
-  play) — não implementado nesta tarefa; TTS Lab também não tem.
+- **Cache de áudio (2026-09-25):** a síntese passa por
+  `speech.synthesize_audio_cached`. A chave é texto + idioma + velocidade +
+  identidade da configuração de voz (`TTS_PROVIDER`, `TTS_BASE_URL`,
+  `environment`) — trocar de provedor não serve a voz antiga. Limites
+  declarados: cache **local ao processo** (workers têm caches separados),
+  **perdido no restart**, teto de `TTS_CACHE_MAX_ENTRIES` (256) entradas com
+  descarte do menos usado. Falha de provedor nunca é cacheada. O TTS Lab
+  continua sem cache.
 - Sucesso de síntese não é logado individualmente (só falhas) — telemetria
   agregada (contagem de sucesso/erro/fallback) não existe ainda; não foi
   adicionada plataforma de analytics externa para esta tarefa (fora de
   escopo).
+- **Repetição lenta (2026-09-25):** o `AudioPlayer` compacto tem um botão
+  "Mais devagar" que pede 0,75× naquela reprodução, sem alterar a velocidade
+  padrão do seletor (que só existe na variante `full`).
 - `speed` é repassado ao Piper. O teste
   `test_speech_synthesize_sends_ui_speed_to_provider` trava esse contrato.

@@ -1,4 +1,4 @@
-﻿# Arquitetura de Áudio / Fala — BeFluent
+# Arquitetura de Áudio / Fala — BeFluent
 
 Relacionados: [architecture.md](architecture.md), [ai-architecture.md](ai-architecture.md), [privacy.md](privacy.md), [api-specification.md](api-specification.md).
 
@@ -20,7 +20,7 @@ Separar claramente:
 | STT fallback | OpenRouter multimodal (`STT_FALLBACK_PROVIDER=openrouter` + `STT_FALLBACK_MODEL`) |
 | STT mock | Só com `STT_PROVIDER=mock` explícito; em production, falha → `503 stt_unavailable` (sem transcript fabricado) |
 | TTS servidor | Piper em `TTS_BASE_URL` (`TTS_PROVIDER=piper_api`, header `X-API-Key`). Mock só fora de production com `TTS_PROVIDER=mock` |
-| TTS produto | Piper (backend) como voz principal para en, es-ES, fr, it, de e latim eclesiástico; **SpeechSynthesis do navegador** se a chamada falhar. Latim clássico não chama o backend |
+| TTS produto | Piper (backend) como voz principal para en, es-ES, fr, it, de e latim eclesiástico; **SpeechSynthesis do navegador** se a chamada falhar |
 | Pronúncia | Sem score fonético; API devolve `status=unavailable` / `score=null` |
 | Duração WebM | Só limite por bytes no backend; duração WAV via `wave`; WebM sem ffprobe (sem mudar Docker) |
 
@@ -73,7 +73,7 @@ Documentação completa (arquitetura, voice mapping, fallback, rollback,
 troubleshooting): [TTS.md](TTS.md). Resumo:
 
 - Produto: `AudioPlayer` chama `POST /api/v1/speech/synthesize`. Com `TTS_PROVIDER=piper_api` o backend chama `POST {TTS_BASE_URL}/v1/tts` e devolve WAV.
-- Mapa explícito: `en→en`, `es`/`es-ES→es`, `fr→fr`, `it→it`, `de→de`, `la→la-ecclesiastical`. Idioma fora desse mapa devolve `400 tts_unsupported_language` e não chama o Piper. `la-classical` nem sai do navegador.
+- Mapa explícito: `en→en`, `es`/`es-ES→es`, `fr→fr`, `it→it`, `de→de`, `la→la-ecclesiastical`. Idioma fora desse mapa devolve `400 tts_unsupported_language` e não chama o Piper.
 - Latim eclesiástico: o frontend envia o texto já passado por `prepareEcclesiasticalLatinForSpeech`. Se a preparação falhar ou vier vazia, o latim ortográfico bruto não é enviado.
 - Velocidade da UI vai no campo `speed`. Timeout do Piper: 20s.
 - Se a chamada falhar (rede, timeout, 5xx, `tts_unavailable`, ou o `<audio>` disparar `onError`), o `AudioPlayer` cai no `window.speechSynthesis`.

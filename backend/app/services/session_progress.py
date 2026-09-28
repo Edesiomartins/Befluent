@@ -44,10 +44,16 @@ def activity_label(activity: dict | None) -> str | None:
     return ACTIVITY_LABELS.get(activity_type, activity_type)
 
 
-def session_progress_from_activities(activities: list, cursor: int) -> dict:
-    from app.services.session_budget import TARGET_SESSION_EXERCISES
+def session_progress_from_activities(activities: list, cursor: int, plan: dict | None = None) -> dict:
+    """Posição na sessão. `plan` diz de que tamanho ela é.
+
+    Sem plano — sessões antigas, salvas antes da dose do dia existir —, o
+    alvo declarado é o da sessão longa, que era o único que havia.
+    """
+    from app.services.session_budget import budget_for
     from app.services.session_engine import area_summary
 
+    budget = budget_for((plan or {}).get("size"))
     total = len(activities)
     completed = min(max(cursor, 0), total)
     current = activities[cursor] if 0 <= cursor < total else None
@@ -57,7 +63,10 @@ def session_progress_from_activities(activities: list, cursor: int) -> dict:
         "completed": completed,
         "total": total,
         "percent": percent,
-        "target_total": TARGET_SESSION_EXERCISES,
+        "target_total": budget.target_total,
+        "size": budget.key,
+        "size_label": budget.label,
+        "estimated_minutes": budget.estimated_minutes,
         "current_label": activity_label(current if isinstance(current, dict) else None),
         "next_label": activity_label(nxt if isinstance(nxt, dict) else None),
         "areas": area_summary(activities, completed),
@@ -66,8 +75,13 @@ def session_progress_from_activities(activities: list, cursor: int) -> dict:
 
 
 def session_progress_from_flow(session) -> dict:
-    activities = (session.payload_json or {}).get("activities") or []
-    return session_progress_from_activities(activities, session.activity_cursor)
+    payload = session.payload_json or {}
+    activities = payload.get("activities") or []
+    return session_progress_from_activities(
+        activities,
+        session.activity_cursor,
+        plan=payload.get("session_plan") or None,
+    )
 
 
 def select_short_batch(items: list, *, previous_offset: int) -> tuple[list, int]:

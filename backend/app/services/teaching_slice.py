@@ -24,6 +24,7 @@ from app.models import LearningAttempt, LearningObjective, TeachingFlowSession
 from app.services import (
     activity_generator,
     deterministic_evaluator,
+    lesson_report,
     teaching_engine,
     teaching_flow,
 )
@@ -338,6 +339,13 @@ def submit_slice_answer(
             student_response=student_response,
             is_correct=result == AttemptResult.CORRECT,
         )
+        # Boletim da lição: a correção fica junto da tentativa, não só na tela.
+        attempt.report_json = lesson_report.build_report_snapshot(
+            activity=activity,
+            student_response=student_response,
+            result=result,
+            answer_feedback=answer_feedback,
+        )
 
     if result == AttemptResult.INCORRECT:
         error = teaching_engine.record_error(
@@ -534,6 +542,12 @@ def retry_slice(
             activity=activity,
             student_response=student_response,
             is_correct=evaluation["result"] == AttemptResult.CORRECT,
+        )
+        attempt.report_json = lesson_report.build_report_snapshot(
+            activity=activity,
+            student_response=student_response,
+            result=evaluation["result"],
+            answer_feedback=answer_feedback,
         )
     objective = db.get(LearningObjective, session.objective_id)
     remediation_payload = None

@@ -729,3 +729,47 @@ def test_completion_normalizes_legacy_term_before_counting_new_enrollment(
     assert completed.json()["review_items_added"] == 0
     assert db_session.scalar(select(func.count(VocabularyItem.id))) == len(items)
     assert db_session.scalar(select(func.count(ReviewItem.id))) == before_reviews
+
+
+def test_start_aceita_dose_do_dia_e_declara_o_tamanho(client, auth, db_session):
+    """Quem pede a dose do dia recebe uma sessão de 12, com o tempo estimado."""
+    profile = _profile(db_session)
+    lesson = _lesson(db_session, profile)
+
+    started = client.post(
+        f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/start",
+        headers=auth,
+        json={"size": "short"},
+    )
+
+    assert started.status_code == 200
+    progress = started.json()["session_progress"]
+    assert progress["size"] == "short"
+    assert progress["target_total"] == 12
+    assert progress["estimated_minutes"] == 12
+
+
+def test_start_sem_tamanho_continua_na_sessao_longa(client, auth, db_session):
+    profile = _profile(db_session, email="admin@befluent.local")
+    lesson = _lesson(db_session, profile)
+
+    started = _start(client, auth, lesson.id)
+
+    assert started.status_code == 200
+    progress = started.json()["session_progress"]
+    assert progress["size"] == "full"
+    assert progress["target_total"] == 36
+
+
+def test_start_com_tamanho_invalido_nao_inventa_sessao(client, auth, db_session):
+    """Tamanho fora do contrato é recusado, não silenciosamente virado em longa."""
+    profile = _profile(db_session)
+    lesson = _lesson(db_session, profile)
+
+    started = client.post(
+        f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/start",
+        headers=auth,
+        json={"size": "gigante"},
+    )
+
+    assert started.status_code == 422

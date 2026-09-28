@@ -15,7 +15,6 @@ const languages = [
   ["ja", "Japonês"],
   ["zh-CN", "Mandarim"],
   ["la", "Latim Eclesiástico"],
-  ["la-classical", "Latim Clássico"],
 ] as const;
 type LevelChoice = "beginner" | "take_test" | "self_declared" | "later";
 const levelChoices: { value: LevelChoice; label: string; hint: string }[] = [
