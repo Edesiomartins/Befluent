@@ -1,7 +1,11 @@
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from app.models import Language
+from app.models import Language, UserLanguage
+
+#: Códigos que já existiram no catálogo e não devem voltar a ser oferecidos.
+#: Desativados no seed, sem DELETE, para não apagar progresso ligado a eles.
+RETIRED_LANGUAGE_CODES = ("la-classical",)
 
 LANGUAGES = [
     (
@@ -112,5 +116,19 @@ def seed_languages(db: Session) -> None:
             if dup.id != keeper.id:
                 dup.code = f"es-ES-dup-{dup.id[:8]}"
                 dup.is_active = False
+
+    retired = list(
+        db.scalars(select(Language).where(Language.code.in_(RETIRED_LANGUAGE_CODES)))
+    )
+    for language in retired:
+        language.is_active = False
+        db.execute(
+            update(UserLanguage)
+            .where(
+                UserLanguage.language_id == language.id,
+                UserLanguage.is_active.is_(True),
+            )
+            .values(is_active=False)
+        )
 
     db.commit()
