@@ -31,10 +31,7 @@ function NavItem({ href, label, icon: Icon, onNavigate }: {
     </Link>
   );
 }
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
-  const router = useRouter();
-  const [logoutError, setLogoutError] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+function useIsAdmin() {
   const [isAdmin, setIsAdmin] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -49,8 +46,28 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       alive = false;
     };
   }, []);
+  return isAdmin;
+}
+function UserCorner() {
+  const isAdmin = useIsAdmin();
+  return (
+    <div className="flex shrink-0 items-center gap-2">
+      {isAdmin && (
+        <Link href="/admin" className="inline-flex min-h-11 items-center rounded-[10px] bg-primary px-3 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]">
+          Administrar
+        </Link>
+      )}
+      <Link href="/profile" aria-label="Seu perfil" className="grid size-11 place-items-center rounded-full border border-border bg-surface text-text-secondary hover:text-primary"><User className="size-5" aria-hidden /></Link>
+    </div>
+  );
+}
+function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const router = useRouter();
+  const [logoutError, setLogoutError] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const isAdmin = useIsAdmin();
   const accountLinks = isAdmin
-    ? [...secondary, { href: "/admin/usuarios", label: "Usuários", icon: Users }]
+    ? [...secondary, { href: "/admin", label: "Usuários", icon: Users }]
     : secondary;
   async function logout() {
     setLeaving(true);
@@ -163,7 +180,7 @@ export function Header() {
           aria-expanded={open} aria-controls={panelId} aria-label="Abrir menu" onClick={() => setOpen(true)}><Menu className="size-5" aria-hidden /></button>
         <LanguageContext />
       </div>
-      <Link href="/profile" aria-label="Seu perfil" className="grid size-11 shrink-0 place-items-center rounded-full border border-border bg-surface text-text-secondary hover:text-primary"><User className="size-5" aria-hidden /></Link>
+      <UserCorner />
     </header>
     {open && <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Menu">
       <div className="absolute inset-0 bg-text-primary/30" onClick={() => setOpen(false)} aria-hidden />
@@ -200,7 +217,7 @@ export function AppShell({ children, tutor }: { children: ReactNode; tutor?: Rea
       <header className="border-b border-border bg-surface">
         <div className="mx-auto flex min-h-18 max-w-3xl items-center justify-between gap-4 px-5 md:px-8">
           <Link href="/dashboard" aria-label="BeFluent — Hoje"><Logo /></Link>
-          <Link href="/profile" aria-label="Seu perfil" className="grid size-11 shrink-0 place-items-center rounded-full border border-border bg-surface text-text-secondary hover:text-primary"><User className="size-5" aria-hidden /></Link>
+          <UserCorner />
         </div>
       </header>
       <main id="main-content" tabIndex={-1} className="mx-auto w-full max-w-3xl px-5 py-8 md:px-8 md:py-12">{children}</main>

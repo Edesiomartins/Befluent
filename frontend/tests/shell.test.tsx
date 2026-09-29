@@ -99,7 +99,16 @@ describe("estrutura editorial", () => {
       return Promise.resolve([{ code: "fr", name_pt: "Francês", active: true }]);
     });
     render(<Sidebar />);
-    expect(await screen.findByRole("link", { name: "Usuários" })).toHaveAttribute("href", "/admin/usuarios");
+    expect(await screen.findByRole("link", { name: "Usuários" })).toHaveAttribute("href", "/admin");
+  });
+
+  it("mostra Administrar ao lado do usuário quando a sessão é de administrador", async () => {
+    state.api.mockImplementation((path: string) => {
+      if (path === "/api/v1/auth/me") return Promise.resolve({ is_admin: true });
+      return Promise.resolve([{ code: "fr", name_pt: "Francês", active: true }]);
+    });
+    render(<Header />);
+    expect(await screen.findByRole("link", { name: "Administrar" })).toHaveAttribute("href", "/admin");
   });
 
   it("esconde Usuários de quem não administra", async () => {

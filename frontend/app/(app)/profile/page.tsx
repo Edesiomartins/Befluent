@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
 import { BookOpen, Clock, Flame, Target } from "lucide-react";
 import { Button, Input, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -37,17 +38,20 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let active = true;
     Promise.all([
       api<ProfileData>("/api/v1/profile"),
       api<DashboardSummary>("/api/v1/dashboard"),
+      api<{ is_admin?: boolean }>("/api/v1/auth/me").catch(() => ({ is_admin: false })),
     ])
-      .then(([profile, dashboard]) => {
+      .then(([profile, dashboard, me]) => {
         if (!active) return;
         setName(profile.name);
         setEmail(profile.email);
+        setIsAdmin(me.is_admin === true);
         const lang = dashboard.active_language;
         if (lang) {
           const level =
@@ -124,10 +128,15 @@ export default function ProfilePage() {
           <span className="grid size-16 shrink-0 place-items-center rounded-full bg-primary text-xl font-semibold text-white">
             {initials}
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-lg font-semibold">{name || "Sem nome"}</h2>
             <p className="mt-1 truncate text-sm text-text-secondary">{email}</p>
           </div>
+          {isAdmin && (
+            <Link href="/admin" className="inline-flex min-h-11 shrink-0 items-center rounded-[10px] bg-primary px-4 text-sm font-semibold text-white hover:bg-[var(--primary-hover)]">
+              Administrar
+            </Link>
+          )}
         </div>
 
         <form className="mt-7 grid gap-5 border-t border-border pt-7 sm:grid-cols-2" onSubmit={save}>
