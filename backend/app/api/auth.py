@@ -13,6 +13,7 @@ from app.core.rate_limit import enforce_rate_limit
 from app.core.security import hash_password, new_token, token_hash, verify_password
 from app.models import PasswordResetToken, Session, User, UserPreference
 from app.schemas import ForgotPasswordIn, LoginIn, RegisterIn, ResetPasswordIn
+from app.services.admin_access import is_admin
 from app.services.auth import create_session
 from app.services.email import EmailSendError, password_reset_email_html, send_email
 
@@ -223,4 +224,10 @@ def get_csrf(request: Request, response: Response):
 
 @router.get("/me")
 def me(user: User = Depends(current_user)):
-    return {"id": user.id, "email": user.email, "name": user.name, "is_active": user.is_active}
+    return {
+        "id": user.id,
+        "email": user.email,
+        "name": user.name,
+        "is_active": user.is_active,
+        "is_admin": is_admin(user),
+    }

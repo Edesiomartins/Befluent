@@ -93,6 +93,25 @@ describe("estrutura editorial", () => {
     expect(screen.queryByText("Tutor flutuante")).not.toBeInTheDocument();
   });
 
+  it("mostra Usuários só para o administrador", async () => {
+    state.api.mockImplementation((path: string) => {
+      if (path === "/api/v1/auth/me") return Promise.resolve({ is_admin: true });
+      return Promise.resolve([{ code: "fr", name_pt: "Francês", active: true }]);
+    });
+    render(<Sidebar />);
+    expect(await screen.findByRole("link", { name: "Usuários" })).toHaveAttribute("href", "/admin/usuarios");
+  });
+
+  it("esconde Usuários de quem não administra", async () => {
+    state.api.mockImplementation((path: string) => {
+      if (path === "/api/v1/auth/me") return Promise.resolve({ is_admin: false });
+      return Promise.resolve([{ code: "fr", name_pt: "Francês", active: true }]);
+    });
+    render(<Sidebar />);
+    await screen.findByRole("link", { name: "Idiomas" });
+    expect(screen.queryByRole("link", { name: "Usuários" })).not.toBeInTheDocument();
+  });
+
   it("demais páginas continuam com o AppShell completo", async () => {
     state.path = "/dashboard";
     render(<AppShell tutor={<span>Tutor flutuante</span>}><h1>Hoje</h1></AppShell>);

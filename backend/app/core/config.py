@@ -66,6 +66,8 @@ class Settings(BaseSettings):
     initial_admin_email: str = ""
     initial_admin_password: str = ""
     tts_lab_allowed_emails: str = ""
+    #: E-mails com acesso a /admin/usuarios. Vazio = ninguém. Sem distinção de maiúsculas.
+    admin_emails: str = ""
     placement_item_delivery_minutes: int = 30
     active_session_timeout_hours: int = 6
     min_completed_session_seconds: int = 15

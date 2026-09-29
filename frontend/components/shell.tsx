@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowLeft, CalendarDays, ChevronDown, Compass, Globe, Home, LogOut, Menu, Settings, SlidersHorizontal, TrendingUp, User, X } from "lucide-react";
+import { ArrowLeft, CalendarDays, ChevronDown, Compass, Globe, Home, LogOut, Menu, Settings, SlidersHorizontal, TrendingUp, User, Users, X } from "lucide-react";
 import { api, clearCsrfToken } from "@/lib/api";
 import { Logo } from "@/components/logo";
 
@@ -35,6 +35,23 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
   const router = useRouter();
   const [logoutError, setLogoutError] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    api<{ is_admin?: boolean }>("/api/v1/auth/me")
+      .then((me) => {
+        if (alive) setIsAdmin(me?.is_admin === true);
+      })
+      .catch(() => {
+        if (alive) setIsAdmin(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const accountLinks = isAdmin
+    ? [...secondary, { href: "/admin/usuarios", label: "Usuários", icon: Users }]
+    : secondary;
   async function logout() {
     setLeaving(true);
     setLogoutError(false);
@@ -61,7 +78,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <p className="max-w-40 text-sm leading-6 text-text-secondary">Um pouco hoje.<br />Mais possibilidades amanhã.</p>
     </div>
     <nav className="mt-auto grid gap-1 border-t border-border pt-4" aria-label="Conta">
-      {secondary.map(item => <NavItem key={item.href} {...item} onNavigate={onNavigate} />)}
+      {accountLinks.map(item => <NavItem key={item.href} {...item} onNavigate={onNavigate} />)}
       <button type="button" onClick={logout} disabled={leaving}
         className="flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2 text-left text-sm text-text-secondary hover:bg-surface-elevated disabled:opacity-50">
         <LogOut className="size-5" aria-hidden />{leaving ? "Saindo…" : "Sair"}
