@@ -22,6 +22,18 @@ def _as_utc(value: datetime) -> datetime:
     return value.astimezone(timezone.utc)
 
 
+def _lock_session(db: Session, session: StudySession) -> StudySession:
+    # Preserve changes made by the caller before refreshing its identity map.
+    db.flush()
+    locked = db.scalar(
+        select(StudySession).where(StudySession.id == session.id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
+    if locked is None:
+        raise APIError(404, "session_not_found", "Sessão de estudo não encontrada.")
+    return locked
+
+
 def session_duration_seconds(session: StudySession, *, ended_at: datetime | None = None) -> int:
     """Duração bruta em segundos entre início e fim (ou agora se ainda ativa)."""
     if not session.started_at:
@@ -62,7 +74,10 @@ def validate_study_session_for_user(
     require_active: bool = True,
 ) -> StudySession:
     """Garante que a sessão pertence ao usuário/idioma e está utilizável."""
-    session = db.get(StudySession, session_id)
+    session = db.scalar(
+        select(StudySession).where(StudySession.id == session_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
     if not session:
         raise APIError(404, "session_not_found", "Sessão de estudo não encontrada.")
 
@@ -91,6 +106,7 @@ def complete_session(
     summary: str | None = None,
 ) -> StudySession:
     """Marca sessão como concluída (idempotente se já concluída)."""
+    session = _lock_session(db, session)
     if session.status == "completed" and session.ended_at is not None:
         return session
     if session.status == "abandoned":
@@ -116,6 +132,7 @@ def abandon_session(
     summary: str | None = None,
 ) -> StudySession:
     """Marca sessão como abandonada (idempotente se já abandonada)."""
+    session = _lock_session(db, session)
     if session.status == "abandoned":
         return session
     if session.status == "completed":

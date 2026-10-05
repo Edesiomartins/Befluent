@@ -3,12 +3,16 @@ from fastapi import APIRouter,Depends,File,Form,UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel,Field
 from app.core.deps import current_user
+from app.core.database import get_db
+from app.api.helpers import ensure_language_access
+from sqlalchemy.orm import Session
 from app.core.errors import APIError
 from app.models import User
 from app.services.speech import assess_pronunciation,save_temp_audio,synthesize_audio,transcribe_audio
 router=APIRouter(prefix="/speech",tags=["speech"])
 @router.post("/transcribe")
-async def transcribe(language_code:str=Form(...),file:UploadFile=File(...),user:User=Depends(current_user)):
+async def transcribe(language_code:str=Form(...),file:UploadFile=File(...),user:User=Depends(current_user),db:Session=Depends(get_db)):
+    ensure_language_access(db, user.id, language_code)
     data=await file.read()
     try: path=save_temp_audio(data)
     except ValueError as exc: raise APIError(413,"audio_too_large",str(exc)) from exc
@@ -20,7 +24,8 @@ class TTSIn(BaseModel):
     language_code:str=Field(min_length=1,max_length=20)
     speed:float|None=Field(default=None,ge=0.5,le=2.0)
 @router.post("/synthesize")
-def synthesize(data:TTSIn,user:User=Depends(current_user)):
+def synthesize(data:TTSIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
+    ensure_language_access(db, user.id, data.language_code)
     audio,content_type=synthesize_audio(data.text,data.language_code,data.speed)
     return Response(audio,media_type=content_type)
 class PronunciationIn(BaseModel): target_text:str; transcript:str

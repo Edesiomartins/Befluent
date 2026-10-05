@@ -302,13 +302,17 @@ def test_teaching_attempt_evidence_error_remediation_retry_transfer(
             assert wrong.status_code == 200
             body = wrong.json()
             assert body.get("remediation") is not None
+            retry_state = client.get(
+                f"/api/v1/curriculum/block/{target.id}/teaching", headers=auth
+            ).json()
+            retry_activity = retry_state.get("current_activity") or {}
             retry = client.post(
                 f"/api/v1/curriculum/block/{target.id}/teaching/retry",
                 headers=auth,
                 json={
                     "remediation_id": body["remediation"]["id"],
-                    "student_response": (activity.get("canonical_answer")
-                        or (activity.get("accepted_variants") or ["ok"])[0]),
+                    "student_response": (retry_activity.get("canonical_answer")
+                        or (retry_activity.get("accepted_variants") or ["ok"])[0]),
                 },
             )
             assert retry.status_code == 200

@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.helpers import user_language
+from app.api.helpers import ensure_language_access, user_language
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
@@ -85,6 +85,7 @@ def _owned_attempt(db: Session, attempt_id: str, user: User) -> LearningAttempt:
     )
     if not row:
         raise APIError(404, "attempt_not_found", "Tentativa não encontrada.")
+    _ensure_profile_access(db, user, row.user_language_id)
     return row
 
 
@@ -96,6 +97,7 @@ def _owned_error(db: Session, error_id: str, user: User) -> LearningError:
     )
     if not row:
         raise APIError(404, "error_not_found", "Erro não encontrado.")
+    _ensure_profile_access(db, user, row.user_language_id)
     return row
 
 
@@ -108,7 +110,19 @@ def _owned_remediation(db: Session, remediation_id: str, user: User) -> Remediat
     )
     if not row:
         raise APIError(404, "remediation_not_found", "Remediação não encontrada.")
+    error = db.get(LearningError, row.error_id)
+    _ensure_profile_access(db, user, error.user_language_id)
     return row
+
+
+def _ensure_profile_access(db: Session, user: User, user_language_id: str) -> None:
+    code = db.scalar(
+        select(Language.code).join(UserLanguage, UserLanguage.language_id == Language.id)
+        .where(UserLanguage.id == user_language_id)
+    )
+    if code is None:
+        raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    ensure_language_access(db, user.id, code)
 
 
 def _validate_reference(
@@ -168,6 +182,7 @@ def _owned_flow(db: Session, flow_id: str, user: User) -> TeachingFlowSession:
     )
     if not row:
         raise APIError(404, "flow_not_found", "Sessão de ensino não encontrada.")
+    _ensure_profile_access(db, user, row.user_language_id)
     return row
 
 
@@ -179,6 +194,7 @@ def _owned_memory(db: Session, schedule_id: str, user: User) -> MemorySchedule:
     )
     if not row:
         raise APIError(404, "memory_not_found", "Item de memória não encontrado.")
+    _ensure_profile_access(db, user, row.user_language_id)
     return row
 
 

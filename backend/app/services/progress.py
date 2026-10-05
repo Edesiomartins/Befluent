@@ -185,6 +185,10 @@ def _timeline(
     period_start = period_end - timedelta(days=days - 1)
     events: list[tuple[datetime, str, str, int | None]] = []
     for attempt in attempts:
+        if attempt.student_response is None and attempt.activity_type in {
+            "listen", "matching", "presentation", "recognition", "conversation_prompt",
+        }:
+            continue
         event_at = attempt.evaluated_at or attempt.created_at
         percent = _event_percent(attempt.result)
         if percent is not None:
@@ -258,6 +262,7 @@ def aggregate_mastery_progress(
             .where(
                 LearningEvidence.user_language_id == user_language_id,
                 LearningObjective.is_active.is_(True),
+                LearningEvidence.evidence_type != "exposure",
             )
         )
     )

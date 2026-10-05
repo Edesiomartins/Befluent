@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.helpers import user_language
+from app.api.helpers import ensure_language_access, user_language
 from app.core.database import get_db
 from app.core.deps import current_user
 from app.core.errors import APIError
@@ -50,7 +50,10 @@ router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
 def _owned_conversation(db: Session, user: User, conversation_id: str) -> Conversation:
-    conversation = db.get(Conversation, conversation_id)
+    conversation = db.scalar(
+        select(Conversation).where(Conversation.id == conversation_id)
+        .with_for_update().execution_options(populate_existing=True)
+    )
     if not conversation:
         raise APIError(404, "conversation_not_found", "Conversa não encontrada.")
     profile = db.get(UserLanguage, conversation.user_language_id)
@@ -125,6 +128,10 @@ def message(
 ):
     conversation = _owned_conversation(db, user, conversation_id)
     _ensure_conversation_active(conversation)
+    validate_study_session_for_user(
+        db, user, conversation.study_session_id, conversation.user_language_id,
+        require_active=True,
+    )
 
     language = db.scalar(
         select(Language)
@@ -133,6 +140,7 @@ def message(
     )
     if not language:
         raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    ensure_language_access(db, user.id, language.code)
 
     history = [
         {"role": row.role, "content": row.content_text}
@@ -183,14 +191,17 @@ def complete_conversation(
     user: User = Depends(current_user),
 ):
     conversation = _owned_conversation(db, user, conversation_id)
+    if conversation.status == "abandoned":
+        raise APIError(409, "conversation_already_abandoned", "Esta conversa foi abandonada.")
+    session = validate_study_session_for_user(
+        db, user, conversation.study_session_id, conversation.user_language_id,
+        require_active=False,
+    )
+    complete_session(db, session, summary=(data.summary if data else None) or f"Conversa: {conversation.topic}")
     if conversation.status == "completed":
+        db.commit()
         progress = aggregate_progress(db, user.id, user_language_id=conversation.user_language_id)
         return {"id": conversation.id, "status": conversation.status, "progress": progress}
-
-    summary = data.summary if data else None
-    session = db.get(StudySession, conversation.study_session_id)
-    if session and session.status == "active":
-        complete_session(db, session, summary=summary or f"Conversa: {conversation.topic}")
 
     from datetime import datetime, timezone
 
@@ -226,9 +237,11 @@ def abandon_conversation(
         return {"id": conversation.id, "status": conversation.status, "progress": progress}
 
     summary = data.summary if data else None
-    session = db.get(StudySession, conversation.study_session_id)
-    if session and session.status == "active":
-        abandon_session(db, session, summary=summary)
+    session = validate_study_session_for_user(
+        db, user, conversation.study_session_id, conversation.user_language_id,
+        require_active=False,
+    )
+    abandon_session(db, session, summary=summary)
 
     from datetime import datetime, timezone
 

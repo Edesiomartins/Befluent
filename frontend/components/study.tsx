@@ -370,9 +370,14 @@ export function AudioPlayer({
 export function Recorder({
   onTranscript,
   languageCode = "en",
+  disabled = false,
+  disabledHint,
 }: {
   onTranscript?: (text: string, meta?: TranscriptResult) => void;
   languageCode?: string;
+  /** Impede uma nova gravação (tutor respondendo, prática encerrada). */
+  disabled?: boolean;
+  disabledHint?: string;
 }) {
   const [recording, setRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -393,6 +398,7 @@ export function Recorder({
   }, [recording]);
 
   async function toggle() {
+    if (disabled && !recording) return;
     if (recording) {
       mediaRecorder.current?.stop();
       stream.current?.getTracks().forEach((track) => track.stop());
@@ -465,7 +471,7 @@ export function Recorder({
       <button
         type="button"
         onClick={() => void toggle()}
-        disabled={uploading}
+        disabled={uploading || (disabled && !recording)}
         className={`grid size-20 place-items-center rounded-full border-4 text-sm font-bold ${
           recording
             ? "border-danger/20 bg-danger text-white"
@@ -486,7 +492,9 @@ export function Recorder({
           ? "Gravando — fale com naturalidade."
           : uploading
             ? "Processando áudio…"
-            : "Pronto para gravar"}
+            : disabled
+              ? disabledHint || "A gravação está pausada."
+              : "Pronto para gravar"}
       </p>
       {!recording && !uploading && (
         <p className="text-center text-sm text-text-secondary">
@@ -577,13 +585,15 @@ export function Chat({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [closing, setClosing] = useState(false);
   const [closed, setClosed] = useState(false);
-  const conversationId = useRef<string | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const conversationIdRef = useRef<string | null>(null);
 
   const topic = situation ?? "Conversa livre";
 
   useEffect(() => {
     let cancelled = false;
-    conversationId.current = null;
+    conversationIdRef.current = null;
+    setConversationId(null);
     (async () => {
       try {
         const started = await api<{ id: string }>("/api/v1/conversations", {
@@ -595,9 +605,18 @@ export function Chat({
             study_session_id: studySessionId ?? undefined,
           },
         });
-        if (!cancelled) conversationId.current = started.id;
-      } catch {
-        if (!cancelled) conversationId.current = null;
+        if (cancelled || !started.id) return;
+        conversationIdRef.current = started.id;
+        setConversationId(started.id);
+      } catch (err) {
+        if (cancelled) return;
+        conversationIdRef.current = null;
+        setConversationId(null);
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Não foi possível abrir a conversa. Você pode tentar enviar a resposta de novo.",
+        );
       }
     })();
     return () => {
@@ -606,11 +625,12 @@ export function Chat({
   }, [languageCode, topic, opening, studySessionId]);
 
   async function endConversation() {
-    if (!conversationId.current || closed) return;
+    const id = conversationIdRef.current;
+    if (!id || closed || closing) return;
     setClosing(true);
     setError(null);
     try {
-      await api(`/api/v1/conversations/${conversationId.current}/complete`, {
+      await api(`/api/v1/conversations/${id}/complete`, {
         method: "POST",
         body: {},
       });
@@ -635,7 +655,7 @@ export function Chat({
     setThinking(true);
     setMessages((current) => [...current, { role: "user", text: userText }]);
     try {
-      if (!conversationId.current) {
+      if (!conversationIdRef.current) {
         const started = await api<{ id: string }>("/api/v1/conversations", {
           method: "POST",
           body: {
@@ -645,10 +665,13 @@ export function Chat({
             study_session_id: studySessionId ?? undefined,
           },
         });
-        conversationId.current = started.id;
+        if (started.id) {
+          conversationIdRef.current = started.id;
+          setConversationId(started.id);
+        }
       }
       const result = await api<TurnResponse>(
-        `/api/v1/conversations/${conversationId.current}/messages`,
+        `/api/v1/conversations/${conversationIdRef.current}/messages`,
         { method: "POST", body: { text: userText } },
       );
 
@@ -791,21 +814,22 @@ export function Chat({
               }
             }}
             placeholder="Escreva sua resposta…"
-            disabled={closed}
+            disabled={closed || thinking || closing}
             className="min-h-24 w-full resize-y rounded-lg border border-border bg-surface px-3 py-2.5 text-sm outline-none ring-primary focus:ring-2 disabled:opacity-60"
           />
         </div>
         <div className="flex flex-col gap-2">
           <Button
             onClick={() => void send()}
-            disabled={!text.trim() || thinking || closed || (serviceDown && cooldownRemaining > 0)}
+            loading={thinking}
+            disabled={!text.trim() || thinking || closing || closed || (serviceDown && cooldownRemaining > 0)}
           >
             Enviar
           </Button>
           <Button
             variant="secondary"
             loading={closing}
-            disabled={closed || !conversationId.current}
+            disabled={closed || closing || !conversationId}
             onClick={() => void endConversation()}
           >
             {closed ? "Encerrada" : "Encerrar conversa"}

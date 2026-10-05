@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
@@ -50,12 +51,45 @@ export async function completeLesson(lessonId: string | undefined) {
 /* ------------------------------------------------------------------ */
 
 function Guided({ lesson }: { lesson: GuidedLesson }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const inMission = pathname.startsWith("/cronograma");
   const [step, setStep] = useState(0);
   const [completing, setCompleting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [finishError, setFinishError] = useState("");
   const steps = lesson.steps;
   const total = steps.length + 1; // +1 para a pergunta de verificação
   const atCheck = step >= steps.length;
   const current = atCheck ? null : steps[step];
+
+  async function finishLesson() {
+    if (completing || done) return;
+    setCompleting(true);
+    setFinishError("");
+    try {
+      if (lesson.lesson_id) {
+        await api(`/api/v1/lessons/${lesson.lesson_id}/complete`, { method: "POST", body: {} });
+      }
+      setDone(true);
+      if (!inMission) router.push("/learn");
+    } catch (err) {
+      const alreadyDone =
+        err instanceof ApiError &&
+        (err.status === 409 || err.code === "lesson_already_completed");
+      if (alreadyDone) {
+        setDone(true);
+        if (!inMission) router.push("/learn");
+        return;
+      }
+      setFinishError(
+        err instanceof ApiError ? err.message : "Não foi possível concluir a aula.",
+      );
+    } finally {
+      setCompleting(false);
+    }
+  }
+
   return (
     <div className="grid gap-7">
       <div>
@@ -106,18 +140,19 @@ function Guided({ lesson }: { lesson: GuidedLesson }) {
         {!atCheck ? (
           <Button onClick={() => setStep((s) => s + 1)}>Continuar</Button>
         ) : (
-          <Link
-            href="/learn"
-            onClick={() => {
-              setCompleting(true);
-              void completeLesson(lesson.lesson_id).finally(() => setCompleting(false));
-            }}
-            className={`inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white hover:bg-[var(--primary-hover)] ${completing ? "pointer-events-none opacity-70" : ""}`}
-          >
-            {completing ? "Concluindo…" : "Concluir aula"}
-          </Link>
+          <Button loading={completing} disabled={completing || done} onClick={() => void finishLesson()}>
+            {done ? "Aula concluída" : "Concluir aula"}
+          </Button>
         )}
       </div>
+      {finishError && (
+        <p role="alert" className="text-sm text-danger">{finishError}</p>
+      )}
+      {done && inMission && (
+        <p role="status" className="text-sm text-text-secondary">
+          Aula concluída. Use Concluir e avançar para seguir na missão.
+        </p>
+      )}
     </div>
   );
 }
@@ -308,7 +343,16 @@ function Voice({
       </div>
 
       <div className="border-t border-border pt-5">
-        <Recorder onTranscript={(text) => void respond(text)} languageCode={lesson.language_code} />
+        <Recorder
+          onTranscript={(text) => void respond(text)}
+          languageCode={lesson.language_code}
+          disabled={thinking || ending || closed}
+          disabledHint={
+            closed
+              ? "A prática foi encerrada."
+              : "Espere a resposta do tutor antes de gravar de novo."
+          }
+        />
         {lastHeard && (
           <p className="mt-3 text-center text-xs text-text-secondary">
             Você disse: <span className="italic">“{lastHeard}”</span>
@@ -330,10 +374,40 @@ function Voice({
 }
 
 function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
+  const pathname = usePathname();
+  const inMission = pathname.startsWith("/cronograma");
   const [phrase, setPhrase] = useState(0);
   const [phraseDone, setPhraseDone] = useState(false);
+  const [practiceClosed, setPracticeClosed] = useState(false);
+  const [closingPractice, setClosingPractice] = useState(false);
+  const [closeError, setCloseError] = useState("");
   const current = lesson.target_phrases[phrase];
   const last = phrase >= lesson.target_phrases.length - 1;
+
+  async function concludePractice() {
+    if (closingPractice || practiceClosed) return;
+    setClosingPractice(true);
+    setCloseError("");
+    try {
+      if (lesson.lesson_id) {
+        await api(`/api/v1/lessons/${lesson.lesson_id}/complete`, { method: "POST", body: {} });
+      }
+      setPracticeClosed(true);
+    } catch (err) {
+      const alreadyDone =
+        err instanceof ApiError &&
+        (err.status === 409 || err.code === "lesson_already_completed");
+      if (alreadyDone) {
+        setPracticeClosed(true);
+        return;
+      }
+      setCloseError(
+        err instanceof ApiError ? err.message : "Não foi possível concluir a prática.",
+      );
+    } finally {
+      setClosingPractice(false);
+    }
+  }
 
   const transferPrompt =
     lesson.language_code === "en"
@@ -366,17 +440,18 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
             </p>
             <button
               type="button"
-              className="text-xs font-semibold text-primary hover:underline"
+              className="text-xs font-semibold text-primary hover:underline disabled:opacity-60"
+              disabled={closingPractice || (last && practiceClosed)}
               onClick={() => {
                 if (last) {
-                  void completeLesson(lesson.lesson_id);
+                  void concludePractice();
                   return;
                 }
                 setPhrase((p) => p + 1);
                 setPhraseDone(false);
               }}
             >
-              {last ? "Concluir prática" : "Próxima frase"}
+              {last ? (practiceClosed ? "Prática concluída" : "Concluir prática") : "Próxima frase"}
             </button>
           </div>
           <SpeechCoach
@@ -388,13 +463,23 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
             onSuccess={() => setPhraseDone(true)}
             onContinue={() => {
               if (last) {
-                void completeLesson(lesson.lesson_id);
+                void concludePractice();
                 return;
               }
               setPhrase((p) => p + 1);
               setPhraseDone(false);
             }}
           />
+          {closeError && (
+            <p role="alert" className="mt-3 text-sm text-danger">{closeError}</p>
+          )}
+          {practiceClosed && (
+            <p role="status" className="mt-3 text-sm text-text-secondary">
+              {inMission
+                ? "Prática concluída. Use Concluir e avançar para seguir na missão."
+                : "Prática concluída."}
+            </p>
+          )}
           {phraseDone && (
             <p className="mt-3 text-sm text-success" role="status">
               Frase compreensível nesta tentativa. Você pode seguir ou praticar de novo.
@@ -1227,6 +1312,7 @@ function Writing({ lesson }: { lesson: WritingLesson }) {
   const inRange = words >= lesson.min_words && words <= lesson.max_words;
 
   async function submit() {
+    if (sending) return;
     setSending(true);
     setError("");
     setFeedback(null);

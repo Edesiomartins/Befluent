@@ -439,6 +439,13 @@ def current_activity(session: TeachingFlowSession) -> dict | None:
 def public_activity(session: TeachingFlowSession) -> dict | None:
     """Retorna a atividade atual sem material privado de avaliação lexical."""
     activity = current_activity(session)
+    fallback = (session.payload_json or {}).get("retry_activity") or {}
+    if (
+        session.phase in {FlowPhase.NEEDS_REMEDIATION, FlowPhase.RETRYING}
+        and fallback.get("retry_safe") is False
+        and fallback.get("retry_strategy") == "fallback_continue"
+    ):
+        activity = fallback
     if not isinstance(activity, dict):
         return activity
     public = dict(activity)

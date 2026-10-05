@@ -18,6 +18,7 @@ from app.core.teaching import (
     ErrorSeverity,
     EvidenceType,
     FlowPhase,
+    MAX_REMEDIATION_CYCLES,
     RemediationAction,
 )
 from app.models import LearningAttempt, LearningObjective, TeachingFlowSession
@@ -262,8 +263,11 @@ def submit_slice_answer(
     ack_types = {"listen", "matching", "presentation", "conversation_prompt"}
     if not is_lexical_activity:
         ack_types.add("recognition")
-    if activity.get("type") in ack_types and not student_response.strip():
+    is_acknowledgement = activity.get("type") in ack_types
+    if is_acknowledgement:
         student_response = "__ack__"
+    elif student_response.strip() == "__ack__":
+        raise APIError(422, "invalid_acknowledgement", "Esta atividade exige uma resposta do aluno.")
 
     choice_types = {
         "multiple_choice",
@@ -283,6 +287,10 @@ def submit_slice_answer(
     evaluation = None
     result = AttemptResult.CORRECT
     evidence_type = activity.get("evidence_type") or EvidenceType.COMPREHENSION
+    if is_acknowledgement:
+        # Exposição lexical alimenta o ciclo de memória, mas Continuar não
+        # demonstra compreensão nem produção de um objetivo.
+        evidence_type = EvidenceType.EXPOSURE if is_lexical_activity else None
     is_transfer = activity.get("type") == "transfer_question"
 
     if student_response != "__ack__":
@@ -432,6 +440,10 @@ def submit_slice_answer(
             _advance_after_success(db, session, activity)
 
     mastery = eval_out["mastery"]
+    if result == AttemptResult.INCORRECT and session.objective_id is not None:
+        mastery = teaching_engine.evaluate_mastery(
+            db, user_language_id=session.user_language_id, objective_id=session.objective_id,
+        )
     if (
         mastery is not None
         and mastery["state"] == "mastered"
@@ -439,6 +451,10 @@ def submit_slice_answer(
         and not (session.payload_json or {}).get("session_engine_v2")
     ):
         _close_as_mastered(db, session)
+
+    final_mastery = _finish_exhausted_flow(db, session)
+    if final_mastery is not None:
+        mastery = final_mastery
 
     progress_state = (
         mastery["state"]
@@ -469,9 +485,29 @@ def retry_slice(
 ) -> dict[str, Any]:
     from app.models import Remediation
 
+    session = teaching_flow.lock_flow_for_answer(db, session.id)
+    if session.status != "active":
+        raise APIError(409, "flow_closed", "Esta sessão de ensino já foi encerrada.")
     remediation = db.get(Remediation, remediation_id)
     if remediation is None:
         raise APIError(404, "remediation_not_found", "Remediação não encontrada.")
+
+    pending = (session.payload_json or {}).get("pending_remediation") or {}
+    if pending.get("id") != remediation.id:
+        raise APIError(409, "remediation_flow_mismatch", "A remediação não pertence à atividade pendente deste fluxo.")
+
+    activity = teaching_flow.current_activity(session) or {}
+    fallback = (session.payload_json or {}).get("retry_activity") or {}
+    if fallback.get("retry_safe") is False and fallback.get("retry_strategy") == "fallback_continue":
+        activity = fallback
+    is_acknowledgement = (
+        activity.get("type") in {"listen", "recognition", "matching"}
+        and not activity.get("vocabulary_item_id")
+    )
+    if is_acknowledgement:
+        student_response = "__ack__"
+    elif student_response.strip() == "__ack__":
+        raise APIError(422, "invalid_acknowledgement", "Esta atividade exige uma resposta do aluno.")
 
     if session.phase == FlowPhase.NEEDS_REMEDIATION:
         teaching_flow.transition(db, session, target_phase=FlowPhase.RETRYING, reason="retry")
@@ -492,15 +528,11 @@ def retry_slice(
                 "Esta remediação já foi respondida. Use a nova remediação pendente.",
             )
 
-    activity = teaching_flow.current_activity(session) or {}
-    # Fallback sem variante: recognition/ack — não reabre MCQ revelada.
-    if activity.get("type") in {"listen", "recognition", "matching"} and not student_response.strip():
-        student_response = "__ack__"
-
     attempt = teaching_engine.record_retry(
         db,
         remediation,
         student_response=None if student_response == "__ack__" else student_response,
+        activity_type=activity.get("type") if is_acknowledgement else None,
         curriculum_block_id=session.curriculum_block_id,
     )
     if activity.get("type") == "multiple_choice" and student_response != "__ack__":
@@ -514,10 +546,10 @@ def retry_slice(
 
     if student_response == "__ack__":
         evaluation = {
-            "result": AttemptResult.CORRECT,
-            "score": 1.0,
+            "result": AttemptResult.PARTIAL,
+            "score": None,
             "matched": None,
-            "notes": "fallback_continue_ack",
+            "notes": "deferred_review_ack",
         }
     else:
         evaluation = deterministic_evaluator.evaluate_response(
@@ -532,7 +564,7 @@ def retry_slice(
         db,
         attempt,
         result=evaluation["result"],
-        score=1.0 if evaluation["result"] == AttemptResult.CORRECT else 0.0,
+        score=None if is_acknowledgement else (1.0 if evaluation["result"] == AttemptResult.CORRECT else 0.0),
         provider="deterministic",
         evidence_type=evidence_type,
     )
@@ -552,7 +584,7 @@ def retry_slice(
     objective = db.get(LearningObjective, session.objective_id)
     remediation_payload = None
 
-    if evaluation["result"] == AttemptResult.CORRECT:
+    if evaluation["result"] == AttemptResult.CORRECT or is_acknowledgement:
         payload = dict(session.payload_json or {})
         completed = set(payload.get("completed_indices") or [])
         completed.add(session.activity_cursor)
@@ -562,7 +594,8 @@ def retry_slice(
         payload["last_answer_feedback"] = answer_feedback
         session.payload_json = payload
         teaching_flow.transition(
-            db, session, target_phase=FlowPhase.EVALUATING, reason="retry_correct"
+            db, session, target_phase=FlowPhase.EVALUATING,
+            reason="retry_deferred" if is_acknowledgement else "retry_correct",
         )
         teaching_flow.transition(
             db, session, target_phase=FlowPhase.PRACTICING, reason="resume_practice"
@@ -611,6 +644,18 @@ def retry_slice(
         session.payload_json = payload
         db.flush()
 
+        if session.remediation_cycles >= MAX_REMEDIATION_CYCLES:
+            teaching_flow.transition(
+                db, session, target_phase=FlowPhase.NEEDS_REVIEW, reason="remediation_limit_reached",
+            )
+        eval_out["mastery"] = teaching_engine.evaluate_mastery(
+            db, user_language_id=session.user_language_id, objective_id=session.objective_id,
+        )
+
+    final_mastery = _finish_exhausted_flow(db, session)
+    if final_mastery is not None:
+        eval_out["mastery"] = final_mastery
+
     return {
         **_session_payload(db, session, objective, eval_out["mastery"]["state"]),
         "attempt": {
@@ -625,6 +670,23 @@ def retry_slice(
         "mastery": eval_out["mastery"],
         "ai_called": False,
     }
+
+
+def _finish_exhausted_flow(db: Session, session: TeachingFlowSession) -> dict | None:
+    if session.status != "active" or teaching_flow.current_activity(session) is not None:
+        return None
+    if session.objective_id is None:
+        return None
+    mastery = teaching_engine.evaluate_mastery(
+        db, user_language_id=session.user_language_id,
+        objective_id=session.objective_id, activity_completed=True,
+    )
+    if mastery["state"] == "mastered":
+        _close_as_mastered(db, session)
+    else:
+        _step_toward(db, session, FlowPhase.EVALUATING)
+        teaching_flow.transition(db, session, target_phase=FlowPhase.NEEDS_REVIEW, reason="activities_exhausted")
+    return mastery
 
 
 def _close_as_mastered(db: Session, session: TeachingFlowSession) -> None:
@@ -665,6 +727,7 @@ def _advance_after_success(db: Session, session: TeachingFlowSession, activity: 
         teaching_flow.transition(
             db, session, target_phase=FlowPhase.EVALUATING, reason="transfer_answered"
         )
+        teaching_flow.advance_activity_cursor(db, session)
     elif hint == "producing":
         teaching_flow.advance_activity_cursor(db, session)
         # Após produção, próxima é transfer se existir.

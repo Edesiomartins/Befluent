@@ -223,6 +223,7 @@ def _demonstrated_rows(db: Session, user_language_id: str):
             select(LearningEvidence.objective_id).where(
                 LearningEvidence.user_language_id == user_language_id,
                 LearningEvidence.objective_id.is_not(None),
+                LearningEvidence.evidence_type != "exposure",
             )
         )
     )
@@ -347,13 +348,12 @@ def record_product_event(
     payload: dict | None = None,
 ) -> bool:
     """Grava a transição uma vez. Reabrir a tela não cria outro evento."""
-    existing = db.scalar(
-        select(LearningProgressEvent.id).where(
+    event_query = select(LearningProgressEvent.id).where(
             LearningProgressEvent.user_language_id == user_language_id,
             LearningProgressEvent.event_type == event_type,
             LearningProgressEvent.dedupe_key == dedupe_key,
         )
-    )
+    existing = db.scalar(event_query)
     if existing:
         return False
     try:
@@ -369,7 +369,11 @@ def record_product_event(
             db.flush()
         return True
     except IntegrityError:
-        return False
+        # Only an actual duplicate is idempotent success. Other integrity
+        # failures must abort the caller's transaction instead of losing an event.
+        if db.scalar(event_query) is not None:
+            return False
+        raise
 
 
 def _latest_achievement(db: Session, user_language_id: str) -> dict | None:

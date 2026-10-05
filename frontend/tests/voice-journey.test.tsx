@@ -168,6 +168,7 @@ describe("Journey + voz", () => {
       body: {},
     });
     expect(await screen.findByRole("button", { name: "Encerrada" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Iniciar gravação" })).toBeDisabled();
   });
 
   it("não marca a prática como encerrada se o complete da conversa falhar", async () => {

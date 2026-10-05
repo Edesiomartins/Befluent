@@ -442,8 +442,9 @@ def test_te_multi_retry_no_cycle(db_session):
         activity = teaching_flow.current_activity(session) or {}
         if activity.get("type") == "multiple_choice":
             break
+        answer = activity.get("canonical_answer") or ""
         teaching_slice.submit_slice_answer(
-            db_session, session, student_response="__ack__"
+            db_session, session, student_response=answer
         )
         session = teaching_flow.get_flow(db_session, session.id)
     else:
@@ -512,8 +513,9 @@ def test_te_retry_correct_is_error_repaired(db_session):
         activity = teaching_flow.current_activity(session) or {}
         if activity.get("type") == "multiple_choice":
             break
+        answer = activity.get("canonical_answer") or ""
         teaching_slice.submit_slice_answer(
-            db_session, session, student_response="__ack__"
+            db_session, session, student_response=answer
         )
         session = teaching_flow.get_flow(db_session, session.id)
     else:

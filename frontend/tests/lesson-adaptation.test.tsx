@@ -9,6 +9,7 @@ let currentMode = "vocabulary";
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: vi.fn(), push: vi.fn(), refresh: vi.fn() }),
+  usePathname: () => `/learn/${currentMode}`,
   useParams: () => ({ mode: currentMode }),
   notFound: () => notFound(),
 }));
@@ -622,6 +623,11 @@ describe("Correção de escrita", () => {
     const box = await screen.findByLabelText("Seu texto");
     fireEvent.change(box, { target: { value: text } });
     fireEvent.click(screen.getByRole("button", { name: "Enviar para correção" }));
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Enviar para correção" })).not.toHaveAttribute(
+        "aria-busy",
+      ),
+    );
   }
 
   it("envia o texto com o nível e a faixa da tarefa", async () => {
@@ -779,6 +785,9 @@ describe("Conversação calibrada pelo nível", () => {
           opening: "Good morning! How are you?",
         },
       }),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Encerrar conversa" })).toBeEnabled(),
     );
   });
 

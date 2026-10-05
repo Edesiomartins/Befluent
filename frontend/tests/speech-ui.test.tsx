@@ -345,6 +345,26 @@ describe("Chat / conversação", () => {
     apiMock.mockReset();
   });
 
+  it("habilita encerrar quando a conversa abre, antes de qualquer mensagem", async () => {
+    apiMock.mockImplementation((path: string) =>
+      path === "/api/v1/conversations" ? Promise.resolve({ id: "c1" }) : Promise.resolve({}),
+    );
+    render(<Chat languageCode="en" opening="Hello!" />);
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Encerrar conversa" })).toBeEnabled(),
+    );
+  });
+
+  it("avisa quando a conversa não abre", async () => {
+    apiMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/conversations") return Promise.reject(new Error("offline"));
+      return Promise.resolve({});
+    });
+    render(<Chat languageCode="en" opening="Hello!" />);
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não foi possível abrir a conversa/i);
+    expect(screen.getByRole("button", { name: "Encerrar conversa" })).toBeDisabled();
+  });
+
   it("não trata resposta openrouter como mock", async () => {
     apiMock.mockImplementation((path: string) => {
       if (path === "/api/v1/conversations") return Promise.resolve({ id: "c1" });
