@@ -46,26 +46,42 @@ def require_static_native_support(native_language):
         raise APIError(409, "native_support_unavailable", "Este conteúdo estático ainda não oferece apoio na língua nativa escolhida.")
 
 
-def ensure_stored_content_language(payload, native_language):
+def ensure_stored_content_language(payload, native_language, *, target_language=None, stored_title=None, lesson_status=None):
     """Conteúdo antigo não é relabelado como tradução de outra língua."""
     payload = payload if isinstance(payload, Mapping) else {}
+    declared_target = payload.get("target_language") or payload.get("language_code")
+    target = target_language or declared_target
+    if any(value is not None and not isinstance(value, str) for value in (
+        payload.get("target_language"), payload.get("language_code"), target
+    )):
+        raise APIError(409, "lesson_target_language_mismatch", "Esta lição não registra um idioma válido; gere uma nova lição.")
+    if any(value and target and value != target for value in (
+        payload.get("target_language"), payload.get("language_code")
+    )):
+        raise APIError(409, "lesson_target_language_mismatch", "Esta lição foi criada para outro idioma; gere uma nova lição.")
+    from app.services.editorial_validation import has_known_incompatible_english
+    if lesson_status == "language_invalid" or has_known_incompatible_english(payload, target, native_language) or (
+        stored_title is not None and has_known_incompatible_english({"title": stored_title}, target, native_language)
+    ):
+        raise APIError(409, "lesson_language_invalid", "Esta lição contém conteúdo incompatível com os idiomas atuais e precisa ser regenerada.")
     stored_native = payload.get("native_language")
     if "native_language" in payload:
         if stored_native != native_language:
             raise APIError(409, "lesson_native_language_mismatch", "Esta lição foi criada para outra língua nativa; gere uma nova lição.")
     else:
         require_static_native_support(native_language)
-    if "en" not in {payload.get("language_code"), native_language}:
-        def contaminated(value):
-            if isinstance(value, list):
-                return any(contaminated(v) for v in value)
-            if not isinstance(value, dict):
-                return False
-            for key, item in value.items():
-                if key in {"explanation", "explanation_native", "logic", "hint", "feedback"} and isinstance(item, str) and item.casefold().startswith(("we use the ", "use the present ", "the present simple ", "the past simple ")):
-                    return True
-                if contaminated(item):
-                    return True
-            return False
-        if contaminated(payload):
-            raise APIError(409, "lesson_language_invalid", "Esta lição contém apoio em um terceiro idioma e precisa ser regenerada.")
+        static_origins = {"mock", "curated_library"}
+        origins = {payload.get(key) for key in ("provider", "content_origin") if isinstance(payload.get(key), str) and payload[key]}
+        static_legacy = bool(origins) and origins <= static_origins
+        # Internal review queue is a known PT-scaffolded source too. Do not
+        # accept an arbitrary lesson merely because it claims provider=srs.
+        static_legacy = static_legacy or (
+            origins == {"srs"} and payload.get("mode") == "review" and payload.get("source") == "srs_queue"
+        )
+        # Old static PT scaffolding is a bounded compatibility path, never a
+        # native-language backfill. Unversioned EN/PT and empty legacy wrappers
+        # keep their previous path, after the known-content checks above.
+        if not static_legacy and (
+            origins or payload.get("target_language") or (target and target != "en")
+        ):
+            raise APIError(409, "lesson_language_provenance_missing", "Esta lição antiga não registra um apoio nativo compatível; gere uma nova lição.")

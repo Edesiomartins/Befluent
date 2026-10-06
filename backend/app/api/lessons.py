@@ -521,10 +521,13 @@ def answer_vocabulary_cycle(
 
 @router.get("/{lesson_id}")
 def one(lesson_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    lesson, _ = _owned_lesson(db, user, lesson_id)
+    lesson, owner = _owned_lesson(db, user, lesson_id)
     content = dict(lesson.content_json or {})
     from app.services.language_policy import ensure_stored_content_language
-    ensure_stored_content_language(content, user.native_language)
+    ensure_stored_content_language(
+        content, user.native_language, target_language=db.get(Language, owner.language_id).code,
+        stored_title=lesson.title, lesson_status=lesson.status,
+    )
     if content.get("mode") == "vocabulary" and content.get("language_code") == "la":
         from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
 
@@ -619,6 +622,12 @@ def complete_lesson(
     if lesson.status == "completed":
         raise APIError(409, "lesson_already_completed", "Esta lição já foi concluída.")
 
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(
+        lesson.content_json, user.native_language, target_language=db.get(Language, owner.language_id).code,
+        stored_title=lesson.title, lesson_status=lesson.status,
+    )
+
     summary = data.summary if data else None
     if lesson.study_session_id:
         session = db.get(StudySession, lesson.study_session_id)
@@ -649,6 +658,11 @@ def abandon_lesson(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
+    lesson = db.scalar(select(Lesson).where(Lesson.id == lesson.id).with_for_update().execution_options(populate_existing=True))
+    if lesson is None:
+        raise APIError(404, "lesson_not_found", "Lição não encontrada.")
+    if lesson.status == "language_invalid":
+        raise APIError(409, "lesson_language_invalid", "Esta lição foi preservada como histórico incompatível e não pode ser alterada.")
     if lesson.status == "completed":
         raise APIError(409, "lesson_already_completed", "Esta lição já foi concluída.")
     if lesson.status == "abandoned":

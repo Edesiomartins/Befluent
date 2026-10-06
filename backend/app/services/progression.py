@@ -342,13 +342,21 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
 
     if block.lesson_ref:
         existing = db.get(Lesson, block.lesson_ref)
+        if existing is not None and existing.status == "language_invalid" and block.status == BlockStatus.PENDING:
+            # Serialize replacement of this quarantined pointer. Another start
+            # may have already created a validated lesson while we waited.
+            db.refresh(block, with_for_update=True)
+            existing = db.get(Lesson, block.lesson_ref) if block.lesson_ref else None
         if existing is not None and existing.user_language_id != owner.id:
             raise APIError(404, "lesson_not_found", "Lição não encontrada.")
-        if existing is not None:
+        if existing is not None and not (existing.status == "language_invalid" and block.status == BlockStatus.PENDING):
             raw_content = existing.content_json
             content = dict(raw_content) if isinstance(raw_content, Mapping) else {}
             from app.services.language_policy import ensure_stored_content_language
-            ensure_stored_content_language(content, user.native_language)
+            ensure_stored_content_language(
+                content, user.native_language, target_language=language_code,
+                stored_title=existing.title, lesson_status=existing.status,
+            )
             if (
                 content.get("mode") == "vocabulary"
                 and (content.get("language_code") or language_code) == "la"
@@ -361,8 +369,11 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
             return {**content, "lesson_id": existing.id}
         # Referência órfã legada: não existe recurso para proteger ou reutilizar.
         # Limpar permite regenerar abaixo com o owner já resolvido do currículo.
-        block.lesson_ref = None
-        db.flush()
+        if existing is None:
+            block.lesson_ref = None
+            db.flush()
+        # A reviewed invalidation keeps the pointer until validated generation
+        # succeeds. Failure preserves both history and the previous reference.
 
     # O fio é lido antes de gerar: é ele que faz este bloco continuar o anterior
     # em vez de recomeçar. `week_thread` acrescenta a espiral da semana.
@@ -458,6 +469,17 @@ def complete_block(
     score: float | None = None,
 ) -> dict:
     """Marca o bloco, alimenta o SRS e fecha o dia quando tudo estiver concluído."""
+    if block.lesson_ref and block.status != BlockStatus.COMPLETED:
+        current_lesson = db.get(Lesson, block.lesson_ref)
+        if current_lesson is not None:
+            owner = _owner_of(db, day)
+            user = db.get(User, owner.user_id)
+            from app.services.language_policy import ensure_stored_content_language
+            ensure_stored_content_language(
+                current_lesson.content_json, user.native_language,
+                target_language=_language_code(db, owner), stored_title=current_lesson.title,
+                lesson_status=current_lesson.status,
+            )
     if block.status != BlockStatus.COMPLETED:
         block.status = BlockStatus.COMPLETED
     if score is not None:
