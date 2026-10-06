@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { nativeLanguageRequiredMessage } from "@/lib/native-language";
 import type { LessonEnvelope } from "@/types/lesson";
 
 type State<T> =
@@ -46,9 +47,10 @@ export function useLesson<T extends LessonEnvelope>(
         status: "error",
         lesson: null,
         error:
-          caught instanceof ApiError
+          nativeLanguageRequiredMessage(caught) ??
+          (caught instanceof ApiError
             ? caught.message
-            : "Não foi possível gerar a lição. Tente novamente.",
+            : "Não foi possível gerar a lição. Tente novamente."),
         rawError: caught,
       });
     }

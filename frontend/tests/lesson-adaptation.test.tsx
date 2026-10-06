@@ -154,7 +154,7 @@ describe("Lição adaptada ao nível", () => {
     expect(await screen.findByText("Conversação · FR")).toBeInTheDocument();
   });
 
-  it("fallback para inglês após falha ao carregar o perfil", async () => {
+  it("não abre uma lição de inglês quando o perfil do idioma falha", async () => {
     apiMock.mockImplementation((path: string) => {
       if (path.startsWith("/api/v1/language-profiles")) {
         return Promise.reject(new Error("rede indisponível"));
@@ -167,11 +167,12 @@ describe("Lição adaptada ao nível", () => {
 
     render(<StudyModePage />);
 
-    await waitFor(() =>
-      expect(apiMock).toHaveBeenCalledWith("/api/v1/lessons/generate", {
-        method: "POST",
-        body: { language_code: "en", mode: "vocabulary" },
-      }),
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Não foi possível identificar o idioma do seu plano.",
+    );
+    expect(apiMock).not.toHaveBeenCalledWith(
+      "/api/v1/lessons/generate",
+      expect.anything(),
     );
   });
 

@@ -12,6 +12,9 @@ import { deriveDailyMission, journeyPhaseLabel } from "@/lib/journey";
 import { levelShortCode } from "@/lib/levels";
 import { activityIsAcknowledgement } from "@/lib/teaching-response";
 import { useActiveLanguage } from "@/hooks/use-active-language";
+import { supportText } from "@/lib/bilingual";
+import { nativeLanguageRequiredMessage } from "@/lib/native-language";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import { useCurriculumDay } from "@/hooks/use-curriculum";
 import type { LessonEnvelope } from "@/types/lesson";
 import type {
@@ -35,6 +38,7 @@ import type { SliceSession } from "@/types/teaching";
  * declarada lá, não preenchida aqui.
  */
 function DayStoryScene({ story }: { story: DayStory }) {
+  const nativeLanguage = useLearnerNativeLanguage();
   return (
     <section className="panel mb-6 p-6" aria-labelledby="cena-do-dia">
       <p className="label">
@@ -51,7 +55,11 @@ function DayStoryScene({ story }: { story: DayStory }) {
           <li key={`${line.speaker}-${index}`}>
             <p className="text-xs font-medium text-text-secondary">{line.speaker}</p>
             <p className="mt-0.5 leading-7">{line.text}</p>
-            <p className="mt-0.5 text-sm leading-6 text-text-secondary">{line.translation_pt}</p>
+            {supportText({ nativeLanguage, legacyPortuguese: line.translation_pt }) && (
+              <p className="mt-0.5 text-sm leading-6 text-text-secondary">
+                {supportText({ nativeLanguage, legacyPortuguese: line.translation_pt })}
+              </p>
+            )}
           </li>
         ))}
       </ol>
@@ -136,6 +144,7 @@ function DayThread({ thread }: { thread: LessonThread }) {
 
 /** Fila de revisão servida pelo bloco `review`, direto do SRS. */
 function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
+  const nativeLanguage = useLearnerNativeLanguage();
   const items = lesson.items ?? [];
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -175,7 +184,12 @@ function ReviewQueue({ lesson }: { lesson: BlockLesson }) {
     (typeof item.payload?.prompt === "string" && item.payload.prompt) ||
     item.item_type;
   const answer =
-    (typeof item.payload?.translation_pt === "string" && item.payload.translation_pt) ||
+    supportText({
+      nativeLanguage,
+      native: typeof item.payload?.translation === "string" ? item.payload.translation : null,
+      legacyPortuguese:
+        typeof item.payload?.translation_pt === "string" ? item.payload.translation_pt : null,
+    }) ||
     (typeof item.payload?.answer === "string" && item.payload.answer) ||
     "Revise este item e avalie sua lembrança.";
 
@@ -280,11 +294,14 @@ function MiniTeachingPractice({
   blockId,
   initial,
   languageCode,
+  supportVisibility,
 }: {
   blockId: string;
   initial: SliceSession | null;
   languageCode: string;
+  supportVisibility?: string | null;
 }) {
+  const nativeLanguage = useLearnerNativeLanguage();
   const [session, setSession] = useState<SliceSession | null>(initial);
   const [response, setResponse] = useState("");
   const [busy, setBusy] = useState(false);
@@ -342,7 +359,8 @@ function MiniTeachingPractice({
       setResponse("");
     } catch (caught) {
       setError(
-        caught instanceof ApiError ? caught.message : "Não foi possível enviar a resposta.",
+        nativeLanguageRequiredMessage(caught) ??
+          (caught instanceof ApiError ? caught.message : "Não foi possível enviar a resposta."),
       );
     } finally {
       setBusy(false);
@@ -361,6 +379,7 @@ function MiniTeachingPractice({
           onResponse={setResponse}
           locked={locked}
           languageCode={languageCode}
+          supportVisibility={supportVisibility}
         />
       </div>
       <TeachingAnswerFeedback
@@ -368,7 +387,10 @@ function MiniTeachingPractice({
       />
       {session.remediation && (
         <p className="mt-3 text-sm text-warning">
-          {session.remediation.hint_pt ||
+          {supportText({
+            nativeLanguage,
+            legacyPortuguese: session.remediation.hint_pt,
+          }) ||
             "A tentativa anterior ficou registrada. Responda a nova atividade."}
         </p>
       )}
@@ -503,7 +525,12 @@ function BlockRunner({
           blockId={block.id}
           initial={teaching}
           languageCode={
-            typeof lesson.language_code === "string" ? lesson.language_code : "en"
+            (typeof lesson.target_language === "string" && lesson.target_language) ||
+            (typeof lesson.language_code === "string" && lesson.language_code) ||
+            ""
+          }
+          supportVisibility={
+            typeof lesson.support_visibility === "string" ? lesson.support_visibility : null
           }
         />
       )}

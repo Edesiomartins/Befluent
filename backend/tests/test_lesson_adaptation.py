@@ -24,6 +24,7 @@ from app.services.learner_context import (
 
 def _context(**overrides) -> LearnerContext:
     base = dict(
+        native_language="pt-BR",
         language_code="en",
         language_name_pt="Inglês",
         language_native_name="English",

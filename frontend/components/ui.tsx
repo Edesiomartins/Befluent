@@ -6,9 +6,11 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import Link from "next/link";
 import { AlertTriangle, Eye, EyeOff, Info } from "lucide-react";
 import { ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
+import { nativeLanguageRequiredMessage } from "@/lib/native-language";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
 const AI_RETRY_COOLDOWN_SECONDS = 30;
@@ -179,6 +181,7 @@ export function ErrorState({
   const aiUnavailable = isAiUnavailableError(error);
   const remaining = useCooldown(AI_RETRY_COOLDOWN_SECONDS, error, aiUnavailable);
   const waiting = aiUnavailable && remaining > 0;
+  const nativeLanguage = nativeLanguageRequiredMessage(error);
 
   return (
     <div className="rounded-xl border border-danger/20 bg-surface p-5" role="alert">
@@ -189,8 +192,13 @@ export function ErrorState({
       <p className="mt-1 text-sm text-text-secondary">
         {aiUnavailable
           ? "O provedor de IA está sobrecarregado ou indisponível no momento. Isso costuma se resolver sozinho em pouco tempo."
-          : message}
+          : nativeLanguage ?? message}
       </p>
+      {nativeLanguage && (
+        <Link href="/lingua-nativa" className="mt-4 inline-flex min-h-11 items-center text-sm font-semibold text-primary hover:underline">
+          Escolher língua nativa
+        </Link>
+      )}
       {retry && (
         <Button
           variant="secondary"

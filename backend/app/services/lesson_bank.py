@@ -991,13 +991,13 @@ GRAMMAR_EXERCISES: dict[str, dict[str, list[dict]]] = {
         ],
         BAND_INTERMEDIATE: [
             {
-                "prompt": "I ____ to Paris three times.",
+                "prompt": "Complete com present perfect para indicar experiência até agora: I ____ to Paris three times.",
                 "options": ["have been", "went", "was going"],
                 "answer": "have been",
                 "rationale": "Não há momento passado fechado: o que importa é a experiência acumulada.",
                 "option_rationales": {
                     "have been": "Present perfect: experiência até agora, sem data fechada.",
-                    "went": "Passado simples pede um momento específico (ex.: last year).",
+                    "went": "Past simple pode relatar visitas passadas, mas a tarefa solicita present perfect.",
                     "was going": "Passado contínuo descreve ação em progresso, não contagem de visitas.",
                 },
             }
@@ -1280,9 +1280,8 @@ SUPPORTED_LANGUAGES: tuple[str, ...] = (
     "la",
 )
 
-#: Idioma usado quando um código desconhecido chega até aqui. Só protege contra
-#: dado inesperado — para os idiomas oficiais o fallback nunca dispara.
-FALLBACK_LANGUAGE = "en"
+# Códigos desconhecidos ou células de idioma ausentes falham explicitamente.
+# Nunca substituir o idioma-alvo por inglês.
 
 # Latim eclesiástico: conteúdo em módulo próprio para não inflar este arquivo.
 from app.services.lesson_bank_de import register as _register_de
@@ -1295,7 +1294,9 @@ _register_de(globals())
 
 
 def _by_language(table: dict, language_code: str) -> dict:
-    return table.get(language_code) or table[FALLBACK_LANGUAGE]
+    if language_code not in SUPPORTED_LANGUAGES or language_code not in table:
+        raise ValueError(f"Conteúdo indisponível para o idioma {language_code}")
+    return table[language_code]
 
 
 def vocabulary(language_code: str, band: str) -> list[dict[str, str]]:
@@ -1331,7 +1332,7 @@ def grammar_exercises(language_code: str, band: str) -> list[dict]:
 
 
 def pronunciation_focus(language_code: str) -> list[dict[str, str]]:
-    return list(PRONUNCIATION_FOCUS.get(language_code) or PRONUNCIATION_FOCUS[FALLBACK_LANGUAGE])
+    return list(_by_language(PRONUNCIATION_FOCUS, language_code))
 
 
 def writing_task(language_code: str, band: str) -> dict[str, object]:
@@ -1341,6 +1342,7 @@ def writing_task(language_code: str, band: str) -> dict[str, object]:
     que muda é a rubrica — em japonês e mandarim o sistema de escrita faz parte
     do que está sendo avaliado.
     """
+    _by_language(VOCABULARY, language_code)
     task = dict(WRITING_TASKS[band])
     hints = list(task["rubric_hints"])  # type: ignore[arg-type]
     hints.extend(WRITING_SCRIPT_HINTS.get(language_code, []))
@@ -1349,10 +1351,19 @@ def writing_task(language_code: str, band: str) -> dict[str, object]:
 
 
 def conversation_situation(language_code: str, band: str) -> dict[str, str]:
+    _by_language(VOCABULARY, language_code)
     return dict(CONVERSATION_SITUATIONS[band])
 
 
 def grammar_focus(language_code: str, band: str) -> dict[str, object]:
+    _by_language(VOCABULARY, language_code)
+    if language_code == "fr" and band == BAND_INTERMEDIATE:
+        return {
+            "title": "Imparfait, passé composé e duração",
+            "objective": "Distinguir hábito passado, fato concluído e duração ainda em curso.",
+            "explanation": "Use o imparfait para descrever hábitos ou situações no passado. O passé composé apresenta fatos concluídos. Para uma ação que continua no presente, os exemplos usam o présent com depuis.",
+            "patterns": ["Hábito passado → imparfait", "Fato concluído → passé composé", "Duração até o presente → présent com depuis"],
+        }
     return dict(GRAMMAR_FOCUS[band])
 
 

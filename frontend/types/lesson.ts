@@ -5,6 +5,9 @@ export type LessonEnvelope = {
   provider: "mock" | "openrouter" | "curated_library" | string;
   model?: string | null;
   language_code: string;
+  /** Idioma estudado. Igual a language_code quando o contrato novo está ativo. */
+  target_language?: string | null;
+  native_language?: string | null;
   /** Nível usado para calibrar esta lição (da competência, quando avaliada). */
   level: string;
   overall_level: string;
@@ -12,6 +15,7 @@ export type LessonEnvelope = {
   skill_label: string | null;
   level_source: string;
   level_is_estimated: boolean;
+  support_visibility?: string | null;
   lesson_id?: string;
   study_session_id?: string;
   title: string;
@@ -34,8 +38,15 @@ export type VocabularyLesson = LessonEnvelope & {
 
 export type GrammarLesson = LessonEnvelope & {
   explanation: string;
+  /** Apoio da explicação na língua nativa, quando o backend enviar. */
+  explanation_native?: string | null;
+  /** Título pedagógico na língua estudada. Ex.: "La logique". */
+  logic_title?: string | null;
+  logic_title_native?: string | null;
+  /** prominent | discreet | spot | expandable | off. Sem isto, o apoio fica discreto. */
+  support_visibility?: string | null;
   patterns: string[];
-  examples: Array<{ sentence: string; translation: string }>;
+  examples: Array<{ sentence: string; translation: string; translation_native?: string | null }>;
   exercises: Array<{
     prompt: string;
     options: string[];

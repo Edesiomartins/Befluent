@@ -21,8 +21,10 @@ import { api, ApiError } from "@/lib/api";
 import { coachFor } from "@/lib/coach";
 import { conversationTopic } from "@/lib/journey";
 import { activityIsAcknowledgement } from "@/lib/teaching-response";
+import { resolveSupportVisibility, supportText } from "@/lib/bilingual";
+import { BilingualText } from "@/components/bilingual-text";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import { visibleContextualForm } from "@/lib/lexical-form";
-import { useActiveLanguage } from "@/hooks/use-active-language";
 import type {
   ConversationLesson,
   GrammarLesson,
@@ -492,7 +494,7 @@ function Pronunciation({ lesson }: { lesson: PronunciationLesson }) {
 }
 
 function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
-  const { code } = useActiveLanguage();
+  const nativeLanguage = useLearnerNativeLanguage();
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -510,7 +512,7 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
       await api("/api/v1/vocabulary", {
         method: "POST",
         body: {
-          language_code: code,
+          language_code: lesson.language_code,
           term: item.term,
           translation_pt: item.translation,
           notes: item.usage_note || item.example || null,
@@ -612,8 +614,16 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
         )}
         {revealed ? (
           <div className="mt-8 border-t border-border pt-6">
-            <p className="font-semibold">{item.translation}</p>
-            <p className="mt-1 text-sm text-text-secondary">{item.example_translation}</p>
+            {supportText({ nativeLanguage, legacyPortuguese: item.translation }) && (
+              <p className="text-sm text-text-secondary">
+                {supportText({ nativeLanguage, legacyPortuguese: item.translation })}
+              </p>
+            )}
+            {supportText({ nativeLanguage, legacyPortuguese: item.example_translation }) && (
+              <p className="mt-1 text-sm text-text-secondary">
+                {supportText({ nativeLanguage, legacyPortuguese: item.example_translation })}
+              </p>
+            )}
             <p className="mt-3 text-sm leading-6 text-text-secondary">{item.usage_note}</p>
           </div>
         ) : (
@@ -955,7 +965,8 @@ function Vocabulary({
           response={response}
           onResponse={setResponse}
           locked={sending}
-          languageCode={lesson.language_code}
+          languageCode={lesson.target_language || lesson.language_code}
+          supportVisibility={lesson.support_visibility}
         />
         <TeachingAnswerFeedback feedback={cycle.session.answer_feedback} />
         {submitError && (
@@ -982,6 +993,7 @@ function Grammar({
   lesson: GrammarLesson;
   onPracticeReady?: (ready: boolean) => void;
 }) {
+  const nativeLanguage = useLearnerNativeLanguage();
   const exercises = lesson.exercises ?? [];
   const [index, setIndex] = useState(0);
   const [resolved, setResolved] = useState<boolean[]>(() => exercises.map(() => false));
@@ -1014,8 +1026,34 @@ function Grammar({
   return (
     <div className="max-w-3xl">
       <section>
-        <h2 className="section-title">A lógica</h2>
-        <p className="mt-3 leading-7 text-text-secondary">{lesson.explanation}</p>
+        {lesson.logic_title ? (
+          <BilingualText
+            heading
+            target={lesson.logic_title}
+            native={supportText({
+              nativeLanguage,
+              native: lesson.logic_title_native,
+            })}
+            visibility={lesson.support_visibility}
+          />
+        ) : (
+          <h2 className="section-title">Explicação</h2>
+        )}
+        <p className="mt-3 leading-7 text-text-primary">{lesson.explanation}</p>
+        {(() => {
+          const explanationSupport = supportText({ nativeLanguage, native: lesson.explanation_native });
+          const visibility = resolveSupportVisibility(lesson.support_visibility);
+          if (!explanationSupport || visibility === "off" || explanationSupport === lesson.explanation) return null;
+          if (visibility === "expandable") {
+            return (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm font-semibold text-primary">Ver apoio</summary>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">{explanationSupport}</p>
+              </details>
+            );
+          }
+          return <p className="mt-2 text-sm leading-6 text-text-secondary">{explanationSupport}</p>;
+        })()}
         {lesson.patterns.length > 0 && (
           <ul className="mt-4 grid gap-2 text-sm">
             {lesson.patterns.map((pattern) => (
@@ -1033,7 +1071,19 @@ function Grammar({
             {lesson.examples.map((example) => (
               <div key={example.sentence} className="panel p-4">
                 <p className="font-medium">{example.sentence}</p>
-                <p className="mt-1 text-sm text-text-secondary">{example.translation}</p>
+                {supportText({
+                  nativeLanguage,
+                  native: example.translation_native,
+                  legacyPortuguese: example.translation,
+                }) && (
+                  <p className="mt-1 text-sm text-text-secondary">
+                    {supportText({
+                      nativeLanguage,
+                      native: example.translation_native,
+                      legacyPortuguese: example.translation,
+                    })}
+                  </p>
+                )}
               </div>
             ))}
           </div>

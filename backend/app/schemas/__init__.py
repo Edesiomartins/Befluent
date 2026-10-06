@@ -1,3 +1,4 @@
+from app.services.language_codes import validate_native_language
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from typing import Literal
 
@@ -91,6 +92,8 @@ LEVEL_CHOICES = {"beginner", "take_test", "self_declared", "later"}
 
 
 class OnboardingIn(BaseModel):
+    native_language: str | None = None
+    _native = field_validator("native_language")(validate_native_language)
     """Payload do onboarding alinhado ao frontend.
 
     `level_choice` reflete a decisão de nível:

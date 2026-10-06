@@ -7,6 +7,15 @@ import { Button, Input, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { levelShortCode } from "@/lib/levels";
 import { modeColorClasses } from "@/lib/modes";
+import {
+  NATIVE_LANGUAGE_CATALOG_UNAVAILABLE,
+  NATIVE_LANGUAGE_HELP,
+  NATIVE_LANGUAGE_PROMPT,
+  loadNativeLanguageChoices,
+  readNativeLanguage,
+  rememberNativeLanguage,
+  type NativeLanguageOption,
+} from "@/lib/native-language";
 
 type ProfileData = {
   id: string;
@@ -39,19 +48,39 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [nativeContract, setNativeContract] = useState(false);
+  const [nativeCode, setNativeCode] = useState("");
+  const [nativeCatalog, setNativeCatalog] = useState<NativeLanguageOption[]>([]);
+  const [nativeCatalogError, setNativeCatalogError] = useState("");
 
   useEffect(() => {
     let active = true;
     Promise.all([
       api<ProfileData>("/api/v1/profile"),
       api<DashboardSummary>("/api/v1/dashboard"),
-      api<{ is_admin?: boolean }>("/api/v1/auth/me").catch(() => ({ is_admin: false })),
+      api<{ is_admin?: boolean; native_language?: string | null }>("/api/v1/auth/me").catch(() => ({ is_admin: false })),
     ])
-      .then(([profile, dashboard, me]) => {
+      .then(async ([profile, dashboard, me]) => {
         if (!active) return;
         setName(profile.name);
         setEmail(profile.email);
         setIsAdmin(me.is_admin === true);
+        const native = readNativeLanguage(me);
+        setNativeContract(native.contractActive);
+        setNativeCode(native.code ?? "");
+        if (native.contractActive) {
+          try {
+            const languages = await loadNativeLanguageChoices(native.options);
+            if (!active) return;
+            setNativeCatalog(languages);
+            if (languages.length === 0) setNativeCatalogError(NATIVE_LANGUAGE_CATALOG_UNAVAILABLE);
+          } catch (caught) {
+            if (!active) return;
+            setNativeCatalogError(
+              caught instanceof ApiError ? caught.message : NATIVE_LANGUAGE_CATALOG_UNAVAILABLE,
+            );
+          }
+        }
         const lang = dashboard.active_language;
         if (lang) {
           const level =
@@ -86,11 +115,16 @@ export default function ProfilePage() {
     setError("");
     setSaved(false);
     try {
+      const body: { name: string; native_language?: string } = { name: name.trim() };
+      if (nativeContract && nativeCode) body.native_language = nativeCode;
       const updated = await api<ProfileData>("/api/v1/profile", {
         method: "PATCH",
-        body: { name: name.trim() },
+        body,
       });
       setName(updated.name);
+      if (nativeContract && nativeCode) {
+        rememberNativeLanguage({ contractActive: true, code: nativeCode, options: [] });
+      }
       setSaved(true);
     } catch (caught) {
       setError(
@@ -149,6 +183,30 @@ export default function ProfilePage() {
             }}
           />
           <Input label="E-mail" value={email} disabled />
+          {nativeContract && (
+            <div className="grid gap-2 text-sm font-medium sm:col-span-2">
+              <label htmlFor="profile-native-language">{NATIVE_LANGUAGE_PROMPT}</label>
+              <span className="font-normal text-text-secondary">{NATIVE_LANGUAGE_HELP}</span>
+              {nativeCatalogError ? (
+                <span role="alert" className="font-normal text-danger">{nativeCatalogError}</span>
+              ) : (
+                <select
+                  id="profile-native-language"
+                  className="min-h-11 rounded-xl border-2 border-border bg-surface px-3"
+                  value={nativeCode}
+                  onChange={(event) => {
+                    setNativeCode(event.target.value);
+                    setSaved(false);
+                  }}
+                >
+                  <option value="">Escolha</option>
+                  {nativeCatalog.map((item) => (
+                    <option key={item.code} value={item.code}>{item.name}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
           {goal && (
             <label className="grid gap-2 text-sm font-medium sm:col-span-2">
               <span className="flex items-center gap-1.5">

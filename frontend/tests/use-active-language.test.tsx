@@ -25,12 +25,13 @@ describe("useActiveLanguage", () => {
     expect(result.current.accessState).toBe("locked");
   });
 
-  it("mantém inglês como fallback quando o perfil falha", async () => {
+  it("não cai para inglês quando o perfil falha", async () => {
     apiMock.mockRejectedValue(new Error("offline"));
 
     const { result } = renderHook(() => useActiveLanguage());
 
     await waitFor(() => expect(result.current.resolved).toBe(true));
-    expect(result.current.code).toBe("en");
+    expect(result.current.code).toBe("");
+    expect(result.current.code).not.toBe("en");
   });
 });

@@ -30,6 +30,9 @@ def apply_lesson_envelope(
     thread_guaranteed: bool | None = None,
 ) -> dict[str, Any]:
     """Normaliza metadados e overlays de continuidade sem reescrever o corpo curado."""
+    from app.services.language_policy import language_policy, require_static_native_support
+    if provider in {"mock", "curated_library"}:
+        require_static_native_support(context.native_language)
     skill = MODE_SKILL.get(mode)
     origin = content_origin or provider
     guaranteed = thread_guaranteed if thread_guaranteed is not None else provider == "mock"
@@ -39,6 +42,8 @@ def apply_lesson_envelope(
             payload = sanitize_latin_vocabulary_payload(payload)
         payload = normalize_vocabulary_payload(payload)
 
+    if provider in {"mock", "curated_library"} and payload.get("explanation"):
+        payload = {**payload, "explanation_native": payload["explanation"], "support_language": "pt-BR", "primary_explanation_available": False}
     carried_terms = list(context.carryover_terms or [])
     base = {
         **payload,
@@ -47,7 +52,13 @@ def apply_lesson_envelope(
         "model": model,
         "content_origin": origin,
         "language_code": context.language_code,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "native_language_required": context.native_language is None,
+        "support_visibility": language_policy(context.language_code, context.native_language, context.level_for_skill(skill))["support_visibility"],
+        "language_policy": language_policy(context.language_code, context.native_language, context.level_for_skill(skill)),
         "level": context.level_for_skill(skill) if skill else context.level,
+        "content_level": payload.get("level") or context.level_for_skill(skill),
         "overall_level": context.level,
         "skill": skill,
         "skill_label": SKILL_LABELS.get(skill) if skill else None,
@@ -64,7 +75,7 @@ def apply_lesson_envelope(
 
     # Continuidade pedagógica: o léxico do dia orienta prática/produção mesmo
     # quando o texto base veio da biblioteca curada (sem reescrever o conteúdo).
-    if carried_terms:
+    if carried_terms and context.native_language == "pt-BR":
         if mode == "grammar":
             base["apply_to_terms"] = carried_terms[:4]
         if mode in {"conversation", "voice"}:
@@ -85,4 +96,6 @@ def apply_lesson_envelope(
     if "target_expressions" not in base and mode in {"conversation", "voice"}:
         base["target_expressions"] = list(payload.get("target_expressions") or [])
 
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(base, context.native_language)
     return base

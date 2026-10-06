@@ -53,6 +53,7 @@ def _chat_payload(url: str, kwargs: dict) -> dict:
 
 def _context() -> LearnerContext:
     return LearnerContext(
+        native_language="pt-BR",
         language_code="en",
         language_name_pt="Inglês",
         language_native_name="English",

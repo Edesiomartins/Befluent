@@ -10,6 +10,14 @@ from app.core.levels import LEVEL_INDEX, LEVEL_ORDER
 from app.models import ContentSource, ContentUnit, LessonContentUsage
 
 
+def lesson_display_title(unit: ContentUnit, mode: str) -> str:
+    """Seed identifiers are storage keys, never learner-facing titles."""
+    payload_title = (unit.payload_json or {}).get("title")
+    if unit.title and not unit.title.startswith("[starter] "):
+        return unit.title
+    return payload_title or "Atividade de estudo"
+
+
 def _nearby_levels(level: str) -> list[str]:
     if level not in LEVEL_INDEX:
         return list(LEVEL_ORDER)

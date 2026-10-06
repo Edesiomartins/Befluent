@@ -96,6 +96,7 @@ def test_conversa_usa_interesse_e_cai_no_geral(db_session):
     assert general["example"] == "How much is this?"
 
     context = LearnerContext(
+        native_language="pt-BR",
         language_code="en",
         language_name_pt="Inglês",
         language_native_name="English",
@@ -110,6 +111,7 @@ def test_conversa_usa_interesse_e_cai_no_geral(db_session):
     turn = MockAIProvider().conversation_turn("oi", context, [])
     assert "train ticket" in turn["reply"]
     empty = LearnerContext(
+        native_language="pt-BR",
         language_code="en",
         language_name_pt="Inglês",
         language_native_name="English",

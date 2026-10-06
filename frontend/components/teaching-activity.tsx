@@ -6,21 +6,35 @@ import { NoticingWhy } from "@/components/noticing-why";
 import { AudioPlayer, Recorder } from "@/components/study";
 import type { AnswerFeedback, TeachingActivity } from "@/types/teaching";
 import { activityIsAcknowledgement } from "@/lib/teaching-response";
+import { speechText, supportText } from "@/lib/bilingual";
+import { BilingualText } from "@/components/bilingual-text";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 
 export function TeachingActivityBody({
   activity,
   response,
   onResponse,
   locked = false,
-  languageCode = "en",
+  languageCode = "",
+  supportVisibility,
 }: {
   activity: TeachingActivity;
   response: string;
   onResponse: (value: string) => void;
   locked?: boolean;
   languageCode?: string;
+  /** Visibilidade do envelope da lição, quando a atividade não traz a sua. */
+  supportVisibility?: string | null;
 }) {
   const [responseMode, setResponseMode] = useState<"typing" | "speech">("typing");
+  const nativeLanguage = useLearnerNativeLanguage();
+  const instruction = supportText({
+    nativeLanguage,
+    native: activity.prompt_native,
+    legacyPortuguese: activity.prompt_pt,
+  });
+  const gloss = (native?: string | null, legacy?: string | null) =>
+    supportText({ nativeLanguage, native, legacyPortuguese: legacy });
 
   if (activity.type === "presentation") {
     const termAudio = activity.audio_targets?.find(
@@ -31,28 +45,32 @@ export function TeachingActivityBody({
     );
     return (
       <div className="space-y-6">
-        {activity.prompt_pt && (
-          <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
-        )}
-        <NoticingWhy why={activity.why_pt} examples={activity.examples} />
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
+        <NoticingWhy why={gloss(undefined, activity.why_pt)} examples={activity.examples} />
         <div>
           <p className="label">Expressão</p>
           <div className="mt-3 flex flex-wrap items-center gap-4">
-            <h2 className="text-3xl font-semibold tracking-tight">{activity.term}</h2>
-            {termAudio?.audio_text && (
-              <AudioPlayer
-                variant="compact"
-                accessibleName={`Ouvir expressão ${activity.term ?? ""}`.trim()}
-                text={termAudio.audio_text}
-                languageCode={languageCode}
+            {activity.term && (
+              <BilingualText
+                heading
+                target={activity.term}
+                native={gloss(activity.translation, activity.translation_pt)}
+                visibility={activity.support_visibility ?? supportVisibility}
+                audio={
+                  termAudio?.audio_text ? (
+                    <AudioPlayer
+                      variant="compact"
+                      accessibleName={`Ouvir expressão ${activity.term ?? ""}`.trim()}
+                      text={speechText(termAudio.audio_text)}
+                      languageCode={languageCode}
+                    />
+                  ) : undefined
+                }
               />
             )}
           </div>
           {activity.reading_or_pinyin && (
             <p className="mt-2 text-sm text-text-secondary">{activity.reading_or_pinyin}</p>
-          )}
-          {activity.translation_pt && (
-            <p className="mt-3 text-lg text-text-secondary">{activity.translation_pt}</p>
           )}
         </div>
         {activity.example_sentence && (
@@ -64,14 +82,14 @@ export function TeachingActivityBody({
                 <AudioPlayer
                   variant="compact"
                   accessibleName="Ouvir frase de exemplo"
-                  text={exampleAudio.audio_text}
+                  text={speechText(exampleAudio.audio_text)}
                   languageCode={languageCode}
                 />
               )}
             </div>
-            {activity.example_translation_pt && (
+            {gloss(undefined, activity.example_translation_pt) && (
               <p className="mt-2 text-sm text-text-secondary">
-                {activity.example_translation_pt}
+                {gloss(undefined, activity.example_translation_pt)}
               </p>
             )}
           </div>
@@ -87,11 +105,11 @@ export function TeachingActivityBody({
   ) {
     const isListening = activity.type === "listening_recognition";
     const groupLabel =
-      activity.prompt_pt ??
+      instruction ??
       (isListening ? "Opções da atividade de escuta" : "Opções da atividade");
     return (
       <div className="space-y-5">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         {!isListening && activity.show_text !== false && activity.prompt && (
           <p className="text-2xl font-semibold text-text-primary">{activity.prompt}</p>
         )}
@@ -104,7 +122,7 @@ export function TeachingActivityBody({
                 ? "Ouvir frase de exemplo"
                 : "Ouvir expressão"
             }
-            text={activity.audio_text}
+            text={speechText(activity.audio_text)}
             languageCode={languageCode}
           />
         )}
@@ -140,7 +158,7 @@ export function TeachingActivityBody({
     const allowsSpeech = activity.response_modes?.includes("speech") ?? false;
     return (
       <div className="space-y-5">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         {activity.prompt && (
           <p className="text-2xl font-semibold text-text-primary">{activity.prompt}</p>
         )}
@@ -200,10 +218,18 @@ export function TeachingActivityBody({
     const lines = activity.models ?? activity.examples ?? [];
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
-        <NoticingWhy why={activity.why_pt} examples={activity.examples} />
-        {activity.title_pt && (
-          <p className="text-lg font-semibold text-text-primary">{activity.title_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
+        <NoticingWhy why={gloss(undefined, activity.why_pt)} examples={activity.examples} />
+        {activity.title ? (
+          <BilingualText
+            target={activity.title}
+            native={gloss(activity.title_native, activity.title_pt)}
+            visibility={activity.support_visibility ?? supportVisibility}
+          />
+        ) : (
+          gloss(undefined, activity.title_pt) && (
+            <p className="text-lg font-semibold text-text-primary">{gloss(undefined, activity.title_pt)}</p>
+          )
         )}
         {activity.can_do && (
           <p className="rounded-xl bg-surface-elevated px-4 py-3 text-sm leading-6 text-text-primary">
@@ -229,7 +255,7 @@ export function TeachingActivityBody({
   if (activity.type === "multiple_choice") {
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         <p className="font-medium text-text-primary">{activity.prompt}</p>
         {activity.is_retry_variant && (
           <p className="text-xs text-text-secondary">
@@ -265,7 +291,7 @@ export function TeachingActivityBody({
   if (activity.type === "word_order") {
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         <p className="text-sm text-text-secondary">
           Palavras: {(activity.tokens ?? []).join(" · ")}
         </p>
@@ -284,7 +310,7 @@ export function TeachingActivityBody({
   if (activity.type === "conversation_prompt") {
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         {activity.prompt && activity.prompt !== activity.prompt_pt && (
           <p className="font-medium text-text-primary">{activity.prompt}</p>
         )}
@@ -298,12 +324,14 @@ export function TeachingActivityBody({
   if (activity.type === "matching") {
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         <ul className="space-y-2">
           {(activity.pairs ?? []).map((pair) => (
             <li key={pair.term} className="rounded-xl border border-border px-4 py-3">
               <span className="font-semibold text-text-primary">{pair.term}</span>
-              <span className="mt-1 block text-sm text-text-secondary">{pair.hint_pt}</span>
+              {gloss(pair.hint, pair.hint_pt) && (
+                <span className="mt-1 block text-sm text-text-secondary">{gloss(pair.hint, pair.hint_pt)}</span>
+              )}
             </li>
           ))}
         </ul>
@@ -317,7 +345,7 @@ export function TeachingActivityBody({
   if (activityIsAcknowledgement(activity)) {
     return (
       <div className="space-y-4">
-        <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+        {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
         {activity.prompt && (
           <p className="font-medium text-text-primary">{activity.prompt}</p>
         )}
@@ -328,14 +356,14 @@ export function TeachingActivityBody({
 
   return (
     <div className="space-y-4">
-      <p className="leading-7 text-text-secondary">{activity.prompt_pt}</p>
+      {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
       {activity.prompt && (
         <p className="text-lg font-semibold text-text-primary">{activity.prompt}</p>
       )}
-      {activity.scaffold_pt && (
+      {gloss(undefined, activity.scaffold_pt) && (
         <details className="disclosure rounded-lg border border-border px-4 py-3 text-sm">
           <summary className="cursor-pointer font-semibold text-primary">Ver ajuda</summary>
-          <p className="mt-3 leading-6 text-text-secondary">{activity.scaffold_pt}</p>
+          <p className="mt-3 leading-6 text-text-secondary">{gloss(undefined, activity.scaffold_pt)}</p>
         </details>
       )}
       {activity.type === "fill_gap" && (

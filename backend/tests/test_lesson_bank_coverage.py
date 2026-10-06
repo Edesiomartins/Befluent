@@ -31,6 +31,7 @@ CONTENT_FIELDS = (
 
 def context_for(language_code: str, level: str) -> LearnerContext:
     return LearnerContext(
+        native_language="pt-BR",
         language_code=language_code,
         language_name_pt="Idioma",
         language_native_name="Idioma",

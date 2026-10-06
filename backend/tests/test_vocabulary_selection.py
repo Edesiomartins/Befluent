@@ -11,6 +11,7 @@ from app.services.vocabulary_selection import DAILY_NEW_COUNT, select_daily_voca
 
 def _ctx(**overrides) -> LearnerContext:
     base = dict(
+        native_language="pt-BR",
         language_code="en",
         language_name_pt="Inglês",
         language_native_name="English",

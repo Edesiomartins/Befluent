@@ -62,6 +62,12 @@ def _owned_conversation(db: Session, user: User, conversation_id: str) -> Conver
     return conversation
 
 
+def _ensure_history_native(db, conversation, user):
+    expected = f"native:{user.native_language or 'unset'}"
+    for row in db.scalars(select(ConversationMessage).where(ConversationMessage.conversation_id == conversation.id, ConversationMessage.role == "assistant")):
+        if row.source != expected and not (row.source == "text" and user.native_language == "pt-BR"):
+            raise APIError(409, "conversation_native_language_mismatch", "Esta conversa contém apoio de outra língua nativa; inicie uma nova conversa.")
+
 def _ensure_conversation_active(conversation: Conversation) -> None:
     if conversation.status in ("completed", "abandoned"):
         raise APIError(
@@ -94,7 +100,7 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     if data.opening:
         db.add(
             ConversationMessage(
-                conversation_id=item.id, role="assistant", content_text=data.opening
+                conversation_id=item.id, role="assistant", content_text=data.opening, source=f"native:{user.native_language or 'unset'}"
             )
         )
     from app.services.language_progress import CONVERSATION_STARTED, record_product_event
@@ -111,6 +117,9 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     context = build_context(db, user, data.language_code)
     return {
         "id": item.id,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "native_language_required": context.native_language is None,
         "topic": item.topic,
         "study_session_id": session_id,
         "level": context.level_for_skill("speaking"),
@@ -128,6 +137,7 @@ def message(
 ):
     conversation = _owned_conversation(db, user, conversation_id)
     _ensure_conversation_active(conversation)
+    _ensure_history_native(db, conversation, user)
     validate_study_session_for_user(
         db, user, conversation.study_session_id, conversation.user_language_id,
         require_active=True,
@@ -177,6 +187,7 @@ def message(
         role="assistant",
         content_text=result["reply"],
         corrections_json=result["corrections"],
+        source=f"native:{user.native_language or 'unset'}",
     )
     db.add(reply)
     db.commit()
@@ -258,6 +269,7 @@ def messages(
     conversation_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)
 ):
     conversation = _owned_conversation(db, user, conversation_id)
+    _ensure_history_native(db, conversation, user)
     return [
         {
             "id": row.id,

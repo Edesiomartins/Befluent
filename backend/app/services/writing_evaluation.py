@@ -135,7 +135,7 @@ def _validate_ai_payload(payload: dict, target_level: str) -> dict | None:
     }
 
 
-def _ai_evaluation(text: str, language_code: str, target_level: str) -> dict | None:
+def _ai_evaluation(text: str, language_code: str, target_level: str, native_language: str | None = None) -> dict | None:
     """IA (primário → fallback do OpenRouter, mesma cadeia de `app.services.ai`).
 
     Retorna `None` quando a IA está em modo mock ou indisponível — o chamador
@@ -148,13 +148,16 @@ def _ai_evaluation(text: str, language_code: str, target_level: str) -> dict | N
     if not settings.openrouter_model and not settings.openrouter_fallback_model:
         return None
 
+    from app.services.language_policy import language_policy
+    policy = language_policy(language_code, native_language, target_level)
     instruction = (
         "Avalie a produção escrita de um estudante de idiomas segundo o CEFR. "
         "Responda APENAS em JSON com as chaves: normalized_score (0 a 1), "
         "estimated_level (PRE_A1, A1, A2, B1, B2, C1 ou C2), "
         "criteria (objeto com adequacao_ao_tema, coerencia, vocabulario, gramatica, "
-        "clareza, organizacao, cada um de 0 a 1) e feedback (texto curto em português)."
+        "clareza, organizacao, cada um de 0 a 1) e feedback (texto curto no idioma definido por explanation_language)."
     )
+    instruction += f"\ntarget_language={language_code}; native_language={native_language or 'not_selected'}; CEFR={target_level}\n{policy}"
     messages = [
         {"role": "system", "content": instruction},
         {
@@ -183,12 +186,18 @@ def evaluate_writing(
     language_code: str,
     target_level: str,
     min_chars: int = 20,
+    native_language: str | None = None,
 ) -> dict:
     """Avalia a escrita, caindo para heurística quando a IA não responde."""
-    result = _ai_evaluation(text, language_code, target_level)
+    result = _ai_evaluation(text, language_code, target_level, native_language)
     if result is not None:
         return result
-    return heuristic_evaluation(text, target_level, min_chars)
+    result = heuristic_evaluation(text, target_level, min_chars)
+    if native_language != "pt-BR":
+        result["feedback"] = None
+        result["notice"] = None
+        result["native_support_available"] = False
+    return result
 
 
 def evaluate_lesson_writing(
@@ -197,6 +206,7 @@ def evaluate_lesson_writing(
     target_level: str,
     min_words: int,
     max_words: int,
+    native_language: str | None = None,
 ) -> dict:
     """Correção da produção escrita de uma lição.
 
@@ -215,6 +225,7 @@ def evaluate_lesson_writing(
         language_code,
         target_level,
         min_chars=max(min_words * CHARS_PER_WORD, 20),
+        native_language=native_language,
     )
 
     if base.get("status") != "assessed":

@@ -1,3 +1,4 @@
+from app.services.language_codes import native_language_metadata
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -62,7 +63,10 @@ def _issue_session(response: Response, db: DB, user: User) -> dict:
     )
     # csrf_token também no body: frontend em outro subdomínio não lê cookie host-only.
     return {
-        "user": {"id": user.id, "email": user.email, "name": user.name},
+        "user": {
+            "id": user.id, "email": user.email, "name": user.name,
+            **native_language_metadata(user),
+        },
         "csrf_token": csrf,
     }
 
@@ -70,6 +74,7 @@ def _issue_session(response: Response, db: DB, user: User) -> dict:
 def _public_user(user: User) -> dict:
     return {
         "id": user.id,
+        **native_language_metadata(user),
         "email": user.email,
         "name": user.name,
         "is_active": user.is_active,
@@ -226,6 +231,7 @@ def get_csrf(request: Request, response: Response):
 def me(user: User = Depends(current_user)):
     return {
         "id": user.id,
+        **native_language_metadata(user),
         "email": user.email,
         "name": user.name,
         "is_active": user.is_active,

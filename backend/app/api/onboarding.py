@@ -1,3 +1,4 @@
+from app.services.language_codes import native_language_metadata
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -47,6 +48,7 @@ def _preference(db: Session, user: User) -> UserPreference:
 def status(db: Session = Depends(get_db), user: User = Depends(current_user)):
     items = list(db.scalars(select(UserLanguage).where(UserLanguage.user_id == user.id)))
     return {
+        **native_language_metadata(user),
         "completed": any(x.onboarding_completed for x in items),
         "languages": [{"id": x.id, "completed": x.onboarding_completed} for x in items],
     }
@@ -148,8 +150,11 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
         if day is not None:
             curriculum_day_href = f"/cronograma/dia/{day.id}"
 
+    if "native_language" in data.model_fields_set:
+        user.native_language = data.native_language
     db.commit()
     return {
+        **native_language_metadata(user),
         "completed": True,
         "user_language_id": ul.id,
         "language_code": lang.code,

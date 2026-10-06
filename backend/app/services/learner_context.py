@@ -89,6 +89,8 @@ class LearnerContext:
     level_source: str
     level_is_estimated: bool
 
+    native_language: str | None = None
+
     skill_levels: dict[str, str | None] = field(default_factory=dict)
     weakest_skills: list[str] = field(default_factory=list)
     confidence_score: float | None = None
@@ -162,7 +164,7 @@ class LearnerContext:
             origin = f" (vindos de: {', '.join(self.carryover_sources)})" if self.carryover_sources else ""
             listed = "; ".join(
                 f"{item['term']}"
-                + (f" = {item['translation']}" if item.get("translation") else "")
+                + (f" = {item['translation']}" if item.get("translation") and self.native_language == "pt-BR" else "")
                 for item in self.carryover_items
             )
             lines.append(
@@ -189,14 +191,19 @@ class LearnerContext:
 
     def to_prompt_context(self, skill: str | None = None) -> str:
         """Bloco `# CONTEXT` dos prompts do documento, preenchido com dados reais."""
+        from app.services.language_policy import language_policy
         target = self.level_for_skill(skill)
         lines = [
             "Idioma-alvo: "
             f"{self.language_name_pt} ({self.language_native_name}, código {self.language_code})",
-            "Idioma nativo do aluno: português do Brasil",
+            f"target_language={self.language_code}",
+            f"native_language={self.native_language or 'not_selected'}",
+            f"CEFR={target}",
             f"Nível CEFR do aluno: {target} — {LEVEL_DETAILS[target]['name_pt']}",
             f"Descrição do nível: {LEVEL_DETAILS[target]['short_description']}",
         ]
+
+        lines.append(str(language_policy(self.language_code, self.native_language, target)))
 
         if self.level_is_estimated:
             confidence = (
@@ -266,7 +273,7 @@ class LearnerContext:
         lines.extend(self._thread_lines())
 
         script_rule = SCRIPT_RULES.get(self.language_code)
-        if script_rule:
+        if script_rule and self.native_language == "pt-BR":
             lines.append(script_rule)
 
         return "\n".join(lines)
@@ -335,6 +342,7 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
             skill_levels[code] = normalize_level(getattr(profile, column, None))
 
     return LearnerContext(
+        native_language=user.native_language,
         language_code=language.code,
         language_name_pt=language.name_pt,
         language_native_name=language.native_name,

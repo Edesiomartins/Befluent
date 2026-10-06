@@ -84,7 +84,10 @@ def _conversation_envelope(
         "level": level,
         "level_source": context.level_source,
         "level_is_estimated": context.level_is_estimated,
-        "shows_translation": _needs_translation(level),
+        "shows_translation": _needs_translation(level) and context.native_language is not None,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "native_language_required": context.native_language is None,
     }
 
 
@@ -196,6 +199,8 @@ class MockAIProvider(BaseAIProvider):
         correção aqui seria pior do que não corrigir — o aluno confiaria em algo
         que ninguém verificou. `corrections_available=False` diz isso à interface.
         """
+        from app.services.language_policy import require_static_native_support
+        require_static_native_support(context.native_language)
         level = context.level_for_skill(MODE_SKILL["conversation"])
         band = lesson_bank.band_for(level)
         items = lesson_bank.vocabulary(context.language_code, band)
@@ -229,6 +234,8 @@ class MockAIProvider(BaseAIProvider):
         )
 
     def generate_lesson(self, mode: str, context: LearnerContext) -> dict:
+        from app.services.language_policy import require_static_native_support
+        require_static_native_support(context.native_language)
         skill = MODE_SKILL.get(mode)
         level = context.level_for_skill(skill)
         band = lesson_bank.band_for(level)
@@ -245,6 +252,8 @@ class MockAIProvider(BaseAIProvider):
         banco — fabricar uma explicação seria o mesmo erro que a heurística de
         escrita evita: parecer resposta quando não houve análise nenhuma.
         """
+        from app.services.language_policy import require_static_native_support
+        require_static_native_support(context.native_language)
         return _conversation_envelope(
             context,
             {
@@ -712,10 +721,10 @@ class OpenRouterProvider(BaseAIProvider):
             '"natural_alternative": str|null, "suggestions": [str]}'
         )
         instruction = CONVERSATION.render(context.to_prompt_context(Skill.SPEAKING), contract)
-        if _needs_translation(level):
+        if _needs_translation(level) and context.native_language:
             instruction += (
                 "\n\nO nível do aluno exige tradução: preencha `reply_translation` "
-                "com a tradução em português da sua fala."
+                "com a tradução na língua nativa declarada no contexto da sua fala."
             )
         else:
             instruction += "\n\nO aluno dispensa tradução: deixe `reply_translation` nulo."
@@ -799,11 +808,12 @@ class OpenRouterProvider(BaseAIProvider):
             context.to_prompt_context(skill), get_output_contract(mode)
         )
         messages = [{"role": "user", "content": prompt}]
+        from app.services.editorial_validation import valid_generated_lesson
         try:
             content, model = openrouter_chat_with_fallback(
                 self.s,
                 messages,
-                lambda p: isinstance(p, dict) and bool(p.get("title")),
+                lambda p: valid_generated_lesson(p, mode, context.language_code, native_language=context.native_language),
             )
         except OpenRouterUnavailableError:
             return self._unavailable_or_dev_mock(

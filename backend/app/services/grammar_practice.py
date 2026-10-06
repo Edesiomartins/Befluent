@@ -94,11 +94,11 @@ EXTRA: dict[str, dict[str, list[dict]]] = {
         ],
         BAND_INTERMEDIATE: [
             _q(
-                "I ____ that film.",
+                "Complete com present perfect para indicar experiência até agora: I ____ that film.",
                 "have seen",
                 [
                     ("have seen", "Sem data fechada, o que importa é a experiência."),
-                    ("saw", "Passado simples pede um momento específico."),
+                    ("saw", "Past simple pode relatar uma sessão passada, mas a tarefa solicita present perfect."),
                     ("was seeing", "Contínuo descreve ação em progresso, não experiência."),
                 ],
                 "Experiência acumulada, sem marcador fechado.",

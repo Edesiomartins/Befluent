@@ -36,6 +36,8 @@ def due(
         if not ul:
             return []
 
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     return vocabulary_review.select_due_reviews(db, ul.id)
 
 

@@ -6,10 +6,13 @@ import { ArrowLeft, RotateCcw } from "lucide-react";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
+import { supportText } from "@/lib/bilingual";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import { activityIsAcknowledgement } from "@/lib/teaching-response";
 import type { SliceSession } from "@/types/teaching";
 
 export default function ObjectiveSlicePage() {
+  const nativeLanguage = useLearnerNativeLanguage();
   const [session, setSession] = useState<SliceSession | null>(null);
   const [booting, setBooting] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -235,7 +238,10 @@ export default function ObjectiveSlicePage() {
                 <div className="rounded-2xl border border-amber-500/30 bg-amber-50 px-5 py-4 dark:bg-amber-950/20">
                   <p className="font-semibold text-text-primary">Vamos corrigir isto</p>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
-                    {session.remediation.hint_pt ||
+                    {supportText({
+                      nativeLanguage,
+                      legacyPortuguese: session.remediation.hint_pt,
+                    }) ||
                       "A tentativa anterior ficou registrada. Responda a nova atividade abaixo."}
                   </p>
                 </div>

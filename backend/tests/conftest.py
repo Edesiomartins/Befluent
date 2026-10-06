@@ -28,7 +28,7 @@ def reset_db():
         seed_placement_items(db)
         seed_starter_content(db, language_codes={"en"})
         seed_teaching_objectives(db)
-        user=User(email="admin@befluent.local",name="Admin",password_hash=hash_password("senha-segura"))
+        user=User(email="admin@befluent.local",name="Admin",native_language="pt-BR",password_hash=hash_password("senha-segura"))
         db.add(user); db.flush(); db.add(UserPreference(user_id=user.id)); db.commit()
     yield
 
@@ -42,7 +42,7 @@ def db_session():
 def other_user():
     """Segundo usuário, para checar isolamento entre contas."""
     with TestingSession() as db:
-        user=User(email="outro@befluent.local",name="Outro",password_hash=hash_password("senha-segura"))
+        user=User(email="outro@befluent.local",name="Outro",native_language="pt-BR",password_hash=hash_password("senha-segura"))
         db.add(user); db.flush(); db.add(UserPreference(user_id=user.id)); db.commit()
         return user.id
 @pytest.fixture

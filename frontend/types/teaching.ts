@@ -30,7 +30,11 @@ export type TeachingActivity = {
   phase_hint?: string;
   prompt?: string;
   prompt_pt?: string;
+  prompt_native?: string | null;
+  title?: string | null;
+  title_native?: string | null;
   title_pt?: string;
+  support_visibility?: string | null;
   can_do?: string;
   models?: string[];
   examples?: string[];
@@ -38,12 +42,13 @@ export type TeachingActivity = {
   show_text?: boolean;
   tokens?: string[];
   options?: string[];
-  pairs?: { term: string; hint_pt: string }[];
+  pairs?: { term: string; hint_pt: string; hint?: string | null }[];
   scaffold_pt?: string;
   ai_required?: boolean;
   post_reveal?: boolean;
   is_retry_variant?: boolean;
   term?: string;
+  translation?: string | null;
   translation_pt?: string;
   reading_or_pinyin?: string;
   example_sentence?: string;

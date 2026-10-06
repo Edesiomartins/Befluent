@@ -16,6 +16,7 @@ class User(UUIDMixin, Base):
     email: Mapped[str]=mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str]=mapped_column(String(255))
     name: Mapped[str]=mapped_column(String(120))
+    native_language: Mapped[str|None]=mapped_column(String(32), nullable=True)
     is_active: Mapped[bool]=mapped_column(Boolean, default=True)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
     updated_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now, onupdate=now)

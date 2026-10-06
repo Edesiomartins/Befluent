@@ -50,7 +50,7 @@ from app.models import (
     UserLanguage,
 )
 from app.services.ai import get_ai_provider
-from app.services.content_repository import fetch_approved_unit, record_lesson_usage
+from app.services.content_repository import fetch_approved_unit, record_lesson_usage, lesson_display_title
 from app.services.learner_context import build_context, for_curriculum_block
 from app.services.lesson_thread import (
     EMPTY_THREAD,
@@ -250,8 +250,8 @@ def _generate_payload(
         mode=mode,
         topic=block.topic,
         exclude_ids=_recent_unit_ids(db, owner),
-    )
-    if curated is None:
+    ) if context.native_language == "pt-BR" else None
+    if curated is None and context.native_language == "pt-BR":
         # Sem unidades novas: ainda preferimos curado a mock, mesmo repetindo.
         curated = fetch_approved_unit(
             db,
@@ -267,7 +267,7 @@ def _generate_payload(
         unit_payload = dict(curated.payload_json or {})
         raw = {
             **unit_payload,
-            "title": curated.title or unit_payload.get("title", mode),
+            "title": lesson_display_title(curated, mode),
             "objective": unit_payload.get("objective", curated.topic or block.topic or ""),
             "level": curated.cefr_level,
             "topic": block.topic,
@@ -347,6 +347,8 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
         if existing is not None:
             raw_content = existing.content_json
             content = dict(raw_content) if isinstance(raw_content, Mapping) else {}
+            from app.services.language_policy import ensure_stored_content_language
+            ensure_stored_content_language(content, user.native_language)
             if (
                 content.get("mode") == "vocabulary"
                 and (content.get("language_code") or language_code) == "la"
@@ -368,6 +370,8 @@ def build_block_lesson(db: Session, *, user: User, block: CurriculumBlock, day: 
     recycled = week_thread(db, day)
 
     if block.skill == BlockSkill.REVIEW:
+        from app.services.language_policy import require_static_native_support
+        require_static_native_support(user.native_language)
         payload = _review_payload(db, block, owner, thread=thread)
         curated = None
     else:

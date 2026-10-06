@@ -125,6 +125,7 @@ describe("OnboardingPage — decisão de nível", () => {
 
   it("escolher o teste cria a sessão e navega para o teste", async () => {
     apiMock
+      .mockResolvedValueOnce({ id: "user" })
       .mockResolvedValueOnce({ completed: true, should_take_test: true })
       .mockResolvedValueOnce({ id: "test-123" });
 
@@ -156,7 +157,7 @@ describe("OnboardingPage — decisão de nível", () => {
         }),
       ),
     );
-    expect(apiMock).toHaveBeenCalledTimes(1);
+    expect(apiMock).toHaveBeenCalledTimes(2);
   });
 
   it("mostra erro real da API e não redireciona", async () => {
@@ -179,6 +180,7 @@ describe("OnboardingPage — decisão de nível", () => {
   it("falha ao criar o teste não redireciona silenciosamente ao dashboard", async () => {
     const { ApiError } = await import("@/lib/api");
     apiMock
+      .mockResolvedValueOnce({ id: "user" })
       .mockResolvedValueOnce({ completed: true })
       .mockRejectedValueOnce(new ApiError("Falha ao criar teste.", 500));
 
@@ -205,7 +207,8 @@ describe("OnboardingPage — decisão de nível", () => {
     fireEvent.click(button);
     fireEvent.click(button);
 
-    await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
+    await waitFor(() => expect(apiMock).toHaveBeenCalledTimes(2));
     resolveRequest({ completed: true });
   });
 

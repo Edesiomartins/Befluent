@@ -11,15 +11,15 @@ type Profile = {
 };
 
 /**
- * Idioma ativo do usuário, com fallback silencioso para inglês.
- * Falha de rede não deve impedir a página de estudo de abrir.
+ * Idioma estudado ativo. Sem perfil, o código fica vazio: não abrimos uma
+ * lição de inglês no lugar do idioma que o aluno escolheu.
  */
 export function useActiveLanguage(): {
   code: string;
   resolved: boolean;
   accessState: LanguageAccessState;
 } {
-  const [code, setCode] = useState("en");
+  const [code, setCode] = useState("");
   const [accessState, setAccessState] = useState<LanguageAccessState>("available");
   const [resolved, setResolved] = useState(false);
 

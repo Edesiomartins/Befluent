@@ -367,8 +367,8 @@ PRONUNCIATION_FOCUS: dict[str, list[dict[str, str]]] = {
         },
         {
             "sound": "e/o abertos × fechados",
-            "why_hard": "O português não distingue esses pares como o italiano padrão.",
-            "how_to_produce": "Compare 'pesca' (pêssego, e fechado) e 'pesca' (pesca, e aberto) isoladamente.",
+            "why_hard": "O português também distingue e/o abertos e fechados, mas a abertura de cada palavra italiana precisa ser aprendida.",
+            "how_to_produce": "Compare 'pesca' (pêssego, e aberto) e 'pesca' (pesca, e fechado) isoladamente.",
         },
         {
             "sound": "gli e gn",

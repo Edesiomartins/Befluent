@@ -10,8 +10,8 @@ renderizado a partir do `LearnerContext`, que vem do resultado do teste de
 nivelamento. É essa substituição que liga a avaliação às lições.
 
 Os prompts são traduzidos em intenção, não literalmente: o documento assume um
-falante de inglês aprendendo outra língua, enquanto o BeFluent assume um falante
-de português. As analogias e contrastes fonéticos foram reancorados no português.
+falante de inglês aprendendo outra língua; o BeFluent usa a língua nativa
+explicitamente declarada pelo aluno. As analogias e contrastes fonéticos foram reancorados na língua nativa declarada.
 """
 
 from __future__ import annotations
@@ -103,7 +103,17 @@ class PromptTemplate:
                 "Responda exclusivamente com um objeto JSON válido neste formato, "
                 "sem texto fora do JSON:",
                 contract,
+                "Use exclusivamente o idioma-alvo do contexto nos textos, exemplos, "
+                "falas e transcrições. A língua nativa declarada é permitida nas instruções, "
+                "explicações e traduções. Não preencha lacunas com conteúdo de outro "
+                "idioma. Nas questões de alternativa única, forneça exatamente uma "
+                "opção correta, sem alternativas equivalentes, e gabarito coerente "
+                "com a justificativa. Respeite o nível CEFR informado.",
             ]
+        parts += ["", "# LANGUAGE POLICY",
+                  "The declared target_language, native_language and CEFR are authoritative. If native_language=not_selected, produce target-language content only.",
+                  "Keep primary content (title, subtitle, text, transcript, examples, opening and explanation) in target_language. Put native scaffolding in separate *_native fields, including explanation_native, instruction_native, hint_native, feedback_native, translation_native and scenario_native, only when the CEFR policy permits it. Do not infer native_language from the language of this prompt.",
+                  "Do not use any third language in learner-facing content unless the activity explicitly requires it."]
         return "\n".join(parts)
 
 
@@ -148,11 +158,11 @@ VOCABULARY = PromptTemplate(
     task=(
         "Entregue palavras e expressões essenciais para o contexto do aluno, "
         "organizadas por categoria de uso. Para cada item: a tradução em "
-        "português, um exemplo em frase real e uma nota curta de uso. Priorize o "
+        "língua nativa declarada, um exemplo em frase real e uma nota curta de uso. Priorize o "
         "que ele consegue usar hoje. Se a frase usar uma forma flexionada "
         "diferente do termo e você tiver certeza dessa relação, preencha "
         "`example_form` com a forma usada (pode incluir o contexto imediato, "
-        "como o sujeito) e `form_note` com uma frase curta em português."
+        "como o sujeito) e `form_note` com uma frase curta na língua nativa declarada."
     ),
     rule=(
         "Uma palavra que o aluno não vai usar no contexto real dele não entra na "
@@ -198,7 +208,7 @@ TUTOR_CHAT = PromptTemplate(
     task=(
         "Responda à pergunta ou dúvida do aluno de forma direta e didática. Use "
         "o idioma-alvo quando isso ajudar (por exemplo, para dar um exemplo de "
-        "uso), mas explique o conceito em português quando o nível do aluno "
+        "uso), mas explique o conceito na língua nativa declarada quando o nível do aluno "
         "ainda exigir apoio na língua nativa. Se a pergunta não tiver relação "
         "com o idioma que ele está aprendendo, diga com gentileza que seu foco "
         "é apoio de idioma."
@@ -221,9 +231,9 @@ GRAMMAR = PromptTemplate(
     ),
     task=(
         "Explique a regra usando: a lógica por trás dela em linguagem simples; uma "
-        "analogia com o português que torne o conceito imediato; os padrões que "
+        "analogia com a língua nativa declarada que torne o conceito imediato; os padrões que "
         "cobrem a maioria dos casos reais; e os erros mais comuns de falantes de "
-        "português com essa regra. Depois dê exemplos e exercícios de prática."
+        "língua nativa declarada com essa regra. Depois dê exemplos e exercícios de prática."
     ),
     rule=(
         "Não faça o aluno decorar uma tabela. Ensine a lógica que permite a ele "
@@ -258,11 +268,11 @@ PRONUNCIATION = PromptTemplate(
     identity=(
         "Você é especialista em fonética e pronúncia de idiomas. Você sabe que a "
         "pronúncia ruim bloqueia a comunicação mesmo com gramática perfeita, e que "
-        "há sons específicos que falantes de português erram em cada idioma."
+        "há sons específicos que falantes da língua nativa declarada erram em cada idioma."
     ),
     task=(
-        "Entregue os sons deste idioma que não existem no português e que "
-        "falantes de português mais erram, como posicionar boca e língua para "
+        "Entregue os sons deste idioma que não existem na língua nativa declarada e que "
+        "falantes da língua nativa declarada mais erram, como posicionar boca e língua para "
         "produzir cada som (descrito em texto), e frases-alvo para treinar hoje."
     ),
     rule=(
@@ -431,7 +441,7 @@ WRITING = PromptTemplate(
         "pode aproveitar."
     ),
     rule=(
-        "Uma proposta acima do nível gera texto traduzido do português. Calibre "
+        "Uma proposta acima do nível gera texto traduzido da língua nativa declarada. Calibre "
         "para produção real."
     ),
 )

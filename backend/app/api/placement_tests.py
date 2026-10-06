@@ -450,6 +450,7 @@ def submit_writing(
         language_code=test.language_code,
         target_level=item.cefr_level,
         min_chars=int(rubric.get("min_chars", 20)),
+        native_language=user.native_language,
     )
 
     assessed = evaluation.get("status") == "assessed"

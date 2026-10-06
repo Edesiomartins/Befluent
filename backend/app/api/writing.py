@@ -47,6 +47,7 @@ def create(
         target_level,
         data.min_words,
         data.max_words,
+        native_language=context.native_language,
     )
 
     submission = None

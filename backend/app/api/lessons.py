@@ -26,7 +26,7 @@ from app.models import (
 from app.prompts.library import MODE_SKILL, SUPPORTED_MODES
 from app.schemas import LessonGenerateIn, VocabularyCycleAnswerIn
 from app.services.ai import get_ai_provider
-from app.services.content_repository import fetch_approved_unit, record_lesson_usage
+from app.services.content_repository import fetch_approved_unit, record_lesson_usage, lesson_display_title
 from app.services.learner_context import build_context, recommended_modes
 from app.services.lesson_attempts import (
     attempt_to_dict,
@@ -318,7 +318,7 @@ def generate(
         ul_preview = user_language(db, user.id, data.language_code)
     except APIError:
         ul_preview = None
-    if ul_preview is not None and skill:
+    if ul_preview is not None and skill and context.native_language == "pt-BR":
         curated_unit = fetch_approved_unit(
             db,
             language_id=ul_preview.language_id,
@@ -331,7 +331,7 @@ def generate(
         unit_payload = dict(curated_unit.payload_json or {})
         raw = {
             **unit_payload,
-            "title": curated_unit.title or unit_payload.get("title", data.mode),
+            "title": lesson_display_title(curated_unit, data.mode),
             "objective": unit_payload.get("objective", curated_unit.topic or ""),
             "level": curated_unit.cefr_level,
         }
@@ -443,6 +443,10 @@ def start_vocabulary_cycle(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     payload = _start_lesson_vocabulary_cycle(
         db,
         lesson=lesson,
@@ -460,6 +464,10 @@ def restore_vocabulary_cycle(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     session = _standalone_lexical_session(
         db,
         user_language_id=owner.id,
@@ -485,6 +493,10 @@ def answer_vocabulary_cycle(
     user: User = Depends(current_user),
 ):
     lesson, owner = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     session = _standalone_lexical_session(
         db,
         user_language_id=owner.id,
@@ -511,6 +523,8 @@ def answer_vocabulary_cycle(
 def one(lesson_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
     lesson, _ = _owned_lesson(db, user, lesson_id)
     content = dict(lesson.content_json or {})
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(content, user.native_language)
     if content.get("mode") == "vocabulary" and content.get("language_code") == "la":
         from app.services.latin_pronunciation import sanitize_latin_vocabulary_payload
 
@@ -533,6 +547,8 @@ def lesson_report_view(
     from app.services.lesson_report import lesson_report
 
     lesson, _owner = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     return lesson_report(db, lesson)
 
 
@@ -542,6 +558,8 @@ def list_objective_attempts(
 ):
     """Restaura tentativas objetivas da lição (fonte de verdade no backend)."""
     lesson, _ = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     attempts = list_attempts_for_lesson(db, lesson_id=lesson.id)
     return {
         "lesson_id": lesson.id,
@@ -558,6 +576,8 @@ def post_objective_answer(
 ):
     """Submete resposta objetiva. Backend avalia e persiste; cliente não é autoridade."""
     lesson, owner = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     # Ignorar flags de acerto/gabarito enviadas pelo cliente (segurança).
     _ = data.correct, data.correct_answer, data.is_correct
     result = submit_objective_answer(
@@ -581,6 +601,8 @@ def post_objective_retry(
 ):
     """Oferece variante de retry sem reabrir a tentativa anterior."""
     lesson, _ = _owned_lesson(db, user, lesson_id)
+    from app.services.language_policy import ensure_stored_content_language
+    ensure_stored_content_language(lesson.content_json, user.native_language)
     result = prepare_retry(db, lesson=lesson, activity_key=data.activity_key)
     db.commit()
     return result

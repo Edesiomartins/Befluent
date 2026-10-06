@@ -11,6 +11,7 @@ from app.services.lexical_form import normalize_lexical_item
 
 def _context(**overrides) -> LearnerContext:
     base = dict(
+        native_language="pt-BR",
         language_code="de",
         language_name_pt="Alemão",
         language_native_name="Deutsch",

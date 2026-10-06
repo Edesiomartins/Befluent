@@ -435,6 +435,8 @@ def start_flow_endpoint(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     objective = _get_objective_or_404(db, data.objective_id)
     owner = _owned_objective_language(db, user, objective)
     _validate_reference(
@@ -469,6 +471,8 @@ def get_flow_endpoint(
     user: User = Depends(current_user),
 ):
     session = _owned_flow(db, flow_id, user)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     return {
         "id": session.id,
         "phase": session.phase,
@@ -490,6 +494,8 @@ def transition_flow_endpoint(
     user: User = Depends(current_user),
 ):
     session = _owned_flow(db, flow_id, user)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     teaching_flow.transition(
         db, session, target_phase=data.target_phase, reason=data.reason
     )
@@ -510,6 +516,8 @@ def generate_activities_endpoint(
 ):
     objective = _get_objective_or_404(db, objective_id)
     _owned_objective_language(db, user, objective)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     activities = activity_generator.generate_activities(objective)
     return {"objective_id": objective.id, "activities": activities, "ai_called": False}
 
@@ -633,6 +641,8 @@ def get_active_vertical_slice(
     user: User = Depends(current_user),
 ):
     """Restaura flow ativo/recente sem criar sessão. 404 se ainda não houver."""
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     objective = ensure_en_a1_can_001(db)
     owner = _owned_objective_language(db, user, objective)
     payload = teaching_slice.get_active_slice(db, user_language_id=owner.id)
@@ -647,6 +657,8 @@ def start_vertical_slice(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     objective = ensure_en_a1_can_001(db)
     owner = _owned_objective_language(db, user, objective)
     if data.curriculum_block_id:
@@ -671,6 +683,8 @@ def slice_answer(
     user: User = Depends(current_user),
 ):
     session = _owned_flow(db, flow_id, user)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     payload = teaching_slice.submit_slice_answer(
         db,
         session,
@@ -689,6 +703,8 @@ def slice_retry(
     user: User = Depends(current_user),
 ):
     session = _owned_flow(db, flow_id, user)
+    from app.services.language_policy import require_static_native_support
+    require_static_native_support(user.native_language)
     payload = teaching_slice.retry_slice(
         db,
         session,

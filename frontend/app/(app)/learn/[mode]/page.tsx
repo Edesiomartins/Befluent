@@ -8,6 +8,8 @@ import { AudioPlayer } from "@/components/study";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { useActiveLanguage } from "@/hooks/use-active-language";
+import { speechText, supportText } from "@/lib/bilingual";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import { useLesson } from "@/hooks/use-lesson";
 import type { LessonEnvelope } from "@/types/lesson";
 
@@ -111,6 +113,7 @@ const REVIEW_RATINGS = [
 
 function DueReviews() {
   const { code, resolved } = useActiveLanguage();
+  const nativeLanguage = useLearnerNativeLanguage();
   const [items, setItems] = useState<DueReview[] | null>(null);
   const [index, setIndex] = useState(0);
   const [revealed, setRevealed] = useState(false);
@@ -120,6 +123,11 @@ function DueReviews() {
 
   useEffect(() => {
     if (!resolved) return;
+    if (!code) {
+      setError("Não foi possível identificar o idioma do seu plano.");
+      setItems([]);
+      return;
+    }
     let active = true;
     setItems(null);
     setIndex(0);
@@ -199,7 +207,11 @@ function DueReviews() {
     payloadText(item.payload, "prompt") ||
     `${item.item_type} · ${item.reference_id.slice(0, 8)}`;
   const answer =
-    payloadText(item.payload, "translation_pt") ||
+    supportText({
+      nativeLanguage,
+      native: payloadText(item.payload, "translation"),
+      legacyPortuguese: payloadText(item.payload, "translation_pt"),
+    }) ||
     payloadText(item.payload, "answer") ||
     "Revise este item e avalie sua lembrança.";
   const example = payloadText(item.payload, "example");
@@ -252,7 +264,7 @@ function DueReviews() {
             <AudioPlayer
               variant="compact"
               accessibleName={`Ouvir expressão ${term ?? ""}`.trim()}
-              text={termAudio.audio_text}
+              text={speechText(termAudio.audio_text)}
               languageCode={code}
             />
           )}
@@ -266,7 +278,7 @@ function DueReviews() {
                   <AudioPlayer
                     variant="compact"
                     accessibleName="Ouvir frase de exemplo"
-                    text={exampleAudio.audio_text}
+                    text={speechText(exampleAudio.audio_text)}
                     languageCode={code}
                   />
                 )}
@@ -329,14 +341,17 @@ function Assessment() {
 
 function AdaptiveLesson({ mode }: { mode: string }) {
   const { code, resolved } = useActiveLanguage();
-  const { status, lesson, error, rawError, reload } = useLesson(
-    mode,
-    resolved ? code : null,
-  );
+  const language = resolved && code ? code : null;
+  const { status, lesson, error, rawError, reload } = useLesson(mode, language);
   return (
     <div className="mx-auto max-w-3xl">
       <PageHeader mode={mode} lesson={lesson} />
-      {status === "loading" && <Loading label={`Preparando ${meta[mode].title}`} />}
+      {resolved && !code && (
+        <ErrorState message="Não foi possível identificar o idioma do seu plano." />
+      )}
+      {(!resolved || (language && status === "loading")) && (
+        <Loading label={`Preparando ${meta[mode].title}`} />
+      )}
       {status === "error" && (
         <ErrorState message={error ?? undefined} retry={() => void reload()} error={rawError} />
       )}

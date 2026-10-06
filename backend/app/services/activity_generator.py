@@ -55,7 +55,7 @@ def _gap_prompt(canonical: str) -> tuple[str, str]:
     """Remove a última palavra de conteúdo para fill-gap simples."""
     tokens = canonical.split()
     if len(tokens) < 2:
-        return f"{canonical} ___", canonical
+        return "___", canonical.rstrip(".,!?")
     answer = tokens[-1].rstrip(".,!?")
     stem = " ".join(tokens[:-1]) + " ___."
     return stem, answer
@@ -251,22 +251,13 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
     activation = pedagogy.get("activation") or {
         "title_pt": objective.title,
         "can_do": objective.can_do,
-        "support_pt": "Você vai aprender a se apresentar com frases simples.",
+        "support_pt": objective.can_do,
     }
     noticing = pedagogy.get("noticing") or {
         "prompt_pt": "Observe como essas frases se estruturam.",
         "examples": expressions[:4] or [p["canonical"] for p in patterns[:4]],
     }
     transfer_prompts = list(pedagogy.get("transfer_prompts") or [])
-    if not transfer_prompts and patterns:
-        transfer_prompts = [
-            {
-                "prompt": "Where does your brother live?",
-                "prompt_pt": "Onde mora o seu irmão?",
-                "expected_features": ["live", "in"],
-                "scaffold_pt": "Use: He lives in…",
-            }
-        ]
 
     activities: list[dict[str, Any]] = [
         {
@@ -310,7 +301,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                 "ai_required": False,
             }
         )
-        tokens = re.findall(r"[A-Za-z']+", canonical)
+        tokens = re.findall(r"[^\W_]+(?:['’][^\W_]+)*", canonical, flags=re.UNICODE)
         if len(tokens) >= 3:
             activities.append(
                 {
@@ -323,10 +314,16 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                     "ai_required": False,
                 }
             )
-        distractors = [p["canonical"] for p in patterns[1:3]] or [
-            "I am a student.",
-            "I like coffee.",
-        ]
+        seen = {normalize_text(value) for value in accepted}
+        seen.add(normalize_text(canonical))
+        distractors = []
+        for pattern in patterns[1:]:
+            key = normalize_text(pattern["canonical"])
+            if key and key not in seen:
+                seen.add(key)
+                distractors.append(pattern["canonical"])
+            if len(distractors) == 2:
+                break
         option_entries = [
             {
                 "id": "A",
@@ -345,23 +342,24 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                     ),
                 }
             )
-        activities.append(
-            {
-                "type": ActivityType.MULTIPLE_CHOICE,
-                "phase_hint": "practicing",
-                "prompt_pt": "Qual frase corresponde ao padrão trabalhado?",
-                "prompt": "Which sentence matches the target pattern?",
-                "options": option_entries,
-                "canonical_answer": canonical,
-                "accepted_variants": accepted,
-                "correct_explanation": (
-                    f"A resposta adequada é «{canonical}», que realiza o padrão "
-                    "desta atividade."
-                ),
-                "remember_pt": "Compare a estrutura da opção com o modelo do noticing.",
-                "ai_required": False,
-            }
-        )
+        if len(option_entries) > 1:
+            activities.append(
+                {
+                    "type": ActivityType.MULTIPLE_CHOICE,
+                    "phase_hint": "practicing",
+                    "prompt_pt": "Qual frase corresponde ao padrão trabalhado?",
+                    "prompt": "Qual frase corresponde ao padrão trabalhado?",
+                    "options": option_entries,
+                    "canonical_answer": canonical,
+                    "accepted_variants": accepted,
+                    "correct_explanation": (
+                        f"A resposta adequada é «{canonical}», que realiza o padrão "
+                        "desta atividade."
+                    ),
+                    "remember_pt": "Compare a estrutura da opção com o modelo do noticing.",
+                    "ai_required": False,
+                }
+            )
 
     if vocab:
         activities.append(
@@ -376,27 +374,23 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
             }
         )
 
-    guided = pedagogy.get("guided_prompt") or {
-        "prompt": "Tell me about yourself.",
-        "prompt_pt": "Apresente-se em 2–4 frases simples.",
-        "scaffold_pt": "My name is… I'm from… I live in… I work as… I like…",
-        "required_features": ["name", "from", "live", "like"],
-    }
-    activities.append(
-        {
-            "type": ActivityType.GUIDED_PRODUCTION,
-            "phase_hint": "producing",
-            "prompt": guided.get("prompt"),
-            "prompt_pt": guided.get("prompt_pt"),
-            "scaffold_pt": guided.get("scaffold_pt"),
-            "required_features": guided.get("required_features") or [],
-            "required_patterns": guided.get("required_patterns") or [],
-            "accepted_variants": [],
-            "evaluation_mode": guided.get("evaluation_mode") or "guided",
-            "minimum_structure": guided.get("minimum_structure") or "clause",
-            "ai_required": False,
-        }
-    )
+    guided = pedagogy.get("guided_prompt")
+    if guided:
+        activities.append(
+            {
+                "type": ActivityType.GUIDED_PRODUCTION,
+                "phase_hint": "producing",
+                "prompt": guided.get("prompt"),
+                "prompt_pt": guided.get("prompt_pt"),
+                "scaffold_pt": guided.get("scaffold_pt"),
+                "required_features": guided.get("required_features") or [],
+                "required_patterns": guided.get("required_patterns") or [],
+                "accepted_variants": [],
+                "evaluation_mode": guided.get("evaluation_mode") or "guided",
+                "minimum_structure": guided.get("minimum_structure") or "clause",
+                "ai_required": False,
+            }
+        )
 
     for transfer in transfer_prompts[:1]:
         activities.append(

@@ -21,3 +21,17 @@ def to_bcp47(language_code: str) -> str:
 
 def is_latin_modality(language_code: str) -> bool:
     return language_code == "la"
+
+
+TARGET_LANGUAGE_CODES = tuple(_BCP47)
+NATIVE_LANGUAGE_CODES = (*TARGET_LANGUAGE_CODES, "pt-BR")
+
+def validate_native_language(value: str | None) -> str | None:
+    if value is not None and value not in NATIVE_LANGUAGE_CODES:
+        raise ValueError("Código de língua nativa inválido.")
+    return value
+
+def native_language_metadata(user) -> dict:
+    return {"native_language": user.native_language,
+            "native_language_required": user.native_language is None,
+            "native_language_options": list(NATIVE_LANGUAGE_CODES)}
