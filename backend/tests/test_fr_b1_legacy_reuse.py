@@ -50,7 +50,7 @@ def confirmed_lesson(db_session):
     lesson = Lesson(id=CONFIRMED_ID, user_language_id=owner.id, study_session_id=session.id,
                     title=TITLE, objective=TOPIC, content_json=legacy_payload(), status="active")
     db_session.add(lesson); db_session.flush()
-    block = CurriculumBlock(day_id=day.id,skill="grammar",position=1,cefr_level="B1",
+    block = CurriculumBlock(id="1ba82395-cf90-40c3-9ea5-00f8d8f334ed",day_id=day.id,skill="grammar",position=1,cefr_level="B1",
                             topic=TOPIC,lesson_ref=lesson.id,status="pending")
     answer = LessonActivityAttempt(lesson_id=lesson.id,user_language_id=owner.id,
                                   activity_key="exercise:0",answer_json={"response":"Parce que"})

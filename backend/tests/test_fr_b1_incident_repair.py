@@ -32,6 +32,33 @@ def test_repair_default_dry_run_is_read_only_and_binds_confirmed_id(db_session,c
     assert snapshot(db_session) == before
 
 
+def test_refusal_identifies_raw_target_missing_despite_diagnostic_fallback(db_session, confirmed_lesson):
+    from scripts.repair_fr_b1_incident import repair
+    from scripts.diagnose_fr_b1_content import describe_payload
+    *_, block, lesson, answer = confirmed_lesson
+    payload = dict(lesson.content_json)
+    del payload["target_language"]
+    payload["language_code"] = "fr"
+    lesson.content_json = payload
+    db_session.commit()
+    assert describe_payload(payload)["payload_target_language"] == "fr"
+    before = deepcopy(snapshot(db_session))
+    with pytest.raises(ValueError, match=r"target_language.*expected.*fr.*actual.*missing"):
+        repair(db_session)
+    assert snapshot(db_session) == before
+
+
+def test_repair_refuses_unconfirmed_block_even_if_it_is_the_only_reference(db_session, confirmed_lesson):
+    from scripts.repair_fr_b1_incident import repair
+    *_, block, lesson, answer = confirmed_lesson
+    block.id = "00000000-0000-0000-0000-000000000001"
+    db_session.commit()
+    before = deepcopy(snapshot(db_session))
+    with pytest.raises(ValueError, match="block"):
+        repair(db_session)
+    assert snapshot(db_session) == before
+
+
 def test_apply_requires_explicit_reviewed_block_id(db_session,confirmed_lesson):
     from scripts.repair_fr_b1_incident import repair
     with pytest.raises(ValueError,match="block-id"):

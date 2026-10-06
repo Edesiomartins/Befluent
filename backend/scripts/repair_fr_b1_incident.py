@@ -24,6 +24,7 @@ from app.models import (
 from app.services.editorial_validation import has_known_incompatible_english
 
 LESSON_ID = "f2ab192f-36ef-42d0-b7aa-1038c8d230d2"
+BLOCK_ID = "1ba82395-cf90-40c3-9ea5-00f8d8f334ed"
 EXPECTED_TITLE = "Logical Structure for Opinion & Justification in French"
 EXPECTED_TOPIC = "Opinião e justificativa — estruturas-chave"
 EXPECTED_MODEL = "nvidia/nemotron-3.5-lightning"
@@ -44,6 +45,8 @@ def repair(db: Session, *, apply=False, block_id=None):
     """
     if apply and not block_id:
         raise ValueError("Writing requires an explicit reviewed --block-id")
+    if block_id is not None and block_id != BLOCK_ID:
+        raise ValueError("Only the confirmed block-id is permitted")
     lesson_query = select(Lesson).where(Lesson.id == LESSON_ID)
     if apply:
         lesson_query = lesson_query.with_for_update()
@@ -56,15 +59,22 @@ def repair(db: Session, *, apply=False, block_id=None):
     payload = lesson.content_json if isinstance(lesson.content_json, Mapping) else {}
     if not (language and language.code == "fr" and user and user.native_language == "pt-BR"):
         raise ValueError("Confirmed target/native/owner preconditions changed")
-    if not (
-        lesson.title == EXPECTED_TITLE and payload.get("target_language") == "fr"
-        and payload.get("native_language") is None
-        and payload.get("provider") == "openrouter" and payload.get("content_origin") == "openrouter"
-        and payload.get("model") == EXPECTED_MODEL
-        and (payload.get("content_level") or payload.get("level")) == "B1"
-        and has_known_incompatible_english(payload,"fr","pt-BR")
-    ):
-        raise ValueError("Confirmed lesson content/provenance changed; inspect a fresh dry-run")
+    # Keep the existing strict predicates; expose which raw value failed rather
+    # than confusing diagnostic aliases with persisted JSON keys.
+    checks = [
+        ("stored_title", EXPECTED_TITLE, lesson.title, lesson.title == EXPECTED_TITLE),
+        ("target_language", "fr", payload.get("target_language", "<missing>"), payload.get("target_language") == "fr"),
+        ("native_language", None, payload.get("native_language", "<missing>"), payload.get("native_language") is None),
+        ("provider", "openrouter", payload.get("provider", "<missing>"), payload.get("provider") == "openrouter"),
+        ("content_origin", "openrouter", payload.get("content_origin", "<missing>"), payload.get("content_origin") == "openrouter"),
+        ("model", EXPECTED_MODEL, payload.get("model", "<missing>"), payload.get("model") == EXPECTED_MODEL),
+        ("content_level_or_level", "B1", payload.get("content_level") or payload.get("level"), (payload.get("content_level") or payload.get("level")) == "B1"),
+        ("known_incompatible_english", True, has_known_incompatible_english(payload,"fr","pt-BR"), has_known_incompatible_english(payload,"fr","pt-BR")),
+    ]
+    mismatches = [{"field": field, "expected": expected, "actual": actual}
+                  for field, expected, actual, valid in checks if not valid]
+    if mismatches:
+        raise ValueError("Confirmed lesson content/provenance changed: " + json.dumps(mismatches, ensure_ascii=False))
     if db.scalar(select(func.count()).select_from(LessonContentUsage).where(LessonContentUsage.lesson_id == LESSON_ID)):
         raise ValueError("Unexpected related ContentUnit; repair requires new review")
 
@@ -83,6 +93,8 @@ def repair(db: Session, *, apply=False, block_id=None):
         block = references[0]
     else:
         raise ValueError("Expected exactly one related block; review its IDs before proceeding")
+    if block.id != BLOCK_ID:
+        raise ValueError("Related block differs from the confirmed block-id")
     day = _row(db, CurriculumDay,block.day_id,apply)
     week = _row(db, CurriculumWeek,day.week_id,apply) if day else None
     curriculum = _row(db, Curriculum,week.curriculum_id,apply) if week else None
