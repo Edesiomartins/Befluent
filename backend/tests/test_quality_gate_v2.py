@@ -204,6 +204,9 @@ def test_double_answer_rejected(db_session):
     teaching_slice.submit_slice_answer(db_session, session, student_response="")
     # Simula double-submit no mesmo passo (cursor voltaria a ser o mesmo índice).
     session.activity_cursor = index
+    # Persist the simulated rewind before the service refreshes under its lock.
+    # Production sessions do not autoflush this test setup implicitly.
+    db_session.flush()
     with pytest.raises(APIError) as exc:
         teaching_slice.submit_slice_answer(db_session, session, student_response="")
     assert exc.value.code == "attempt_already_submitted"

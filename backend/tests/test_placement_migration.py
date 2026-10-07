@@ -132,6 +132,16 @@ def test_tabelas_de_placement_criadas(migrated_legacy_db):
         assert expected in tables
 
 
+def test_sections_unique_constraint_is_preserved_after_migration(migrated_legacy_db):
+    from sqlalchemy import inspect
+    constraints = inspect(migrated_legacy_db).get_unique_constraints("placement_test_sections")
+    # 0001/0002 create from current metadata when the table is absent, which
+    # yields an unnamed constraint; 0003 names it when it creates the table.
+    # Both upgrade paths must preserve the actual uniqueness invariant.
+    assert any(constraint["column_names"] == ["test_id", "skill"]
+               for constraint in constraints)
+
+
 def test_tabelas_legadas_intactas(migrated_legacy_db):
     """O stub `assessments` não é renomeado nem removido."""
     with migrated_legacy_db.connect() as conn:

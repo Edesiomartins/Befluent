@@ -13,7 +13,7 @@ from app.services.objective_seed import seed_teaching_objectives
 from app.services.placement_seed import seed_placement_items
 from app.services.seed import seed_languages
 engine=create_engine("sqlite://",connect_args={"check_same_thread":False},poolclass=StaticPool)
-TestingSession=sessionmaker(bind=engine,expire_on_commit=False)
+TestingSession=sessionmaker(bind=engine,autoflush=False,expire_on_commit=False)
 def override_db():
     db=TestingSession()
     try: yield db

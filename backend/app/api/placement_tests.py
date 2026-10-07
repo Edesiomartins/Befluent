@@ -63,8 +63,21 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _owned_test(db: Session, test_id: str, user: User) -> PlacementTest:
-    test = db.get(PlacementTest, test_id)
+def _owned_test(db: Session, test_id: str, user: User, *, lock: bool = False) -> PlacementTest:
+    if lock:
+        # All placement writers use the same order. The user lock also fences
+        # profile/curriculum creation by different placements for this account.
+        # Locks last until commit/rollback; refresh status after waiting so a
+        # stale identity-map object cannot run finalization a second time.
+        db.scalar(select(User).where(User.id == user.id).with_for_update())
+        test = db.scalar(
+            select(PlacementTest)
+            .where(PlacementTest.id == test_id, PlacementTest.user_id == user.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+    else:
+        test = db.get(PlacementTest, test_id)
     if not test or test.user_id != user.id:
         # Mesma resposta para inexistente e alheio: não revela IDs de terceiros.
         raise APIError(404, "placement_test_not_found", "Teste não encontrado.")
@@ -260,7 +273,7 @@ def get_test(test_id: str, db: Session = Depends(get_db), user: User = Depends(c
 
 @router.post("/{test_id}/next-item")
 def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    test = _owned_test(db, test_id, user)
+    test = _owned_test(db, test_id, user, lock=True)
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
@@ -379,7 +392,7 @@ def submit_answer(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    test = _owned_test(db, test_id, user)
+    test = _owned_test(db, test_id, user, lock=True)
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
@@ -427,7 +440,7 @@ def submit_writing(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    test = _owned_test(db, test_id, user)
+    test = _owned_test(db, test_id, user, lock=True)
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
@@ -494,7 +507,7 @@ def submit_speaking(test_id: str, db: Session = Depends(get_db), user: User = De
 
 @router.post("/{test_id}/complete")
 def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    test = _owned_test(db, test_id, user)
+    test = _owned_test(db, test_id, user, lock=True)
     if test.status == TestStatus.COMPLETED:
         return _result_payload(db, test, user=user)
 
@@ -523,52 +536,47 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     test.duration_seconds = duration
     test.result_json = {**(test.result_json or {}), **result}
 
-    for skill, data in result["skills"].items():
-        section = db.scalar(
-            select(PlacementTestSection).where(
-                PlacementTestSection.test_id == test.id,
-                PlacementTestSection.skill == skill,
-            )
-        )
-        if section is None:
-            section = PlacementTestSection(test_id=test.id, skill=skill)
-            db.add(section)
-        section.score = data["score"]
-        section.max_score = data["max_score"]
-        section.estimated_level = data["estimated_level"]
-        section.status = "assessed"
-        section.completed_at = _now()
-
+    # Build the final values before touching ORM sections: writing overrides its
+    # not-assessed entry. Never SELECT twice for a pending row (autoflush=False).
+    section_values = {
+        skill: {
+            "score": data["score"], "max_score": data["max_score"],
+            "estimated_level": data["estimated_level"], "status": "assessed",
+            "completed_at": test.completed_at,
+        }
+        for skill, data in result["skills"].items()
+    }
     for skill in result["not_assessed_skills"]:
-        section = db.scalar(
-            select(PlacementTestSection).where(
-                PlacementTestSection.test_id == test.id,
-                PlacementTestSection.skill == skill,
-            )
-        )
-        if section is None:
-            section = PlacementTestSection(test_id=test.id, skill=skill)
-            db.add(section)
-        section.status = "not_assessed" if skill != Skill.SPEAKING else "not_available"
-        section.estimated_level = None
+        section_values[skill] = {
+            "score": 0.0, "max_score": 0.0, "estimated_level": None,
+            "status": "not_assessed" if skill != Skill.SPEAKING else "not_available",
+            "completed_at": None,
+        }
 
     writing_answer = next((answer for answer in answers if answer.skill == Skill.WRITING), None)
     if writing_answer is not None:
-        section = db.scalar(
-            select(PlacementTestSection).where(
-                PlacementTestSection.test_id == test.id,
-                PlacementTestSection.skill == Skill.WRITING,
-            )
-        )
-        if section is None:
-            section = PlacementTestSection(test_id=test.id, skill=Skill.WRITING)
-            db.add(section)
         # A rubrica heurística é feedback preliminar, nunca uma evidência CEFR.
-        section.score = writing_answer.normalized_score
-        section.max_score = 1.0 if writing_answer.normalized_score is not None else None
-        section.estimated_level = None
-        section.status = "calibrating"
-        section.completed_at = writing_answer.created_at
+        section_values[Skill.WRITING] = {
+            "score": writing_answer.normalized_score or 0.0,
+            "max_score": 1.0 if writing_answer.normalized_score is not None else 0.0,
+            "estimated_level": None, "status": "calibrating",
+            "completed_at": writing_answer.created_at,
+        }
+
+    # The parent locks above serialize all section writers, protecting the
+    # get-or-update against parallel requests as well as preserving row IDs.
+    sections = {section.skill: section for section in db.scalars(
+        select(PlacementTestSection).where(PlacementTestSection.test_id == test.id)
+        .execution_options(populate_existing=True)
+    )}
+    for skill, values in section_values.items():
+        section = sections.get(skill)
+        if section is None:
+            section = PlacementTestSection(test_id=test.id, skill=skill)
+            db.add(section)
+            sections[skill] = section
+        for field, value in values.items():
+            setattr(section, field, value)
 
     _apply_to_profile(db, test, result, user)
     # Checkpoint do cronograma: corrige a origem do nível e avalia a promoção
@@ -586,16 +594,15 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
                 )
             )
             if profile is not None and result["diagnostic_status"] == "ready":
-                try:
-                    ensure_active_curriculum(
-                        db,
-                        profile.id,
-                        duration_days=90,
-                        generated_from=GeneratedFrom.PLACEMENT,
-                    )
-                except APIError:
-                    # Sem níveis por competência ainda (edge): o aluno gera depois.
-                    pass
+                # A ready diagnostic has objective skill levels. Failure to
+                # consolidate its curriculum must roll back the whole request,
+                # rather than commit a completed test that retries cannot repair.
+                ensure_active_curriculum(
+                    db,
+                    profile.id,
+                    duration_days=90,
+                    generated_from=GeneratedFrom.PLACEMENT,
+                )
     db.commit()
     return _result_payload(db, test, user=user)
 
