@@ -1,6 +1,10 @@
 import type { CefrLevel, LevelSource, Skill } from "@/lib/levels";
 
 export type PlacementProgress = {
+  activities_completed?: number;
+  activities_skipped?: number;
+  by_skill?: Partial<Record<Skill, { completed: number }>>;
+  stop_reason?: string | null;
   answered: number;
   minimum: number;
   target: number;
@@ -21,6 +25,7 @@ export type PlacementTest = {
 };
 
 export type PlacementItem = {
+  exposure?: { reused: boolean; previous_exposure_count: number; exposure_status: string; evidence_eligible: boolean };
   id: string;
   skill: Skill;
   skill_label: string;
@@ -68,7 +73,7 @@ export type Recommendation = {
 
 export type PlacementResult = {
   overall_estimate_status?: "partial" | "sufficient";
-  assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string };
+  assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string; reused_evidence?: number };
   id: string;
   language_code: string;
   status: string;

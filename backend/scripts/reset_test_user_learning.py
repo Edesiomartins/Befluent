@@ -52,6 +52,7 @@ OWNERSHIP = {
 PRESERVED = {
     "users", "user_preferences", "sessions", "password_reset_tokens",
     "language_entitlements", "audit_logs", "content_reviews",
+    "placement_item_exposures",
 }
 GLOBALS = {
     "languages", "grammar_topics", "placement_items", "content_sources",
@@ -202,7 +203,7 @@ def fingerprint(state):
     return hashlib.sha256(json.dumps(state, sort_keys=True, default=str).encode()).hexdigest()
 
 
-def _execute_reset(conn, *, user_id=None, user_email=None, apply=False):
+def _execute_reset(conn, *, user_id=None, user_email=None, apply=False, clear_placement_exposure=False):
     tables = validate_schema(conn)
     if apply and conn.dialect.name == "postgresql":
         # Non-FK pointers do not acquire parent key-share locks. Fence writes
@@ -238,15 +239,25 @@ def _execute_reset(conn, *, user_id=None, user_email=None, apply=False):
         "user": {"id": user_id, "email": user["email"]},
         "mode": "apply" if apply else "dry_run", "before": before,
         "deletion_order": list(reversed(parent_order)),
-        "estimated_deleted_records": sum(before.values()), "estimated_updated_records": updates,
-        "estimated_affected_records": sum(before.values()) + updates,
+        "estimated_deleted_records": sum(before.values()) + (len(before_state["placement_item_exposures"]) if clear_placement_exposure else 0), "estimated_updated_records": updates,
+        "estimated_affected_records": sum(before.values()) + updates + (len(before_state["placement_item_exposures"]) if clear_placement_exposure else 0),
         "preserved_tables": sorted(PRESERVED), "global_tables_untouched": sorted(GLOBALS),
         "reset_fields": {"users": ["native_language -> NULL"],
                          "user_preferences": ["default_language_id -> NULL", *sorted(PEDAGOGICAL_PREF_KEYS)]},
         "after": None, "write_performed": False, "write_committed": False,
+        "exposure_history": {"policy": "clear_technical_test" if clear_placement_exposure else "preserve", "before": len(before_state["placement_item_exposures"])},
         "onboarding_after_apply": {"completed": False, "native_language_required": True, "languages": []},
     }
     if apply:
+        if not clear_placement_exposure:
+            from sqlalchemy.orm import Session
+            from app.services.placement_exposure import archive_legacy_history
+            with Session(bind=conn, autoflush=False) as exposure_session:
+                archive_legacy_history(exposure_session, user_id)
+                exposure_session.flush()
+        if clear_placement_exposure:
+            t = tables["placement_item_exposures"]
+            conn.execute(delete(t).where(t.c.user_id == user_id))
         for name in reversed(parent_order):
             t = tables[name]
             # Use captured IDs, never a broad/cascading DELETE or a scope that
@@ -275,9 +286,13 @@ def _execute_reset(conn, *, user_id=None, user_email=None, apply=False):
                     raise ValueError(f"Reset incomplete: remaining rows in {name}")
         if any(report["after"].values()) or after_state["users"] != [{**user, "native_language": None}]:
             raise ValueError("Reset incomplete: account or learning postconditions failed")
-        for name in PRESERVED - {"users", "user_preferences"}:
+        for name in PRESERVED - {"users", "user_preferences", "placement_item_exposures"}:
             if before_state[name] != after_state[name]:
                 raise ValueError(f"Preservation failed: {name}")
+        exposure_before = before_state["placement_item_exposures"]
+        exposure_after = after_state["placement_item_exposures"]
+        if (clear_placement_exposure and exposure_after) or (not clear_placement_exposure and any(row not in exposure_after for row in exposure_before)):
+            raise ValueError("Preservation failed: placement exposure history")
         expected_prefs = [{**row, "default_language_id": None,
                            "ui_prefs_json": {k: v for k, v in (row["ui_prefs_json"] or {}).items()
                                              if k not in PEDAGOGICAL_PREF_KEYS}}
@@ -285,7 +300,8 @@ def _execute_reset(conn, *, user_id=None, user_email=None, apply=False):
                           else row for row in prefs]
         if after_state["user_preferences"] != expected_prefs:
             raise ValueError("Preservation failed: profile/UI preferences")
-        report["write_performed"] = bool(sum(before.values()) + updates)
+        report["write_performed"] = bool(report["estimated_affected_records"])
+        report["exposure_history"]["after"] = len(exposure_after)
     return report, fingerprint(before_state)
 
 
@@ -294,7 +310,20 @@ def reset_learning(conn, *, user_id=None, user_email=None, apply=False):
     return _execute_reset(conn, user_id=user_id, user_email=user_email, apply=apply)[0]
 
 
-def run_reset(engine, *, user_id=None, user_email=None, apply=False, rollback=False):
+def validate_exposure_clear(engine, environment):
+    database = engine.url.database or ""
+    marker = Path(database).stem if engine.dialect.name == "sqlite" else database
+    marked_database = marker.endswith(("_test", "_dev"))
+    ephemeral_database = engine.dialect.name == "sqlite" and database in {"", ":memory:"}
+    if environment.strip().lower() == "production" or not (marked_database or ephemeral_database):
+        raise ValueError("Clearing placement exposure requires non-production and an explicitly marked test/dev database")
+
+
+def run_reset(engine, *, user_id=None, user_email=None, apply=False, rollback=False, clear_placement_exposure=False, environment=None):
+    if clear_placement_exposure:
+        from app.core.config import get_settings
+        mode = environment or get_settings().environment
+        validate_exposure_clear(engine, mode)
     if bool(user_id) == bool(user_email):
         raise ValueError("Exactly one --user-id OR --user-email is required")
     if rollback and not apply:
@@ -318,7 +347,7 @@ def run_reset(engine, *, user_id=None, user_email=None, apply=False, rollback=Fa
                     conn.exec_driver_sql("SET TRANSACTION READ ONLY")
                 conn.exec_driver_sql("SET LOCAL lock_timeout = '2s'")
                 conn.exec_driver_sql("SET LOCAL statement_timeout = '60s'")
-            report, before_hash = _execute_reset(conn, user_id=user_id, user_email=user_email, apply=apply)
+            report, before_hash = _execute_reset(conn, user_id=user_id, user_email=user_email, apply=apply, clear_placement_exposure=clear_placement_exposure)
             if apply and not rollback:
                 tx.commit()
                 report["transaction"] = "committed"
@@ -354,6 +383,7 @@ def main(argv=None):
     who.add_argument("--user-email")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--rollback", action="store_true")
+    parser.add_argument("--clear-placement-exposure", action="store_true", help="Non-production only; requires *_test/*_dev database or ephemeral SQLite")
     args = parser.parse_args(argv)
     if args.rollback and not args.apply:
         parser.error("--rollback requires --apply")
@@ -372,7 +402,7 @@ def main(argv=None):
         if hasattr(sys.stdout, "reconfigure"):
             sys.stdout.reconfigure(encoding="utf-8")
         report = run_reset(engine, user_id=args.user_id, user_email=args.user_email,
-                           apply=args.apply, rollback=args.rollback)
+                           apply=args.apply, rollback=args.rollback, clear_placement_exposure=args.clear_placement_exposure)
         print(json.dumps(report, ensure_ascii=False, indent=2))
         return 0
     except ValueError as exc:

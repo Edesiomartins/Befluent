@@ -53,6 +53,14 @@ def deliver_item(db: Session, test: PlacementTest, item: PlacementItem) -> Place
         # Retoma o mesmo item ainda não respondido.
         return open_delivery
 
+    existing = db.scalar(select(PlacementItemDelivery).where(PlacementItemDelivery.test_id == test.id,
+        PlacementItemDelivery.item_id == item.id))
+    if existing:
+        existing.expires_at = _now() + timedelta(minutes=get_settings().placement_item_delivery_minutes)
+        from app.services.placement_exposure import record_delivery
+        record_delivery(db, test, item, existing)
+        return existing
+
     minutes = get_settings().placement_item_delivery_minutes
     delivery = PlacementItemDelivery(
         test_id=test.id,
@@ -62,6 +70,8 @@ def deliver_item(db: Session, test: PlacementTest, item: PlacementItem) -> Place
     )
     db.add(delivery)
     db.flush()
+    from app.services.placement_exposure import record_delivery
+    record_delivery(db, test, item, delivery)
     return delivery
 
 
@@ -104,6 +114,13 @@ def consume_delivery_for_answer(
         raise APIError(404, "placement_item_not_found", "Item não encontrado.")
     if item.review_status != ReviewStatus.APPROVED:
         raise APIError(404, "placement_item_not_found", "Item não encontrado.")
+
+    from app.models import PlacementItemExposure
+    from app.services.placement_exposure import delivery_changed
+    exposure = db.scalar(select(PlacementItemExposure).where(PlacementItemExposure.user_id == test.user_id,
+        PlacementItemExposure.origin_key == f"delivery:{delivery.id}"))
+    if exposure and delivery_changed(item, exposure):
+        raise APIError(409, "placement_item_changed", "A atividade foi alterada. Solicite uma nova atividade.")
 
     delivery.consumed_at = _now()
     db.flush()

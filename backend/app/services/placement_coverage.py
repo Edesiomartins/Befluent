@@ -1,8 +1,5 @@
 """Catalog capacity is independent of learner performance."""
 from collections import Counter
-import hashlib
-import json
-import re
 from sqlalchemy import select
 from app.models import PlacementItem
 from app.services.placement_delivery import approved_active_filter
@@ -11,14 +8,9 @@ from app.services import placement_engine as engine
 
 def evidence_fingerprint(item):
     """Identical stimuli/options do not become independent evidence via a new ID."""
-    def normalize(value):
-        return re.sub(r"\s+", " ", str(value or "").casefold()).strip()
-    options = item.options_json or []
-    option_text = sorted(normalize(option.get("text", option.get("label", "")))
-                         if isinstance(option, dict) else normalize(option) for option in options)
-    payload = [item.language_code, item.skill, item.item_type,
-               normalize(item.prompt), normalize(item.passage), normalize(item.audio_script), option_text]
-    return hashlib.sha256(json.dumps(payload, ensure_ascii=False).encode()).hexdigest()
+    from app.services.placement_exposure import semantic_keys
+    keys = semantic_keys(item)
+    return keys.get("family") or keys.get("passage") or keys.get("audio") or keys.get("prompt") or keys["exact"]
 
 
 def bank_capacity(db, language_code):
@@ -27,7 +19,7 @@ def bank_capacity(db, language_code):
         PlacementItem.skill.in_(engine.OBJECTIVE_SKILLS),
         PlacementItem.cefr_level.in_(engine.TESTABLE_LEVELS),
         PlacementItem.item_type.in_(["multiple_choice", "fill_blank", "reading_comprehension", "listening_comprehension"]))))
-    unique_rows = list({evidence_fingerprint(item): item for item in rows}.values())
+    unique_rows = list({(item.skill, evidence_fingerprint(item)): item for item in rows}.values())
     counts = Counter((item.skill, item.cefr_level) for item in unique_rows)
     deficits = []
     for skill in engine.OBJECTIVE_SKILLS:

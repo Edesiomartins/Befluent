@@ -24,4 +24,4 @@ def test_heads_is_single_linear_chain():
     scripts = ScriptDirectory.from_config(cfg)
     heads = scripts.get_heads()
     assert len(heads) == 1
-    assert heads[0] == "0017_placement_coverage"
+    assert heads[0] == "0018_placement_exposure"

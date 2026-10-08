@@ -7,6 +7,8 @@ def production_result(answer):
     feedback = answer.feedback_json or {}
     level = feedback.get("estimated_level")
     linguistic = answer.evaluated_by == "ai" and level in LEVEL_INDEX and feedback.get("level_origin") != "unavailable"
+    if feedback.get("exposure", {}).get("reused"):
+        linguistic = False
     score = answer.normalized_score
     status = "provisional" if linguistic else "insufficient_evidence"
     if feedback.get("status") == "skipped":

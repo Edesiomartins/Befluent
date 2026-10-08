@@ -59,6 +59,24 @@ beforeEach(() => {
   apiMock.mockReset();
 });
 
+it.each([17, 9, 23])("encerra com %i atividades sem prometer total", async count => {
+  mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
+    progress: { ...progress, answered: count, activities_completed: count, stop_reason: "objective_coverage_satisfied" } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByText(`${count} atividades concluídas`)).toBeInTheDocument();
+  expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Ver meu resultado" })).toBeInTheDocument();
+});
+
+it.each(["bank_exhausted", "bank_freshness_exhausted"])("explica encerramento parcial por %s", async reason => {
+  mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
+    progress: { ...progress, activities_completed: 17, stop_reason: reason } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByText(/não há mais atividades inéditas adequadas/)).toBeInTheDocument();
+  expect(screen.getByText(/perfil parcial/)).toBeInTheDocument();
+});
+
 it("coleta fala por áudio e oferece pular sem inventar nível", async () => {
   mockRoute((path) => path.endsWith("next-item") ? {
     stage: "speaking", progress,
@@ -106,7 +124,7 @@ describe("Tela inicial do teste", () => {
     render(<PlacementTestIntroPage />);
 
     expect(await screen.findByText("Você tem um teste em andamento")).toBeInTheDocument();
-    expect(screen.getByText(/5 de 20 atividades/)).toBeInTheDocument();
+    expect(screen.getByText(/5 atividades concluídas/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Retomar teste" })).toHaveAttribute(
       "href",
       "/placement-test/test-1",
@@ -142,7 +160,8 @@ describe("Execução do teste", () => {
     render(<PlacementTestRunnerPage />);
 
     expect(await screen.findByText(objectiveItem.prompt)).toBeInTheDocument();
-    expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "15");
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByText("3 atividades concluídas")).toBeInTheDocument();
     expect(screen.getByText("Vocabulário e gramática")).toBeInTheDocument();
   });
 

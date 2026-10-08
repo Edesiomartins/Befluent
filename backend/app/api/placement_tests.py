@@ -34,6 +34,7 @@ from app.models import (
     CurriculumWeek,
     Language,
     PlacementItem,
+    PlacementItemExposure,
     PlacementTest,
     PlacementTestAnswer,
     PlacementTestSection,
@@ -55,11 +56,11 @@ from app.services.speech import save_temp_audio, transcribe_audio
 from app.services.placement_production import production_result, evaluate_speaking
 from app.core.config import get_settings
 from app.services.placement_coverage import bank_capacity, evidence_fingerprint
+from app.services.placement_exposure import exposure_history, exposure_metadata, semantic_keys, delivery_changed, record_answer, record_delivery, bank_freshness, adjust_result, rotation_metadata, EXPOSURE_POLICY
 
 router = APIRouter(prefix="/placement-tests", tags=["placement"])
 
 #: Intervalo mínimo entre dois testes concluídos do mesmo idioma.
-RETAKE_INTERVAL_DAYS = 30
 
 #: STT disponível apenas em modo mock: a avaliação oral não é realizada.
 SPEAKING_AVAILABLE = True
@@ -104,7 +105,7 @@ def _state_from(answers: list[PlacementTestAnswer], declared_beginner: bool) -> 
     """Reconstrói o estado adaptativo a partir das respostas persistidas."""
     state = engine.TestState(current_band=engine.initial_band(declared_beginner))
     for answer in answers:
-        if answer.skill in engine.PRODUCTION_SKILLS or answer.normalized_score is None:
+        if answer.skill in engine.PRODUCTION_SKILLS or answer.normalized_score is None or (answer.feedback_json or {}).get("exposure", {}).get("reused"):
             continue
         engine.register_answer(
             state,
@@ -128,6 +129,7 @@ def _records(answers: list[PlacementTestAnswer]) -> list[engine.AnswerRecord]:
         )
         for a in answers
         if a.normalized_score is not None and a.skill not in engine.PRODUCTION_SKILLS
+        and not (a.feedback_json or {}).get("exposure", {}).get("reused", False)
     ]
 
 
@@ -163,6 +165,13 @@ def _grade(item: PlacementItem, answer: str | None) -> tuple[bool, float]:
     return correct, 1.0 if correct else 0.0
 
 
+def _delivered_payload(db, test, item):
+    row = db.scalar(select(PlacementItemExposure).where(PlacementItemExposure.user_id == test.user_id,
+        PlacementItemExposure.source_test_id == test.id, PlacementItemExposure.source_item_id == item.id))
+    return {**_public_item(item), "exposure": row.snapshot_json.get("exposure") if row else
+            exposure_metadata(item, exposure_history(db, test.user_id, test.language_code, test.id))}
+
+
 def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = None) -> dict:
     objective = [a for a in answers if a.skill in engine.OBJECTIVE_SKILLS]
     return {
@@ -173,6 +182,11 @@ def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = N
         "maximum": engine.MAX_OBJECTIVE_ITEMS,
         "writing_submitted": any(a.skill == Skill.WRITING for a in answers),
         "speaking_submitted": any(a.skill == Skill.SPEAKING for a in answers),
+        "activities_completed": sum((a.feedback_json or {}).get("status") != "skipped" for a in answers),
+        "activities_skipped": sum((a.feedback_json or {}).get("status") == "skipped" for a in answers),
+        "by_skill": {skill: {"completed": sum(a.skill == skill and (a.feedback_json or {}).get("status") != "skipped" for a in answers)} for skill in engine.SKILL_WEIGHTS},
+        "stop_reason": (test.result_json or {}).get("stop_reason") if test else None,
+        "planned_target": (test.result_json or {}).get("coverage_plan", {}).get("target") if test else None,
     }
 
 
@@ -202,6 +216,7 @@ def create_test(
     language = db.scalar(select(Language).where(Language.code == data.language_code))
     if not language:
         raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    db.scalar(select(User).where(User.id == user.id).with_for_update())
 
     existing = db.scalar(
         select(PlacementTest).where(
@@ -229,12 +244,16 @@ def create_test(
         )
         .order_by(PlacementTest.completed_at.desc())
     )
-    if last_completed and last_completed.completed_at and (last_completed.result_json or {}).get("overall_estimate_status") == "sufficient":
+    if last_completed and last_completed.completed_at:
         completed_at = last_completed.completed_at
         if completed_at.tzinfo is None:
             completed_at = completed_at.replace(tzinfo=timezone.utc)
-        available_at = completed_at + timedelta(days=RETAKE_INTERVAL_DAYS)
-        if _now() < available_at:
+        available_at = completed_at + timedelta(days=EXPOSURE_POLICY["cooldown_days"])
+        freshness = bank_freshness(db, user.id, data.language_code)
+        missing = ((last_completed.result_json or {}).get("assessment_coverage") or {}).get("missing_skills", list(engine.SKILL_WEIGHTS))
+        useful_fresh = sum(cell["fresh"] for skill, bands in freshness["by_skill_cefr"].items() if skill in missing for cell in bands.values())
+        partial_complement = (last_completed.result_json or {}).get("overall_estimate_status") == "partial" and useful_fresh > 0
+        if _now() < available_at and not partial_complement:
             raise APIError(
                 409,
                 "placement_retake_too_soon",
@@ -247,7 +266,10 @@ def create_test(
         status=TestStatus.IN_PROGRESS,
         source=LevelSource.PLACEMENT_TEST,
         current_level_band=engine.initial_band(data.declared_beginner),
-        result_json={"declared_beginner": data.declared_beginner, "coverage_plan": bank_capacity(db, data.language_code)},
+        result_json={"declared_beginner": data.declared_beginner, "coverage_plan": bank_capacity(db, data.language_code),
+            "exposure_policy_version": EXPOSURE_POLICY["version"], "exposure_policy": dict(EXPOSURE_POLICY),
+            "bank_freshness": bank_freshness(db, user.id, data.language_code),
+            "form_policy": rotation_metadata(db, user.id, data.language_code)},
     )
     db.add(test)
     db.commit()
@@ -287,42 +309,54 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
 
     answers = _answers_of(db, test.id)
     answered_ids = {a.item_id for a in answers}
+    changed_ids = set()
+    for exposure in db.scalars(select(PlacementItemExposure).where(PlacementItemExposure.user_id == user.id,
+        PlacementItemExposure.source_test_id == test.id)):
+        current = db.get(PlacementItem, exposure.source_item_id)
+        if current and delivery_changed(current, exposure):
+            changed_ids.add(current.id)
+    answered_ids.update(changed_ids)
     declared_beginner = bool((test.result_json or {}).get("declared_beginner"))
     state = _state_from(answers, declared_beginner)
 
     # Retoma entrega aberta (mesmo item) se o aluno pedir next-item de novo.
     open_delivery = get_open_delivery(db, test.id)
-    if open_delivery and open_delivery.item_id not in answered_ids:
+    if open_delivery:
         item = db.get(PlacementItem, open_delivery.item_id)
-        if item and item.review_status == ReviewStatus.APPROVED and item.is_active:
+        if item and item.review_status == ReviewStatus.APPROVED and item.is_active and item.id not in answered_ids:
+            record_delivery(db, test, item, open_delivery)
+            db.commit()
             stage = item.skill if item.skill in engine.PRODUCTION_SKILLS else "objective"
-            return {"item": _public_item(item), "stage": stage, "progress": _progress(answers, test)}
+            return {"item": _delivered_payload(db, test, item), "stage": stage, "progress": _progress(answers, test)}
+        open_delivery.expires_at = _now()
+        db.flush()
 
-    if engine.should_stop(state):
+    if engine.should_stop(state) or len([a for a in answers if a.skill in engine.OBJECTIVE_SKILLS]) >= engine.MAX_OBJECTIVE_ITEMS:
         test.result_json = {**(test.result_json or {}), "stop_reason": "maximum_reached" if len(state.answers) >= engine.MAX_OBJECTIVE_ITEMS else "objective_coverage_satisfied"}
         writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
             db.commit()
-            return {"item": _public_item(writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
+            return {"item": _delivered_payload(db, test, writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
         db.commit()
         return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers, test)}
 
-    item = _pick_objective_item(db, test.language_code, state, answered_ids)
+    item = _pick_objective_item(db, test.language_code, state, answered_ids, user_id=user.id, test_id=test.id)
     if item is None:
-        test.result_json = {**(test.result_json or {}), "stop_reason": "bank_exhausted"}
+        available = _pick_objective_item(db, test.language_code, state, answered_ids)
+        test.result_json = {**(test.result_json or {}), "stop_reason": "bank_freshness_exhausted" if available else "bank_exhausted"}
         writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
             db.commit()
-            return {"item": _public_item(writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
+            return {"item": _delivered_payload(db, test, writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
         db.commit()
         return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers, test)}
 
     deliver_item(db, test, item)
     test.current_level_band = state.current_band
     db.commit()
-    return {"item": _public_item(item), "stage": "objective", "progress": _progress(answers, test)}
+    return {"item": _delivered_payload(db, test, item), "stage": "objective", "progress": _progress(answers, test)}
 
 
 def _pick_objective_item(
@@ -330,6 +364,7 @@ def _pick_objective_item(
     language_code: str,
     state: engine.TestState,
     answered_ids: set[str],
+    *, user_id: str | None = None, test_id: str | None = None, allow_reuse: bool = False,
 ) -> PlacementItem | None:
     """Item da faixa atual na competência menos usada; relaxa se faltar item."""
     preferred_skill = engine.next_skill(state)
@@ -343,6 +378,13 @@ def _pick_objective_item(
         base.append(PlacementItem.id.not_in(answered_ids))
     used_fingerprints = {evidence_fingerprint(item) for item in db.scalars(
         select(PlacementItem).where(PlacementItem.id.in_(answered_ids)))} if answered_ids else set()
+    history = exposure_history(db, user_id, language_code, test_id) if user_id else []
+    # Within-session shared stimuli also do not supply independent confirmation.
+    current_history = [{"keys": semantic_keys(item), "answered": True} for item in db.scalars(
+        select(PlacementItem).where(PlacementItem.id.in_(answered_ids)))] if answered_ids else []
+    seen_candidates = []
+    test = db.get(PlacementTest, test_id) if test_id else None
+    selected_form = ((test.result_json or {}).get("form_policy") or {}).get("selected_form") if test else None
 
     for skill in skill_order:
         current = engine.state_for(state, skill).current_band
@@ -359,9 +401,18 @@ def _pick_objective_item(
                 *base, PlacementItem.cefr_level == band, PlacementItem.skill == skill,
                 PlacementItem.item_type.in_(["multiple_choice", "fill_blank", "reading_comprehension", "listening_comprehension"]),
             ).order_by(PlacementItem.external_key, PlacementItem.id))
-            for item in candidates_in_band:
+            for item in sorted(candidates_in_band, key=lambda item: (
+                bool(selected_form) and (item.rubric_json or {}).get("form_id") != selected_form,
+                item.external_key or item.id)):
                 if evidence_fingerprint(item) not in used_fingerprints:
-                    return item
+                    if exposure_metadata(item, current_history)["reused"]:
+                        continue
+                    metadata = exposure_metadata(item, history)
+                    if not metadata["reused"]:
+                        return item
+                    seen_candidates.append((metadata["feedback_revealed"], metadata["previous_exposure_count"], item))
+    if allow_reuse and seen_candidates:
+        return min(seen_candidates, key=lambda row: (row[0], row[1], row[2].external_key or row[2].id))[2]
     return None
 
 
@@ -370,13 +421,17 @@ def _pick_production_item(db, test, state, answered_ids):
     for skill, item_type in ((Skill.WRITING, "short_writing"), (Skill.SPEAKING, "speaking_prompt")):
         if skill in answered_skills:
             continue
-        item = db.scalar(select(PlacementItem).where(
+        candidates = db.scalars(select(PlacementItem).where(
             PlacementItem.language_code == test.language_code, *approved_active_filter(),
             PlacementItem.skill == skill, PlacementItem.item_type == item_type,
             PlacementItem.cefr_level.in_(engine.TESTABLE_LEVELS),
         ).order_by((PlacementItem.cefr_level == "B1").desc(), PlacementItem.external_key.desc()))
-        if item:
-            return item
+        history = exposure_history(db, test.user_id, test.language_code, test.id)
+        for item in candidates:
+            if item.id in answered_ids:
+                continue
+            if not exposure_metadata(item, history)["reused"]:
+                return item
     return None
 
 
@@ -405,6 +460,7 @@ def submit_answer(
         raise APIError(409, "answer_already_submitted", "Este item já foi respondido.")
 
     is_correct, score = _grade(item, data.answer)
+    exposure = record_answer(db, test, item)
     record = PlacementTestAnswer(
         test_id=test.id,
         item_id=item.id,
@@ -416,6 +472,7 @@ def submit_answer(
         normalized_score=score,
         response_time_ms=data.response_time_ms,
         evaluated_by="auto",
+        feedback_json={"exposure": exposure},
     )
     db.add(record)
 
@@ -463,6 +520,7 @@ def submit_writing(
     )
 
     assessed = evaluation.get("status") == "assessed"
+    evaluation["exposure"] = record_answer(db, test, item)
     record = PlacementTestAnswer(
         test_id=test.id,
         item_id=item.id,
@@ -513,6 +571,7 @@ async def submit_speaking(test_id: str, item_id: str = Form(...), file: UploadFi
             raise APIError(422, "speech_not_recognized", "Não foi possível reconhecer fala. Grave novamente.")
         evaluation = evaluate_speaking(transcript, test.language_code, item.cefr_level,
                                        user.native_language, item.prompt)
+        evaluation["exposure"] = record_answer(db, test, item)
     finally:
         if os.path.exists(path):
             os.unlink(path)
@@ -549,8 +608,21 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
         return _result_payload(db, test, user=user)
 
     answers = _answers_of(db, test.id)
+    history = exposure_history(db, user.id, test.language_code, test.id)
+    current_stimuli = []
+    for answer in answers:
+        item = db.get(PlacementItem, answer.item_id)
+        if item and (answer.feedback_json or {}).get("status") != "skipped":
+            saved = db.scalar(select(PlacementItemExposure).where(PlacementItemExposure.user_id == user.id,
+                PlacementItemExposure.source_test_id == test.id, PlacementItemExposure.source_item_id == item.id))
+            keys = saved.keys_json if saved else semantic_keys(item)
+            meta = (answer.feedback_json or {}).get("exposure") or exposure_metadata(item, history, keys)
+            if exposure_metadata(item, current_stimuli, keys)["reused"]:
+                meta = {**meta, "reused": True, "evidence_eligible": False, "reuse_reason": "shared_stimulus_in_session"}
+            answer.feedback_json = {**(answer.feedback_json or {}), "exposure": meta}
+            current_stimuli.append({"keys": keys, "item_id": item.id})
     scored = _records(answers)
-    if not answers and (test.result_json or {}).get("stop_reason") != "bank_exhausted":
+    if not answers and (test.result_json or {}).get("stop_reason") not in {"bank_exhausted", "bank_freshness_exhausted"}:
         raise APIError(
             400,
             "placement_insufficient_items",
@@ -564,8 +636,10 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
 
     production = {a.skill: production_result(a) for a in answers if a.skill in engine.PRODUCTION_SKILLS}
     result = engine.build_result(scored, duration_seconds=duration, production_results=production)
+    adjust_result(result, answers)
     capacity = (test.result_json or {}).get("coverage_plan") or bank_capacity(db, test.language_code)
     result["assessment_coverage"].update(capacity)
+    result["assessment_coverage"]["bank_freshness"] = bank_freshness(db, user.id, test.language_code, test.id)
     result["assessment_coverage"]["stop_reason"] = (test.result_json or {}).get("stop_reason", "user_completed")
     result["assessment_coverage"]["supported_skills"] = list(engine.OBJECTIVE_SKILLS) + ["writing", "speaking"]
     result["assessment_coverage"]["supported_scope_status"] = "sufficient" if all(

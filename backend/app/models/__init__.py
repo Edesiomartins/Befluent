@@ -434,6 +434,21 @@ class PlacementItemDelivery(UUIDMixin, Base):
     consumed_at: Mapped[datetime|None]=mapped_column(DateTime(timezone=True), index=True)
     created_at: Mapped[datetime]=mapped_column(DateTime(timezone=True), default=now)
 
+class PlacementItemExposure(UUIDMixin, Base):
+    """Account-owned immutable exposure snapshots survive pedagogical resets."""
+    __tablename__ = "placement_item_exposures"
+    __table_args__ = (UniqueConstraint("user_id", "origin_key", name="uq_placement_exposure_origin"),)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    language_code: Mapped[str] = mapped_column(String(32), index=True)
+    origin_key: Mapped[str] = mapped_column(String(100))
+    source_test_id: Mapped[str] = mapped_column(String(36), index=True)
+    source_item_id: Mapped[str] = mapped_column(String(36))
+    keys_json: Mapped[dict] = mapped_column(JSON)
+    snapshot_json: Mapped[dict] = mapped_column(JSON, default=dict)
+    seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now)
+    answered_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+    feedback_revealed_at: Mapped[datetime|None] = mapped_column(DateTime(timezone=True))
+
 class ContentSource(UUIDMixin, Base):
     __tablename__="content_sources"
     language_id: Mapped[str|None]=mapped_column(ForeignKey("languages.id", ondelete="SET NULL"), index=True)

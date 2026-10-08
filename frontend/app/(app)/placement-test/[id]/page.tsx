@@ -1,4 +1,5 @@
 "use client";
+import { SKILL_LABELS } from "@/lib/levels";
 
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -170,40 +171,36 @@ export default function PlacementTestRunnerPage() {
     }
   }
 
-  const answered = progress?.answered ?? 0;
-  const target = progress?.target ?? 20;
-  const percent = Math.min(Math.round((answered / target) * 100), 100);
+  const answered = progress?.activities_completed ?? progress?.answered ?? 0;
+  const exhausted = ["bank_exhausted", "bank_freshness_exhausted"].includes(progress?.stop_reason ?? "");
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="flex items-baseline justify-between gap-4">
         <p className="text-sm font-semibold text-primary">Teste de nivelamento</p>
         <p className="text-sm text-text-secondary">
-          Atividade {Math.min(answered + 1, target)} de aproximadamente {target}
+          {answered} atividades concluídas
         </p>
       </div>
 
-      <div
-        className="mt-3 h-2.5 overflow-hidden rounded-full bg-surface-elevated"
-        role="progressbar"
-        aria-valuenow={percent}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Progresso do teste"
-      >
-        <div className="h-full rounded-full bg-primary transition-[width]" style={{ width: `${percent}%` }} />
-      </div>
+      {progress?.by_skill && <ul aria-label="Atividades por competência" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+        {Object.entries(progress.by_skill).map(([skill, count]) => <li key={skill}>{SKILL_LABELS[skill as keyof typeof SKILL_LABELS]}: {count?.completed ?? 0} concluídas</li>)}
+      </ul>}
+      {!!progress?.activities_skipped && <p className="mt-2 text-sm text-text-secondary">{progress.activities_skipped} atividades puladas</p>}
 
       <div aria-live="polite" className="mt-7">
+        {item?.exposure?.reused && <p className="mb-3 text-sm text-text-secondary">Atividade conhecida: esta resposta não será usada para estimar seu nível.</p>}
         {loading ? (
           <Loading label="Carregando atividade" />
         ) : error && !item ? (
           <ErrorState message={error} retry={() => void loadNext()} />
+        ) : !item && stage !== "ready_to_complete" ? (
+          <ErrorState message="Não foi possível confirmar o encerramento da coleta." retry={() => void loadNext()} />
         ) : stage === "ready_to_complete" || !item ? (
           <section className="panel p-6">
-            <h1 className="section-title">Tudo pronto</h1>
+            <h1 className="section-title">Coleta concluída</h1>
             <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Vamos reunir as evidências coletadas. Se faltar cobertura, o resultado será um perfil parcial, com as competências avaliadas.
+              {exhausted ? "A coleta foi encerrada porque não há mais atividades inéditas adequadas disponíveis. Você receberá um perfil parcial." : progress?.stop_reason === "maximum_reached" ? "A coleta atingiu o limite desta sessão. Vamos apresentar as evidências disponíveis, com um perfil parcial se faltar cobertura." : "A coleta atingiu o critério de encerramento desta sessão. Vamos reunir as evidências; se faltar cobertura, o resultado será um perfil parcial."}
             </p>
             {error && (
               <p role="alert" className="mt-4 text-sm text-danger">

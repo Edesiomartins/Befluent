@@ -78,7 +78,7 @@ export default function PlacementTestIntroPage() {
         <div className="mt-6 rounded-2xl border border-primary/25 bg-primary-soft/50 p-5" role="status">
           <h2 className="font-semibold">Você tem um teste em andamento</h2>
           <p className="mt-1 text-sm text-text-secondary">
-            {existing.progress.answered} de {existing.progress.target} atividades respondidas.
+            {existing.progress.activities_completed ?? existing.progress.answered} atividades concluídas.
           </p>
           <Link
             href={`/placement-test/${existing.id}`}

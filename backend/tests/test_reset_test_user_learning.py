@@ -74,6 +74,7 @@ def reset_database(tmp_path):
             if table.name in RESET_TABLES or table.name in {
                 "users", "user_preferences", "sessions", "password_reset_tokens",
                 "language_entitlements", "audit_logs", "content_reviews",
+                "placement_item_exposures",
             }:
                 continue
             overrides = {"code": "fr"} if table.name == "languages" else {}
@@ -101,7 +102,7 @@ def reset_database(tmp_path):
                          .where(Base.metadata.tables["user_languages"].c.id == ids["user_languages"])
                          .values(placement_test_id=ids["placement_tests"]))
             for name in ("user_preferences", "sessions", "password_reset_tokens",
-                         "language_entitlements", "audit_logs", "content_reviews"):
+                         "language_entitlements", "audit_logs", "content_reviews", "placement_item_exposures"):
                 overrides = {}
                 if name == "user_preferences":
                     overrides = {"default_language_id": global_ids["languages"],
@@ -109,6 +110,9 @@ def reset_database(tmp_path):
                                                    "skills": ["reading"], "minutes_per_day": 20}}
                 if name in {"sessions", "password_reset_tokens"}:
                     overrides = {"expires_at": datetime.now(timezone.utc) + timedelta(days=1)}
+                if name == "placement_item_exposures":
+                    overrides = {"origin_key": f"delivery:{ids['placement_item_deliveries']}",
+                        "source_test_id": ids["placement_tests"], "source_item_id": global_ids["placement_items"]}
                 ids[name] = seed_row(conn, Base.metadata.tables[name], ids, tag, **overrides)
             ids_by_user[tag] = ids
     yield engine, path, ids_by_user
