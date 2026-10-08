@@ -6,21 +6,22 @@ import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { SKILL_LABELS, levelShortCode } from "@/lib/levels";
+import {
+  PARTIAL_PROFILE_LEAD,
+  PARTIAL_PROFILE_TITLE,
+  PLANNING_LEVEL_NOTE,
+  hasMeasuredOverall,
+  isPartialProfile,
+  journeyStartLabel,
+  orderedSkills,
+  planningRecommendation,
+  priorityReasonLabel,
+  skillBandLabel,
+  skillEvidenceLine,
+} from "@/lib/placement-result-copy";
 import { createCurriculum } from "@/hooks/use-curriculum";
 import { DURATIONS, type Duration } from "@/types/curriculum";
 import type { PlacementResult, SkillResult } from "@/types/placement";
-
-const STATUS_LABELS: Record<SkillResult["status"], string> = {
-  assessed: "",
-  estimated: "",
-  provisional: "estimativa provisória",
-  insufficient_evidence: "evidência insuficiente para uma faixa",
-  not_collected: "não coletada",
-  unavailable: "indisponível",
-  calibrating: "em calibração",
-  not_assessed: "não avaliada",
-  not_available: "não avaliada",
-};
 
 const accuracy = (skill: SkillResult) => (skill.score ?? 0) / Math.max(skill.max_score ?? 0, 1);
 
@@ -162,14 +163,34 @@ export default function PlacementResultPage() {
   const params = useParams<{ id: string }>();
   const testId = params.id;
   const [result, setResult] = useState<PlacementResult | null>(null);
+  const [planningLevel, setPlanningLevel] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
     api<PlacementResult>(`/api/v1/placement-tests/${testId}/result`)
-      .then((payload) => {
-        if (active) setResult(payload);
+      .then(async (payload) => {
+        if (!active) return;
+        let planning: string | null = payload.planning_level ?? null;
+        const needsPlanning =
+          !planning &&
+          (payload.profile_status === "partial" ||
+            payload.overall_estimate_status === "partial" ||
+            payload.overall_level == null);
+        if (needsPlanning && payload.language_code) {
+          try {
+            const profile = await api<{ planning_level?: string | null }>(
+              `/api/v1/language-profiles/${encodeURIComponent(payload.language_code)}`,
+            );
+            planning = profile.planning_level ?? null;
+          } catch {
+            planning = null;
+          }
+        }
+        if (!active) return;
+        setPlanningLevel(planning);
+        setResult(payload);
       })
       .catch((caught) => {
         if (!active) return;
@@ -190,25 +211,35 @@ export default function PlacementResultPage() {
   if (loading) return <Loading label="Calculando seu resultado" />;
   if (error || !result) return <ErrorState message={error} />;
 
-  const notAssessed = result.skills.filter((skill) => skill.status !== "assessed");
+  const notAssessed = result.skills.filter((skill) => skill.status !== "assessed" && skill.status !== "estimated");
   const ranked = rankSkills(result);
   const priorities = result.priority_focus ?? result.recommendations;
   const hasPriorities = priorities.length > 0;
-  const calibrating = result.overall_estimate_status === "partial" || result.diagnostic_status === "calibrating";
+  const partial = isPartialProfile(result);
+  const measured = hasMeasuredOverall(result);
+  const calibrating = !partial && !measured && result.diagnostic_status === "calibrating";
+  const journeyHref = result.curriculum?.day_href || "/cronograma";
 
   return (
     <div className="mx-auto max-w-3xl">
       <p className="text-sm font-semibold text-primary">Resultado</p>
       <h1 className="mt-2 page-title">
-        {calibrating ? result.overall_estimate_status === "partial" ? "Perfil parcial de competências" : "Estamos calibrando suas habilidades" : "Seu nível estimado"}
+        {partial ? PARTIAL_PROFILE_TITLE : measured ? "Seu nível estimado" : "Estamos calibrando suas habilidades"}
       </h1>
 
       <section className="panel mt-7 p-6">
-        {calibrating ? (
-          <p className="leading-7 text-text-secondary">
-            Ainda não há cobertura suficiente para um nível global. Os resultados válidos de cada competência foram preservados; competências sem evidência permanecem sem classificação.
-          </p>
-        ) : (
+        {partial ? (
+          <>
+            <p className="leading-7 text-text-secondary">{PARTIAL_PROFILE_LEAD}</p>
+            {planningLevel && (
+              <div className="mt-5 rounded-xl border border-border bg-[var(--surface-soft)] p-4">
+                <p className="text-sm font-semibold text-text-secondary">Para começar o plano</p>
+                <p className="mt-1 text-lg font-semibold">{planningRecommendation(planningLevel)}</p>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">{PLANNING_LEVEL_NOTE}</p>
+              </div>
+            )}
+          </>
+        ) : measured ? (
           <>
             <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
               <span className="text-4xl font-bold tracking-tight text-primary">
@@ -220,10 +251,16 @@ export default function PlacementResultPage() {
               <p className="mt-3 leading-7 text-text-secondary">{result.overall.short_description}</p>
             )}
           </>
+        ) : (
+          <p className="leading-7 text-text-secondary">
+            Ainda não há cobertura suficiente para um nível global. Os resultados válidos de cada competência foram preservados; competências sem evidência permanecem sem classificação.
+          </p>
         )}
-        <p className="mt-4 text-sm text-text-secondary">{skillMessage(result, ranked)}</p>
+        {!partial && (
+          <p className="mt-4 text-sm text-text-secondary">{skillMessage(result, ranked)}</p>
+        )}
 
-        {result.confidence_score != null && (
+        {measured && result.confidence_score != null && (
           <p className="mt-4 text-sm">
             <span className="text-text-secondary">Confiança da estimativa: </span>
             <span className="font-semibold">
@@ -231,35 +268,35 @@ export default function PlacementResultPage() {
             </span>
           </p>
         )}
-        <p className="mt-4 border-t border-border pt-4 text-sm text-text-secondary">
-          {result.disclaimer}
-        </p>
+        {measured && (
+          <p className="mt-4 border-t border-border pt-4 text-sm text-text-secondary">
+            {result.disclaimer}
+          </p>
+        )}
       </section>
 
       <section className="panel mt-5 p-6">
         <h2 className="section-title">Competências</h2>
-        <ul className="mt-4 grid gap-3">
-          {result.skills.map((skill) => (
-            <li
-              key={skill.skill}
-              className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 text-sm last:border-0 last:pb-0"
-            >
-              <span className="font-medium">{skill.label}</span>
-              {(skill.status === "assessed" || skill.status === "estimated" || skill.status === "provisional") && skill.estimated_level ? (
-                <span className="font-semibold text-primary">
-                  {levelShortCode(skill.estimated_level)}{skill.status === "provisional" && " — provisório"}
-                </span>
-              ) : (
-                <span className="text-text-secondary">{STATUS_LABELS[skill.status]}</span>
-              )}
-              {skill.evidence_counts && <p className="w-full text-xs text-text-secondary">{skill.evidence_counts.answered} resposta(s) coletada(s){skill.score != null && skill.max_score != null ? ` · ${skill.score}/${skill.max_score} na tarefa` : ""}</p>}
-            </li>
-          ))}
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {orderedSkills(result.skills).map((skill) => {
+            const evidence = skillEvidenceLine(skill);
+            return (
+              <li key={skill.skill} className="rounded-xl border border-border bg-surface p-4">
+                <p className="text-sm text-text-secondary">{skill.label}</p>
+                <p className="mt-1 text-lg font-semibold">{skillBandLabel(skill)}</p>
+                {evidence && <p className="mt-1 text-sm text-text-secondary">{evidence}</p>}
+              </li>
+            );
+          })}
         </ul>
-        {notAssessed.length > 0 && (
+        {measured && notAssessed.length > 0 && (
           <p className="mt-4 text-sm text-text-secondary">
             Competências não avaliadas não entraram no cálculo do nível geral.
-            {!result.speaking_available && " A avaliação de fala ainda não está disponível."}
+          </p>
+        )}
+        {!result.speaking_available && (
+          <p className="mt-4 text-sm text-text-secondary">
+            A avaliação de fala ainda não está disponível.
           </p>
         )}
       </section>
@@ -296,11 +333,7 @@ export default function PlacementResultPage() {
                         SKILL_LABELS[item.skill]
                       )}
                       <span className="text-text-secondary">
-                        {item.reason === "below_overall" || item.reason === "needs_practice"
-                          ? " — abaixo do nível geral"
-                          : item.reason === "lowest_accuracy"
-                            ? " — menor acurácia recente"
-                            : " — precisa de mais evidência"}
+                        {priorityReasonLabel(item.reason, measured)}
                       </span>
                     </li>
                   ))}
@@ -311,17 +344,26 @@ export default function PlacementResultPage() {
         </section>
       )}
 
-      {!calibrating && (
+      {measured && !calibrating && (
         <BuildCurriculum languageCode={result.language_code} curriculum={result.curriculum} />
       )}
 
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
-        <Link
-          href={result.curriculum?.day_href || "/dashboard"}
-          className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
-        >
-          {result.curriculum ? "Continuar caminho" : "Ir para o dashboard"}
-        </Link>
+        {partial && planningLevel ? (
+          <Link
+            href={journeyHref}
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
+          >
+            {journeyStartLabel(planningLevel)}
+          </Link>
+        ) : (
+          <Link
+            href={result.curriculum?.day_href || "/dashboard"}
+            className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"
+          >
+            {result.curriculum ? "Continuar caminho" : "Ir para o dashboard"}
+          </Link>
+        )}
         <Link
           href="/dashboard"
           className="inline-flex min-h-11 items-center rounded-xl border-2 border-border bg-surface px-5 text-sm font-bold hover:bg-surface-elevated"

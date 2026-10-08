@@ -25,6 +25,7 @@ from app.models import (
 from app.services.progress import aggregate_progress
 from app.services.language_progress import observe_language_progress
 from app.services.assessment_level import verified_current_level
+from app.services.placement_planning import assessment_payload
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -66,7 +67,7 @@ def _level_block(ul: UserLanguage) -> dict:
         "last_assessment_id": ul.last_assessment_id,
         "assessment_status": assessment.get("overall_estimate_status"),
         "assessment_coverage": assessment.get("assessment_coverage"),
-        "planning_level": ul.planning_level,
+        **assessment_payload(ul),
     }
 
 

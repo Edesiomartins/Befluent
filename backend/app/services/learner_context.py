@@ -199,13 +199,16 @@ class LearnerContext:
             f"target_language={self.language_code}",
             f"native_language={self.native_language or 'not_selected'}",
             f"CEFR={target}",
-            f"Nível CEFR do aluno: {target} — {LEVEL_DETAILS[target]['name_pt']}",
+            (f"Faixa operacional da atividade: {target} — planejamento, não CEFR global medido"
+             if self.level_source == "planning" else f"Nível CEFR do aluno: {target} — {LEVEL_DETAILS[target]['name_pt']}"),
             f"Descrição do nível: {LEVEL_DETAILS[target]['short_description']}",
         ]
 
         lines.append(str(language_policy(self.language_code, self.native_language, target)))
 
-        if self.level_is_estimated:
+        if self.level_source == "planning":
+            lines.append("Origem da faixa: planejamento operacional de perfil parcial; não apresentar como CEFR global avaliado")
+        elif self.level_is_estimated:
             confidence = (
                 f" (confiança da estimativa: {self.confidence_score:.0f}/100)"
                 if self.confidence_score is not None
@@ -310,6 +313,7 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
     interests: list[str] = []
     recent_terms: list[str] = []
     if profile:
+        from app.services.assessment_level import verified_current_level
         interests = load_personal_interests(db, profile.id)
         recent_terms = list(
             db.scalars(
@@ -332,12 +336,19 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
     if profile:
         # `current_level` é CEFR; `level_estimate` pode guardar rótulo legado.
         level = (
-            normalize_level(profile.current_level)
+            normalize_level(verified_current_level(profile))
             or normalize_level(profile.planning_level)
-            or normalize_level(profile.level_estimate)
             or DEFAULT_LEVEL
         )
         level_source = profile.level_source or LevelSource.PENDING
+        if not verified_current_level(profile) and normalize_level(profile.planning_level):
+            level_source = "planning"
+        elif not profile.current_level and not profile.planning_level and not profile.assessment_summary_json:
+            # Preserve legacy self-declaration as an operational input, never a measured claim.
+            legacy_declared = normalize_level(profile.level_estimate)
+            if legacy_declared:
+                level = legacy_declared
+                level_source = "legacy_declared"
         confidence = profile.confidence_score
         for code, column in SKILL_COLUMNS.items():
             skill_levels[code] = normalize_level(getattr(profile, column, None))

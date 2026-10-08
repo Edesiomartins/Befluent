@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { PlacementSpeaking } from "@/components/placement-speaking";
 import { Button, ErrorState, Loading } from "@/components/ui";
+import { collectionEnding } from "@/lib/placement-result-copy";
 import type { NextItemResponse, PlacementItem, PlacementProgress } from "@/types/placement";
 
 function AudioPrompt({ script, languageCode }: { script: string; languageCode: string }) {
@@ -172,7 +173,7 @@ export default function PlacementTestRunnerPage() {
   }
 
   const answered = progress?.activities_completed ?? progress?.answered ?? 0;
-  const exhausted = ["bank_exhausted", "bank_freshness_exhausted"].includes(progress?.stop_reason ?? "");
+  const ending = collectionEnding(progress?.stop_reason);
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -198,10 +199,7 @@ export default function PlacementTestRunnerPage() {
           <ErrorState message="Não foi possível confirmar o encerramento da coleta." retry={() => void loadNext()} />
         ) : stage === "ready_to_complete" || !item ? (
           <section className="panel p-6">
-            <h1 className="section-title">Coleta concluída</h1>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
-              {exhausted ? "A coleta foi encerrada porque não há mais atividades inéditas adequadas disponíveis. Você receberá um perfil parcial." : progress?.stop_reason === "maximum_reached" ? "A coleta atingiu o limite desta sessão. Vamos apresentar as evidências disponíveis, com um perfil parcial se faltar cobertura." : "A coleta atingiu o critério de encerramento desta sessão. Vamos reunir as evidências; se faltar cobertura, o resultado será um perfil parcial."}
-            </p>
+            <h1 className="section-title leading-7">{ending}</h1>
             {error && (
               <p role="alert" className="mt-4 text-sm text-danger">
                 {error}

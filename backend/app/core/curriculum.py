@@ -48,6 +48,7 @@ class BlockStatus(StrEnum):
 
 class GeneratedFrom(StrEnum):
     PLACEMENT = "placement"
+    PLANNING = "planning"
     MANUAL = "manual"
     ONBOARDING = "onboarding"
 

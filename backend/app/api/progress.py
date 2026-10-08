@@ -9,6 +9,7 @@ from app.models import Language, LearningGoal, User, UserLanguage
 from app.services.progress import aggregate_mastery_progress, aggregate_progress, resolve_timezone
 from app.services.language_progress import observe_language_progress
 from app.services.assessment_level import verified_current_level
+from app.services.placement_planning import assessment_payload
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 
@@ -85,7 +86,7 @@ def progress(
                 "native_name": lang.native_name,
                 "level_estimate": verified_current_level(ul),
                 "current_level": verified_current_level(ul),
-                "planning_level": ul.planning_level,
+                **assessment_payload(ul),
                 "goal": goal,
                 "skills": skills,
             }

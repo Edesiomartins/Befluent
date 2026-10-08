@@ -47,6 +47,7 @@ def _profile(db_session, level: str, **columns) -> None:
             language_id=language.id,
             current_level=level,
             level_source=LevelSource.PLACEMENT_TEST,
+            assessment_summary_json={"global_estimate_status": "sufficient"},
             is_active=True,
             onboarding_completed=True,
             **columns,

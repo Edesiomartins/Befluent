@@ -137,6 +137,8 @@ def hydrate_skill_levels(profile: UserLanguage, level: str) -> bool:
     gerador recusa o cronograma. Só preenche o que estiver vazio — nunca
     sobrescreve um resultado de teste.
     """
+    if (profile.assessment_summary_json or {}).get("overall_estimate_status") == "partial":
+        return False
     cefr = normalize_level(level)
     if not cefr:
         return False
@@ -177,8 +179,9 @@ def ensure_active_curriculum(
     if profile is None:
         raise APIError(404, "language_not_configured", "Idioma não configurado para o usuário.")
 
-    if not assessed_skill_levels(profile):
-        fallback = normalize_level(profile.current_level) or normalize_level(profile.level_estimate)
+    if not assessed_skill_levels(profile) and not profile.planning_level:
+        from app.services.assessment_level import verified_current_level
+        fallback = normalize_level(verified_current_level(profile))
         if fallback:
             hydrate_skill_levels(profile, fallback)
         db.flush()
@@ -511,6 +514,9 @@ def generate_curriculum(
     if not language:
         raise APIError(404, "language_not_found", "Idioma não encontrado.")
 
+    planning = normalize_level(profile.planning_level)
+    if planning and (generated_from == GeneratedFrom.PLANNING or not profile.diagnostic_completed):
+        generated_from = GeneratedFrom.PLANNING
     if generated_from == GeneratedFrom.PLACEMENT and not profile.diagnostic_completed:
         raise APIError(
             409,
@@ -519,7 +525,7 @@ def generate_curriculum(
         )
 
     skill_levels = assessed_skill_levels(profile)
-    if not skill_levels:
+    if not skill_levels and not planning:
         raise APIError(
             409,
             "placement_required",
@@ -527,7 +533,7 @@ def generate_curriculum(
             "sem níveis por competência não há como definir o ponto de entrada.",
         )
 
-    entry_level = median_level(skill_levels)
+    entry_level = planning or median_level(skill_levels)
     target_level = target_level_for(entry_level, duration_days)
     first_day = start_date or date.today()
     week_one_priorities = priority_block_skills(profile, generated_from=generated_from)

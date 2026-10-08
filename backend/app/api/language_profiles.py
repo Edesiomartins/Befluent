@@ -16,6 +16,7 @@ from app.models import Language, LearningGoal, User, UserLanguage, UserPreferenc
 from app.schemas import LanguageProfileUpdate
 from app.services.language_access import language_access_state, user_can_access_language
 from app.services.assessment_level import verified_current_level
+from app.services.placement_planning import assessment_payload
 
 router = APIRouter(prefix="/language-profiles", tags=["language-profiles"])
 
@@ -32,14 +33,18 @@ def _profile_payload(
     profile: UserLanguage, language: Language, ui_prefs: dict, access_state: str
 ) -> dict:
     skills = []
+    latest_skills = (profile.assessment_summary_json or {}).get("skills", {})
     for skill, column in SKILL_COLUMNS.items():
         level = getattr(profile, column)
+        latest = latest_skills.get(skill, {})
+        displayed_level = latest.get("estimated_level", level)
         skills.append(
             {
                 "skill": skill,
                 "label": SKILL_LABELS[skill],
                 "estimated_level": level,
-                "level": level_payload(level) if level else None,
+                "level": level_payload(displayed_level) if displayed_level else None,
+                **latest,
             }
         )
 
@@ -58,7 +63,7 @@ def _profile_payload(
         "last_assessment_id": profile.last_assessment_id,
         "assessment_status": (profile.assessment_summary_json or {}).get("overall_estimate_status"),
         "assessment_coverage": (profile.assessment_summary_json or {}).get("assessment_coverage"),
-        "planning_level": profile.planning_level,
+        **assessment_payload(profile),
         "confidence_score": None if profile.level_source in {LevelSource.PLACEMENT_TEST, LevelSource.CHECKPOINT} else profile.confidence_score,
         "skills": skills,
         "recommendations": profile.recommendations_json or [],

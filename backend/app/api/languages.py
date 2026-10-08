@@ -8,6 +8,7 @@ from app.core.errors import APIError
 from app.models import Language,User,UserLanguage
 from app.schemas import LanguageActivate
 from app.services.assessment_level import verified_current_level
+from app.services.placement_planning import assessment_payload
 from app.services.language_access import (
     ensure_legacy_language_entitlement,
     language_access_state,
@@ -30,7 +31,7 @@ def mine(db:Session=Depends(get_db),user:User=Depends(current_user)):
         "active":ul.is_active,
         "level_estimate": verified_current_level(ul),
         "current_level": verified_current_level(ul),
-        "planning_level": ul.planning_level,
+        **assessment_payload(ul),
         "assessment_status": (ul.assessment_summary_json or {}).get("overall_estimate_status"),
         "onboarding_completed":ul.onboarding_completed,
     } for ul,lang in rows]

@@ -72,6 +72,9 @@ export type Recommendation = {
 };
 
 export type PlacementResult = {
+  profile_status?: "partial" | "complete";
+  /** Presente só se o payload do resultado já trouxer. A fonte atual é o perfil linguístico. */
+  planning_level?: CefrLevel | null;
   overall_estimate_status?: "partial" | "sufficient";
   assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string; reused_evidence?: number };
   id: string;

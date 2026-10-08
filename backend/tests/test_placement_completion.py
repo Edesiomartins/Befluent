@@ -46,7 +46,8 @@ def test_complete_with_writing_and_retry_preserves_all_rows(db_session, preexist
 
     first = complete_test(test.id, db_session, user)
     assert first["status"] == "completed"
-    assert first["curriculum"] is None
+    assert first["curriculum"]["generated_from"] == "planning"
+    assert first["curriculum"]["entry_level_source"] == "planning"
     assert first["overall_estimate_status"] == "partial"
     sections = list(db_session.scalars(select(PlacementTestSection).where(
         PlacementTestSection.test_id == test.id)))

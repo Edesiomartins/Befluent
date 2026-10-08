@@ -637,6 +637,8 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     production = {a.skill: production_result(a) for a in answers if a.skill in engine.PRODUCTION_SKILLS}
     result = engine.build_result(scored, duration_seconds=duration, production_results=production)
     adjust_result(result, answers)
+    from app.services.placement_planning import planning_decision
+    result.update(planning_decision(result))
     capacity = (test.result_json or {}).get("coverage_plan") or bank_capacity(db, test.language_code)
     result["assessment_coverage"].update(capacity)
     result["assessment_coverage"]["bank_freshness"] = bank_freshness(db, user.id, test.language_code, test.id)
@@ -684,6 +686,8 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
             setattr(section, field, value)
 
     _apply_to_profile(db, test, result, user)
+    # Application may retain prior planning supported by a valid global level.
+    test.result_json = {**(test.result_json or {}), **result}
     # Checkpoint do cronograma: corrige a origem do nível e avalia a promoção
     # das semanas ainda pendentes. Teste comum não passa por aqui.
     if test.source == CHECKPOINT_SOURCE:
@@ -698,7 +702,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
                     UserLanguage.language_id == language.id,
                 )
             )
-            if profile is not None and result["diagnostic_status"] == "ready":
+            if profile is not None and (result["diagnostic_status"] == "ready" or profile.planning_level):
                 # A ready diagnostic has objective skill levels. Failure to
                 # consolidate its curriculum must roll back the whole request,
                 # rather than commit a completed test that retries cannot repair.
@@ -706,7 +710,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
                     db,
                     profile.id,
                     duration_days=90,
-                    generated_from=GeneratedFrom.PLACEMENT,
+                    generated_from=GeneratedFrom.PLACEMENT if result["diagnostic_status"] == "ready" else GeneratedFrom.PLANNING,
                 )
     db.commit()
     return _result_payload(db, test, user=user)
@@ -714,6 +718,9 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
 
 def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User) -> None:
     """Grava o resultado no perfil linguístico (user_languages)."""
+    if "planning_level" not in result:
+        from app.services.placement_planning import planning_decision
+        result.update(planning_decision(result))
     language = db.scalar(select(Language).where(Language.code == test.language_code))
     if not language:
         return
@@ -732,18 +739,32 @@ def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User
     skills = result["skills"]
     previous_summary = profile.assessment_summary_json or {}
     previous_global_status = previous_summary.get("global_estimate_status", previous_summary.get("overall_estimate_status"))
+    from app.services.assessment_level import verified_current_level
+    has_previous_level = verified_current_level(profile) is not None
+    if not has_previous_level or (result["overall_estimate_status"] == "sufficient" and test.source != CHECKPOINT_SOURCE):
+        profile.planning_level = result["planning_level"]
+        profile.planning_level_source = result["planning_level_source"]
+        planning = {key: result[key] for key in ("planning_level", "planning_level_source", "planning_level_reason", "planning_level_trace")}
+    else:
+        if not profile.planning_level:
+            profile.planning_level = verified_current_level(profile)
+            profile.planning_level_source = "prior_global"
+        planning = {"planning_level": profile.planning_level,
+                    "planning_level_source": profile.planning_level_source or "prior_global",
+                    "planning_level_reason": "Mantida a entrada anterior apoiada por nível global vigente; este assessment não a substitui.",
+                    "planning_level_trace": {"action": "retained_prior_planning",
+                        "retained_global_level": verified_current_level(profile),
+                        "assessment_proposed_level": result["planning_level"],
+                        "assessment_proposal": result["planning_level_trace"]}}
+        result.update(planning)
     profile.last_assessment_id = test.id
     profile.assessment_summary_json = {
         "overall_estimate_status": result["overall_estimate_status"],
         "global_estimate_status": "sufficient" if result["overall_estimate_status"] == "sufficient" and test.source != CHECKPOINT_SOURCE else previous_global_status,
         "assessment_coverage": result["assessment_coverage"],
         "skills": skills, "policy_version": result["policy_version"],
+        "profile_status": result["profile_status"], "overall_level": result["overall_level"], "planning": planning,
     }
-    objective_levels = [r["estimated_level"] for s, r in skills.items()
-                        if s in engine.OBJECTIVE_SKILLS and r["status"] == "estimated"]
-    if objective_levels and not profile.planning_level:
-        profile.planning_level = min(objective_levels, key=engine.LEVEL_INDEX.__getitem__)
-        profile.planning_level_source = "partial_placement"
     sufficient = result["overall_estimate_status"] == "sufficient" and test.source != CHECKPOINT_SOURCE
     if sufficient:
         profile.current_level = result["overall_level"]
@@ -855,6 +876,8 @@ def _curriculum_summary(db: Session, user: User | None, language_code: str) -> d
         "duration_days": curriculum.duration_days,
         "entry_level": curriculum.entry_level,
         "target_level": curriculum.target_level,
+        "generated_from": curriculum.generated_from,
+        "entry_level_source": "planning" if curriculum.generated_from == "planning" else "assessment_or_declared",
         "day_href": f"/cronograma/dia/{day.id}" if day else "/cronograma",
     }
 
@@ -874,6 +897,9 @@ def _result_payload(db: Session, test: PlacementTest, *, user: User | None = Non
                "level": level_payload(data["estimated_level"]) if data["estimated_level"] else None}
               for skill, data in result["skills"].items()]
 
+    if "planning_level" not in result:
+        from app.services.placement_planning import planning_decision
+        result.update(planning_decision(result))
     overall = result.get("overall_level")
     return {
         **result,

@@ -270,7 +270,7 @@ class TestCompletion:
         assert profile.level_source == "pending"
         assert profile.diagnostic_completed is False
 
-    def test_amostra_sem_evidencia_retorna_calibrating_sem_curriculo_longo(
+    def test_amostra_sem_faixa_global_retorna_calibrating_com_curriculo_planning(
         self, client, auth, db_session
     ):
         test_id = create_test(client, auth).json()["id"]
@@ -282,7 +282,8 @@ class TestCompletion:
         assert body["overall_level"] is None
         assert body["confidence_score"] is None
         assert len(body["priority_focus"]) <= 3
-        assert body["curriculum"] is None
+        assert body["curriculum"]["generated_from"] == "planning"
+        assert body["planning_level"] == "PRE_A1"
         assert all(skill["estimated_level"] is None for skill in body["skills"])
 
         profile = db_session.scalar(

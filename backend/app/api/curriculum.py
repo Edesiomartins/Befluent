@@ -417,6 +417,8 @@ def _curriculum_payload(db: Session, curriculum: Curriculum, *, with_progress: b
         "target": level_payload(curriculum.target_level),
         "status": curriculum.status,
         "generated_from": curriculum.generated_from,
+        "entry_level_source": "planning" if curriculum.generated_from == "planning" else "assessment_or_declared",
+        "entry_is_measured_global": False if curriculum.generated_from == "planning" else None,
         "weeks_total": db.scalar(
             select(func.count(CurriculumWeek.id)).where(
                 CurriculumWeek.curriculum_id == curriculum.id
@@ -424,7 +426,8 @@ def _curriculum_payload(db: Session, curriculum: Curriculum, *, with_progress: b
         )
         or 0,
         "disclaimer": (
-            "Cronograma estimado a partir do teste de nivelamento: "
+            ("Plano de aprendizagem com entrada operacional; não é CEFR global medido. " if curriculum.generated_from == "planning" else "Cronograma estimado a partir do teste de nivelamento: ")
+            +
             f"{curriculum.duration_days} jornadas recomendadas (não dias de calendário "
             "obrigatórios). Não é garantia de atingir o nível-meta no prazo."
         ),

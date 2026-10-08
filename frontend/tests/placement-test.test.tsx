@@ -73,8 +73,33 @@ it.each(["bank_exhausted", "bank_freshness_exhausted"])("explica encerramento pa
   mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
     progress: { ...progress, activities_completed: 17, stop_reason: reason } } : { language_code: "en" });
   render(<PlacementTestRunnerPage />);
-  expect(await screen.findByText(/não há mais atividades inéditas adequadas/)).toBeInTheDocument();
-  expect(screen.getByText(/perfil parcial/)).toBeInTheDocument();
+  expect(await screen.findByRole("heading", {
+    name: "A coleta foi encerrada porque não há mais atividades inéditas adequadas disponíveis. Você receberá um perfil parcial.",
+  })).toBeInTheDocument();
+  expect(screen.getByText("17 atividades concluídas")).toBeInTheDocument();
+  expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+});
+
+it("explica ready_to_complete quando as evidências previstas foram reunidas", async () => {
+  mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
+    progress: { ...progress, activities_completed: 17, stop_reason: "objective_coverage_satisfied" } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByRole("heading", {
+    name: "Coleta concluída. As evidências previstas foram reunidas.",
+  })).toBeInTheDocument();
+  expect(screen.getByText("17 atividades concluídas")).toBeInTheDocument();
+  expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+it("explica maximum_reached sem prometer perfil além das evidências", async () => {
+  mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
+    progress: { ...progress, activities_completed: 17, stop_reason: "maximum_reached" } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByRole("heading", {
+    name: "A coleta atingiu o limite desta sessão. Vamos apresentar as evidências disponíveis.",
+  })).toBeInTheDocument();
+  expect(screen.queryByText(/perfil parcial se faltar cobertura/)).not.toBeInTheDocument();
 });
 
 it("coleta fala por áudio e oferece pular sem inventar nível", async () => {
@@ -168,7 +193,15 @@ describe("Execução do teste", () => {
   it("não revela o nível da questão nem a resposta correta", async () => {
     mockRoute((path) =>
       path.includes("next-item")
-        ? { item: objectiveItem, stage: "objective", progress }
+        ? {
+            item: {
+              ...objectiveItem,
+              correct_answer: "Good morning",
+              explanation: "A saudação da manhã é a primeira opção.",
+            },
+            stage: "objective",
+            progress,
+          }
         : { language_code: "en" },
     );
 
@@ -177,6 +210,9 @@ describe("Execução do teste", () => {
 
     expect(screen.queryByText(/A1|A2|B1|B2/)).not.toBeInTheDocument();
     expect(screen.queryByText(/correta/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("A saudação da manhã é a primeira opção.")).not.toBeInTheDocument();
+    expect(screen.queryByText(/alternativa correta/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/revisão item/i)).not.toBeInTheDocument();
   });
 
   it("exige seleção antes de continuar", async () => {
@@ -417,6 +453,191 @@ describe("Resultado", () => {
       await screen.findByText("Seu desempenho ficou equilibrado entre as competências avaliadas."),
     ).toBeInTheDocument();
     expect(screen.queryByText("Ponto forte")).not.toBeInTheDocument();
+  });
+
+  const partialSkills = [
+    {
+      skill: "vocabulary_grammar",
+      label: "Vocabulário e gramática",
+      estimated_level: "PRE_A1",
+      level: null,
+      score: 5,
+      max_score: 8,
+      status: "estimated",
+      evidence_counts: { answered: 8, valid: 8, excluded: 0, by_cefr: {} },
+    },
+    {
+      skill: "reading",
+      label: "Leitura",
+      estimated_level: null,
+      level: null,
+      score: 4,
+      max_score: 4,
+      status: "insufficient_evidence",
+      evidence_counts: { answered: 4, valid: 4, excluded: 0, by_cefr: {} },
+    },
+    {
+      skill: "listening",
+      label: "Compreensão auditiva",
+      estimated_level: null,
+      level: null,
+      score: 4,
+      max_score: 4,
+      status: "insufficient_evidence",
+      evidence_counts: { answered: 4, valid: 4, excluded: 0, by_cefr: {} },
+    },
+    {
+      skill: "writing",
+      label: "Escrita",
+      estimated_level: "B1",
+      level: null,
+      score: 0.96,
+      max_score: 1,
+      status: "provisional",
+      evidence_counts: { answered: 1, valid: 1, excluded: 0, by_cefr: {} },
+      feedback: "A alternativa correta era um texto mais longo.",
+      explanation: "Revisão item a item da escrita.",
+    },
+    {
+      skill: "speaking",
+      label: "Fala",
+      estimated_level: "A1",
+      level: null,
+      score: 0.7,
+      max_score: 1,
+      status: "provisional",
+      evidence_counts: { answered: 1, valid: 1, excluded: 0, by_cefr: {} },
+    },
+  ];
+
+  const partialResult = {
+    ...result,
+    overall_level: null,
+    overall: null,
+    profile_status: "partial" as const,
+    overall_estimate_status: "partial" as const,
+    diagnostic_status: "calibrating" as const,
+    confidence_score: null,
+    confidence_label: null,
+    speaking_available: true,
+    curriculum: null,
+    recommendations: [],
+    priority_focus: [],
+    skills: partialSkills,
+  };
+
+  function routePartial(
+    planning: string | null,
+    curriculum: {
+      id: string;
+      duration_days: number;
+      entry_level: string;
+      target_level: string;
+      day_href: string;
+    } | null = null,
+  ) {
+    mockRoute((path) =>
+      String(path).includes("language-profiles")
+        ? { planning_level: planning, language_code: "en" }
+        : { ...partialResult, curriculum: curriculum ?? null },
+    );
+  }
+
+  it("mostra perfil parcial com planning_level sem chamá-lo de nível global", async () => {
+    routePartial("A1");
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Ainda não há evidência suficiente para determinar um nível global com segurança."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nível recomendado para iniciar sua jornada: A1")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Esse nível é usado apenas para iniciar seu plano de estudo e será ajustado conforme novas evidências forem coletadas.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute(
+      "href",
+      "/cronograma",
+    );
+    expect(screen.getByText("Pré-A1")).toBeInTheDocument();
+    expect(screen.getByText("5 acertos em 8 questões")).toBeInTheDocument();
+    expect(screen.getAllByText("Faixa ainda não determinada")).toHaveLength(2);
+    expect(screen.getAllByText("4 acertos em 4 questões")).toHaveLength(2);
+    expect(screen.getByText("B1 — provisório")).toBeInTheDocument();
+    expect(screen.getByText("1 produção escrita avaliada")).toBeInTheDocument();
+    expect(screen.getByText("A1 — provisório")).toBeInTheDocument();
+    expect(screen.getByText("1 amostra de fala avaliada")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Seu nível estimado" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/seu nível é a1/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/não entraram no cálculo do nível geral/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/resposta\(s\) coletada/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/na tarefa/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/alternativa correta/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Revisão item a item/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Monte seu cronograma")).not.toBeInTheDocument();
+  });
+
+  it("mostra perfil parcial sem planning_level e sem CTA de jornada", async () => {
+    routePartial(null);
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
+    expect(screen.queryByText(/Nível recomendado para iniciar sua jornada/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Começar minha jornada/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir para o dashboard" })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByText(/seu nível é/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/não entraram no cálculo do nível geral/)).not.toBeInTheDocument();
+  });
+
+  it("leva a jornada existente quando o parcial já tem dia de estudo", async () => {
+    routePartial("A1", {
+      id: "plan-1",
+      duration_days: 90,
+      entry_level: "A1",
+      target_level: "A2",
+      day_href: "/cronograma/dia/day-1",
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-1",
+    );
+    expect(screen.queryByText(/seu nível é a1/i)).not.toBeInTheDocument();
+  });
+
+  it("com overall suficiente mantém o nível global e o perfil por competência", async () => {
+    mockRoute(() => ({
+      ...result,
+      profile_status: "complete",
+      overall_estimate_status: "sufficient",
+      skills: [
+        {
+          skill: "vocabulary_grammar",
+          label: "Vocabulário e gramática",
+          estimated_level: "B1",
+          level: null,
+          score: 6,
+          max_score: 8,
+          status: "estimated",
+        },
+        ...result.skills,
+      ],
+    }));
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Seu nível estimado" })).toBeInTheDocument();
+    expect(screen.getAllByText("B1").length).toBeGreaterThan(0);
+    expect(screen.getByText("6 acertos em 8 questões")).toBeInTheDocument();
+    expect(screen.getByText("Vocabulário e gramática")).toBeInTheDocument();
+    expect(screen.getAllByText("Leitura").length).toBeGreaterThan(0);
+    expect(screen.queryByRole("heading", { name: "Perfil de competências" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nível recomendado para iniciar sua jornada/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/resposta\(s\) coletada/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/na tarefa/)).not.toBeInTheDocument();
   });
 
   it("mostra erro quando o resultado não carrega", async () => {

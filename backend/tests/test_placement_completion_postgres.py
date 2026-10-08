@@ -43,7 +43,10 @@ def test_parallel_completion_refreshes_stale_status_and_preserves_downstream(pos
     with Session(engine, autoflush=False) as db:
         profile = db.scalar(select(UserLanguage).where(UserLanguage.user_id == user_id))
         assert db.scalar(select(func.count()).select_from(UserLanguage).where(UserLanguage.user_id == user_id)) == 1
-        assert db.scalar(select(func.count()).select_from(Curriculum).where(Curriculum.user_language_id == profile.id)) == 0
+        assert db.scalar(select(func.count()).select_from(Curriculum).where(Curriculum.user_language_id == profile.id)) == 1
+        curriculum = db.scalar(select(Curriculum).where(Curriculum.user_language_id == profile.id))
+        assert curriculum.generated_from == "planning"
+        assert profile.current_level is None
         assert db.scalar(select(func.count()).select_from(PlacementTestSection).where(PlacementTestSection.test_id == test_id)) == 5
         def snapshot():
             return {table.name: list(db.execute(select(table)).mappings()) for table in Base.metadata.sorted_tables}
