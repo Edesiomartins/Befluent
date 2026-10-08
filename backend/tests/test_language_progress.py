@@ -55,6 +55,7 @@ def _profile(db_session, code: str, *, level: str | None = "A1") -> UserLanguage
         is_active=code == "en",
         current_level=level,
         level_source="placement_test",
+        assessment_summary_json={"overall_estimate_status": "sufficient", "policy_version": "placement-coverage-v2"},
     )
     db_session.add(profile)
     db_session.commit()

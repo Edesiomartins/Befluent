@@ -15,6 +15,7 @@ from app.core.levels import SKILL_LABELS, LevelSource, Skill, level_payload
 from app.models import Language, LearningGoal, User, UserLanguage, UserPreference
 from app.schemas import LanguageProfileUpdate
 from app.services.language_access import language_access_state, user_can_access_language
+from app.services.assessment_level import verified_current_level
 
 router = APIRouter(prefix="/language-profiles", tags=["language-profiles"])
 
@@ -42,7 +43,7 @@ def _profile_payload(
             }
         )
 
-    current = profile.current_level
+    current = verified_current_level(profile)
     return {
         "language_code": language.code,
         "language_name_pt": language.name_pt,
@@ -54,7 +55,11 @@ def _profile_payload(
             profile.level_assessed_at.isoformat() if profile.level_assessed_at else None
         ),
         "placement_test_id": profile.placement_test_id,
-        "confidence_score": profile.confidence_score,
+        "last_assessment_id": profile.last_assessment_id,
+        "assessment_status": (profile.assessment_summary_json or {}).get("overall_estimate_status"),
+        "assessment_coverage": (profile.assessment_summary_json or {}).get("assessment_coverage"),
+        "planning_level": profile.planning_level,
+        "confidence_score": None if profile.level_source in {LevelSource.PLACEMENT_TEST, LevelSource.CHECKPOINT} else profile.confidence_score,
         "skills": skills,
         "recommendations": profile.recommendations_json or [],
         "onboarding_completed": profile.onboarding_completed,

@@ -1,0 +1,1149 @@
+{
+  "source": "versioned_fixtures",
+  "total": 155,
+  "matrix": [
+    {
+      "language": "de",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "de",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "en",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "en",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "es-ES",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "es-ES",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "fr",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "fr",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "it",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "ja",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "ja",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "reading",
+      "cefr": "C1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "speaking",
+      "cefr": "B2",
+      "item_type": "short_answer",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "la",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_answer",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "la",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "active": true,
+      "review_status": "approved",
+      "count": 2
+    },
+    {
+      "language": "zh-CN",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    },
+    {
+      "language": "zh-CN",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "active": true,
+      "review_status": "approved",
+      "count": 1
+    }
+  ]
+}

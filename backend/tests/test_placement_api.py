@@ -146,7 +146,7 @@ class TestItemDelivery:
         item = placement_tests._pick_objective_item(db_session, "en", state, set())
 
         assert item is not None
-        assert item.skill == Skill.VOCABULARY_GRAMMAR
+        assert item.skill == Skill.READING
         assert item.cefr_level == CEFRLevel.A2
 
     def test_next_item_nao_revela_gabarito(self, client, auth):
@@ -242,8 +242,9 @@ class TestCompletion:
         body = response.json()
 
         assert body["status"] == "completed"
-        assert body["overall_level"] in LEVEL_ORDER
-        assert 0 <= body["confidence_score"] <= 100
+        assert body["overall_level"] is None
+        assert body["overall_estimate_status"] == "partial"
+        assert body["confidence_score"] is None
         assert body["disclaimer"] == "Nível estimado. Não é uma certificação oficial."
 
     def test_resultado_marca_speaking_como_indisponivel(self, client, auth, db_session):
@@ -252,9 +253,9 @@ class TestCompletion:
         body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
 
         speaking = next(s for s in body["skills"] if s["skill"] == "speaking")
-        assert speaking["status"] == "not_available"
+        assert speaking["status"] == "not_collected"
         assert speaking["estimated_level"] is None
-        assert body["speaking_available"] is False
+        assert body["speaking_available"] is True
 
     def test_resultado_persiste_no_perfil(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]
@@ -262,12 +263,12 @@ class TestCompletion:
         body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
 
         profile = db_session.scalar(
-            select(UserLanguage).where(UserLanguage.placement_test_id == test_id)
+            select(UserLanguage).where(UserLanguage.last_assessment_id == test_id)
         )
         assert profile is not None
         assert profile.current_level == body["overall_level"]
-        assert profile.level_source == "placement_test"
-        assert profile.diagnostic_completed is True
+        assert profile.level_source == "pending"
+        assert profile.diagnostic_completed is False
 
     def test_amostra_sem_evidencia_retorna_calibrating_sem_curriculo_longo(
         self, client, auth, db_session
@@ -285,7 +286,7 @@ class TestCompletion:
         assert all(skill["estimated_level"] is None for skill in body["skills"])
 
         profile = db_session.scalar(
-            select(UserLanguage).where(UserLanguage.placement_test_id == test_id)
+            select(UserLanguage).where(UserLanguage.last_assessment_id == test_id)
         )
         assert profile is not None
         assert profile.diagnostic_completed is False
@@ -308,8 +309,8 @@ class TestCompletion:
         client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth)
 
         db_session.refresh(profile)
-        assert profile.current_level is None
-        assert profile.level_estimate is None
+        assert profile.current_level == "B2"
+        assert profile.level_estimate == "B2"
 
     def test_prioridade_foca_habilidades_objetivas_antes_de_producao(self):
         records = (
@@ -321,12 +322,8 @@ class TestCompletion:
 
         placement_tests._add_diagnostic_contract(result, records)
 
-        assert result["priority_focus"][0] == {
-            "skill": Skill.LISTENING,
-            "reason": "needs_practice",
-            "priority": 1,
-            "href": "/learn",
-        }
+        assert result["overall_level"] is None
+        assert all(item["reason"] != "needs_practice" for item in result["priority_focus"])
         assert {item["skill"] for item in result["priority_focus"]} <= set(engine.OBJECTIVE_SKILLS)
 
     def test_resultado_recuperavel_depois(self, client, auth, db_session):
@@ -336,7 +333,7 @@ class TestCompletion:
 
         response = client.get(f"/api/v1/placement-tests/{test_id}/result", headers=auth)
         assert response.status_code == 200
-        assert response.json()["overall_level"] in LEVEL_ORDER
+        assert response.json()["overall_level"] is None
 
     def test_resultado_de_teste_incompleto_falha(self, client, auth):
         test_id = create_test(client, auth).json()["id"]
@@ -358,8 +355,8 @@ class TestCompletion:
         client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth)
 
         response = create_test(client, auth)
-        assert response.status_code == 409
-        assert response.json()["error"]["code"] == "placement_retake_too_soon"
+        assert response.status_code == 200
+        assert response.json()["id"] != test_id
 
 
 class TestResume:
@@ -419,7 +416,7 @@ class TestWriting:
         )
         body = client.post(f"/api/v1/placement-tests/{test_id}/complete", headers=auth).json()
         writing = next(s for s in body["skills"] if s["skill"] == "writing")
-        assert writing["status"] == "calibrating"
+        assert writing["status"] == "insufficient_evidence"
 
     def test_escrita_heuristica_nao_entra_em_totais_ou_confianca(
         self, client, auth, db_session
@@ -442,7 +439,7 @@ class TestWriting:
 
         assert "writing" not in body["weights_used"]
         assert body["items_answered"] == ready["progress"]["answered"]
-        assert body["confidence_score"] is not None
+        assert body["confidence_score"] is None
 
     def test_texto_vazio_rejeitado(self, client, auth, db_session):
         test_id = create_test(client, auth).json()["id"]
@@ -477,5 +474,4 @@ class TestSpeaking:
     def test_avaliacao_oral_indisponivel(self, client, auth):
         test_id = create_test(client, auth).json()["id"]
         response = client.post(f"/api/v1/placement-tests/{test_id}/speaking", headers=auth)
-        assert response.status_code == 501
-        assert response.json()["error"]["code"] == "speaking_not_available"
+        assert response.status_code == 422

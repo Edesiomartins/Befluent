@@ -61,6 +61,7 @@ PEDAGOGICAL_PREF_KEYS = {"minutes_per_day", "skills", "primary_goal"}
 SOFT_LINKS = (
     ("curriculum_blocks", "lesson_ref", "lessons"),
     ("user_languages", "placement_test_id", "placement_tests"),
+    ("user_languages", "last_assessment_id", "placement_tests"),
 )
 
 

@@ -3,6 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
+import { PlacementSpeaking } from "@/components/placement-speaking";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import type { NextItemResponse, PlacementItem, PlacementProgress } from "@/types/placement";
 
@@ -202,8 +203,7 @@ export default function PlacementTestRunnerPage() {
           <section className="panel p-6">
             <h1 className="section-title">Tudo pronto</h1>
             <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Você respondeu atividades suficientes para uma estimativa. Vamos calcular
-              seu nível.
+              Vamos reunir as evidências coletadas. Se faltar cobertura, o resultado será um perfil parcial, com as competências avaliadas.
             </p>
             {error && (
               <p role="alert" className="mt-4 text-sm text-danger">
@@ -213,6 +213,12 @@ export default function PlacementTestRunnerPage() {
             <Button className="mt-6" onClick={complete} loading={submitting} disabled={submitting}>
               Ver meu resultado
             </Button>
+          </section>
+        ) : stage === "speaking" ? (
+          <section className="panel p-6">
+            <p className="label">Fala</p>
+            <h1 className="mt-3 text-lg font-semibold">{item.prompt}</h1>
+            <PlacementSpeaking key={item.id} testId={testId} itemId={item.id} onComplete={loadNext} />
           </section>
         ) : stage === "writing" ? (
           <section className="panel p-6">

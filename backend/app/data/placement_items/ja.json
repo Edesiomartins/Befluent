@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "language_code": "ja",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo. O nível principal é CEFR; referências JLPT são apenas informativas e não entram no cálculo.",
   "items": [
@@ -285,6 +285,21 @@
         "min_chars": 60
       },
       "difficulty": 0.8
+    },
+    {
+      "external_key": "ja-b1-speaking-production-v2",
+      "cefr_level": "B1",
+      "skill": "speaking",
+      "item_type": "speaking_prompt",
+      "prompt": "Fale em japonês: descreva uma experiência importante, explique o que aconteceu e por que ela foi importante para você.",
+      "instructions": "Grave uma resposta espontânea de 30 a 90 segundos. A análise da transcrição é provisória; pronúncia e fluência acústica não são medidas.",
+      "rubric": {
+        "target_level": "B1",
+        "min_chars": 60,
+        "assessment_scope": "transcript_linguistic_content",
+        "editorial_status": "development_not_calibrated"
+      },
+      "difficulty": 0.6
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "language_code": "it",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
   "items": [
@@ -140,6 +140,35 @@
       "correct_answer": { "value": "Um indicador único esconde a variação" },
       "explanation": "A crítica é à apresentação que agrega tudo num único indicador.",
       "difficulty": 0.74
+    },
+    {
+      "external_key": "it-b1-speaking-production-v2",
+      "cefr_level": "B1",
+      "skill": "speaking",
+      "item_type": "speaking_prompt",
+      "prompt": "Fale em italiano: descreva uma experiência importante, explique o que aconteceu e por que ela foi importante para você.",
+      "instructions": "Grave uma resposta espontânea de 30 a 90 segundos. A análise da transcrição é provisória; pronúncia e fluência acústica não são medidas.",
+      "rubric": {
+        "target_level": "B1",
+        "min_chars": 60,
+        "assessment_scope": "transcript_linguistic_content",
+        "editorial_status": "development_not_calibrated"
+      },
+      "difficulty": 0.6
+    },
+    {
+      "external_key": "it-b1-writing-production-v2",
+      "cefr_level": "B1",
+      "skill": "writing",
+      "item_type": "short_writing",
+      "prompt": "Escreva em italiano: descreva uma experiência importante e explique por que ela foi importante para você.",
+      "instructions": "Escreva uma resposta própria com pelo menos 60 caracteres.",
+      "rubric": {
+        "target_level": "B1",
+        "min_chars": 60,
+        "editorial_status": "development_not_calibrated"
+      },
+      "difficulty": 0.6
     }
   ]
 }

@@ -333,6 +333,7 @@ def build_context(db: Session, user: User, language_code: str) -> LearnerContext
         # `current_level` é CEFR; `level_estimate` pode guardar rótulo legado.
         level = (
             normalize_level(profile.current_level)
+            or normalize_level(profile.planning_level)
             or normalize_level(profile.level_estimate)
             or DEFAULT_LEVEL
         )

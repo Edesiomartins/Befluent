@@ -25,10 +25,9 @@ def test_report_preserves_rows_and_explains_exclusions(db_session):
     assert len(report["activities"]) == 13
     assert report["counts_by_skill"]["writing"]["records"] == 0
     assert report["counts_by_skill"]["reading"]["records"] == 4
-    assert report["recomputed_result"]["overall_level"] == "A2"
-    assert report["overall_calculation"]["weighted_index"] == 2.0
-    assert report["overall_calculation"]["weights"] == {
-        "vocabulary_grammar": 1 / 3, "reading": 1 / 3, "listening": 1 / 3}
+    assert report["recomputed_result"]["overall_level"] is None
+    assert report["overall_calculation"]["weighted_index"] is None
+    assert report["overall_calculation"]["weights"] == {}
     # 40 base + 15 volume + 12 three skills - 7 absent speaking = 60.
     assert report["confidence_calculation"]["final"] == 60.0
     writing = next(row for row in report["activities"] if row["answer"]["skill"] == "writing")
@@ -84,7 +83,7 @@ def test_diagnostic_distinguishes_missing_score_from_band_coverage(db_session):
     assert report["skill_evidence"]["reading"]["no_cefr_reason"] == "fewer_than_min_items_per_skill"
     assert report["skill_evidence"]["listening"]["records"] == 4
     assert report["skill_evidence"]["listening"]["no_cefr_reason"] == "no_band_meets_minimum_count_and_accuracy"
-    assert report["recomputed_result"]["weights_used"] == {"vocabulary_grammar": 1.0}
+    assert report["recomputed_result"]["weights_used"] == {}
 
 
 def test_calibrating_comparison_uses_final_api_contract(db_session):
@@ -96,6 +95,6 @@ def test_calibrating_comparison_uses_final_api_contract(db_session):
     test.result_json = {"diagnostic_status": "calibrating", "confidence_score": None}
     db_session.commit()
     report = collect_report(db_session.connection(), test.id)
-    assert report["raw_engine_result"]["confidence_score"] == 0.0
+    assert report["raw_engine_result"]["confidence_score"] is None
     assert report["recomputed_result"]["confidence_score"] is None
     assert report["stored_vs_recomputed"]["confidence_score"]["matches"] is True

@@ -216,6 +216,7 @@ def test_ambiguous_email_is_refused(reset_database):
     ("conversations", "study_session_id", "study_sessions"),
     ("curriculum_blocks", "lesson_ref", "lessons"),
     ("user_languages", "placement_test_id", "placement_tests"),
+    ("user_languages", "last_assessment_id", "placement_tests"),
 ])
 @pytest.mark.parametrize("reverse", [False, True])
 def test_cross_account_links_refused_in_both_directions(reset_database, table, column, parent, reverse):

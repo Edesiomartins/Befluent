@@ -706,10 +706,6 @@ def apply_checkpoint_outcome(db: Session, test: PlacementTest) -> dict:
     if curriculum is None:
         return {"promoted": False, "reason": "curriculum_not_found"}
 
-    owner = db.get(UserLanguage, curriculum.user_language_id)
-    if owner is not None:
-        owner.level_source = LevelSource.CHECKPOINT
-
     if meta.get("calibration_checkpoint"):
         return {"promoted": False, "reason": "calibration_checkpoint"}
     return {"promoted": False, "reason": "checkpoint_outcome_recorded"}

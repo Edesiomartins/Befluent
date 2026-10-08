@@ -1,4 +1,5 @@
 from app.services.language_codes import native_language_metadata
+from app.services.assessment_level import verified_current_level
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
@@ -160,7 +161,7 @@ def complete(data: OnboardingIn, db: Session = Depends(get_db), user: User = Dep
         "language_code": lang.code,
         "perceived_level": level,
         "level_choice": choice,
-        "current_level": ul.current_level,
+        "current_level": verified_current_level(ul),
         "level_source": ul.level_source,
         "should_take_test": choice == "take_test",
         "goal": goals[0] if goals else None,

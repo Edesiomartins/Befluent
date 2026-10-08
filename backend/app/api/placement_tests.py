@@ -9,8 +9,10 @@ Regras invioláveis:
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import os
+import hashlib
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -49,6 +51,10 @@ from app.services.placement_delivery import (
     get_open_delivery,
 )
 from app.services.writing_evaluation import evaluate_writing
+from app.services.speech import save_temp_audio, transcribe_audio
+from app.services.placement_production import production_result, evaluate_speaking
+from app.core.config import get_settings
+from app.services.placement_coverage import bank_capacity, evidence_fingerprint
 
 router = APIRouter(prefix="/placement-tests", tags=["placement"])
 
@@ -56,7 +62,7 @@ router = APIRouter(prefix="/placement-tests", tags=["placement"])
 RETAKE_INTERVAL_DAYS = 30
 
 #: STT disponível apenas em modo mock: a avaliação oral não é realizada.
-SPEAKING_AVAILABLE = False
+SPEAKING_AVAILABLE = True
 
 
 def _now() -> datetime:
@@ -98,7 +104,7 @@ def _state_from(answers: list[PlacementTestAnswer], declared_beginner: bool) -> 
     """Reconstrói o estado adaptativo a partir das respostas persistidas."""
     state = engine.TestState(current_band=engine.initial_band(declared_beginner))
     for answer in answers:
-        if answer.skill == Skill.WRITING:
+        if answer.skill in engine.PRODUCTION_SKILLS or answer.normalized_score is None:
             continue
         engine.register_answer(
             state,
@@ -157,14 +163,16 @@ def _grade(item: PlacementItem, answer: str | None) -> tuple[bool, float]:
     return correct, 1.0 if correct else 0.0
 
 
-def _progress(answers: list[PlacementTestAnswer]) -> dict:
-    objective = [a for a in answers if a.skill != Skill.WRITING]
+def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = None) -> dict:
+    objective = [a for a in answers if a.skill in engine.OBJECTIVE_SKILLS]
     return {
         "answered": len(objective),
         "minimum": engine.MIN_OBJECTIVE_ITEMS,
-        "target": engine.RECOMMENDED_OBJECTIVE_ITEMS,
+        "target": (test.result_json or {}).get("coverage_plan", {}).get("target", engine.RECOMMENDED_OBJECTIVE_ITEMS) if test else engine.RECOMMENDED_OBJECTIVE_ITEMS,
+        "bank_feasibility": (test.result_json or {}).get("coverage_plan", {}).get("bank_feasibility", "unknown") if test else "unknown",
         "maximum": engine.MAX_OBJECTIVE_ITEMS,
         "writing_submitted": any(a.skill == Skill.WRITING for a in answers),
+        "speaking_submitted": any(a.skill == Skill.SPEAKING for a in answers),
     }
 
 
@@ -177,7 +185,7 @@ def _test_payload(test: PlacementTest, answers: list[PlacementTestAnswer]) -> di
         "source": test.source,
         "started_at": test.started_at.isoformat() if test.started_at else None,
         "completed_at": test.completed_at.isoformat() if test.completed_at else None,
-        "progress": _progress(answers),
+        "progress": _progress(answers, test),
         "speaking_available": SPEAKING_AVAILABLE,
     }
 
@@ -221,7 +229,7 @@ def create_test(
         )
         .order_by(PlacementTest.completed_at.desc())
     )
-    if last_completed and last_completed.completed_at:
+    if last_completed and last_completed.completed_at and (last_completed.result_json or {}).get("overall_estimate_status") == "sufficient":
         completed_at = last_completed.completed_at
         if completed_at.tzinfo is None:
             completed_at = completed_at.replace(tzinfo=timezone.utc)
@@ -239,7 +247,7 @@ def create_test(
         status=TestStatus.IN_PROGRESS,
         source=LevelSource.PLACEMENT_TEST,
         current_level_band=engine.initial_band(data.declared_beginner),
-        result_json={"declared_beginner": data.declared_beginner},
+        result_json={"declared_beginner": data.declared_beginner, "coverage_plan": bank_capacity(db, data.language_code)},
     )
     db.add(test)
     db.commit()
@@ -287,30 +295,34 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
     if open_delivery and open_delivery.item_id not in answered_ids:
         item = db.get(PlacementItem, open_delivery.item_id)
         if item and item.review_status == ReviewStatus.APPROVED and item.is_active:
-            stage = "writing" if item.skill == Skill.WRITING else "objective"
-            return {"item": _public_item(item), "stage": stage, "progress": _progress(answers)}
+            stage = item.skill if item.skill in engine.PRODUCTION_SKILLS else "objective"
+            return {"item": _public_item(item), "stage": stage, "progress": _progress(answers, test)}
 
     if engine.should_stop(state):
-        writing_item = _pick_writing_item(db, test, state, answered_ids)
+        test.result_json = {**(test.result_json or {}), "stop_reason": "maximum_reached" if len(state.answers) >= engine.MAX_OBJECTIVE_ITEMS else "objective_coverage_satisfied"}
+        writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
             db.commit()
-            return {"item": _public_item(writing_item), "stage": "writing", "progress": _progress(answers)}
-        return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers)}
+            return {"item": _public_item(writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
+        db.commit()
+        return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers, test)}
 
     item = _pick_objective_item(db, test.language_code, state, answered_ids)
     if item is None:
-        writing_item = _pick_writing_item(db, test, state, answered_ids)
+        test.result_json = {**(test.result_json or {}), "stop_reason": "bank_exhausted"}
+        writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
             db.commit()
-            return {"item": _public_item(writing_item), "stage": "writing", "progress": _progress(answers)}
-        return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers)}
+            return {"item": _public_item(writing_item), "stage": writing_item.skill, "progress": _progress(answers, test)}
+        db.commit()
+        return {"item": None, "stage": "ready_to_complete", "progress": _progress(answers, test)}
 
     deliver_item(db, test, item)
     test.current_level_band = state.current_band
     db.commit()
-    return {"item": _public_item(item), "stage": "objective", "progress": _progress(answers)}
+    return {"item": _public_item(item), "stage": "objective", "progress": _progress(answers, test)}
 
 
 def _pick_objective_item(
@@ -329,57 +341,40 @@ def _pick_objective_item(
     ]
     if answered_ids:
         base.append(PlacementItem.id.not_in(answered_ids))
+    used_fingerprints = {evidence_fingerprint(item) for item in db.scalars(
+        select(PlacementItem).where(PlacementItem.id.in_(answered_ids)))} if answered_ids else set()
 
     for skill in skill_order:
-        item = db.scalar(
-            select(PlacementItem).where(
-                *base,
-                PlacementItem.cefr_level == engine.state_for(state, skill).current_band,
-                PlacementItem.skill == skill,
-            )
-        )
-        if item:
-            return item
-
-    for skill in skill_order:
-        for band in engine.TESTABLE_LEVELS:
-            item = db.scalar(
-                select(PlacementItem).where(
-                    *base,
-                    PlacementItem.cefr_level == band,
-                    PlacementItem.skill == skill,
-                )
-            )
-            if item:
-                return item
+        current = engine.state_for(state, skill).current_band
+        skill_answers = [a for a in state.answers if a.skill == skill]
+        buckets = engine._band_accuracy(skill_answers)
+        candidates = [band for band, (accuracy, count) in buckets.items()
+                      if accuracy >= engine.BAND_MASTERY_THRESHOLD and count < 3]
+        confirmation = max(candidates, key=engine.LEVEL_INDEX.__getitem__) if candidates else None
+        preferred = confirmation if len(skill_answers) >= engine.MIN_ITEMS_PER_SKILL and engine.estimate_skill_level(skill_answers) is None else current
+        bands = sorted(engine.TESTABLE_LEVELS, key=lambda band: (
+            band != preferred, abs(engine.LEVEL_INDEX[band] - engine.LEVEL_INDEX[current]), engine.LEVEL_INDEX[band]))
+        for band in bands:
+            candidates_in_band = db.scalars(select(PlacementItem).where(
+                *base, PlacementItem.cefr_level == band, PlacementItem.skill == skill,
+                PlacementItem.item_type.in_(["multiple_choice", "fill_blank", "reading_comprehension", "listening_comprehension"]),
+            ).order_by(PlacementItem.external_key, PlacementItem.id))
+            for item in candidates_in_band:
+                if evidence_fingerprint(item) not in used_fingerprints:
+                    return item
     return None
 
 
-def _pick_writing_item(
-    db: Session,
-    test: PlacementTest,
-    state: engine.TestState,
-    answered_ids: set[str],
-) -> PlacementItem | None:
-    already = db.scalar(
-        select(PlacementTestAnswer).where(
-            PlacementTestAnswer.test_id == test.id,
-            PlacementTestAnswer.skill == Skill.WRITING,
-        )
-    )
-    if already:
-        return None
-
-    base = [
-        PlacementItem.language_code == test.language_code,
-        *approved_active_filter(),
-        PlacementItem.skill == Skill.WRITING,
-    ]
-    if answered_ids:
-        base.append(PlacementItem.id.not_in(answered_ids))
-
-    for band in [state.current_band, CEFRLevel.A2, CEFRLevel.A1]:
-        item = db.scalar(select(PlacementItem).where(*base, PlacementItem.cefr_level == band))
+def _pick_production_item(db, test, state, answered_ids):
+    answered_skills = {a.skill for a in _answers_of(db, test.id)}
+    for skill, item_type in ((Skill.WRITING, "short_writing"), (Skill.SPEAKING, "speaking_prompt")):
+        if skill in answered_skills:
+            continue
+        item = db.scalar(select(PlacementItem).where(
+            PlacementItem.language_code == test.language_code, *approved_active_filter(),
+            PlacementItem.skill == skill, PlacementItem.item_type == item_type,
+            PlacementItem.cefr_level.in_(engine.TESTABLE_LEVELS),
+        ).order_by((PlacementItem.cefr_level == "B1").desc(), PlacementItem.external_key.desc()))
         if item:
             return item
     return None
@@ -397,7 +392,7 @@ def submit_answer(
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
     item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
-    if item.skill == Skill.WRITING:
+    if item.skill in engine.PRODUCTION_SKILLS:
         raise APIError(400, "wrong_endpoint", "Use o endpoint de escrita para esta atividade.")
 
     duplicate = db.scalar(
@@ -430,7 +425,7 @@ def submit_answer(
     test.current_level_band = state.current_band
     db.commit()
 
-    return {"accepted": True, "progress": _progress(answers)}
+    return {"accepted": True, "progress": _progress(answers, test)}
 
 
 @router.post("/{test_id}/writing")
@@ -464,6 +459,7 @@ def submit_writing(
         target_level=item.cefr_level,
         min_chars=int(rubric.get("min_chars", 20)),
         native_language=user.native_language,
+        task=item.prompt,
     )
 
     assessed = evaluation.get("status") == "assessed"
@@ -491,18 +487,59 @@ def submit_writing(
 
 
 @router.post("/{test_id}/speaking")
-def submit_speaking(test_id: str, db: Session = Depends(get_db), user: User = Depends(current_user)):
-    """Avaliação oral indisponível: só existe provedor STT mock.
+async def submit_speaking(test_id: str, item_id: str = Form(...), file: UploadFile = File(...),
+                          db: Session = Depends(get_db), user: User = Depends(current_user)):
+    test = _owned_test(db, test_id, user, lock=True)
+    if test.status == TestStatus.COMPLETED:
+        raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
+    item = consume_delivery_for_answer(db, test=test, item_id=item_id)
+    if item.skill != Skill.SPEAKING:
+        raise APIError(400, "wrong_endpoint", "Esta atividade não é de fala.")
+    mime = (file.content_type or "").split(";")[0]
+    if mime not in {"audio/webm", "audio/ogg", "audio/wav", "audio/mp4", "audio/mpeg"}:
+        raise APIError(400, "invalid_audio_format", "Envie um arquivo de áudio compatível.")
+    data = await file.read(get_settings().max_audio_bytes + 1)
+    if not data:
+        raise APIError(400, "empty_audio", "A gravação está vazia.")
+    try:
+        path = save_temp_audio(data)
+    except ValueError as exc:
+        raise APIError(413, "audio_too_large", str(exc)) from exc
+    try:
+        transcript = transcribe_audio(path, test.language_code, mime)
+        if transcript.get("provider") == "mock":
+            raise APIError(503, "stt_unavailable", "Reconhecimento real não está configurado. Tente novamente ou pule a fala.")
+        if not str(transcript.get("text", "")).strip():
+            raise APIError(422, "speech_not_recognized", "Não foi possível reconhecer fala. Grave novamente.")
+        evaluation = evaluate_speaking(transcript, test.language_code, item.cefr_level,
+                                       user.native_language, item.prompt)
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
+    db.add(PlacementTestAnswer(test_id=test.id, item_id=item.id, skill=Skill.SPEAKING,
+        cefr_level=item.cefr_level, answer_json={"transcript": transcript["text"],
+            "audio_metadata": {"received": True, "sha256": hashlib.sha256(data).hexdigest(),
+                               "bytes": len(data), "mime_type": mime, "retained": False}},
+        normalized_score=evaluation.get("normalized_score"), raw_score=evaluation.get("normalized_score"),
+        evaluated_by=evaluation.get("evaluated_by", "unavailable"), feedback_json=evaluation))
+    db.commit()
+    return {"accepted": True, "status": "provisional", "transcript": transcript["text"],
+            "limitations": evaluation["limitations"]}
 
-    Responde 501 em vez de fabricar um resultado. O teste conclui normalmente
-    com `speaking` registrado como não avaliada.
-    """
-    _owned_test(db, test_id, user)
-    raise APIError(
-        501,
-        "speaking_not_available",
-        "Avaliação oral ainda não disponível. Sua fala não será avaliada neste teste.",
-    )
+
+@router.post("/{test_id}/skip-production")
+def skip_production(test_id: str, data: PlacementWritingIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+    test = _owned_test(db, test_id, user, lock=True)
+    if test.status == TestStatus.COMPLETED:
+        raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
+    item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
+    if item.skill not in engine.PRODUCTION_SKILLS:
+        raise APIError(400, "wrong_endpoint", "Esta atividade não é de produção.")
+    db.add(PlacementTestAnswer(test_id=test.id, item_id=item.id, skill=item.skill,
+        cefr_level=item.cefr_level, answer_json={}, evaluated_by="not_evaluated",
+        feedback_json={"status": "skipped", "limitations": ["user_skipped"]}))
+    db.commit()
+    return {"accepted": True, "status": "not_collected"}
 
 
 @router.post("/{test_id}/complete")
@@ -513,7 +550,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
 
     answers = _answers_of(db, test.id)
     scored = _records(answers)
-    if len(scored) < engine.MIN_OBJECTIVE_ITEMS:
+    if not answers and (test.result_json or {}).get("stop_reason") != "bank_exhausted":
         raise APIError(
             400,
             "placement_insufficient_items",
@@ -525,7 +562,16 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
         started = started.replace(tzinfo=timezone.utc)
     duration = int((_now() - started).total_seconds()) if started else None
 
-    result = engine.build_result(scored, duration_seconds=duration)
+    production = {a.skill: production_result(a) for a in answers if a.skill in engine.PRODUCTION_SKILLS}
+    result = engine.build_result(scored, duration_seconds=duration, production_results=production)
+    capacity = (test.result_json or {}).get("coverage_plan") or bank_capacity(db, test.language_code)
+    result["assessment_coverage"].update(capacity)
+    result["assessment_coverage"]["stop_reason"] = (test.result_json or {}).get("stop_reason", "user_completed")
+    result["assessment_coverage"]["supported_skills"] = list(engine.OBJECTIVE_SKILLS) + ["writing", "speaking"]
+    result["assessment_coverage"]["supported_scope_status"] = "sufficient" if all(
+        result["skills"][s]["status"] == "estimated" for s in engine.OBJECTIVE_SKILLS) else "insufficient"
+    result["assessment_coverage"]["supported_scope"] = list(engine.OBJECTIVE_SKILLS)
+    result["assessment_coverage"]["speaking_scope"] = "transcript_linguistic_content"
     _add_diagnostic_contract(result, scored)
 
     test.status = TestStatus.COMPLETED
@@ -540,28 +586,13 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     # not-assessed entry. Never SELECT twice for a pending row (autoflush=False).
     section_values = {
         skill: {
-            "score": data["score"], "max_score": data["max_score"],
-            "estimated_level": data["estimated_level"], "status": "assessed",
-            "completed_at": test.completed_at,
+            "score": data["score"] or 0.0, "max_score": data["max_score"] or 0.0,
+            "estimated_level": data["estimated_level"],
+            "status": {"estimated": "assessed", "not_collected": "not_assessed", "unavailable": "not_available"}.get(data["status"], "calibrating"),
+            "completed_at": test.completed_at if data["evidence_counts"]["answered"] else None,
         }
         for skill, data in result["skills"].items()
     }
-    for skill in result["not_assessed_skills"]:
-        section_values[skill] = {
-            "score": 0.0, "max_score": 0.0, "estimated_level": None,
-            "status": "not_assessed" if skill != Skill.SPEAKING else "not_available",
-            "completed_at": None,
-        }
-
-    writing_answer = next((answer for answer in answers if answer.skill == Skill.WRITING), None)
-    if writing_answer is not None:
-        # A rubrica heurística é feedback preliminar, nunca uma evidência CEFR.
-        section_values[Skill.WRITING] = {
-            "score": writing_answer.normalized_score or 0.0,
-            "max_score": 1.0 if writing_answer.normalized_score is not None else 0.0,
-            "estimated_level": None, "status": "calibrating",
-            "completed_at": writing_answer.created_at,
-        }
 
     # The parent locks above serialize all section writers, protecting the
     # get-or-update against parallel requests as well as preserving row IDs.
@@ -625,22 +656,40 @@ def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User
         db.flush()
 
     skills = result["skills"]
-    profile.current_level = result["overall_level"]
-    profile.level_source = LevelSource.PLACEMENT_TEST
-    profile.level_assessed_at = test.completed_at
-    profile.placement_test_id = test.id
-    profile.confidence_score = result["confidence_score"]
-    profile.vocabulary_grammar_level = skills.get(Skill.VOCABULARY_GRAMMAR, {}).get("estimated_level")
-    profile.reading_level = skills.get(Skill.READING, {}).get("estimated_level")
-    profile.listening_level = skills.get(Skill.LISTENING, {}).get("estimated_level")
-    profile.writing_level = skills.get(Skill.WRITING, {}).get("estimated_level")
-    profile.speaking_level = skills.get(Skill.SPEAKING, {}).get("estimated_level")
-    profile.recommendations_json = result["priority_focus"]
-    profile.diagnostic_completed = result["diagnostic_status"] == "ready"
-    if result["overall_level"]:
+    previous_summary = profile.assessment_summary_json or {}
+    previous_global_status = previous_summary.get("global_estimate_status", previous_summary.get("overall_estimate_status"))
+    profile.last_assessment_id = test.id
+    profile.assessment_summary_json = {
+        "overall_estimate_status": result["overall_estimate_status"],
+        "global_estimate_status": "sufficient" if result["overall_estimate_status"] == "sufficient" and test.source != CHECKPOINT_SOURCE else previous_global_status,
+        "assessment_coverage": result["assessment_coverage"],
+        "skills": skills, "policy_version": result["policy_version"],
+    }
+    objective_levels = [r["estimated_level"] for s, r in skills.items()
+                        if s in engine.OBJECTIVE_SKILLS and r["status"] == "estimated"]
+    if objective_levels and not profile.planning_level:
+        profile.planning_level = min(objective_levels, key=engine.LEVEL_INDEX.__getitem__)
+        profile.planning_level_source = "partial_placement"
+    sufficient = result["overall_estimate_status"] == "sufficient" and test.source != CHECKPOINT_SOURCE
+    if sufficient:
+        profile.current_level = result["overall_level"]
         profile.level_estimate = result["overall_level"]
-    else:
-        profile.level_estimate = None
+        profile.level_source = LevelSource.PLACEMENT_TEST
+        profile.level_assessed_at = test.completed_at
+        profile.placement_test_id = test.id
+        profile.confidence_score = None
+        profile.diagnostic_completed = True
+    elif not profile.current_level:
+        profile.level_source = LevelSource.PENDING
+        profile.diagnostic_completed = False
+    for skill, column in ((Skill.VOCABULARY_GRAMMAR, "vocabulary_grammar_level"),
+                          (Skill.READING, "reading_level"), (Skill.LISTENING, "listening_level"),
+                          (Skill.WRITING, "writing_level"), (Skill.SPEAKING, "speaking_level")):
+        value = skills[skill]
+        if value["status"] == "estimated" and (sufficient or not getattr(profile, column)):
+            setattr(profile, column, value["estimated_level"])
+    profile.recommendations_json = result["priority_focus"]
+
 
 
 def _add_diagnostic_contract(result: dict, scored: list[engine.AnswerRecord]) -> None:
@@ -740,32 +789,28 @@ def _result_payload(db: Session, test: PlacementTest, *, user: User | None = Non
     result = dict(test.result_json or {})
     result.pop("declared_beginner", None)
 
-    sections = list(
-        db.scalars(select(PlacementTestSection).where(PlacementTestSection.test_id == test.id))
-    )
-    skills = [
-        {
-            "skill": section.skill,
-            "label": SKILL_LABELS.get(section.skill, section.skill),
-            "estimated_level": section.estimated_level,
-            "level": level_payload(section.estimated_level) if section.estimated_level else None,
-            "score": section.score,
-            "max_score": section.max_score,
-            "status": section.status,
-        }
-        for section in sorted(sections, key=lambda s: s.skill)
-    ]
+    if result.get("result_schema_version") != 2:
+        answers = _answers_of(db, test.id)
+        result = engine.build_result(_records(answers), production_results={
+            a.skill: production_result(a) for a in answers if a.skill in engine.PRODUCTION_SKILLS})
+        result["coverage_origin"] = "legacy_reconstructed" if answers else "legacy_coverage_unknown"
+        result["legacy_overall_level"] = test.overall_level
+        _add_diagnostic_contract(result, _records(answers))
+    skills = [{**data, "label": SKILL_LABELS[skill],
+               "level": level_payload(data["estimated_level"]) if data["estimated_level"] else None}
+              for skill, data in result["skills"].items()]
 
-    overall = test.overall_level
+    overall = result.get("overall_level")
     return {
+        **result,
         "id": test.id,
         "language_code": test.language_code,
         "status": test.status,
-        "completed_at": test.completed_at.isoformat() if test.completed_at else None,
+        "completed_at": test.completed_at.replace(tzinfo=timezone.utc).isoformat() if test.completed_at else None,
         "duration_seconds": test.duration_seconds,
         "overall_level": overall,
         "overall": level_payload(overall) if overall else None,
-        "confidence_score": test.confidence_score,
+        "confidence_score": None,
         "confidence_label": result.get("confidence_label"),
         "items_answered": result.get("items_answered"),
         "weights_used": result.get("weights_used", {}),

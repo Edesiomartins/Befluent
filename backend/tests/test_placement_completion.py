@@ -46,7 +46,8 @@ def test_complete_with_writing_and_retry_preserves_all_rows(db_session, preexist
 
     first = complete_test(test.id, db_session, user)
     assert first["status"] == "completed"
-    assert first["curriculum"] is not None
+    assert first["curriculum"] is None
+    assert first["overall_estimate_status"] == "partial"
     sections = list(db_session.scalars(select(PlacementTestSection).where(
         PlacementTestSection.test_id == test.id)))
     assert len(sections) == 5
@@ -59,7 +60,7 @@ def test_complete_with_writing_and_retry_preserves_all_rows(db_session, preexist
             assert section.score == 0.96
             assert section.estimated_level is None
         elif section.skill == Skill.SPEAKING:
-            assert section.status == "not_available"
+            assert section.status == "not_assessed"
         else:
             assert section.status == "assessed"
             assert section.estimated_level == "A2"
@@ -96,10 +97,10 @@ def test_unscored_writing_uses_nonnullable_scores_without_cefr(db_session):
     db_session.commit()
     result = complete_test(test.id, db_session, user)
     writing = next(section for section in result["skills"] if section["skill"] == "writing")
-    assert writing["status"] == "calibrating"
+    assert writing["status"] == "insufficient_evidence"
     assert writing["estimated_level"] is None
-    assert writing["score"] == 0.0
-    assert writing["max_score"] == 0.0
+    assert writing["score"] is None
+    assert writing["max_score"] is None
 
 
 @pytest.mark.parametrize("api_error", [False, True])
@@ -107,19 +108,19 @@ def test_failed_finalization_rolls_back_and_can_retry(db_session, monkeypatch, a
     from app.api import placement_tests
     from app.core.errors import APIError
     user, test = prepared_test(db_session)
-    original = placement_tests.ensure_active_curriculum
+    original = placement_tests._apply_to_profile
     def interrupted(*args, **kwargs):
         original(*args, **kwargs)
         if api_error:
             raise APIError(409, "curriculum_interrupted", "Interrupted before commit")
         raise RuntimeError("response interrupted before commit")
-    monkeypatch.setattr(placement_tests, "ensure_active_curriculum", interrupted)
+    monkeypatch.setattr(placement_tests, "_apply_to_profile", interrupted)
     with pytest.raises(APIError if api_error else RuntimeError):
         complete_test(test.id, db_session, user)
     db_session.rollback()
     assert db_session.get(PlacementTest, test.id).status == "in_progress"
     assert not list(db_session.scalars(select(PlacementTestSection)))
-    monkeypatch.setattr(placement_tests, "ensure_active_curriculum", original)
+    monkeypatch.setattr(placement_tests, "_apply_to_profile", original)
     assert complete_test(test.id, db_session, user)["status"] == "completed"
 
 

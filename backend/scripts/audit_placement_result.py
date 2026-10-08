@@ -111,7 +111,7 @@ def _skill_evidence(records):
 
 
 def _confidence_calculation(result, records):
-    skills = result["skills"]
+    skills = {skill: data for skill, data in result["skills"].items() if data["estimated_level"]}
     if not records or not skills:
         return {"final": 0.0, "reason": "no_records_or_no_assessed_skills"}
     n = len(records)
@@ -130,7 +130,7 @@ def _confidence_calculation(result, records):
         "fast_response_penalty": fast_penalty, "missing_essential_skills": missing,
         "missing_essential_penalty": len(missing) * 7, "before_clamp": raw,
         "final": round(max(0.0, min(100.0, raw)), 1),
-        "meaning": "heuristic_index_not_probability_or_validated_psychometric_confidence",
+        "meaning": "legacy_heuristic_index_not_used_in_v2_result",
     }
 
 
@@ -230,11 +230,10 @@ def collect_report(conn, test_id):
                                "preferred_band": engine.state_for(state, preferred).current_band,
                                "fallback_or_mismatch": preferred != answer["skill"]})
         engine.register_answer(state, engine.AnswerRecord(answer["skill"], answer["cefr_level"], answer["normalized_score"] or 0.0, answer["response_time_ms"]))
-    raw_weights = engine.effective_weights(sorted(result["skills"]))
-    weighted = sum(LEVEL_INDEX[value["estimated_level"]] * raw_weights[skill]
-                   for skill, value in result["skills"].items()) if result["skills"] else None
-    cap_skills = sorted(set(result["skills"]) & set(ESSENTIAL_SKILLS)) or sorted(result["skills"])
-    cap = min(LEVEL_INDEX[result["skills"][skill]["estimated_level"]] for skill in cap_skills) + 1 if cap_skills else None
+    raw_weights = result["weights_used"]
+    weighted = None
+    cap_skills = []
+    cap = None
     language = _rows(conn, Language, Language.code == test["language_code"])
     profiles = _rows(conn, UserLanguage, UserLanguage.user_id == test["user_id"],
                      UserLanguage.language_id == language[0]["id"]) if language else []
@@ -249,7 +248,7 @@ def collect_report(conn, test_id):
         "activities": activities, "counts_by_skill": counts, "skill_evidence": evidence,
         "raw_engine_result": raw_result, "recomputed_result": result, "stored_vs_recomputed": comparisons,
         "confidence_calculation": _confidence_calculation(result, records),
-        "overall_calculation": {"level_indexes": dict(LEVEL_INDEX), "weights": raw_weights,
+        "overall_calculation": {"aggregation_method": "minimum_supported_skill", "overall_estimate_status": result["overall_estimate_status"], "level_indexes": dict(LEVEL_INDEX), "weights": raw_weights,
                                 "weights_rounded_in_api_payload": result["weights_used"],
                                 "weighted_index": weighted, "rounded_index": round(weighted) if weighted is not None else None,
                                 "cap_skills": cap_skills, "cap_index": cap,

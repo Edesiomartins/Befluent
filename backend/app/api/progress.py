@@ -8,6 +8,7 @@ from app.core.errors import APIError
 from app.models import Language, LearningGoal, User, UserLanguage
 from app.services.progress import aggregate_mastery_progress, aggregate_progress, resolve_timezone
 from app.services.language_progress import observe_language_progress
+from app.services.assessment_level import verified_current_level
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 
@@ -82,8 +83,9 @@ def progress(
                 "code": lang.code,
                 "name_pt": lang.name_pt,
                 "native_name": lang.native_name,
-                "level_estimate": ul.level_estimate,
-                "current_level": ul.current_level,
+                "level_estimate": verified_current_level(ul),
+                "current_level": verified_current_level(ul),
+                "planning_level": ul.planning_level,
                 "goal": goal,
                 "skills": skills,
             }

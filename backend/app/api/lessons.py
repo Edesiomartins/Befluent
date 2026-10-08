@@ -178,7 +178,7 @@ def _start_lesson_vocabulary_cycle(
         objective = ensure_theme_objective(
             db,
             language_code=language_code,
-            level=owner.current_level or "A1",
+            level=owner.current_level or owner.planning_level or "A1",
             theme=lesson.title or "Sessão de estudo",
         )
         try:

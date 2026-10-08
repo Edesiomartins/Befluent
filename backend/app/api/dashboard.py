@@ -24,6 +24,7 @@ from app.models import (
 )
 from app.services.progress import aggregate_progress
 from app.services.language_progress import observe_language_progress
+from app.services.assessment_level import verified_current_level
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
@@ -31,7 +32,8 @@ router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 def _level_block(ul: UserLanguage) -> dict:
     """Bloco de nível do dashboard. Nunca inventa nível: pendente fica None."""
     source = ul.level_source or LevelSource.PENDING
-    current = ul.current_level
+    current = verified_current_level(ul)
+    assessment = ul.assessment_summary_json or {}
     skills = [
         {
             "skill": skill,
@@ -48,18 +50,23 @@ def _level_block(ul: UserLanguage) -> dict:
     ]
     return {
         "current_level": current,
+        "legacy_overall_level": ul.current_level if current is None else None,
         "details": level_payload(current) if current else None,
         "source": source,
         "from_test": source == LevelSource.PLACEMENT_TEST,
         "assessed_at": ul.level_assessed_at.isoformat() if ul.level_assessed_at else None,
-        "confidence_score": ul.confidence_score,
+        "confidence_score": None if source in {LevelSource.PLACEMENT_TEST, LevelSource.CHECKPOINT} else ul.confidence_score,
         "confidence_label": (
-            confidence_label(ul.confidence_score) if ul.confidence_score is not None else None
+            confidence_label(ul.confidence_score) if ul.confidence_score is not None and source not in {LevelSource.PLACEMENT_TEST, LevelSource.CHECKPOINT} else None
         ),
         "placement_test_id": ul.placement_test_id,
         "skills": skills,
         "recommendations": ul.recommendations_json or [],
-        "needs_placement_test": current is None or source == LevelSource.PENDING,
+        "needs_placement_test": not ul.last_assessment_id and (current is None or source == LevelSource.PENDING),
+        "last_assessment_id": ul.last_assessment_id,
+        "assessment_status": assessment.get("overall_estimate_status"),
+        "assessment_coverage": assessment.get("assessment_coverage"),
+        "planning_level": ul.planning_level,
     }
 
 

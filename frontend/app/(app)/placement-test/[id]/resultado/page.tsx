@@ -12,12 +12,17 @@ import type { PlacementResult, SkillResult } from "@/types/placement";
 
 const STATUS_LABELS: Record<SkillResult["status"], string> = {
   assessed: "",
+  estimated: "",
+  provisional: "estimativa provisória",
+  insufficient_evidence: "evidência insuficiente para uma faixa",
+  not_collected: "não coletada",
+  unavailable: "indisponível",
   calibrating: "em calibração",
   not_assessed: "não avaliada",
   not_available: "não avaliada",
 };
 
-const accuracy = (skill: SkillResult) => skill.score / Math.max(skill.max_score, 1);
+const accuracy = (skill: SkillResult) => (skill.score ?? 0) / Math.max(skill.max_score ?? 0, 1);
 
 /** Competências ordenadas da mais forte para a mais fraca, ou null se empatadas.
  *
@@ -25,7 +30,7 @@ const accuracy = (skill: SkillResult) => skill.score / Math.max(skill.max_score,
  *  "ponto fraco": seriam a mesma competência, gerando texto contraditório.
  */
 function rankSkills(result: PlacementResult): SkillResult[] | null {
-  const assessed = result.skills.filter((skill) => skill.status === "assessed");
+  const assessed = result.skills.filter((skill) => (skill.status === "assessed" || skill.status === "estimated"));
   if (assessed.length < 2) return null;
   const ranked = [...assessed].sort((a, b) => accuracy(b) - accuracy(a));
   const spread = accuracy(ranked[0]) - accuracy(ranked[ranked.length - 1]);
@@ -34,7 +39,7 @@ function rankSkills(result: PlacementResult): SkillResult[] | null {
 
 function skillMessage(result: PlacementResult, ranked: SkillResult[] | null): string {
   if (!result.overall_level) {
-    return "Responda a mais atividades para uma estimativa mais precisa.";
+    return "O perfil mostra o que foi coletado e o que ainda precisa de avaliação.";
   }
   if (!ranked) {
     return "Seu desempenho ficou equilibrado entre as competências avaliadas.";
@@ -189,20 +194,19 @@ export default function PlacementResultPage() {
   const ranked = rankSkills(result);
   const priorities = result.priority_focus ?? result.recommendations;
   const hasPriorities = priorities.length > 0;
-  const calibrating = result.diagnostic_status === "calibrating";
+  const calibrating = result.overall_estimate_status === "partial" || result.diagnostic_status === "calibrating";
 
   return (
     <div className="mx-auto max-w-3xl">
       <p className="text-sm font-semibold text-primary">Resultado</p>
       <h1 className="mt-2 page-title">
-        {calibrating ? "Estamos calibrando suas habilidades" : "Seu nível estimado"}
+        {calibrating ? result.overall_estimate_status === "partial" ? "Perfil parcial de competências" : "Estamos calibrando suas habilidades" : "Seu nível estimado"}
       </h1>
 
       <section className="panel mt-7 p-6">
         {calibrating ? (
           <p className="leading-7 text-text-secondary">
-            Ainda não há evidência objetiva suficiente para estimar seu nível. Pratique as
-            prioridades abaixo para completar a calibração.
+            Ainda não há cobertura suficiente para um nível global. Os resultados válidos de cada competência foram preservados; competências sem evidência permanecem sem classificação.
           </p>
         ) : (
           <>
@@ -241,13 +245,14 @@ export default function PlacementResultPage() {
               className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3 text-sm last:border-0 last:pb-0"
             >
               <span className="font-medium">{skill.label}</span>
-              {skill.status === "assessed" ? (
+              {(skill.status === "assessed" || skill.status === "estimated" || skill.status === "provisional") && skill.estimated_level ? (
                 <span className="font-semibold text-primary">
-                  {levelShortCode(skill.estimated_level)}
+                  {levelShortCode(skill.estimated_level)}{skill.status === "provisional" && " — provisório"}
                 </span>
               ) : (
                 <span className="text-text-secondary">{STATUS_LABELS[skill.status]}</span>
               )}
+              {skill.evidence_counts && <p className="w-full text-xs text-text-secondary">{skill.evidence_counts.answered} resposta(s) coletada(s){skill.score != null && skill.max_score != null ? ` · ${skill.score}/${skill.max_score} na tarefa` : ""}</p>}
             </li>
           ))}
         </ul>

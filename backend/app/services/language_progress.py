@@ -17,6 +17,7 @@ celebrar de novo um nível que o aluno já tinha.
 """
 
 from __future__ import annotations
+from app.services.assessment_level import verified_current_level
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -250,7 +251,7 @@ def _demonstrated_rows(db: Session, user_language_id: str):
 def evaluate_skill_progress(db: Session, user_language_id: str) -> list[dict]:
     """Habilidades do CEFR atual. A barra principal é o progresso efetivo, se houver total."""
     profile = db.get(UserLanguage, user_language_id)
-    level = normalize_level(profile.current_level if profile else None)
+    level = normalize_level(verified_current_level(profile))
     language_code = ""
     if profile is not None:
         from app.models import Language
@@ -302,7 +303,7 @@ def _milestone_for_level(level: str | None, skills: list[dict]) -> dict | None:
 
 def evaluate_language_progress(db: Session, user_language) -> dict:
     """Estado atual. Não grava CEFR e não promove faixa."""
-    level = normalize_level(user_language.current_level if user_language else None)
+    level = normalize_level(verified_current_level(user_language))
     skills = evaluate_skill_progress(db, user_language.id) if user_language else []
     milestone = _milestone_for_level(level, skills)
     developed = sorted(

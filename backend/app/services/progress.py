@@ -1,6 +1,7 @@
 """Agregações de progresso a partir de sessões concluídas e vocabulário."""
 
 from __future__ import annotations
+from app.services.assessment_level import verified_current_level
 
 from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -322,7 +323,7 @@ def aggregate_mastery_progress(
     for skill, _, percent in contributions:
         by_skill.setdefault(skill, []).append(percent)
     profile = db.get(UserLanguage, user_language_id)
-    current = normalize_level(profile.current_level if profile else None)
+    current = normalize_level(verified_current_level(profile))
     cefr = None
     if current is not None:
         next_index = min(LEVEL_INDEX[current] + 1, len(LEVEL_ORDER) - 1)

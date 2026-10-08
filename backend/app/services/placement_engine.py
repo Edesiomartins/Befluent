@@ -133,6 +133,10 @@ def register_answer(state: TestState, record: AnswerRecord) -> TestState:
     """Atualiza streaks e faixa atual após uma resposta objetiva."""
     state.answers.append(record)
     skill_state = state_for(state, record.skill)
+    if record.cefr_level != skill_state.current_band:
+        skill_state.consecutive_correct = 0
+        skill_state.consecutive_wrong = 0
+        return state
     correct = record.normalized_score >= 0.5
 
     if correct:
@@ -163,6 +167,7 @@ def next_skill(state: TestState) -> str:
     skill = min(
         OBJECTIVE_SKILLS,
         key=lambda item: (
+            estimate_skill_level([a for a in state.answers if a.skill == item]) is not None,
             counts[item] >= MIN_ITEMS_PER_SKILL,
             counts[item],
             OBJECTIVE_SKILLS.index(item),
@@ -182,10 +187,8 @@ def should_stop(state: TestState) -> bool:
 
     # Evidência suficiente: a faixa atual já tem itens bastantes e o
     # desempenho nela é consistente (nem promove nem rebaixa).
-    band_answers = [a for a in state.answers if a.cefr_level == state.current_band]
-    if len(band_answers) >= MIN_ITEMS_PER_BAND and answered >= RECOMMENDED_OBJECTIVE_ITEMS:
-        return True
-    return False
+    return all(estimate_skill_level([a for a in state.answers if a.skill == skill])
+               is not None for skill in OBJECTIVE_SKILLS)
 
 
 # --------------------------------------------------------------------- scoring
@@ -216,7 +219,16 @@ def estimate_skill_level(answers: list[AnswerRecord]) -> str | None:
             and level in LEVEL_INDEX
         )
     ]
-    return max(mastered, key=lambda level: LEVEL_INDEX[level]) if mastered else None
+    if not mastered:
+        return None
+    candidate = max(mastered, key=lambda level: LEVEL_INDEX[level])
+    conflicts = [level for level, (mean, count) in accuracy.items()
+                 if level in LEVEL_INDEX and LEVEL_INDEX[level] < LEVEL_INDEX[candidate]
+                 and count >= MIN_ITEMS_AT_DECIDING_BAND and mean < BAND_MASTERY_THRESHOLD]
+    # Three observations at the candidate band are required in a conflicting profile.
+    if conflicts and accuracy[candidate][1] < 3:
+        return None
+    return candidate
 
 
 def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
@@ -230,8 +242,6 @@ def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
         if skill in PRODUCTION_SKILLS:
             continue
         level = estimate_skill_level(skill_answers)
-        if level is None:
-            continue
         score = sum(a.normalized_score for a in skill_answers)
         results[skill] = {
             "skill": skill,
@@ -240,6 +250,18 @@ def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
             "max_score": float(len(skill_answers)),
             "items_count": len(skill_answers),
             "accuracy": round(score / len(skill_answers), 3),
+            "status": "estimated" if level else "insufficient_evidence",
+            "eligible_for_overall": level is not None,
+            "evidence_counts": {
+                "answered": len(skill_answers), "valid": len(skill_answers), "excluded": 0,
+                "by_cefr": {band: count for band, (_, count) in _band_accuracy(skill_answers).items()},
+                "deciding_band": level,
+                "at_deciding_band": sum(a.cefr_level == level for a in skill_answers) if level else 0,
+            },
+            "skill_confidence": {
+                "basis": "rule_based_evidence", "label": "supported" if level else "insufficient",
+                "reasons": [] if level else ["insufficient_or_conflicting_band_evidence"],
+            },
         }
     return results
 
@@ -267,37 +289,14 @@ def effective_weights(assessed_skills: list[str]) -> dict[str, float]:
 
 
 def overall_level(results: dict[str, dict]) -> tuple[str | None, dict[str, float]]:
-    """Nível geral ponderado, limitado pela menor competência essencial.
-
-    O teto existe para não declarar fluência com base em compreensão apenas:
-    o geral fica no máximo um nível acima da menor competência essencial
-    avaliada (listening/speaking). Sem nenhuma essencial avaliada, o teto usa
-    a menor competência avaliada.
-    """
-    if not results:
+    """Global conservative summary requires every skill to be eligible."""
+    if set(results) != set(SKILL_WEIGHTS) or any(
+        result.get("estimated_level") not in TESTABLE_LEVELS or not result.get("eligible_for_overall", False)
+        for result in results.values()
+    ):
         return None, {}
+    return min((r["estimated_level"] for r in results.values()), key=LEVEL_INDEX.__getitem__), {}
 
-    assessed = sorted(results.keys())
-    weights = effective_weights(assessed)
-    if not weights:
-        return None, {}
-
-    weighted_index = sum(
-        LEVEL_INDEX[results[skill]["estimated_level"]] * weight
-        for skill, weight in weights.items()
-    )
-    level_index = round(weighted_index)
-
-    essential = [skill for skill in assessed if skill in ESSENTIAL_SKILLS]
-    cap_pool = essential or assessed
-    floor_index = min(LEVEL_INDEX[results[skill]["estimated_level"]] for skill in cap_pool)
-    level_index = min(level_index, floor_index + 1)
-
-    # Sem itens validados de C1/C2 o teste não classifica nessas faixas.
-    max_testable = max(LEVEL_INDEX[level] for level in TESTABLE_LEVELS)
-    level_index = min(level_index, max_testable)
-
-    return level_at(level_index), weights
 
 
 def confidence(results: dict[str, dict], answers: list[AnswerRecord]) -> float:
@@ -366,12 +365,23 @@ def recommendations(results: dict[str, dict], overall: str | None) -> list[dict]
 def build_result(
     answers: list[AnswerRecord],
     duration_seconds: int | None = None,
+    production_results: dict[str, dict] | None = None,
 ) -> dict:
     """Resultado completo do teste. Fonte única do cálculo (backend)."""
+    answers = [a for a in answers if a.skill in OBJECTIVE_SKILLS]
     results = skill_results(answers)
+    results.update(production_results or {})
+    for skill in SKILL_WEIGHTS:
+        results.setdefault(skill, {
+            "skill": skill, "estimated_level": None,
+            "status": "not_collected", "eligible_for_overall": False,
+            "score": None, "max_score": None,
+            "evidence_counts": {"answered": 0, "valid": 0, "excluded": 0, "by_cefr": {}},
+            "skill_confidence": {"basis": "rule_based_evidence", "label": "insufficient", "reasons": ["not_collected"]},
+        })
     overall, weights = overall_level(results)
-    confidence_value = confidence(results, answers)
-    assessed = sorted(results.keys())
+    confidence_value = None
+    assessed = sorted(skill for skill, data in results.items() if data["estimated_level"])
     not_assessed = sorted(set(SKILL_WEIGHTS) - set(assessed))
 
     total_score = sum(a.normalized_score for a in answers)
@@ -379,7 +389,17 @@ def build_result(
     return {
         "overall_level": overall,
         "confidence_score": confidence_value,
-        "confidence_label": confidence_label(confidence_value),
+        "confidence_label": None,
+        "result_schema_version": 2,
+        "policy_version": "placement-coverage-v2",
+        "profile_status": "complete" if overall else "partial",
+        "overall_estimate_status": "sufficient" if overall else "partial",
+        "assessment_coverage": {
+            "required_for_overall": list(SKILL_WEIGHTS),
+            "sufficient_skills": [skill for skill, data in results.items() if data["eligible_for_overall"]],
+            "missing_skills": [skill for skill, data in results.items() if not data["eligible_for_overall"]],
+            "objective_answered": len(answers),
+        },
         "total_score": round(total_score, 3),
         "max_score": float(len(answers)),
         "items_answered": len(answers),
@@ -388,5 +408,7 @@ def build_result(
         "assessed_skills": assessed,
         "not_assessed_skills": not_assessed,
         "weights_used": {skill: round(weight, 4) for skill, weight in weights.items()},
-        "recommendations": recommendations(results, overall),
+        "recommendations": recommendations({s: r for s, r in results.items() if r["estimated_level"]}, overall) if overall else [
+            {"skill": skill, "reason": "insufficient_evidence" if data["evidence_counts"]["answered"] else "not_assessed", "priority": 1}
+            for skill, data in results.items() if not data["eligible_for_overall"] and data["status"] != "unavailable"],
     }

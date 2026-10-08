@@ -59,6 +59,18 @@ beforeEach(() => {
   apiMock.mockReset();
 });
 
+it("coleta fala por áudio e oferece pular sem inventar nível", async () => {
+  mockRoute((path) => path.endsWith("next-item") ? {
+    stage: "speaking", progress,
+    item: { ...objectiveItem, id: "speaking-1", skill: "speaking", skill_label: "Fala",
+      item_type: "speaking_prompt", prompt: "Descreva uma experiência em inglês", options: [] },
+  } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByRole("button", { name: "Gravar resposta" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Pular avaliação de fala" })).toBeInTheDocument();
+  expect(screen.getByText(/pronúncia e fluência/)).toBeInTheDocument();
+});
+
 describe("Tela inicial do teste", () => {
   it("explica o teste e avisa que não é certificação", async () => {
     mockRoute(() => ({ test: null }));

@@ -92,6 +92,16 @@ function LevelBlock({
   level?: DashboardLevel;
   legacyLevel: string | null;
 }) {
+  if (level?.assessment_status === "partial" && !level.current_level) {
+    return <div>
+      <p className="text-sm font-semibold">Perfil parcial de competências</p>
+      <p className="mt-1 text-sm text-text-secondary">Seu teste foi concluído. Ainda falta cobertura para um nível global; você já pode praticar.</p>
+      <div className="mt-2 flex gap-4">
+        <LinkAction href={`/placement-test/${level.last_assessment_id}/resultado`}>Ver perfil</LinkAction>
+        <LinkAction href="/learn">Praticar habilidades</LinkAction>
+      </div>
+    </div>;
+  }
   if (!level || level.needs_placement_test || !level.current_level) {
     return (
       <div>

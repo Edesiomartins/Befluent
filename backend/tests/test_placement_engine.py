@@ -11,7 +11,7 @@ def record(skill: str, level: str, score: float, ms: int | None = 5000):
 
 
 def levels(mapping: dict[str, str]) -> dict[str, dict]:
-    return {skill: {"estimated_level": level} for skill, level in mapping.items()}
+    return {skill: {"estimated_level": level, "eligible_for_overall": True} for skill, level in mapping.items()}
 
 
 class TestAdaptiveSelection:
@@ -114,7 +114,7 @@ class TestOverallLevel:
             )
         )
         assert result != "B2"
-        assert result == "B1"
+        assert result == "A2"
 
     def test_limita_a_um_nivel_acima_da_menor_essencial(self):
         result, _ = engine.overall_level(
@@ -126,13 +126,13 @@ class TestOverallLevel:
                 }
             )
         )
-        assert result == "A2"
+        assert result is None
 
     def test_sem_essenciais_usa_menor_avaliada(self):
         result, _ = engine.overall_level(
             levels({Skill.READING: "B2", Skill.VOCABULARY_GRAMMAR: "A2"})
         )
-        assert result == "B1"
+        assert result is None
 
     def test_nao_classifica_em_c1_sem_itens_validados(self):
         result, _ = engine.overall_level(
@@ -145,7 +145,7 @@ class TestOverallLevel:
                 }
             )
         )
-        assert result == "B2"
+        assert result is None
 
     def test_sem_resultados_retorna_none(self):
         result, weights = engine.overall_level({})
@@ -198,7 +198,7 @@ class TestBuildResult:
 
         result = engine.build_result(answers)
 
-        assert Skill.WRITING not in result["skills"]
+        assert result["skills"][Skill.WRITING]["estimated_level"] is None
         assert Skill.WRITING not in result["assessed_skills"]
         assert Skill.WRITING not in result["weights_used"]
 
@@ -210,7 +210,7 @@ class TestBuildResult:
         assert set(result["assessed_skills"]) == {"reading", "vocabulary_grammar"}
         assert "speaking" in result["not_assessed_skills"]
         assert "listening" in result["not_assessed_skills"]
-        assert result["weights_used"]
+        assert result["weights_used"] == {}
 
     def test_recomenda_competencia_abaixo_do_geral(self):
         answers = [record(Skill.READING, "B2", 1.0) for _ in range(4)]

@@ -420,7 +420,7 @@ class TestOrigemDoNivel:
             for block in db_session.scalars(select(CurriculumBlock).where(CurriculumBlock.day_id == day.id))
         ] == original_blocks
 
-    def test_checkpoint_grava_origem_propria(self, db_session):
+    def test_checkpoint_parcial_preserva_origem_do_nivel_vigente(self, db_session):
         profile, user = setup_profile(db_session)
         curriculum = generate_curriculum(db_session, profile.id, 90, start_date=START)
         db_session.commit()
@@ -432,5 +432,5 @@ class TestOrigemDoNivel:
         db_session.commit()
         db_session.refresh(profile)
 
-        # Um nível vindo de 14 itens não pode se apresentar como o teste completo.
-        assert profile.level_source == LevelSource.CHECKPOINT
+        # O checkpoint parcial não substitui a proveniência do nível anterior.
+        assert profile.level_source == LevelSource.PLACEMENT_TEST

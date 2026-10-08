@@ -35,7 +35,7 @@ export type PlacementItem = {
 
 export type NextItemResponse = {
   item: PlacementItem | null;
-  stage: "objective" | "writing" | "ready_to_complete";
+  stage: "objective" | "writing" | "speaking" | "ready_to_complete";
   progress: PlacementProgress;
 };
 
@@ -52,9 +52,11 @@ export type SkillResult = {
   label: string;
   estimated_level: CefrLevel | null;
   level: LevelDetails | null;
-  score: number;
-  max_score: number;
-  status: "assessed" | "calibrating" | "not_assessed" | "not_available";
+  score: number | null;
+  max_score: number | null;
+  status: "assessed" | "calibrating" | "not_assessed" | "not_available" | "estimated" | "provisional" | "insufficient_evidence" | "not_collected" | "unavailable";
+  evidence_counts?: { answered: number; valid: number; excluded: number; by_cefr: Record<string, number> };
+  skill_confidence?: { basis: string; label: string; reasons: string[] };
 };
 
 export type Recommendation = {
@@ -65,6 +67,8 @@ export type Recommendation = {
 };
 
 export type PlacementResult = {
+  overall_estimate_status?: "partial" | "sufficient";
+  assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string };
   id: string;
   language_code: string;
   status: string;
@@ -92,6 +96,8 @@ export type PlacementResult = {
 };
 
 export type DashboardLevel = {
+  last_assessment_id?: string | null;
+  assessment_status?: "partial" | "sufficient" | null;
   current_level: CefrLevel | null;
   details: LevelDetails | null;
   source: LevelSource;
