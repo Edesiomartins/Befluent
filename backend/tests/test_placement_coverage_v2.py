@@ -45,6 +45,8 @@ def test_conflicting_lower_band_does_not_emit_unconfirmed_higher_level():
 
 
 def test_partial_completion_keeps_reading_scores_and_is_idempotent(client, auth, db_session):
+    from tests.test_placement_api import use_legacy_catalog
+    use_legacy_catalog(db_session)
     from tests.test_placement_api import answer_all, create_test
     test = create_test(client, auth).json()
     answer_all(client, auth, test["id"], db_session)
@@ -130,8 +132,8 @@ def test_speaking_cannot_enter_objective_endpoint(client, auth, db_session):
 def test_progress_target_is_possible_in_current_bank(client, auth):
     from tests.test_placement_api import create_test
     test = create_test(client, auth).json()
-    assert test["progress"]["target"] == 16
-    assert test["progress"]["bank_feasibility"] == "insufficient"
+    assert test["progress"]["target"] == engine.RECOMMENDED_OBJECTIVE_ITEMS
+    assert test["progress"]["bank_feasibility"] == "possible"
 
 
 def test_duplicate_stimulus_does_not_increase_capacity_or_repeat_selection(db_session):

@@ -82,6 +82,8 @@ class AnswerRecord:
     cefr_level: str
     normalized_score: float
     response_time_ms: int | None = None
+    evidence_keys: tuple[str, ...] = ()
+    eligible: bool = True
 
 
 @dataclass
@@ -167,6 +169,7 @@ def next_skill(state: TestState) -> str:
     skill = min(
         OBJECTIVE_SKILLS,
         key=lambda item: (
+            not (counts[item] >= MIN_ITEMS_PER_SKILL and confirmation_policy([a for a in state.answers if a.skill == item])["confirmation_required"]),
             estimate_skill_level([a for a in state.answers if a.skill == item]) is not None,
             counts[item] >= MIN_ITEMS_PER_SKILL,
             counts[item],
@@ -187,8 +190,8 @@ def should_stop(state: TestState) -> bool:
 
     # Evidência suficiente: a faixa atual já tem itens bastantes e o
     # desempenho nela é consistente (nem promove nem rebaixa).
-    return all(estimate_skill_level([a for a in state.answers if a.skill == skill])
-               is not None for skill in OBJECTIVE_SKILLS)
+    return all((policy := confirmation_policy([a for a in state.answers if a.skill == skill]))["estimated_level"]
+               is not None and not policy["confirmation_required"] for skill in OBJECTIVE_SKILLS)
 
 
 # --------------------------------------------------------------------- scoring
@@ -204,31 +207,71 @@ def _band_accuracy(answers: list[AnswerRecord]) -> dict[str, tuple[float, int]]:
     }
 
 
-def estimate_skill_level(answers: list[AnswerRecord]) -> str | None:
-    """Maior faixa dominada; None quando não há evidência suficiente."""
-    if len(answers) < MIN_ITEMS_PER_SKILL:
-        return None
+def independent_answers(answers: list[AnswerRecord]) -> list[AnswerRecord]:
+    """One eligible observation per connected stimulus group; first response wins.
 
-    accuracy = _band_accuracy(answers)
-    mastered = [
-        level
-        for level, (mean, count) in accuracy.items()
-        if (
-            mean >= BAND_MASTERY_THRESHOLD
-            and count >= MIN_ITEMS_AT_DECIDING_BAND
-            and level in LEVEL_INDEX
-        )
-    ]
-    if not mastered:
-        return None
-    candidate = max(mastered, key=lambda level: LEVEL_INDEX[level])
-    conflicts = [level for level, (mean, count) in accuracy.items()
-                 if level in LEVEL_INDEX and LEVEL_INDEX[level] < LEVEL_INDEX[candidate]
-                 and count >= MIN_ITEMS_AT_DECIDING_BAND and mean < BAND_MASTERY_THRESHOLD]
-    # Three observations at the candidate band are required in a conflicting profile.
-    if conflicts and accuracy[candidate][1] < 3:
-        return None
-    return candidate
+    Union all keys before counting so a passage/family bridge cannot turn two
+    related items into independent observations. API supplies snapshot keys.
+    Empty keys are reserved for synthetic engine callers.
+    """
+    import math
+    valid = [a for a in answers if a.eligible and a.cefr_level in TESTABLE_LEVELS
+             and not isinstance(a.normalized_score, bool)
+             and math.isfinite(a.normalized_score) and 0 <= a.normalized_score <= 1]
+    groups = []
+    for answer in valid:
+        keys = set(answer.evidence_keys)
+        matches = [i for i, (_, existing) in enumerate(groups) if keys & existing]
+        if not matches:
+            groups.append((answer, keys))
+        else:
+            first = matches[0]
+            groups[first][1].update(keys)
+            for i in reversed(matches[1:]):
+                groups[first][1].update(groups[i][1])
+                groups.pop(i)
+    return [a for a, _ in groups]
+
+
+def confirmation_policy(answers: list[AnswerRecord]) -> dict:
+    """Candidate is the highest band with a positive independent signal.
+
+    Means >=.65 and two observations support measurement; failed/lower-band
+    conflict requires three candidate observations and the same mean. Four
+    observations across the skill remain mandatory for any measured estimate.
+    """
+    answers = independent_answers(answers)
+    buckets = _band_accuracy(answers)
+    signals = [a.cefr_level for a in answers if a.normalized_score >= BAND_MASTERY_THRESHOLD]
+    candidate = max(signals, key=LEVEL_INDEX.__getitem__) if signals else None
+    count = buckets.get(candidate, (0, 0))[1]
+    conflict = bool(candidate and (
+        any(a.cefr_level == candidate and a.normalized_score < BAND_MASTERY_THRESHOLD for a in answers)
+        or any(LEVEL_INDEX[b] < LEVEL_INDEX[candidate] and n >= 2 and mean < BAND_MASTERY_THRESHOLD
+               for b, (mean, n) in buckets.items())))
+    needed = 3 if conflict else MIN_ITEMS_AT_DECIDING_BAND
+    mastered = []
+    if len(answers) >= MIN_ITEMS_PER_SKILL:
+        for band, (mean, n) in buckets.items():
+            band_conflict = any(a.cefr_level == band and a.normalized_score < BAND_MASTERY_THRESHOLD for a in answers) or any(
+                LEVEL_INDEX[b] < LEVEL_INDEX[band] and qty >= 2 and avg < BAND_MASTERY_THRESHOLD
+                for b, (avg, qty) in buckets.items())
+            if mean >= BAND_MASTERY_THRESHOLD and n >= (3 if band_conflict else MIN_ITEMS_AT_DECIDING_BAND):
+                mastered.append(band)
+    measured = max(mastered, key=LEVEL_INDEX.__getitem__) if mastered else None
+    required = candidate is not None and measured != candidate
+    return {"candidate_level": candidate, "highest_supported_signal": candidate,
+            "estimated_level": measured, "confirmation_required": required,
+            "confirmation_count": count, "confirmation_needed": needed if candidate else 0,
+            "candidate_reason": ("conflicting_band_evidence" if conflict else
+                "confirmation_required" if required else "confirmed" if candidate else "no_positive_signal"),
+            "selection_phase": "confirmed" if measured == candidate and measured else
+                "confirmation" if required and len(answers) >= MIN_ITEMS_PER_SKILL else
+                "candidate" if candidate else "exploration"}
+
+
+def estimate_skill_level(answers: list[AnswerRecord]) -> str | None:
+    return confirmation_policy(answers)["estimated_level"]
 
 
 def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
@@ -241,23 +284,28 @@ def skill_results(answers: list[AnswerRecord]) -> dict[str, dict]:
     for skill, skill_answers in grouped.items():
         if skill in PRODUCTION_SKILLS:
             continue
-        level = estimate_skill_level(skill_answers)
+        policy = confirmation_policy(skill_answers)
+        independent = independent_answers(skill_answers)
+        level = policy["estimated_level"]
         score = sum(a.normalized_score for a in skill_answers)
         results[skill] = {
             "skill": skill,
+            **policy,
             "estimated_level": level,
             "score": round(score, 3),
             "max_score": float(len(skill_answers)),
             "items_count": len(skill_answers),
             "accuracy": round(score / len(skill_answers), 3),
+            "independent_accuracy": round(sum(a.normalized_score for a in independent) / len(independent), 3) if independent else None,
             "status": "estimated" if level else "insufficient_evidence",
             "eligible_for_overall": level is not None,
             "evidence_counts": {
-                "answered": len(skill_answers), "valid": len(skill_answers), "excluded": 0,
+                "answered": len(skill_answers), "valid": len(independent), "independent": len(independent), "excluded": len(skill_answers) - len(independent),
                 "by_cefr": {band: count for band, (_, count) in _band_accuracy(skill_answers).items()},
                 "deciding_band": level,
                 "at_deciding_band": sum(a.cefr_level == level for a in skill_answers) if level else 0,
             },
+            "independent_evidence_counts": {"by_cefr": {band: n for band, (_, n) in _band_accuracy(independent).items()}, "total": len(independent)},
             "skill_confidence": {
                 "basis": "rule_based_evidence", "label": "supported" if level else "insufficient",
                 "reasons": [] if level else ["insufficient_or_conflicting_band_evidence"],
@@ -374,6 +422,8 @@ def build_result(
     for skill in SKILL_WEIGHTS:
         results.setdefault(skill, {
             "skill": skill, "estimated_level": None,
+            **(confirmation_policy([]) if skill in OBJECTIVE_SKILLS else {}),
+            **({"independent_evidence_counts": {"by_cefr": {}, "total": 0}} if skill in OBJECTIVE_SKILLS else {}),
             "status": "not_collected", "eligible_for_overall": False,
             "score": None, "max_score": None,
             "evidence_counts": {"answered": 0, "valid": 0, "excluded": 0, "by_cefr": {}},

@@ -25,10 +25,20 @@ def main():
             data = json.loads(path.read_text(encoding="utf-8"))
             rows.extend({**item, "language_code": data["language_code"], "is_active": True,
                          "review_status": "approved"} for item in data["items"])
+    from app.models import PlacementItem
+    from app.services.placement_coverage import catalog_matrix
+    items = [PlacementItem(language_code=r["language_code"], skill=r["skill"],
+        cefr_level=r["cefr_level"], item_type=r["item_type"], prompt=r["prompt"],
+        instructions=r.get("instructions"), passage=r.get("passage"), audio_script=r.get("audio_script"),
+        audio_url=r.get("audio_url"), options_json=r.get("options_json", r.get("options", [])),
+        correct_answer_json=r.get("correct_answer_json", r.get("correct_answer", {})),
+        rubric_json=r.get("rubric_json", r.get("rubric", {})), is_active=r.get("is_active"),
+        review_status=r.get("review_status")) for r in rows]
     matrix = Counter((r["language_code"], r["skill"], r["cefr_level"], r["item_type"],
                       bool(r.get("is_active")), r.get("review_status")) for r in rows)
     print(json.dumps({"source": "database_read_only" if args.database else "versioned_fixtures",
-        "total": len(rows), "matrix": [{"language": key[0], "skill": key[1], "cefr": key[2],
+        "total": len(rows), "fresh_scope": "hypothetical_unexposed_account",
+        "independent_matrix": catalog_matrix(items), "matrix": [{"language": key[0], "skill": key[1], "cefr": key[2],
         "item_type": key[3], "active": key[4], "review_status": key[5], "count": count}
         for key, count in sorted(matrix.items(), key=lambda x: str(x[0]))]}, ensure_ascii=False, indent=2))
 

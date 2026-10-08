@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "language_code": "la",
   "notice": "Banco inicial — latim eclesiástico (liturgia/Vulgata). Requer validação pedagógica antes de uso definitivo.",
   "items": [
@@ -9,8 +9,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Como se responde a \"Dominus vobiscum\" na Missa?",
-      "options": ["Et cum spiritu tuo", "Amen", "Deo gratias", "Kyrie eleison"],
-      "correct_answer": { "value": "Et cum spiritu tuo" },
+      "options": [
+        "Et cum spiritu tuo",
+        "Amen",
+        "Deo gratias",
+        "Kyrie eleison"
+      ],
+      "correct_answer": {
+        "value": "Et cum spiritu tuo"
+      },
       "explanation": "A resposta litúrgica padrão é \"Et cum spiritu tuo\".",
       "difficulty": 0.1
     },
@@ -20,8 +27,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "O que significa \"Amen\"?",
-      "options": ["Assim seja / amém", "Glória a Deus", "Oremos", "Paz"],
-      "correct_answer": { "value": "Assim seja / amém" },
+      "options": [
+        "Assim seja / amém",
+        "Glória a Deus",
+        "Oremos",
+        "Paz"
+      ],
+      "correct_answer": {
+        "value": "Assim seja / amém"
+      },
       "explanation": "\"Amen\" afirma e confirma o que foi dito.",
       "difficulty": 0.12
     },
@@ -32,8 +46,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Quem fala primeiro neste diálogo?",
       "passage": "Sacerdos: Dominus vobiscum. Populus: Et cum spiritu tuo. Sacerdos: Oremus.",
-      "options": ["O sacerdote", "O povo", "O diácono", "O coro"],
-      "correct_answer": { "value": "O sacerdote" },
+      "options": [
+        "O sacerdote",
+        "O povo",
+        "O diácono",
+        "O coro"
+      ],
+      "correct_answer": {
+        "value": "O sacerdote"
+      },
       "explanation": "O texto começa com \"Sacerdos: Dominus vobiscum\".",
       "difficulty": 0.2
     },
@@ -44,8 +65,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa pediu na oração?",
       "audio_script": "Panem nostrum cotidianum da nobis hodie.",
-      "options": ["O pão de cada dia", "Perdão dos pecados", "A paz", "A luz"],
-      "correct_answer": { "value": "O pão de cada dia" },
+      "options": [
+        "O pão de cada dia",
+        "Perdão dos pecados",
+        "A paz",
+        "A luz"
+      ],
+      "correct_answer": {
+        "value": "O pão de cada dia"
+      },
       "explanation": "\"Panem nostrum cotidianum\" é o pão cotidiano.",
       "difficulty": 0.22
     },
@@ -55,8 +83,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"____ vobiscum.\"",
-      "options": ["Dominus", "Domine", "Domini", "Domino"],
-      "correct_answer": { "value": "Dominus" },
+      "options": [
+        "Dominus",
+        "Domine",
+        "Domini",
+        "Domino"
+      ],
+      "correct_answer": {
+        "value": "Dominus"
+      },
       "explanation": "Na saudação litúrgica usa-se o nominativo \"Dominus\".",
       "difficulty": 0.25
     },
@@ -66,8 +101,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"In principio erat ____.\"",
-      "options": ["Verbum", "Verbi", "Verbo", "Verba"],
-      "correct_answer": { "value": "Verbum" },
+      "options": [
+        "Verbum",
+        "Verbi",
+        "Verbo",
+        "Verba"
+      ],
+      "correct_answer": {
+        "value": "Verbum"
+      },
       "explanation": "Jo 1,1: \"In principio erat Verbum\".",
       "difficulty": 0.38
     },
@@ -77,8 +119,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Na pronúncia eclesiástica, \"caelum\" soa aproximadamente como:",
-      "options": ["ché-lum", "káe-lum", "sé-lum", "kei-lum"],
-      "correct_answer": { "value": "ché-lum" },
+      "options": [
+        "ché-lum",
+        "káe-lum",
+        "sé-lum",
+        "kei-lum"
+      ],
+      "correct_answer": {
+        "value": "ché-lum"
+      },
       "explanation": "Diante de e/ae, o c eclesiástico soa /tʃ/ (como no italiano).",
       "difficulty": 0.36
     },
@@ -89,8 +138,15 @@
       "item_type": "reading_comprehension",
       "prompt": "O que se pede que venha?",
       "passage": "Pater noster, qui es in caelis, sanctificetur nomen tuum. Adveniat regnum tuum. Fiat voluntas tua, sicut in caelo et in terra.",
-      "options": ["O reino", "O pão", "A paz", "A luz"],
-      "correct_answer": { "value": "O reino" },
+      "options": [
+        "O reino",
+        "O pão",
+        "A paz",
+        "A luz"
+      ],
+      "correct_answer": {
+        "value": "O reino"
+      },
       "explanation": "\"Adveniat regnum tuum\" = venha o vosso reino.",
       "difficulty": 0.4
     },
@@ -101,8 +157,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Quem está \"cheia de graça\"?",
       "audio_script": "Ave Maria, gratia plena, Dominus tecum.",
-      "options": ["Maria", "Isabel", "Marta", "Ana"],
-      "correct_answer": { "value": "Maria" },
+      "options": [
+        "Maria",
+        "Isabel",
+        "Marta",
+        "Ana"
+      ],
+      "correct_answer": {
+        "value": "Maria"
+      },
       "explanation": "A Ave Maria dirige-se a Maria: \"gratia plena\".",
       "difficulty": 0.42
     },
@@ -112,8 +175,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Et Verbum ____ factum est.\"",
-      "options": ["caro", "carnis", "carnem", "carne"],
-      "correct_answer": { "value": "caro" },
+      "options": [
+        "caro",
+        "carnis",
+        "carnem",
+        "carne"
+      ],
+      "correct_answer": {
+        "value": "caro"
+      },
       "explanation": "Predicativo nominativo: \"caro factum est\".",
       "difficulty": 0.56
     },
@@ -123,8 +193,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "\"Fiat voluntas tua\" usa o subjuntivo para expressar:",
-      "options": ["desejo / permissão", "fato passado", "ordem militar", "dúvida matemática"],
-      "correct_answer": { "value": "desejo / permissão" },
+      "options": [
+        "desejo / permissão",
+        "fato passado",
+        "ordem militar",
+        "dúvida matemática"
+      ],
+      "correct_answer": {
+        "value": "desejo / permissão"
+      },
       "explanation": "\"Fiat\" é subjuntivo de desejo: \"seja feita\".",
       "difficulty": 0.52
     },
@@ -135,8 +212,15 @@
       "item_type": "reading_comprehension",
       "prompt": "O que aconteceu com o Verbo?",
       "passage": "In principio erat Verbum, et Verbum erat apud Deum, et Deus erat Verbum. Et Verbum caro factum est, et habitavit in nobis.",
-      "options": ["Fez-se carne e habitou entre nós", "Desapareceu", "Foi criado depois", "Permaneceu só no céu"],
-      "correct_answer": { "value": "Fez-se carne e habitou entre nós" },
+      "options": [
+        "Fez-se carne e habitou entre nós",
+        "Desapareceu",
+        "Foi criado depois",
+        "Permaneceu só no céu"
+      ],
+      "correct_answer": {
+        "value": "Fez-se carne e habitou entre nós"
+      },
       "explanation": "\"Et Verbum caro factum est, et habitavit in nobis\".",
       "difficulty": 0.6
     },
@@ -147,8 +231,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Em quem o Credo professa fé no início?",
       "audio_script": "Credo in unum Deum, Patrem omnipotentem, factorem caeli et terrae.",
-      "options": ["Em um só Deus", "Nos anjos", "Nos apóstolos", "Na Igreja somente"],
-      "correct_answer": { "value": "Em um só Deus" },
+      "options": [
+        "Em um só Deus",
+        "Nos anjos",
+        "Nos apóstolos",
+        "Na Igreja somente"
+      ],
+      "correct_answer": {
+        "value": "Em um só Deus"
+      },
       "explanation": "\"Credo in unum Deum\".",
       "difficulty": 0.6
     },
@@ -158,7 +249,9 @@
       "skill": "writing",
       "item_type": "short_answer",
       "prompt": "Escreva em latim eclesiástico: \"Graças a Deus.\"",
-      "correct_answer": { "value": "Deo gratias" },
+      "correct_answer": {
+        "value": "Deo gratias"
+      },
       "explanation": "Fórmula litúrgica: \"Deo gratias\".",
       "difficulty": 0.55
     },
@@ -168,8 +261,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete o contrafactual: \"Si hoc ____, melius egissemus.\"",
-      "options": ["scivissemus", "scivimus", "sciebamus", "sciamus"],
-      "correct_answer": { "value": "scivissemus" },
+      "options": [
+        "scivissemus",
+        "scivimus",
+        "sciebamus",
+        "sciamus"
+      ],
+      "correct_answer": {
+        "value": "scivissemus"
+      },
       "explanation": "Irreal do passado: si + mais-que-perfeito do subjuntivo.",
       "difficulty": 0.72
     },
@@ -179,8 +279,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "\"Per omnia saecula saeculorum\" significa:",
-      "options": ["Por todos os séculos dos séculos", "Neste século apenas", "Antes do tempo", "Até amanhã"],
-      "correct_answer": { "value": "Por todos os séculos dos séculos" },
+      "options": [
+        "Por todos os séculos dos séculos",
+        "Neste século apenas",
+        "Antes do tempo",
+        "Até amanhã"
+      ],
+      "correct_answer": {
+        "value": "Por todos os séculos dos séculos"
+      },
       "explanation": "Doxologia litúrgica de eternidade.",
       "difficulty": 0.68
     },
@@ -191,8 +298,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Segundo o texto, a fé em relação à razão:",
       "passage": "Fides non destruit rationem, sed eam perficit. Ea quae naturaliter cognosci possunt non contradicunt his quae per revelationem traduntur.",
-      "options": ["Não destrói a razão, mas a aperfeiçoa", "Substitui a razão", "Contradiz a natureza", "Independe de qualquer ordem"],
-      "correct_answer": { "value": "Não destrói a razão, mas a aperfeiçoa" },
+      "options": [
+        "Não destrói a razão, mas a aperfeiçoa",
+        "Substitui a razão",
+        "Contradiz a natureza",
+        "Independe de qualquer ordem"
+      ],
+      "correct_answer": {
+        "value": "Não destrói a razão, mas a aperfeiçoa"
+      },
       "explanation": "\"Fides non destruit rationem, sed eam perficit\".",
       "difficulty": 0.75
     },
@@ -203,8 +317,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que o Credo afirma sobre Cristo neste trecho?",
       "audio_script": "Et in unum Dominum Iesum Christum, Filium Dei unigenitum. Et incarnatus est de Spiritu Sancto.",
-      "options": ["É o Filho unigênito e encarnou", "É apenas um profeta", "Não veio ao mundo", "É igual aos anjos"],
-      "correct_answer": { "value": "É o Filho unigênito e encarnou" },
+      "options": [
+        "É o Filho unigênito e encarnou",
+        "É apenas um profeta",
+        "Não veio ao mundo",
+        "É igual aos anjos"
+      ],
+      "correct_answer": {
+        "value": "É o Filho unigênito e encarnou"
+      },
       "explanation": "\"Filium Dei unigenitum\" e \"incarnatus est\".",
       "difficulty": 0.74
     },
@@ -214,7 +335,9 @@
       "skill": "speaking",
       "item_type": "short_answer",
       "prompt": "Recite (ou escreva) a resposta litúrgica a \"Dominus vobiscum\".",
-      "correct_answer": { "value": "Et cum spiritu tuo" },
+      "correct_answer": {
+        "value": "Et cum spiritu tuo"
+      },
       "explanation": "Resposta padrão da Missa.",
       "difficulty": 0.7
     },
@@ -225,8 +348,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Qual ordem o texto recomenda entre crer e entender?",
       "passage": "Unde theologia utitur et auctoritate et argumentatione, dummodo ordo servetur: prius credere, deinde intelligere.",
-      "options": ["Primeiro crer, depois entender", "Primeiro provar, depois crer", "Só argumentar sem autoridade", "Só autoridade sem razão"],
-      "correct_answer": { "value": "Primeiro crer, depois entender" },
+      "options": [
+        "Primeiro crer, depois entender",
+        "Primeiro provar, depois crer",
+        "Só argumentar sem autoridade",
+        "Só autoridade sem razão"
+      ],
+      "correct_answer": {
+        "value": "Primeiro crer, depois entender"
+      },
       "explanation": "\"prius credere, deinde intelligere\".",
       "difficulty": 0.85
     },
@@ -258,6 +388,306 @@
         "editorial_status": "development_not_calibrated"
       },
       "difficulty": 0.6
+    },
+    {
+      "external_key": "la-confirmation-reading-pre_a1-sign-pharmacy",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual estabelecimento está indicado?",
+      "options": [
+        "Farmácia",
+        "Estação",
+        "Escola"
+      ],
+      "correct_answer": {
+        "value": "Farmácia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-sign-pharmacy",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Officina medicamentorum. Aperta."
+    },
+    {
+      "external_key": "la-confirmation-reading-pre_a1-closed-monday",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Em qual dia o local está fechado?",
+      "options": [
+        "Sábado",
+        "Domingo",
+        "Segunda-feira"
+      ],
+      "correct_answer": {
+        "value": "Segunda-feira"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-closed-monday",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Die Lunae clausum."
+    },
+    {
+      "external_key": "la-confirmation-reading-a1-library-children",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem pode participar da atividade?",
+      "options": [
+        "Somente idosos",
+        "Crianças",
+        "Somente professores"
+      ],
+      "correct_answer": {
+        "value": "Crianças"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-children",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "In bibliotheca fabulae pueris leguntur. Conventus die Sabbati hora decima incipit. Parentes in conclavi lectionis exspectare possunt."
+    },
+    {
+      "external_key": "la-confirmation-reading-a2-rail-disruption",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Como os passageiros poderão continuar a viagem?",
+      "options": [
+        "De ônibus, usando o mesmo bilhete",
+        "De táxi gratuito",
+        "De trem, sem interrupção"
+      ],
+      "correct_answer": {
+        "value": "De ônibus, usando o mesmo bilhete"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-rail-disruption",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Hodie tramen ad stationem Collium tantum procedit, quia via ferrea reparatur. Viatores inde autoraeda publica substituta iter continuare possunt. Tessera traminis in ea autoraeda quoque valet; aliam emere non necesse est."
+    },
+    {
+      "external_key": "la-confirmation-reading-b1-community-garden",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual solução o grupo encontrou para a preocupação dos moradores?",
+      "options": [
+        "Cancelar toda a horta",
+        "Proibir a entrada das crianças",
+        "Reservar parte do terreno para brincar"
+      ],
+      "correct_answer": {
+        "value": "Reservar parte do terreno para brincar"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-community-garden",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Incolae agrum vacuum in hortum communem mutare volebant. Nonnulli parentes timebant ne pueri unicum locum ludendi amitterent. Post colloquium tertia pars agri ludis reservata est, in reliqua parte holera sata sunt. Uterque coetus ad locum curandum operam conferre constituit."
+    },
+    {
+      "external_key": "la-confirmation-reading-b2-library-digitisation",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual posição a autora defende sobre digitalizar o acervo?",
+      "options": [
+        "Adiar a digitalização até todos terem equipamento",
+        "Ampliar o acesso sem eliminar o apoio presencial",
+        "Substituir todos os serviços presenciais"
+      ],
+      "correct_answer": {
+        "value": "Ampliar o acesso sem eliminar o apoio presencial"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-digitisation",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Si libri bibliothecae per rete omnibus pateant, etiam ii qui ad aedificium venire nequeunt eos legere poterunt. Attamen qui hanc rationem pro tota bibliotheca substituendam putat, eos neglegit quibus aditus ad rete certus deest. Auctrix igitur suadet ut aditus electronicus amplietur, ministri autem serventur qui lectores coram adiuvent. Fructus operis ex hominibus quibus novus aditus datur aestimandus est, non ex numero ministeriorum quae ex impensis tolluntur."
+    },
+    {
+      "external_key": "la-confirmation-listening-pre_a1-take-key",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual objeto deve ser pego?",
+      "options": [
+        "A chave",
+        "O livro",
+        "O telefone"
+      ],
+      "correct_answer": {
+        "value": "A chave"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-take-key",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Clavem sume, quaeso."
+    },
+    {
+      "external_key": "la-confirmation-listening-pre_a1-room-correction",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual sala deve ser usada?",
+      "options": [
+        "Sala quatro",
+        "Sala dois",
+        "Sala três"
+      ],
+      "correct_answer": {
+        "value": "Sala três"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-room-correction",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Conclave quartum? Non, conclave tertium."
+    },
+    {
+      "external_key": "la-confirmation-listening-a1-meeting-courtyard",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde será o encontro?",
+      "options": [
+        "Na rua",
+        "No pátio",
+        "Na sala"
+      ],
+      "correct_answer": {
+        "value": "No pátio"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-meeting-courtyard",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Salvete. Hora nona convenimus. In atrio nos videbimus, quia parietes conclavis pinguntur. Libellum vestrum afferte, quaeso."
+    },
+    {
+      "external_key": "la-confirmation-listening-a2-parcel-neighbour",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde está a encomenda?",
+      "options": [
+        "Com a vizinha",
+        "Na agência",
+        "No apartamento do destinatário"
+      ],
+      "correct_answer": {
+        "value": "Com a vizinha"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-parcel-neighbour",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Sarcinam tuam tradere conatus sum, sed nemo domi erat. Vicina eam accepit. Cras mane domi erit. Ad officium tabellarium ire non debes."
+    },
+    {
+      "external_key": "la-confirmation-listening-b1-volunteer-motivation",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que motivou a pessoa a continuar como voluntária?",
+      "options": [
+        "Receber uma remuneração maior",
+        "Ganhar uma viagem",
+        "Perceber que suas habilidades eram úteis"
+      ],
+      "correct_answer": {
+        "value": "Perceber que suas habilidades eram úteis"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-volunteer-motivation",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Operam voluntariam paene reliqui, quod nihil utile me afferre posse putabam. Tum hospita quaedam me rogavit ut formulam quam non intellegebat explicarem. Experientia mea in officio ei profuit, et tempus colloquii obtinuit. Intellexi artes meas utiles esse; ideo operam continuare constitui."
+    },
+    {
+      "external_key": "la-confirmation-listening-b2-subscription-consent",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual condição a pessoa considera necessária para aceitar a proposta?",
+      "options": [
+        "Um desconto sem prazo definido",
+        "Consentimento explícito e custos transparentes",
+        "Renovação automática obrigatória"
+      ],
+      "correct_answer": {
+        "value": "Consentimento explícito e custos transparentes"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-subscription-consent",
+        "native_language": "pt-BR",
+        "target_language": "la",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Pretium deminutum placet, sed condicionibus propositis non assentiar. Renovationem commodam vocant, cum emptor solvere pergat nisi nuntium parvum animadvertat et pactum dissolvat. Sententiam mutare possim si ad quamque renovationem consensus expressus requiratur et pretium totum ante solutionem ostendatur. Solum pretium initiale minuere sollicitudinem meam de ratione pacti non tollit. Mihi enim interest utrum emptor condicionibus cognitis eligere possit, non tantum quantum initio pecuniae servet."
     }
   ]
 }

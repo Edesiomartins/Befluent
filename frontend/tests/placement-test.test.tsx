@@ -92,6 +92,32 @@ it("explica ready_to_complete quando as evidências previstas foram reunidas", a
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
 });
 
+it("mostra estados por competência quando o progresso os traz", async () => {
+  mockRoute(path => path.endsWith("next-item") ? {
+    item: objectiveItem,
+    stage: "objective",
+    progress: {
+      ...progress,
+      activities_completed: 12,
+      by_skill: {
+        vocabulary_grammar: { completed: 5, status: "collecting" },
+        reading: { completed: 4, status: "confirmation_pending", candidate_level: "B2" },
+        listening: { completed: 4, status: "completed" },
+        writing: { completed: 1, status: "provisional" },
+      },
+    },
+  } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByText("12 atividades concluídas")).toBeInTheDocument();
+  expect(screen.getByText("Vocabulário e gramática: em coleta")).toBeInTheDocument();
+  expect(screen.getByText("Leitura: confirmação pendente")).toBeInTheDocument();
+  expect(screen.getByText("Compreensão auditiva: concluída")).toBeInTheDocument();
+  expect(screen.getByText("Escrita: provisória")).toBeInTheDocument();
+  expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
 it("explica maximum_reached sem prometer perfil além das evidências", async () => {
   mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
     progress: { ...progress, activities_completed: 17, stop_reason: "maximum_reached" } } : { language_code: "en" });
@@ -587,6 +613,157 @@ describe("Resultado", () => {
     expect(screen.queryByText(/alternativa correta/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Revisão item a item/)).not.toBeInTheDocument();
     expect(screen.queryByText("Monte seu cronograma")).not.toBeInTheDocument();
+  });
+
+  it("separa faixa candidata, evidência insuficiente e níveis confirmados", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      planning_level_source: "partial_evidence",
+      overall_level: null,
+      curriculum: plan,
+      skills: [
+        {
+          skill: "vocabulary_grammar",
+          label: "Vocabulário e gramática",
+          estimated_level: "PRE_A1",
+          status: "estimated",
+          score: 5,
+          max_score: 8,
+        },
+        {
+          skill: "reading",
+          label: "Leitura",
+          estimated_level: null,
+          candidate_level: "B2",
+          status: "insufficient_evidence",
+          confirmation_needed: 1,
+          confirmation_count: 1,
+          confirmation_required: 2,
+          candidate_reason: "needs_independent_confirmation",
+          score: 4,
+          max_score: 4,
+          feedback: "A alternativa correta é a primeira.",
+        },
+        {
+          skill: "listening",
+          label: "Compreensão auditiva",
+          estimated_level: null,
+          status: "insufficient_evidence",
+          score: 4,
+          max_score: 4,
+        },
+        {
+          skill: "writing",
+          label: "Escrita",
+          estimated_level: "B1",
+          status: "provisional",
+          evidence_counts: { answered: 1, valid: 1, excluded: 0, by_cefr: {} },
+        },
+        {
+          skill: "speaking",
+          label: "Fala",
+          estimated_level: "A1",
+          status: "provisional",
+          evidence_counts: { answered: 1, valid: 1, excluded: 0, by_cefr: {} },
+        },
+      ],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
+    expect(screen.getByText("Pré-A1")).toBeInTheDocument();
+    expect(screen.getByText("5 acertos em 8 questões")).toBeInTheDocument();
+    expect(screen.getByText("B2 — confirmação pendente")).toBeInTheDocument();
+    expect(screen.getByText("Falta mais uma atividade B2 independente para confirmar esta faixa.")).toBeInTheDocument();
+    expect(screen.getAllByText("4 acertos em 4 questões")).toHaveLength(2);
+    expect(screen.getByText("Faixa ainda não determinada")).toBeInTheDocument();
+    expect(screen.getByText("B1 — provisório")).toBeInTheDocument();
+    expect(screen.getByText("1 produção escrita avaliada")).toBeInTheDocument();
+    expect(screen.getByText("A1 — provisório")).toBeInTheDocument();
+    expect(screen.getByText("1 amostra de fala avaliada")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-1",
+    );
+    expect(screen.queryByRole("link", { name: /Começar minha jornada em B2/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Seu nível estimado" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/seu nível é b2/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("needs_independent_confirmation")).not.toBeInTheDocument();
+    expect(screen.queryByText(/alternativa correta/i)).not.toBeInTheDocument();
+  });
+
+  it("mostra competência indisponível e ainda não avaliada", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      skills: [
+        {
+          skill: "reading",
+          label: "Leitura",
+          estimated_level: null,
+          status: "unavailable",
+          score: null,
+          max_score: null,
+        },
+        {
+          skill: "listening",
+          label: "Compreensão auditiva",
+          estimated_level: null,
+          status: "not_collected",
+          score: null,
+          max_score: null,
+        },
+      ],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("Avaliação não disponível")).toBeInTheDocument();
+    expect(screen.getByText("Ainda não avaliada")).toBeInTheDocument();
+    expect(screen.queryByText(/confirmação pendente/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/acerto/)).not.toBeInTheDocument();
+  });
+
+  it("não promove faixa candidata a nível global quando o overall é outro", async () => {
+    mockRoute(() => ({
+      ...result,
+      profile_status: "complete",
+      overall_estimate_status: "sufficient",
+      overall_level: "B1",
+      planning_level: "B1",
+      planning_level_source: "sufficient_overall",
+      curriculum: plan,
+      skills: [
+        {
+          skill: "reading",
+          label: "Leitura",
+          estimated_level: null,
+          candidate_level: "B2",
+          status: "insufficient_evidence",
+          confirmation_needed: 1,
+          score: 4,
+          max_score: 4,
+        },
+        {
+          skill: "vocabulary_grammar",
+          label: "Vocabulário e gramática",
+          estimated_level: "B1",
+          status: "estimated",
+          score: 6,
+          max_score: 8,
+        },
+      ],
+    }));
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Seu nível estimado" })).toBeInTheDocument();
+    expect(screen.getByText("B2 — confirmação pendente")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /B2/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/seu nível é b2/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Começar minha jornada em B2/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuar caminho" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-1",
+    );
   });
 
   it("parcial com planning_level e sem currículo não oferece CTA de jornada", async () => {

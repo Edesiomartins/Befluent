@@ -1,0 +1,14 @@
+........................................................................ [ 31%]
+........................................................................ [ 63%]
+s.....................s................................................. [ 95%]
+.........ss                                                              [100%]
+223 passed, 4 skipped in 160.66s (0:02:40)
+
+Environment (process only): DATABASE_URL=sqlite://; SESSION_SECURE=false; COOKIE_DOMAIN empty; AI_MOCK_MODE=true.
+Command: .venv/Scripts/python.exe -m pytest tests/test_placement_confirmation.py tests/test_placement_engine.py tests/test_placement_coverage_v2.py tests/test_placement_api.py tests/test_placement_delivery.py tests/test_placement_completion.py tests/test_placement_completion_postgres.py tests/test_placement_exposure.py tests/test_placement_exposure_postgres.py tests/test_placement_planning.py tests/test_legacy_placement_planning.py tests/test_placement_partial_integration.py tests/test_audit_placement_result.py tests/test_reset_test_user_learning.py tests/test_reset_test_user_learning_postgres.py -o addopts='' -q
+CWD: backend
+Exit: 0
+Skipped: POSTGRES_TEST_URL not configured; PostgreSQL safety remains unverified (4 cases).
+Compileall: exit 0.
+Git diff --check: exit 0; existing LF/CRLF warnings only.
+Standalone fixture audit: 255 items; all 80 testable R/L cells >=2 independent groups.

@@ -32,13 +32,16 @@ def planning_decision(result):
                     entry_signals.add(skill)
             elif status == "insufficient_evidence" and skill in {"vocabulary_grammar", "reading", "listening"}:
                 # Use eligible performance only: observed raw score may include reused items.
-                accuracy = data.get("accuracy") if not counts.get("reused") else None
+                accuracy = data.get("independent_accuracy", data.get("accuracy") if not counts.get("reused") else None)
                 total = data.get("max_score") or 0
                 if accuracy is None and not counts.get("reused") and total:
                     accuracy = (data.get("score") or 0) / total
                 supports_entry = valid >= PLANNING_POLICY["performance_minimum_items"] and accuracy is not None and accuracy >= PLANNING_POLICY["performance_minimum_accuracy"]
                 trace["signals"].append({"skill": skill, "status": status, "kind": "performance_only",
-                    "eligible_items": valid, "accuracy": accuracy, "supports_entry": supports_entry})
+                    "eligible_items": valid, "accuracy": accuracy, "supports_entry": supports_entry,
+                    "candidate_level": data.get("candidate_level"),
+                    "candidate_influenced_planning": supports_entry and bool(data.get("candidate_level")),
+                    "candidate_use": "entry_support_only_with_existing_performance_thresholds"})
                 if supports_entry:
                     entry_signals.add(skill)
             else:
@@ -70,3 +73,25 @@ def assessment_payload(profile):
     return {**planning_payload(profile), "overall_level": summary.get("overall_level"),
             "overall_estimate_status": summary.get("overall_estimate_status"),
             "profile_status": summary.get("profile_status"), "assessment_skills": summary.get("skills", {})}
+
+
+def legacy_planning_projection(result, profile):
+    """Read-only resolution: reconstructed proposal is never evidence of application."""
+    proposal = planning_decision(result)
+    applied = normalize_level(profile.planning_level) if profile is not None else None
+    trace = {"historical_application_known": False,
+             "assessment_proposed_level": proposal["planning_level"],
+             "assessment_proposal": proposal["planning_level_trace"]}
+    if applied:
+        trace.update(action="retained_prior_planning", planning_resolution="current_profile",
+                     profile_id=profile.id, profile_last_assessment_id=profile.last_assessment_id,
+                     profile_planning_level_source=profile.planning_level_source)
+        source = "legacy_current_profile"
+        reason = "Planejamento vigente do perfil preservado; a aplicação histórica deste placement legado é desconhecida."
+    else:
+        trace.update(action="legacy_planning_unknown", planning_resolution="unknown")
+        source = "legacy_planning_unknown"
+        reason = "Não há planejamento aplicado reconstruível com segurança; a proposta do assessment não foi tratada como aplicada."
+    return {"planning_level": applied, "planning_level_source": source,
+            "planning_level_reason": reason, "planning_level_trace": trace,
+            "assessment_proposed_level": proposal["planning_level"]}

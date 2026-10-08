@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { PlacementSpeaking } from "@/components/placement-speaking";
 import { Button, ErrorState, Loading } from "@/components/ui";
-import { collectionEnding } from "@/lib/placement-result-copy";
+import { collectionEnding, skillProgressLabel } from "@/lib/placement-result-copy";
 import type { NextItemResponse, PlacementItem, PlacementProgress } from "@/types/placement";
 
 function AudioPrompt({ script, languageCode }: { script: string; languageCode: string }) {
@@ -185,7 +185,10 @@ export default function PlacementTestRunnerPage() {
       </div>
 
       {progress?.by_skill && <ul aria-label="Atividades por competência" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-        {Object.entries(progress.by_skill).map(([skill, count]) => <li key={skill}>{SKILL_LABELS[skill as keyof typeof SKILL_LABELS]}: {count?.completed ?? 0} concluídas</li>)}
+        {Object.entries(progress.by_skill).map(([skill, info]) => {
+          const state = skillProgressLabel(info);
+          return <li key={skill}>{SKILL_LABELS[skill as keyof typeof SKILL_LABELS]}: {state ?? `${info?.completed ?? 0} concluídas`}</li>;
+        })}
       </ul>}
       {!!progress?.activities_skipped && <p className="mt-2 text-sm text-text-secondary">{progress.activities_skipped} atividades puladas</p>}
 

@@ -25,7 +25,7 @@ from sqlalchemy import select
 
 from app.api.placement_tests import _add_diagnostic_contract, _records
 from app.core.levels import ESSENTIAL_SKILLS, LEVEL_INDEX, SKILL_WEIGHTS, Skill
-from app.models import Language, PlacementItem, PlacementItemDelivery, PlacementTest, PlacementTestAnswer, PlacementTestSection, UserLanguage
+from app.models import Language, PlacementItem, PlacementItemDelivery, PlacementItemExposure, PlacementTest, PlacementTestAnswer, PlacementTestSection, UserLanguage
 from app.services import placement_engine as engine
 
 
@@ -152,7 +152,12 @@ def collect_report(conn, test_id):
     by_item = {row["id"]: row for row in items}
     by_answer = {row["item_id"]: row for row in answers}
     by_delivery = {row["item_id"]: row for row in deliveries}
-    records = _records([SimpleNamespace(**row) for row in answers])
+    from app.services.placement_exposure import semantic_keys
+    identity = {key: {"keys": semantic_keys(SimpleNamespace(**item))} for key, item in by_item.items()}
+    for snapshot in _rows(conn, PlacementItemExposure, PlacementItemExposure.source_test_id == test_id):
+        identity[snapshot["source_item_id"]] = {"keys": snapshot["keys_json"],
+            "revealed": bool(snapshot["feedback_revealed_at"])}
+    records = _records([SimpleNamespace(**row) for row in answers], identity)
     raw_result = engine.build_result(records, duration_seconds=test.get("duration_seconds"))
     result = dict(raw_result)
     _add_diagnostic_contract(result, records)

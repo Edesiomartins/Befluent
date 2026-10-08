@@ -20,6 +20,8 @@ import {
   retainedPlanning,
   retainedPlanningNote,
   skillBandLabel,
+  skillBandTone,
+  skillConfirmationNote,
   skillEvidenceLine,
 } from "@/lib/placement-result-copy";
 import { createCurriculum } from "@/hooks/use-curriculum";
@@ -302,11 +304,24 @@ export default function PlacementResultPage() {
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {orderedSkills(result.skills).map((skill) => {
             const evidence = skillEvidenceLine(skill);
+            const note = skillConfirmationNote(skill);
+            const tone = skillBandTone(skill);
+            const bandClass =
+              tone === "estimated"
+                ? "text-primary"
+                : tone === "provisional" || tone === "pending"
+                  ? "text-text-primary"
+                  : "font-medium text-text-secondary";
             return (
-              <li key={skill.skill} className="rounded-xl border border-border bg-surface p-4">
+              <li
+                key={skill.skill}
+                data-skill-state={tone}
+                className={`rounded-xl border bg-surface p-4 ${tone === "estimated" ? "border-primary/40" : "border-border"}`}
+              >
                 <p className="text-sm text-text-secondary">{skill.label}</p>
-                <p className="mt-1 text-lg font-semibold">{skillBandLabel(skill)}</p>
+                <p className={`mt-1 text-lg font-semibold ${bandClass}`}>{skillBandLabel(skill)}</p>
                 {evidence && <p className="mt-1 text-sm text-text-secondary">{evidence}</p>}
+                {note && <p className="mt-2 text-sm leading-6 text-text-secondary">{note}</p>}
               </li>
             );
           })}

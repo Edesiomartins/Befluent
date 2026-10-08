@@ -214,7 +214,7 @@ def test_delivery_rejects_changed_grading_contract(client, auth, db_session, fie
 def test_invalid_forms_are_not_activated(db_session):
     from app.services.placement_exposure import rotation_metadata
     user = db_session.scalar(select(User))
-    for item in db_session.scalars(select(PlacementItem).where(PlacementItem.language_code == "en")):
+    for item in db_session.scalars(select(PlacementItem).where(PlacementItem.language_code == "en", PlacementItem.skill == "vocabulary_grammar")):
         item.rubric_json = {**(item.rubric_json or {}), "form_id": "A"}
     db_session.commit()
     policy = rotation_metadata(db_session, user.id, "en")

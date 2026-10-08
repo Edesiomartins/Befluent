@@ -35,6 +35,8 @@ Não foi encontrada perda de projeção ou bloqueio backend no fluxo solicitado.
 
 Não é necessária correção de produção para estas duas divergências locais. Pendência recomendada: formalizar response_model/OpenAPI em tarefa própria, sem alterar contrato agora. Observação: os quatro campos de decisão são snapshot do assessment; o campo curriculum é resumo do currículo ativo atual do perfil, não vínculo histórico imutável com o teste.
 
+Limite desta auditoria inicial: os testes acima cobrem snapshots novos persistidos, não resultados legados sem planning. A falha posterior do adapter legado foi confirmada e corrigida separadamente: agora resolve applied pelo planejamento vigente com provenance explícita ou null/unknown, sem confundir com proposta reconstruída. Ver ../placement-legacy-planning-2bbf6b59c0cb0b5b.md.
+
 ## Testes
 
 `backend/tests/test_placement_partial_integration.py`:

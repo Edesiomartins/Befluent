@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "language_code": "ja",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo. O nível principal é CEFR; referências JLPT são apenas informativas e não entram no cálculo.",
   "items": [
@@ -9,8 +9,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Como se diz \"bom dia\" (formal, pela manhã) em japonês?",
-      "options": ["おはようございます", "こんばんは", "さようなら", "ありがとう"],
-      "correct_answer": { "value": "おはようございます" },
+      "options": [
+        "おはようございます",
+        "こんばんは",
+        "さようなら",
+        "ありがとう"
+      ],
+      "correct_answer": {
+        "value": "おはようございます"
+      },
       "explanation": "「おはようございます」é a saudação matinal formal.",
       "difficulty": 0.1,
       "reference_note": "JLPT N5"
@@ -21,8 +28,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: 「わたし___ アナです。」",
-      "options": ["は", "を", "に", "へ"],
-      "correct_answer": { "value": "は" },
+      "options": [
+        "は",
+        "を",
+        "に",
+        "へ"
+      ],
+      "correct_answer": {
+        "value": "は"
+      },
       "explanation": "A partícula 「は」marca o tópico da frase.",
       "difficulty": 0.14,
       "reference_note": "JLPT N5"
@@ -34,8 +48,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Onde Tanaka trabalha?",
       "passage": "たなかさんはにほんじんです。とうきょうにすんでいます。ぎんこうではたらいています。",
-      "options": ["Em um banco", "Em uma escola", "Em Tóquio, em casa", "Em uma loja"],
-      "correct_answer": { "value": "Em um banco" },
+      "options": [
+        "Em um banco",
+        "Em uma escola",
+        "Em Tóquio, em casa",
+        "Em uma loja"
+      ],
+      "correct_answer": {
+        "value": "Em um banco"
+      },
       "explanation": "O texto diz 「ぎんこうではたらいています」(trabalha em um banco).",
       "difficulty": 0.24,
       "reference_note": "JLPT N5"
@@ -47,8 +68,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa pediu?",
       "audio_script": "コーヒーとみずをおねがいします。",
-      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
-      "correct_answer": { "value": "Café e água" },
+      "options": [
+        "Café e água",
+        "Chá e suco",
+        "Café e pão",
+        "Leite e bolo"
+      ],
+      "correct_answer": {
+        "value": "Café e água"
+      },
       "explanation": "A frase menciona 「コーヒーとみず」(café e água).",
       "difficulty": 0.26,
       "reference_note": "JLPT N5"
@@ -59,8 +87,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: 「きのう えいがを ___。」",
-      "options": ["みました", "みます", "みましょう", "みたいです"],
-      "correct_answer": { "value": "みました" },
+      "options": [
+        "みました",
+        "みます",
+        "みましょう",
+        "みたいです"
+      ],
+      "correct_answer": {
+        "value": "みました"
+      },
       "explanation": "「きのう」(ontem) exige a forma passada 「みました」.",
       "difficulty": 0.38,
       "reference_note": "JLPT N5/N4"
@@ -71,8 +106,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a partícula correta: 「がっこう___ いきます。」",
-      "options": ["へ", "が", "を", "で"],
-      "correct_answer": { "value": "へ" },
+      "options": [
+        "へ",
+        "が",
+        "を",
+        "で"
+      ],
+      "correct_answer": {
+        "value": "へ"
+      },
       "explanation": "「へ」indica direção do movimento.",
       "difficulty": 0.4,
       "reference_note": "JLPT N5"
@@ -90,7 +132,9 @@
         "Faltou energia",
         "Era feriado"
       ],
-      "correct_answer": { "value": "O gerente foi ao hospital" },
+      "correct_answer": {
+        "value": "O gerente foi ao hospital"
+      },
       "explanation": "O texto explica 「てんちょうが びょういんに いったからです」.",
       "difficulty": 0.45,
       "reference_note": "JLPT N4"
@@ -102,8 +146,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Que horas o trem parte?",
       "audio_script": "つぎの でんしゃは しちじはんに でます。",
-      "options": ["7h30", "7h00", "3h30", "8h30"],
-      "correct_answer": { "value": "7h30" },
+      "options": [
+        "7h30",
+        "7h00",
+        "3h30",
+        "8h30"
+      ],
+      "correct_answer": {
+        "value": "7h30"
+      },
       "explanation": "「しちじはん」significa sete e meia.",
       "difficulty": 0.46,
       "reference_note": "JLPT N4"
@@ -114,8 +165,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: 「じかんが ___、もっと りょこうするのに。」",
-      "options": ["あれば", "あります", "あって", "あるから"],
-      "correct_answer": { "value": "あれば" },
+      "options": [
+        "あれば",
+        "あります",
+        "あって",
+        "あるから"
+      ],
+      "correct_answer": {
+        "value": "あれば"
+      },
       "explanation": "A forma condicional 「ば」expressa hipótese irreal.",
       "difficulty": 0.6,
       "reference_note": "JLPT N3"
@@ -126,8 +184,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Qual expressão tem sentido próximo de 「あきらめる」?",
-      "options": ["やめる", "つづける", "はじめる", "がんばる"],
-      "correct_answer": { "value": "やめる" },
+      "options": [
+        "やめる",
+        "つづける",
+        "はじめる",
+        "がんばる"
+      ],
+      "correct_answer": {
+        "value": "やめる"
+      },
       "explanation": "「あきらめる」(desistir) aproxima-se de 「やめる」.",
       "difficulty": 0.56,
       "reference_note": "JLPT N3"
@@ -145,7 +210,9 @@
         "A falta de computadores",
         "O aumento das viagens"
       ],
-      "correct_answer": { "value": "A redução das conversas naturais entre colegas" },
+      "correct_answer": {
+        "value": "A redução das conversas naturais entre colegas"
+      },
       "explanation": "O texto cita a preocupação com a diminuição das conversas espontâneas.",
       "difficulty": 0.64,
       "reference_note": "JLPT N3"
@@ -163,7 +230,9 @@
         "Chegar antes da abertura",
         "Evitar o museu no verão"
       ],
-      "correct_answer": { "value": "Comprar o ingresso pela internet" },
+      "correct_answer": {
+        "value": "Comprar o ingresso pela internet"
+      },
       "explanation": "O falante recomenda comprar o ingresso pela internet.",
       "difficulty": 0.64,
       "reference_note": "JLPT N3"
@@ -174,8 +243,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: 「わたしたちが ついたとき、かいぎは すでに ___。」",
-      "options": ["はじまっていた", "はじまる", "はじめる", "はじまります"],
-      "correct_answer": { "value": "はじまっていた" },
+      "options": [
+        "はじまっていた",
+        "はじまる",
+        "はじめる",
+        "はじまります"
+      ],
+      "correct_answer": {
+        "value": "はじまっていた"
+      },
       "explanation": "A forma 「ていた」marca estado anterior a outro momento passado.",
       "difficulty": 0.74,
       "reference_note": "JLPT N3/N2"
@@ -186,8 +262,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a opção mais adequada: 「この結果は ___ 決定的ではない。」",
-      "options": ["必ずしも", "必ず", "きっと", "ぜひ"],
-      "correct_answer": { "value": "必ずしも" },
+      "options": [
+        "必ずしも",
+        "必ず",
+        "きっと",
+        "ぜひ"
+      ],
+      "correct_answer": {
+        "value": "必ずしも"
+      },
       "explanation": "「必ずしも〜ない」forma a negação parcial \"não necessariamente\".",
       "difficulty": 0.76,
       "reference_note": "JLPT N2"
@@ -225,7 +308,9 @@
         "Totalmente contrário",
         "Indiferente"
       ],
-      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "correct_answer": {
+        "value": "Parcialmente favorável, com reservas sobre o orçamento"
+      },
       "explanation": "Reconhece méritos, mas questiona as premissas orçamentárias.",
       "difficulty": 0.84,
       "reference_note": "JLPT N2"
@@ -238,7 +323,14 @@
       "prompt": "Escreva de 3 a 5 frases em japonês se apresentando (nome, idade, cidade e o que você gosta de fazer).",
       "instructions": "Escreva em japonês (hiragana, katakana ou kanji). Entre 15 e 400 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A1",
         "min_chars": 15
       },
@@ -252,7 +344,14 @@
       "prompt": "Descreva sua rotina diária em japonês.",
       "instructions": "Escreva em japonês. Entre 30 e 600 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A2",
         "min_chars": 30
       },
@@ -266,7 +365,14 @@
       "prompt": "Conte, em japonês, uma experiência importante da sua vida e explique por que ela foi marcante.",
       "instructions": "Escreva em japonês. Entre 45 e 900 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B1",
         "min_chars": 45
       },
@@ -280,7 +386,14 @@
       "prompt": "Defenda, em japonês, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
       "instructions": "Escreva em japonês. Entre 60 e 1200 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B2",
         "min_chars": 60
       },
@@ -300,6 +413,306 @@
         "editorial_status": "development_not_calibrated"
       },
       "difficulty": 0.6
+    },
+    {
+      "external_key": "ja-confirmation-reading-pre_a1-sign-pharmacy",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual estabelecimento está indicado?",
+      "options": [
+        "Escola",
+        "Farmácia",
+        "Estação"
+      ],
+      "correct_answer": {
+        "value": "Farmácia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-sign-pharmacy",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "薬局。営業中。"
+    },
+    {
+      "external_key": "ja-confirmation-reading-pre_a1-closed-monday",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Em qual dia o local está fechado?",
+      "options": [
+        "Segunda-feira",
+        "Sábado",
+        "Domingo"
+      ],
+      "correct_answer": {
+        "value": "Segunda-feira"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-closed-monday",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "月曜日は休みです。"
+    },
+    {
+      "external_key": "ja-confirmation-reading-a1-library-children",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem pode participar da atividade?",
+      "options": [
+        "Somente professores",
+        "Somente idosos",
+        "Crianças"
+      ],
+      "correct_answer": {
+        "value": "Crianças"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-children",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "図書館で子どものためのお話会があります。土曜日の十時に始まります。親は読書室で待つことができます。"
+    },
+    {
+      "external_key": "ja-confirmation-reading-a2-rail-disruption",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Como os passageiros poderão continuar a viagem?",
+      "options": [
+        "De trem, sem interrupção",
+        "De ônibus, usando o mesmo bilhete",
+        "De táxi gratuito"
+      ],
+      "correct_answer": {
+        "value": "De ônibus, usando o mesmo bilhete"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-rail-disruption",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "今日は線路の修理のため、電車は丘駅までしか行きません。そこから先は代わりのバスで行くことができます。電車の切符をバスでも使えるので、新しい切符を買う必要はありません。"
+    },
+    {
+      "external_key": "ja-confirmation-reading-b1-community-garden",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual solução o grupo encontrou para a preocupação dos moradores?",
+      "options": [
+        "Reservar parte do terreno para brincar",
+        "Cancelar toda a horta",
+        "Proibir a entrada das crianças"
+      ],
+      "correct_answer": {
+        "value": "Reservar parte do terreno para brincar"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-community-garden",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "住民たちは空いている土地を共同の畑にしたいと考えていた。しかし、子どもたちの唯一の遊び場がなくなると心配する親もいた。話し合いの結果、土地の三分の一を遊ぶ場所として残し、残りで野菜を育てることにした。どちらのグループも管理に協力することになった。"
+    },
+    {
+      "external_key": "ja-confirmation-reading-b2-library-digitisation",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual posição a autora defende sobre digitalizar o acervo?",
+      "options": [
+        "Substituir todos os serviços presenciais",
+        "Adiar a digitalização até todos terem equipamento",
+        "Ampliar o acesso sem eliminar o apoio presencial"
+      ],
+      "correct_answer": {
+        "value": "Ampliar o acesso sem eliminar o apoio presencial"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-digitisation",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "図書館の資料をオンラインで公開すれば、来館できない人にとって便利になるだろう。しかし、それが建物そのものを完全に代替できると考えると、安定した通信環境を持たない人を見落としてしまう。筆者はデジタルの利用機会を広げながら、職員による対面の支援も維持すべきだと主張する。成功の基準は削減されたサービスの数ではなく、新たに資料を利用できるようになった人に置くべきだという。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-pre_a1-take-key",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual objeto deve ser pego?",
+      "options": [
+        "O telefone",
+        "A chave",
+        "O livro"
+      ],
+      "correct_answer": {
+        "value": "A chave"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-take-key",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "鍵を取ってください。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-pre_a1-room-correction",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual sala deve ser usada?",
+      "options": [
+        "Sala três",
+        "Sala quatro",
+        "Sala dois"
+      ],
+      "correct_answer": {
+        "value": "Sala três"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-room-correction",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "四番の部屋ですか。いいえ、三番の部屋です。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-a1-meeting-courtyard",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde será o encontro?",
+      "options": [
+        "Na sala",
+        "Na rua",
+        "No pátio"
+      ],
+      "correct_answer": {
+        "value": "No pátio"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-meeting-courtyard",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "こんにちは。集まりは九時です。部屋の壁を塗っているので、中庭で会いましょう。ノートを持ってきてください。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-a2-parcel-neighbour",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde está a encomenda?",
+      "options": [
+        "No apartamento do destinatário",
+        "Com a vizinha",
+        "Na agência"
+      ],
+      "correct_answer": {
+        "value": "Com a vizinha"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-parcel-neighbour",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "荷物を届けに行きましたが、誰もいませんでした。隣の方が受け取ってくれました。その方は明日の朝、家にいます。郵便局に行く必要はありません。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-b1-volunteer-motivation",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que motivou a pessoa a continuar como voluntária?",
+      "options": [
+        "Perceber que suas habilidades eram úteis",
+        "Receber uma remuneração maior",
+        "Ganhar uma viagem"
+      ],
+      "correct_answer": {
+        "value": "Perceber que suas habilidades eram úteis"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-volunteer-motivation",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "自分には役に立てることがないと思って、ボランティアをやめようとしていました。その時、ある利用者から、意味が分からない申込書を手伝ってほしいと言われました。会社での経験を生かして説明すると、その人は予約を取ることができました。自分の技能が役に立つと気づいて、続けることにしたのです。"
+    },
+    {
+      "external_key": "ja-confirmation-listening-b2-subscription-consent",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual condição a pessoa considera necessária para aceitar a proposta?",
+      "options": [
+        "Renovação automática obrigatória",
+        "Um desconto sem prazo definido",
+        "Consentimento explícito e custos transparentes"
+      ],
+      "correct_answer": {
+        "value": "Consentimento explícito e custos transparentes"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-subscription-consent",
+        "native_language": "pt-BR",
+        "target_language": "ja",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "割引は魅力的ですが、今の条件のままなら申し込みません。自動更新は便利だと説明されていますが、小さな通知に気づかないと料金を払い続けることになります。更新のたびに明確な同意を求め、支払い前に総額を示すのであれば、考え直してもよいと思います。最初の料金だけを下げても、契約の仕組みに対する私の懸念は解消されません。"
     }
   ]
 }

@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "language_code": "en",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
   "items": [
@@ -9,8 +9,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Qual é a saudação usada pela manhã?",
-      "options": ["Good morning", "Good night", "Goodbye", "See you"],
-      "correct_answer": { "value": "Good morning" },
+      "options": [
+        "Good morning",
+        "Good night",
+        "Goodbye",
+        "See you"
+      ],
+      "correct_answer": {
+        "value": "Good morning"
+      },
       "explanation": "\"Good morning\" é usado do amanhecer até por volta do meio-dia.",
       "difficulty": 0.1
     },
@@ -20,8 +27,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"My name ___ Ana.\"",
-      "options": ["is", "are", "am", "be"],
-      "correct_answer": { "value": "is" },
+      "options": [
+        "is",
+        "are",
+        "am",
+        "be"
+      ],
+      "correct_answer": {
+        "value": "is"
+      },
       "explanation": "Com o sujeito \"my name\" (terceira pessoa), usa-se \"is\".",
       "difficulty": 0.12
     },
@@ -32,8 +46,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Onde Tom mora?",
       "passage": "Tom is from Brazil. He lives in a small house in Lisbon. He works at a bakery.",
-      "options": ["In Lisbon", "In Brazil", "In a bakery", "In a hotel"],
-      "correct_answer": { "value": "In Lisbon" },
+      "options": [
+        "In Lisbon",
+        "In Brazil",
+        "In a bakery",
+        "In a hotel"
+      ],
+      "correct_answer": {
+        "value": "In Lisbon"
+      },
       "explanation": "O texto diz \"He lives in a small house in Lisbon\".",
       "difficulty": 0.2
     },
@@ -44,8 +65,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa pediu?",
       "audio_script": "I would like a coffee and a glass of water, please.",
-      "options": ["Café e água", "Chá e suco", "Café e leite", "Água e pão"],
-      "correct_answer": { "value": "Café e água" },
+      "options": [
+        "Café e água",
+        "Chá e suco",
+        "Café e leite",
+        "Água e pão"
+      ],
+      "correct_answer": {
+        "value": "Café e água"
+      },
       "explanation": "A frase menciona \"a coffee and a glass of water\".",
       "difficulty": 0.22
     },
@@ -55,8 +83,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Yesterday I ___ to the cinema.\"",
-      "options": ["went", "go", "gone", "going"],
-      "correct_answer": { "value": "went" },
+      "options": [
+        "went",
+        "go",
+        "gone",
+        "going"
+      ],
+      "correct_answer": {
+        "value": "went"
+      },
       "explanation": "\"Yesterday\" exige passado simples: \"went\".",
       "difficulty": 0.35
     },
@@ -66,8 +101,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a opção correta: \"There ___ some milk in the fridge.\"",
-      "options": ["is", "are", "have", "has"],
-      "correct_answer": { "value": "is" },
+      "options": [
+        "is",
+        "are",
+        "have",
+        "has"
+      ],
+      "correct_answer": {
+        "value": "is"
+      },
       "explanation": "\"Milk\" é incontável, então usa-se \"there is\".",
       "difficulty": 0.38
     },
@@ -84,7 +126,9 @@
         "Faltou energia",
         "Era feriado"
       ],
-      "correct_answer": { "value": "O dono tinha uma consulta médica" },
+      "correct_answer": {
+        "value": "O dono tinha uma consulta médica"
+      },
       "explanation": "O texto diz \"because the owner had a medical appointment\".",
       "difficulty": 0.4
     },
@@ -95,8 +139,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Que horas o trem parte?",
       "audio_script": "The train to Manchester leaves at half past seven from platform three.",
-      "options": ["7h30", "7h00", "3h30", "8h30"],
-      "correct_answer": { "value": "7h30" },
+      "options": [
+        "7h30",
+        "7h00",
+        "3h30",
+        "8h30"
+      ],
+      "correct_answer": {
+        "value": "7h30"
+      },
       "explanation": "\"Half past seven\" significa sete e meia.",
       "difficulty": 0.42
     },
@@ -106,8 +157,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"If I ___ more time, I would travel more often.\"",
-      "options": ["had", "have", "will have", "would have"],
-      "correct_answer": { "value": "had" },
+      "options": [
+        "had",
+        "have",
+        "will have",
+        "would have"
+      ],
+      "correct_answer": {
+        "value": "had"
+      },
       "explanation": "Segunda condicional: \"If + passado simples, would + verbo\".",
       "difficulty": 0.55
     },
@@ -117,8 +175,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Qual alternativa tem sentido mais próximo de \"give up\"?",
-      "options": ["quit", "continue", "improve", "start"],
-      "correct_answer": { "value": "quit" },
+      "options": [
+        "quit",
+        "continue",
+        "improve",
+        "start"
+      ],
+      "correct_answer": {
+        "value": "quit"
+      },
       "explanation": "\"Give up\" significa desistir, equivalente a \"quit\".",
       "difficulty": 0.52
     },
@@ -135,7 +200,9 @@
         "A queda na produtividade individual",
         "A falta de equipamentos em casa"
       ],
-      "correct_answer": { "value": "A perda de comunicação informal entre colegas" },
+      "correct_answer": {
+        "value": "A perda de comunicação informal entre colegas"
+      },
       "explanation": "O texto diz que os gestores temem o desaparecimento da comunicação informal.",
       "difficulty": 0.58
     },
@@ -152,7 +219,9 @@
         "Chegar antes da abertura",
         "Evitar o museu no verão"
       ],
-      "correct_answer": { "value": "Comprar o ingresso pela internet" },
+      "correct_answer": {
+        "value": "Comprar o ingresso pela internet"
+      },
       "explanation": "O falante recomenda \"booking your ticket online\".",
       "difficulty": 0.6
     },
@@ -162,8 +231,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"By the time we arrived, the meeting ___.\"",
-      "options": ["had already started", "already started", "has already started", "was already start"],
-      "correct_answer": { "value": "had already started" },
+      "options": [
+        "had already started",
+        "already started",
+        "has already started",
+        "was already start"
+      ],
+      "correct_answer": {
+        "value": "had already started"
+      },
       "explanation": "Ação anterior a outra no passado exige o past perfect.",
       "difficulty": 0.72
     },
@@ -173,8 +249,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a alternativa mais adequada: \"The results were ___ inconclusive.\"",
-      "options": ["largely", "largely of", "large", "largeness"],
-      "correct_answer": { "value": "largely" },
+      "options": [
+        "largely",
+        "largely of",
+        "large",
+        "largeness"
+      ],
+      "correct_answer": {
+        "value": "largely"
+      },
       "explanation": "É necessário um advérbio para modificar o adjetivo \"inconclusive\".",
       "difficulty": 0.7
     },
@@ -210,7 +293,9 @@
         "Totalmente contrário",
         "Indiferente à proposta"
       ],
-      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "correct_answer": {
+        "value": "Parcialmente favorável, com reservas sobre o orçamento"
+      },
       "explanation": "O falante reconhece méritos, mas questiona as premissas orçamentárias.",
       "difficulty": 0.8
     },
@@ -222,7 +307,14 @@
       "prompt": "Escreva de 3 a 5 frases em inglês se apresentando (nome, idade, cidade e o que você gosta de fazer).",
       "instructions": "Escreva em inglês. Entre 20 e 400 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A1",
         "min_chars": 20
       },
@@ -236,7 +328,14 @@
       "prompt": "Descreva sua rotina diária em inglês.",
       "instructions": "Escreva em inglês. Entre 40 e 600 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A2",
         "min_chars": 40
       },
@@ -250,7 +349,14 @@
       "prompt": "Conte, em inglês, uma experiência importante da sua vida e explique por que ela foi marcante.",
       "instructions": "Escreva em inglês. Entre 60 e 900 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B1",
         "min_chars": 60
       },
@@ -264,7 +370,14 @@
       "prompt": "Defenda, em inglês, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
       "instructions": "Escreva em inglês. Entre 80 e 1200 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B2",
         "min_chars": 80
       },
@@ -284,6 +397,306 @@
         "editorial_status": "development_not_calibrated"
       },
       "difficulty": 0.6
+    },
+    {
+      "external_key": "en-confirmation-reading-pre_a1-sign-pharmacy",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual estabelecimento está indicado?",
+      "options": [
+        "Escola",
+        "Farmácia",
+        "Estação"
+      ],
+      "correct_answer": {
+        "value": "Farmácia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-sign-pharmacy",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Pharmacy. Open."
+    },
+    {
+      "external_key": "en-confirmation-reading-pre_a1-closed-monday",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Em qual dia o local está fechado?",
+      "options": [
+        "Segunda-feira",
+        "Sábado",
+        "Domingo"
+      ],
+      "correct_answer": {
+        "value": "Segunda-feira"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-closed-monday",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Closed on Monday."
+    },
+    {
+      "external_key": "en-confirmation-reading-a1-library-children",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem pode participar da atividade?",
+      "options": [
+        "Somente professores",
+        "Somente idosos",
+        "Crianças"
+      ],
+      "correct_answer": {
+        "value": "Crianças"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-children",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "The library has a story hour for children. It starts at ten on Saturday. Parents can wait in the reading room."
+    },
+    {
+      "external_key": "en-confirmation-reading-a2-rail-disruption",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Como os passageiros poderão continuar a viagem?",
+      "options": [
+        "De trem, sem interrupção",
+        "De ônibus, usando o mesmo bilhete",
+        "De táxi gratuito"
+      ],
+      "correct_answer": {
+        "value": "De ônibus, usando o mesmo bilhete"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-rail-disruption",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "The train service stops at Hill Station today because workers are repairing the tracks. Passengers can continue on the replacement bus. Their train tickets are valid on the bus, so they do not need to buy another ticket."
+    },
+    {
+      "external_key": "en-confirmation-reading-b1-community-garden",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual solução o grupo encontrou para a preocupação dos moradores?",
+      "options": [
+        "Reservar parte do terreno para brincar",
+        "Cancelar toda a horta",
+        "Proibir a entrada das crianças"
+      ],
+      "correct_answer": {
+        "value": "Reservar parte do terreno para brincar"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-community-garden",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "The residents wanted to turn an empty plot into a shared garden. Some parents worried that children would lose their only play area. After a meeting, the group kept a third of the plot for games and planted vegetables on the rest. Both groups agreed to help maintain it."
+    },
+    {
+      "external_key": "en-confirmation-reading-b2-library-digitisation",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual posição a autora defende sobre digitalizar o acervo?",
+      "options": [
+        "Substituir todos os serviços presenciais",
+        "Adiar a digitalização até todos terem equipamento",
+        "Ampliar o acesso sem eliminar o apoio presencial"
+      ],
+      "correct_answer": {
+        "value": "Ampliar o acesso sem eliminar o apoio presencial"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-digitisation",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Putting the library's collection online would undoubtedly help readers who cannot travel. Yet calling it a complete replacement for the building overlooks people without reliable internet access. The author proposes investing in digital access while retaining staff who can guide visitors in person. Success, she argues, should be measured by who gains access, rather than by how many services disappear from the budget."
+    },
+    {
+      "external_key": "en-confirmation-listening-pre_a1-take-key",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual objeto deve ser pego?",
+      "options": [
+        "O telefone",
+        "A chave",
+        "O livro"
+      ],
+      "correct_answer": {
+        "value": "A chave"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-take-key",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Take the key, please."
+    },
+    {
+      "external_key": "en-confirmation-listening-pre_a1-room-correction",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual sala deve ser usada?",
+      "options": [
+        "Sala três",
+        "Sala quatro",
+        "Sala dois"
+      ],
+      "correct_answer": {
+        "value": "Sala três"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-room-correction",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Room four? No, room three."
+    },
+    {
+      "external_key": "en-confirmation-listening-a1-meeting-courtyard",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde será o encontro?",
+      "options": [
+        "Na sala",
+        "Na rua",
+        "No pátio"
+      ],
+      "correct_answer": {
+        "value": "No pátio"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-meeting-courtyard",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Hello, the meeting is at nine. We are meeting in the courtyard because the room is being painted. Please bring your notebook."
+    },
+    {
+      "external_key": "en-confirmation-listening-a2-parcel-neighbour",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde está a encomenda?",
+      "options": [
+        "No apartamento do destinatário",
+        "Com a vizinha",
+        "Na agência"
+      ],
+      "correct_answer": {
+        "value": "Com a vizinha"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-parcel-neighbour",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "I tried to deliver your parcel, but nobody was home. Your neighbour accepted it and will be home tomorrow morning. You do not need to go to the post office."
+    },
+    {
+      "external_key": "en-confirmation-listening-b1-volunteer-motivation",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que motivou a pessoa a continuar como voluntária?",
+      "options": [
+        "Perceber que suas habilidades eram úteis",
+        "Receber uma remuneração maior",
+        "Ganhar uma viagem"
+      ],
+      "correct_answer": {
+        "value": "Perceber que suas habilidades eram úteis"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-volunteer-motivation",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "I almost stopped volunteering because I felt I had little to offer. Then a visitor asked me to fix a form she could not understand. My office experience helped her get an appointment. That made me realise I could contribute something useful, and I decided to keep coming."
+    },
+    {
+      "external_key": "en-confirmation-listening-b2-subscription-consent",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual condição a pessoa considera necessária para aceitar a proposta?",
+      "options": [
+        "Renovação automática obrigatória",
+        "Um desconto sem prazo definido",
+        "Consentimento explícito e custos transparentes"
+      ],
+      "correct_answer": {
+        "value": "Consentimento explícito e custos transparentes"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-subscription-consent",
+        "native_language": "pt-BR",
+        "target_language": "en",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "The discount sounds attractive, but I would not accept the proposal as it stands. They call renewal convenient, although it leaves customers paying unless they notice a small message and cancel. I would reconsider if renewal required explicit consent and the full cost appeared before payment. Lowering the introductory price alone would not address my concern about how the agreement works."
     }
   ]
 }

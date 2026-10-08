@@ -34,7 +34,7 @@ Caso francês: VG PRE_A1 5/8 permanece medido apenas nessa skill; R/L 4/4 perman
 - Complete parcial cria currículo operacional com generated_from=planning e entry_level=planning_level. Blocos usam a faixa operacional sem preencher skills no perfil. Plano-meta é organização pedagógica, não promoção global garantida.
 - Currículo ativo anterior é reaproveitado, preservando trabalho; novo planning_level não regenera automaticamente jornadas já criadas. Mudança de entry_level de plano existente é operação separada.
 - Contexto escolhe global qualificado antes de planning. Legado level_estimate sem current/assessment/plan só conserva autodeclaração operacional com source=legacy_declared, nunca vira global medido. Prompts identificam planning explicitamente.
-- Repeat complete retorna resultado persistido, sem recalcular ou regravar planejamento. Resultado legado sem esses campos ganha projeção de leitura da decisão, sem backfill em banco. Histórico apagado não é reconstruído.
+- Repeat complete retorna resultado persistido, sem recalcular ou regravar planejamento. Compatibilidade legado corrigida: sem planning persistido, a proposta reconstruída fica separada do aplicado. Usa planejamento vigente do perfil com source=legacy_current_profile e aplicação histórica desconhecida; na ausência dele, planning_level=null/source=legacy_planning_unknown. Sem backfill em banco. Histórico apagado não é reconstruído. Detalhe: placement-legacy-planning-2bbf6b59c0cb0b5b.md.
 
 ## Contrato
 

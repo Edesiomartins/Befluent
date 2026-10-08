@@ -1,0 +1,31 @@
+ M backend/app/api/placement_tests.py
+ M backend/app/data/placement_items/de.json
+ M backend/app/data/placement_items/en.json
+ M backend/app/data/placement_items/es-ES.json
+ M backend/app/data/placement_items/fr.json
+ M backend/app/data/placement_items/it.json
+ M backend/app/data/placement_items/ja.json
+ M backend/app/data/placement_items/la.json
+ M backend/app/data/placement_items/zh-CN.json
+ M backend/app/services/placement_coverage.py
+ M backend/app/services/placement_engine.py
+ M backend/app/services/placement_exposure.py
+ M backend/app/services/placement_planning.py
+ M backend/scripts/audit_placement_coverage.py
+ M backend/scripts/audit_placement_result.py
+ M backend/tests/test_placement_api.py
+ M backend/tests/test_placement_coverage_v2.py
+ M backend/tests/test_placement_exposure.py
+ M backend/tests/test_placement_partial_integration.py
+ M backend/tests/test_placement_planning.py
+ M docs/placement-partial-integration-2bbf6b59c0cb0b5b/audit.md
+ M docs/placement-planning-2bbf6b59c0cb0b5b.md
+ M frontend/app/(app)/placement-test/[id]/page.tsx
+ M frontend/app/(app)/placement-test/[id]/resultado/page.tsx
+ M frontend/lib/placement-result-copy.ts
+ M frontend/tests/placement-test.test.tsx
+ M frontend/types/placement.ts
+?? backend/tests/test_legacy_placement_planning.py
+?? backend/tests/test_placement_confirmation.py
+?? docs/placement-confirmation-v2/
+?? docs/placement-legacy-planning-2bbf6b59c0cb0b5b.md

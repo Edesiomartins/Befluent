@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "language_code": "de",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
   "items": [
@@ -9,8 +9,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Como se diz \"bom dia\" em alemão?",
-      "options": ["Guten Morgen", "Gute Nacht", "Auf Wiedersehen", "Danke"],
-      "correct_answer": { "value": "Guten Morgen" },
+      "options": [
+        "Guten Morgen",
+        "Gute Nacht",
+        "Auf Wiedersehen",
+        "Danke"
+      ],
+      "correct_answer": {
+        "value": "Guten Morgen"
+      },
       "explanation": "\"Guten Morgen\" é a saudação usada de manhã.",
       "difficulty": 0.1
     },
@@ -20,8 +27,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Ich ___ Ana.\"",
-      "options": ["bin", "bist", "ist", "sind"],
-      "correct_answer": { "value": "bin" },
+      "options": [
+        "bin",
+        "bist",
+        "ist",
+        "sind"
+      ],
+      "correct_answer": {
+        "value": "bin"
+      },
       "explanation": "Com \"ich\", o verbo \"sein\" fica \"bin\".",
       "difficulty": 0.12
     },
@@ -32,8 +46,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Onde mora Julia?",
       "passage": "Julia ist Deutsche. Sie wohnt in München in einer kleinen Wohnung. Sie arbeitet in einer Buchhandlung.",
-      "options": ["In München", "In Berlin", "In einer Buchhandlung", "In einer Schule"],
-      "correct_answer": { "value": "In München" },
+      "options": [
+        "In München",
+        "In Berlin",
+        "In einer Buchhandlung",
+        "In einer Schule"
+      ],
+      "correct_answer": {
+        "value": "In München"
+      },
       "explanation": "O texto diz \"Sie wohnt in München\".",
       "difficulty": 0.2
     },
@@ -44,8 +65,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa pediu?",
       "audio_script": "Ich hätte gern einen Kaffee und eine Flasche Wasser, bitte.",
-      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
-      "correct_answer": { "value": "Café e água" },
+      "options": [
+        "Café e água",
+        "Chá e suco",
+        "Café e pão",
+        "Leite e bolo"
+      ],
+      "correct_answer": {
+        "value": "Café e água"
+      },
       "explanation": "A frase menciona \"einen Kaffee und eine Flasche Wasser\".",
       "difficulty": 0.22
     },
@@ -55,8 +83,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Ich habe gestern lange ___.\"",
-      "options": ["gearbeitet", "arbeite", "arbeiten", "arbeitete"],
-      "correct_answer": { "value": "gearbeitet" },
+      "options": [
+        "gearbeitet",
+        "arbeite",
+        "arbeiten",
+        "arbeitete"
+      ],
+      "correct_answer": {
+        "value": "gearbeitet"
+      },
       "explanation": "\"Gestern\" fecha o tempo: Perfekt com o particípio no fim da frase.",
       "difficulty": 0.38
     },
@@ -66,8 +101,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Qual é o objeto correto de \"suchen\" para \"der Bahnhof\"?",
-      "options": ["den Bahnhof", "der Bahnhof", "dem Bahnhof", "des Bahnhofs"],
-      "correct_answer": { "value": "den Bahnhof" },
+      "options": [
+        "den Bahnhof",
+        "der Bahnhof",
+        "dem Bahnhof",
+        "des Bahnhofs"
+      ],
+      "correct_answer": {
+        "value": "den Bahnhof"
+      },
       "explanation": "\"Suchen\" pede acusativo. Masculino singular: den Bahnhof.",
       "difficulty": 0.4
     },
@@ -78,8 +120,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Por que a loja fechou mais cedo?",
       "passage": "Der Laden hat um sechzehn Uhr geschlossen, weil der Inhaber einen Arzttermin hatte. Morgen öffnet er zur gewohnten Zeit.",
-      "options": ["O proprietário tinha uma consulta médica", "Não havia clientes", "Faltou energia", "Era feriado"],
-      "correct_answer": { "value": "O proprietário tinha uma consulta médica" },
+      "options": [
+        "O proprietário tinha uma consulta médica",
+        "Não havia clientes",
+        "Faltou energia",
+        "Era feriado"
+      ],
+      "correct_answer": {
+        "value": "O proprietário tinha uma consulta médica"
+      },
       "explanation": "O texto diz \"weil der Inhaber einen Arzttermin hatte\".",
       "difficulty": 0.42
     },
@@ -90,8 +139,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Que horas o trem parte?",
       "audio_script": "Der Zug nach Hamburg fährt um halb acht ab, Gleis Nummer drei.",
-      "options": ["7h30", "7h00", "3h30", "8h30"],
-      "correct_answer": { "value": "7h30" },
+      "options": [
+        "7h30",
+        "7h00",
+        "3h30",
+        "8h30"
+      ],
+      "correct_answer": {
+        "value": "7h30"
+      },
       "explanation": "\"Um halb acht\" significa sete e meia.",
       "difficulty": 0.44
     },
@@ -101,8 +157,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Wenn ich mehr Zeit ___, würde ich mehr reisen.\"",
-      "options": ["hätte", "habe", "hatte", "haben"],
-      "correct_answer": { "value": "hätte" },
+      "options": [
+        "hätte",
+        "habe",
+        "hatte",
+        "haben"
+      ],
+      "correct_answer": {
+        "value": "hätte"
+      },
       "explanation": "Hipótese irreal no presente: Konjunktiv II (hätte) na condição.",
       "difficulty": 0.56
     },
@@ -113,8 +176,15 @@
       "item_type": "reading_comprehension",
       "prompt": "O que o texto contrasta?",
       "passage": "Manche Berufstätige schätzen die Autonomie der Heimarbeit. Andere vermissen die spontanen Gespräche im Büro. Es gibt kein einziges Modell, das für alle funktioniert.",
-      "options": ["Autonomia em casa e conversas no escritório", "O preço do aluguel e o salário", "Férias e feriados", "Trem e avião"],
-      "correct_answer": { "value": "Autonomia em casa e conversas no escritório" },
+      "options": [
+        "Autonomia em casa e conversas no escritório",
+        "O preço do aluguel e o salário",
+        "Férias e feriados",
+        "Trem e avião"
+      ],
+      "correct_answer": {
+        "value": "Autonomia em casa e conversas no escritório"
+      },
       "explanation": "O texto opõe autonomia e a falta das conversas espontâneas.",
       "difficulty": 0.58
     },
@@ -124,8 +194,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Wenn wir es gewusst ___, hätten wir gewartet.\"",
-      "options": ["hätten", "haben", "hatten", "würden"],
-      "correct_answer": { "value": "hätten" },
+      "options": [
+        "hätten",
+        "haben",
+        "hatten",
+        "würden"
+      ],
+      "correct_answer": {
+        "value": "hätten"
+      },
       "explanation": "Contrafactual do passado: hätte + particípio na condição.",
       "difficulty": 0.72
     },
@@ -136,8 +213,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa critica no relatório?",
       "audio_script": "Was mir aufgefallen ist, war nicht die Zahl selbst, sondern die Darstellung: ein einziger Indikator versteckt die Variation, die zählt.",
-      "options": ["Um indicador único esconde a variação", "O número está errado", "O relatório não chegou", "A reunião foi cancelada"],
-      "correct_answer": { "value": "Um indicador único esconde a variação" },
+      "options": [
+        "Um indicador único esconde a variação",
+        "O número está errado",
+        "O relatório não chegou",
+        "A reunião foi cancelada"
+      ],
+      "correct_answer": {
+        "value": "Um indicador único esconde a variação"
+      },
       "explanation": "A crítica é à apresentação que junta tudo num único indicador.",
       "difficulty": 0.74
     },
@@ -169,6 +253,356 @@
         "editorial_status": "development_not_calibrated"
       },
       "difficulty": 0.6
+    },
+    {
+      "external_key": "de-confirmation-reading-pre_a1-sign-pharmacy",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual estabelecimento está indicado?",
+      "options": [
+        "Estação",
+        "Escola",
+        "Farmácia"
+      ],
+      "correct_answer": {
+        "value": "Farmácia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-sign-pharmacy",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Apotheke. Geöffnet."
+    },
+    {
+      "external_key": "de-confirmation-reading-pre_a1-closed-monday",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Em qual dia o local está fechado?",
+      "options": [
+        "Domingo",
+        "Segunda-feira",
+        "Sábado"
+      ],
+      "correct_answer": {
+        "value": "Segunda-feira"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-closed-monday",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Montags geschlossen."
+    },
+    {
+      "external_key": "de-confirmation-reading-a1-library-children",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem pode participar da atividade?",
+      "options": [
+        "Crianças",
+        "Somente professores",
+        "Somente idosos"
+      ],
+      "correct_answer": {
+        "value": "Crianças"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-children",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Die Bibliothek bietet eine Vorlesestunde für Kinder an. Sie beginnt am Samstag um zehn Uhr. Die Eltern können im Leseraum warten."
+    },
+    {
+      "external_key": "de-confirmation-reading-a2-rail-disruption",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Como os passageiros poderão continuar a viagem?",
+      "options": [
+        "De táxi gratuito",
+        "De trem, sem interrupção",
+        "De ônibus, usando o mesmo bilhete"
+      ],
+      "correct_answer": {
+        "value": "De ônibus, usando o mesmo bilhete"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-rail-disruption",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Heute endet der Zug am Bahnhof Hügel, weil die Gleise repariert werden. Die Fahrgäste können mit einem Ersatzbus weiterfahren. Ihre Zugfahrkarte gilt auch im Bus. Sie müssen deshalb keine neue Fahrkarte kaufen."
+    },
+    {
+      "external_key": "de-confirmation-reading-b1-community-garden",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual solução o grupo encontrou para a preocupação dos moradores?",
+      "options": [
+        "Proibir a entrada das crianças",
+        "Reservar parte do terreno para brincar",
+        "Cancelar toda a horta"
+      ],
+      "correct_answer": {
+        "value": "Reservar parte do terreno para brincar"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-community-garden",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Die Bewohner wollten ein leeres Grundstück in einen Gemeinschaftsgarten verwandeln. Einige Eltern befürchteten, dass die Kinder ihren einzigen Spielplatz verlieren würden. Nach einer Besprechung reservierte die Gruppe ein Drittel der Fläche zum Spielen und baute auf dem Rest Gemüse an. Beide Gruppen erklärten sich bereit, bei der Pflege zu helfen."
+    },
+    {
+      "external_key": "de-confirmation-reading-b2-library-digitisation",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual posição a autora defende sobre digitalizar o acervo?",
+      "options": [
+        "Ampliar o acesso sem eliminar o apoio presencial",
+        "Substituir todos os serviços presenciais",
+        "Adiar a digitalização até todos terem equipamento"
+      ],
+      "correct_answer": {
+        "value": "Ampliar o acesso sem eliminar o apoio presencial"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-digitisation",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Die Bestände der Bibliothek online zugänglich zu machen, würde Menschen helfen, die nicht dorthin fahren können. Diese Lösung als vollständigen Ersatz für das Gebäude darzustellen, übersieht jedoch Personen ohne zuverlässigen Internetzugang. Die Autorin schlägt vor, den digitalen Zugang auszubauen und zugleich die persönliche Beratung beizubehalten. Erfolg sollte ihrer Ansicht nach daran gemessen werden, wer Zugang gewinnt, statt daran, wie viele Dienstleistungen aus dem Haushalt gestrichen werden."
+    },
+    {
+      "external_key": "de-confirmation-reading-b2-transport-trial",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Por que o relatório evita atribuir o aumento de uso apenas à nova tarifa?",
+      "options": [
+        "O uso do transporte diminuiu",
+        "A tarifa não foi alterada",
+        "Houve outras mudanças simultâneas"
+      ],
+      "correct_answer": {
+        "value": "Houve outras mudanças simultâneas"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-transport-trial",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Während des Versuchs mit niedrigeren Fahrpreisen stieg die Nutzung der Busse. Allerdings erhöhte die Stadt im selben Monat auch die Zahl der Fahrten und sperrte eine wichtige Straße. Der Bericht bewertet den Anstieg als ermutigend, schreibt ihn aber nicht allein den günstigeren Fahrkarten zu. Ein längerer Vergleich mit Linien, deren Fahrpläne unverändert blieben, könnte die einzelnen Wirkungen vor einer dauerhaften Entscheidung besser unterscheiden."
+    },
+    {
+      "external_key": "de-confirmation-listening-pre_a1-take-key",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual objeto deve ser pego?",
+      "options": [
+        "O telefone",
+        "A chave",
+        "O livro"
+      ],
+      "correct_answer": {
+        "value": "A chave"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-take-key",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Nimm bitte den Schlüssel."
+    },
+    {
+      "external_key": "de-confirmation-listening-pre_a1-room-correction",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual sala deve ser usada?",
+      "options": [
+        "Sala três",
+        "Sala quatro",
+        "Sala dois"
+      ],
+      "correct_answer": {
+        "value": "Sala três"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-room-correction",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Raum vier? Nein, Raum drei."
+    },
+    {
+      "external_key": "de-confirmation-listening-a1-meeting-courtyard",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde será o encontro?",
+      "options": [
+        "Na sala",
+        "Na rua",
+        "No pátio"
+      ],
+      "correct_answer": {
+        "value": "No pátio"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-meeting-courtyard",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Hallo, das Treffen ist um neun Uhr. Wir treffen uns im Hof, weil der Raum gestrichen wird. Bringt bitte euer Heft mit."
+    },
+    {
+      "external_key": "de-confirmation-listening-a2-parcel-neighbour",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde está a encomenda?",
+      "options": [
+        "No apartamento do destinatário",
+        "Com a vizinha",
+        "Na agência"
+      ],
+      "correct_answer": {
+        "value": "Com a vizinha"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-parcel-neighbour",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Ich wollte Ihr Paket zustellen, aber niemand war zu Hause. Ihre Nachbarin hat es angenommen. Sie ist morgen früh zu Hause. Sie brauchen nicht zur Post zu gehen."
+    },
+    {
+      "external_key": "de-confirmation-listening-b1-volunteer-motivation",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que motivou a pessoa a continuar como voluntária?",
+      "options": [
+        "Perceber que suas habilidades eram úteis",
+        "Receber uma remuneração maior",
+        "Ganhar uma viagem"
+      ],
+      "correct_answer": {
+        "value": "Perceber que suas habilidades eram úteis"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-volunteer-motivation",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Ich wollte die freiwillige Arbeit beinahe aufgeben, weil ich dachte, nichts beitragen zu können. Dann bat mich eine Besucherin um Hilfe mit einem Formular, das sie nicht verstand. Meine Büroerfahrung half ihr, einen Termin zu bekommen. Da merkte ich, dass meine Fähigkeiten nützlich waren, und beschloss weiterzumachen."
+    },
+    {
+      "external_key": "de-confirmation-listening-b2-subscription-consent",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual condição a pessoa considera necessária para aceitar a proposta?",
+      "options": [
+        "Renovação automática obrigatória",
+        "Um desconto sem prazo definido",
+        "Consentimento explícito e custos transparentes"
+      ],
+      "correct_answer": {
+        "value": "Consentimento explícito e custos transparentes"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-subscription-consent",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Der Rabatt klingt attraktiv, aber ich würde dem Angebot in dieser Form nicht zustimmen. Die Verlängerung wird als bequem bezeichnet, obwohl Kunden weiterzahlen, wenn sie einen kleinen Hinweis übersehen. Ich würde meine Meinung ändern, wenn jede Verlängerung eine ausdrückliche Zustimmung verlangte und die Gesamtkosten vor der Zahlung sichtbar wären. Nur den Einstiegspreis zu senken, würde meine Bedenken hinsichtlich der Vertragsbedingungen nicht ausräumen."
+    },
+    {
+      "external_key": "de-confirmation-listening-b1-bakery-waste",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Que mudança a padaria fez para reduzir desperdício?",
+      "options": [
+        "Aumentar a produção de manhã",
+        "Produzir em lotes menores durante o dia",
+        "Parar de vender à tarde"
+      ],
+      "correct_answer": {
+        "value": "Produzir em lotes menores durante o dia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-bakery-waste",
+        "native_language": "pt-BR",
+        "target_language": "de",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Früher haben wir alles vor der Öffnung gebacken, und abends blieb viel Brot übrig. Jetzt backen wir über den Tag verteilt kleinere Mengen. Das Nachmittagsteam prüft die Verkäufe, bevor es die nächste Portion vorbereitet. Wir bieten dieselben Produkte an, werfen aber viel weniger weg."
     }
   ]
 }

@@ -52,6 +52,8 @@ def test_missing_and_reused_skills_cannot_raise_planning():
 
 
 def test_partial_completion_opens_journey_and_repeat_is_stable(client, auth, db_session):
+    from tests.test_placement_api import use_legacy_catalog
+    use_legacy_catalog(db_session)
     from tests.test_placement_api import create_test, answer_all
     test = create_test(client, auth).json()
     answer_all(client, auth, test["id"], db_session)

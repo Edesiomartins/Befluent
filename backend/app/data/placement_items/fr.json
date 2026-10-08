@@ -1,5 +1,5 @@
 {
-  "version": 2,
+  "version": 3,
   "language_code": "fr",
   "notice": "Banco inicial de desenvolvimento. Requer validação pedagógica antes de uso definitivo.",
   "items": [
@@ -9,8 +9,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Como se diz \"bom dia\" em francês?",
-      "options": ["Bonjour", "Bonne nuit", "Au revoir", "Merci"],
-      "correct_answer": { "value": "Bonjour" },
+      "options": [
+        "Bonjour",
+        "Bonne nuit",
+        "Au revoir",
+        "Merci"
+      ],
+      "correct_answer": {
+        "value": "Bonjour"
+      },
       "explanation": "\"Bonjour\" é a saudação usada durante o dia.",
       "difficulty": 0.1
     },
@@ -20,8 +27,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Je ___ Ana.\"",
-      "options": ["suis", "es", "est", "sommes"],
-      "correct_answer": { "value": "suis" },
+      "options": [
+        "suis",
+        "es",
+        "est",
+        "sommes"
+      ],
+      "correct_answer": {
+        "value": "suis"
+      },
       "explanation": "Com \"je\", o verbo \"être\" fica \"suis\".",
       "difficulty": 0.12
     },
@@ -32,8 +46,15 @@
       "item_type": "reading_comprehension",
       "prompt": "Onde mora Julie?",
       "passage": "Julie est française. Elle habite à Lyon dans un petit appartement. Elle travaille dans une librairie.",
-      "options": ["À Lyon", "À Paris", "Dans une librairie", "Dans une école"],
-      "correct_answer": { "value": "À Lyon" },
+      "options": [
+        "À Lyon",
+        "À Paris",
+        "Dans une librairie",
+        "Dans une école"
+      ],
+      "correct_answer": {
+        "value": "À Lyon"
+      },
       "explanation": "O texto diz \"Elle habite à Lyon\".",
       "difficulty": 0.2
     },
@@ -44,8 +65,15 @@
       "item_type": "listening_comprehension",
       "prompt": "O que a pessoa pediu?",
       "audio_script": "Je voudrais un café et une bouteille d'eau, s'il vous plaît.",
-      "options": ["Café e água", "Chá e suco", "Café e pão", "Leite e bolo"],
-      "correct_answer": { "value": "Café e água" },
+      "options": [
+        "Café e água",
+        "Chá e suco",
+        "Café e pão",
+        "Leite e bolo"
+      ],
+      "correct_answer": {
+        "value": "Café e água"
+      },
       "explanation": "A frase menciona \"un café et une bouteille d'eau\".",
       "difficulty": 0.22
     },
@@ -55,8 +83,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Hier, je ___ allé au cinéma.\"",
-      "options": ["suis", "ai", "vais", "serai"],
-      "correct_answer": { "value": "suis" },
+      "options": [
+        "suis",
+        "ai",
+        "vais",
+        "serai"
+      ],
+      "correct_answer": {
+        "value": "suis"
+      },
       "explanation": "O verbo \"aller\" forma o passé composé com o auxiliar \"être\".",
       "difficulty": 0.38
     },
@@ -66,8 +101,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a forma correta: \"Il y ___ du lait dans le frigo.\"",
-      "options": ["a", "ont", "est", "sont"],
-      "correct_answer": { "value": "a" },
+      "options": [
+        "a",
+        "ont",
+        "est",
+        "sont"
+      ],
+      "correct_answer": {
+        "value": "a"
+      },
       "explanation": "A expressão fixa é \"il y a\".",
       "difficulty": 0.36
     },
@@ -84,7 +126,9 @@
         "Faltou energia",
         "Era feriado"
       ],
-      "correct_answer": { "value": "O proprietário tinha uma consulta médica" },
+      "correct_answer": {
+        "value": "O proprietário tinha uma consulta médica"
+      },
       "explanation": "O texto diz \"parce que le propriétaire avait un rendez-vous médical\".",
       "difficulty": 0.4
     },
@@ -95,8 +139,15 @@
       "item_type": "listening_comprehension",
       "prompt": "Que horas o trem parte?",
       "audio_script": "Le train pour Marseille part à sept heures et demie, quai numéro trois.",
-      "options": ["7h30", "7h00", "3h30", "8h30"],
-      "correct_answer": { "value": "7h30" },
+      "options": [
+        "7h30",
+        "7h00",
+        "3h30",
+        "8h30"
+      ],
+      "correct_answer": {
+        "value": "7h30"
+      },
       "explanation": "\"Sept heures et demie\" significa sete e meia.",
       "difficulty": 0.42
     },
@@ -106,8 +157,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Si j'___ plus de temps, je voyagerais davantage.\"",
-      "options": ["avais", "ai", "aurai", "aurais"],
-      "correct_answer": { "value": "avais" },
+      "options": [
+        "avais",
+        "ai",
+        "aurai",
+        "aurais"
+      ],
+      "correct_answer": {
+        "value": "avais"
+      },
       "explanation": "Condicional irreal: \"si\" + imparfait, seguido do conditionnel.",
       "difficulty": 0.56
     },
@@ -117,8 +175,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Qual expressão tem sentido próximo de \"abandonner\"?",
-      "options": ["renoncer", "continuer", "améliorer", "commencer"],
-      "correct_answer": { "value": "renoncer" },
+      "options": [
+        "renoncer",
+        "continuer",
+        "améliorer",
+        "commencer"
+      ],
+      "correct_answer": {
+        "value": "renoncer"
+      },
       "explanation": "\"Abandonner\" significa desistir, equivalente a \"renoncer\".",
       "difficulty": 0.52
     },
@@ -135,7 +200,9 @@
         "A falta de equipamentos",
         "O aumento das viagens"
       ],
-      "correct_answer": { "value": "O desaparecimento da comunicação informal" },
+      "correct_answer": {
+        "value": "O desaparecimento da comunicação informal"
+      },
       "explanation": "O texto cita o temor de que a comunicação informal desapareça.",
       "difficulty": 0.6
     },
@@ -152,7 +219,9 @@
         "Chegar antes da abertura",
         "Evitar o museu no verão"
       ],
-      "correct_answer": { "value": "Reservar o ingresso pela internet" },
+      "correct_answer": {
+        "value": "Reservar o ingresso pela internet"
+      },
       "explanation": "O falante recomenda \"réserver votre billet en ligne\".",
       "difficulty": 0.6
     },
@@ -162,8 +231,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Complete: \"Quand nous sommes arrivés, la réunion ___ déjà commencé.\"",
-      "options": ["avait", "a", "aura", "aurait"],
-      "correct_answer": { "value": "avait" },
+      "options": [
+        "avait",
+        "a",
+        "aura",
+        "aurait"
+      ],
+      "correct_answer": {
+        "value": "avait"
+      },
       "explanation": "Ação anterior a outra no passado exige o plus-que-parfait.",
       "difficulty": 0.72
     },
@@ -173,8 +249,15 @@
       "skill": "vocabulary_grammar",
       "item_type": "multiple_choice",
       "prompt": "Escolha a opção correta: \"Il faut que tu ___ présent demain.\"",
-      "options": ["sois", "es", "seras", "étais"],
-      "correct_answer": { "value": "sois" },
+      "options": [
+        "sois",
+        "es",
+        "seras",
+        "étais"
+      ],
+      "correct_answer": {
+        "value": "sois"
+      },
       "explanation": "\"Il faut que\" exige subjuntivo: \"sois\".",
       "difficulty": 0.74
     },
@@ -210,7 +293,9 @@
         "Totalmente contrário",
         "Indiferente"
       ],
-      "correct_answer": { "value": "Parcialmente favorável, com reservas sobre o orçamento" },
+      "correct_answer": {
+        "value": "Parcialmente favorável, com reservas sobre o orçamento"
+      },
       "explanation": "Reconhece méritos, mas questiona as premissas orçamentárias.",
       "difficulty": 0.8
     },
@@ -222,7 +307,14 @@
       "prompt": "Escreva de 3 a 5 frases em francês se apresentando (nome, idade, cidade e o que você gosta de fazer).",
       "instructions": "Escreva em francês. Entre 20 e 400 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A1",
         "min_chars": 20
       },
@@ -236,7 +328,14 @@
       "prompt": "Descreva sua rotina diária em francês.",
       "instructions": "Escreva em francês. Entre 40 e 600 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "A2",
         "min_chars": 40
       },
@@ -250,7 +349,14 @@
       "prompt": "Conte, em francês, uma experiência importante da sua vida e explique por que ela foi marcante.",
       "instructions": "Escreva em francês. Entre 60 e 900 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B1",
         "min_chars": 60
       },
@@ -264,7 +370,14 @@
       "prompt": "Defenda, em francês, sua opinião sobre o trabalho remoto, apresentando ao menos um argumento contrário.",
       "instructions": "Escreva em francês. Entre 80 e 1200 caracteres.",
       "rubric": {
-        "criteria": ["adequação ao tema", "coerência", "vocabulário", "gramática", "clareza", "organização"],
+        "criteria": [
+          "adequação ao tema",
+          "coerência",
+          "vocabulário",
+          "gramática",
+          "clareza",
+          "organização"
+        ],
         "target_level": "B2",
         "min_chars": 80
       },
@@ -284,6 +397,306 @@
         "editorial_status": "development_not_calibrated"
       },
       "difficulty": 0.6
+    },
+    {
+      "external_key": "fr-confirmation-reading-pre_a1-sign-pharmacy",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual estabelecimento está indicado?",
+      "options": [
+        "Escola",
+        "Farmácia",
+        "Estação"
+      ],
+      "correct_answer": {
+        "value": "Farmácia"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-sign-pharmacy",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Pharmacie. Ouvert."
+    },
+    {
+      "external_key": "fr-confirmation-reading-pre_a1-closed-monday",
+      "cefr_level": "PRE_A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Em qual dia o local está fechado?",
+      "options": [
+        "Segunda-feira",
+        "Sábado",
+        "Domingo"
+      ],
+      "correct_answer": {
+        "value": "Segunda-feira"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-closed-monday",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Fermé le lundi."
+    },
+    {
+      "external_key": "fr-confirmation-reading-a1-library-children",
+      "cefr_level": "A1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Quem pode participar da atividade?",
+      "options": [
+        "Somente professores",
+        "Somente idosos",
+        "Crianças"
+      ],
+      "correct_answer": {
+        "value": "Crianças"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-children",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "La bibliothèque propose une heure de contes pour les enfants. Elle commence samedi à dix heures. Les parents peuvent attendre dans la salle de lecture."
+    },
+    {
+      "external_key": "fr-confirmation-reading-a2-rail-disruption",
+      "cefr_level": "A2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Como os passageiros poderão continuar a viagem?",
+      "options": [
+        "De trem, sem interrupção",
+        "De ônibus, usando o mesmo bilhete",
+        "De táxi gratuito"
+      ],
+      "correct_answer": {
+        "value": "De ônibus, usando o mesmo bilhete"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-rail-disruption",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Aujourd'hui, le train s'arrête à la gare des Collines parce que des ouvriers réparent les rails. Les voyageurs peuvent continuer dans un bus de remplacement. Leur billet de train est valable dans le bus : ils n'ont pas besoin d'acheter un autre billet."
+    },
+    {
+      "external_key": "fr-confirmation-reading-b1-community-garden",
+      "cefr_level": "B1",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual solução o grupo encontrou para a preocupação dos moradores?",
+      "options": [
+        "Reservar parte do terreno para brincar",
+        "Cancelar toda a horta",
+        "Proibir a entrada das crianças"
+      ],
+      "correct_answer": {
+        "value": "Reservar parte do terreno para brincar"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-community-garden",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Les habitants voulaient transformer un terrain vide en jardin partagé. Des parents craignaient que les enfants perdent leur seul espace de jeu. Après une réunion, le groupe a réservé un tiers du terrain aux jeux et planté des légumes sur le reste. Les deux groupes ont accepté de participer à son entretien."
+    },
+    {
+      "external_key": "fr-confirmation-reading-b2-library-digitisation",
+      "cefr_level": "B2",
+      "skill": "reading",
+      "item_type": "reading_comprehension",
+      "prompt": "Qual posição a autora defende sobre digitalizar o acervo?",
+      "options": [
+        "Substituir todos os serviços presenciais",
+        "Adiar a digitalização até todos terem equipamento",
+        "Ampliar o acesso sem eliminar o apoio presencial"
+      ],
+      "correct_answer": {
+        "value": "Ampliar o acesso sem eliminar o apoio presencial"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-reading-library-digitisation",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "passage": "Mettre les collections de la bibliothèque en ligne aiderait certainement les lecteurs qui ne peuvent pas se déplacer. Cependant, présenter cette solution comme un remplacement complet du bâtiment néglige les personnes privées d'une connexion fiable. L'autrice propose de développer l'accès numérique tout en conservant un accompagnement sur place. Selon elle, la réussite se mesure aux personnes désormais accueillies, et non au nombre de services retirés du budget."
+    },
+    {
+      "external_key": "fr-confirmation-listening-pre_a1-take-key",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual objeto deve ser pego?",
+      "options": [
+        "O telefone",
+        "A chave",
+        "O livro"
+      ],
+      "correct_answer": {
+        "value": "A chave"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-take-key",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Prends la clé, s'il te plaît."
+    },
+    {
+      "external_key": "fr-confirmation-listening-pre_a1-room-correction",
+      "cefr_level": "PRE_A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual sala deve ser usada?",
+      "options": [
+        "Sala três",
+        "Sala quatro",
+        "Sala dois"
+      ],
+      "correct_answer": {
+        "value": "Sala três"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.1,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-room-correction",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Salle quatre ? Non, salle trois."
+    },
+    {
+      "external_key": "fr-confirmation-listening-a1-meeting-courtyard",
+      "cefr_level": "A1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde será o encontro?",
+      "options": [
+        "Na sala",
+        "Na rua",
+        "No pátio"
+      ],
+      "correct_answer": {
+        "value": "No pátio"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.2,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-meeting-courtyard",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "Bonjour, la réunion est à neuf heures. Nous nous retrouvons dans la cour, car on repeint la salle. Apportez votre carnet, s'il vous plaît."
+    },
+    {
+      "external_key": "fr-confirmation-listening-a2-parcel-neighbour",
+      "cefr_level": "A2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Onde está a encomenda?",
+      "options": [
+        "No apartamento do destinatário",
+        "Com a vizinha",
+        "Na agência"
+      ],
+      "correct_answer": {
+        "value": "Com a vizinha"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.4,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-parcel-neighbour",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "J'ai essayé de livrer votre colis, mais personne n'était chez vous. Votre voisine l'a accepté. Elle sera chez elle demain matin. Vous n'avez pas besoin d'aller à la poste."
+    },
+    {
+      "external_key": "fr-confirmation-listening-b1-volunteer-motivation",
+      "cefr_level": "B1",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "O que motivou a pessoa a continuar como voluntária?",
+      "options": [
+        "Perceber que suas habilidades eram úteis",
+        "Receber uma remuneração maior",
+        "Ganhar uma viagem"
+      ],
+      "correct_answer": {
+        "value": "Perceber que suas habilidades eram úteis"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.6,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-volunteer-motivation",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "J'ai failli arrêter le bénévolat, car je pensais ne rien pouvoir apporter. Puis une visiteuse m'a demandé de l'aider avec un formulaire qu'elle ne comprenait pas. Mon expérience au bureau lui a permis d'obtenir un rendez-vous. J'ai alors compris que mes compétences pouvaient servir et j'ai décidé de continuer."
+    },
+    {
+      "external_key": "fr-confirmation-listening-b2-subscription-consent",
+      "cefr_level": "B2",
+      "skill": "listening",
+      "item_type": "listening_comprehension",
+      "prompt": "Qual condição a pessoa considera necessária para aceitar a proposta?",
+      "options": [
+        "Renovação automática obrigatória",
+        "Um desconto sem prazo definido",
+        "Consentimento explícito e custos transparentes"
+      ],
+      "correct_answer": {
+        "value": "Consentimento explícito e custos transparentes"
+      },
+      "explanation": "A resposta deve ser sustentada pelo estímulo apresentado.",
+      "difficulty": 0.8,
+      "rubric": {
+        "stimulus_family_key": "confirmation-listening-subscription-consent",
+        "native_language": "pt-BR",
+        "target_language": "fr",
+        "editorial_status": "development_requires_specialist_review",
+        "confirmation_floor": "operational_not_psychometric"
+      },
+      "audio_script": "La réduction paraît intéressante, mais je n'accepterais pas la proposition telle quelle. Le renouvellement est présenté comme pratique, alors que le client continue de payer s'il ne remarque pas un petit message. Je reconsidérerais mon avis si chaque renouvellement exigeait un accord explicite et si le coût total était affiché avant le paiement. Baisser seulement le prix de départ ne répondrait pas à ma préoccupation."
     }
   ]
 }

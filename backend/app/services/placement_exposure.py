@@ -216,12 +216,11 @@ def rotation_metadata(db, user_id, language_code):
     for form, items in forms.items():
         deficits = []
         for skill in engine.OBJECTIVE_SKILLS:
+            from app.services.placement_coverage import independent_item_groups
             groups = {}
-            for item in items:
-                if item.skill == skill:
-                    keys = semantic_keys(item)
-                    key = keys.get("family") or keys.get("passage") or keys.get("audio") or keys.get("prompt") or keys["exact"]
-                    groups.setdefault(item.cefr_level, set()).add(key)
+            for group in independent_item_groups([item for item in items if item.skill == skill]):
+                item = group[0]
+                groups.setdefault(item.cefr_level, []).append(item)
             if sum(map(len, groups.values())) < engine.MIN_ITEMS_PER_SKILL or not any(len(g) >= engine.MIN_ITEMS_AT_DECIDING_BAND for g in groups.values()):
                 deficits.append(skill)
         if not deficits:
@@ -239,6 +238,8 @@ def adjust_result(result, answers):
         fresh = [a for a in rows if not (a.feedback_json or {}).get("exposure", {}).get("reused", False)]
         reused = len(rows) - len(fresh)
         counts = data["evidence_counts"]
+        from collections import Counter
+        counts["by_cefr"] = dict(Counter(a.cefr_level for a in rows if a.normalized_score is not None))
         counts.update(answered=len(rows), fresh=len(fresh), reused=reused, excluded=len(rows) - counts.get("valid", 0),
             independent=counts.get("valid", 0))
         if rows and reused:

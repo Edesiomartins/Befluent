@@ -27,6 +27,8 @@ def capture(name, responses):
 
 
 def test_new_account_partial_a1_has_result_snapshot_and_navigable_journey(client, other_user, db_session):
+    from tests.test_placement_api import use_legacy_catalog
+    use_legacy_catalog(db_session)
     assert db_session.scalar(select(func.count()).select_from(UserLanguage).where(UserLanguage.user_id == other_user)) == 0
     assert db_session.scalar(select(func.count()).select_from(PlacementTest).where(PlacementTest.user_id == other_user)) == 0
     login = client.post('/api/v1/auth/login', json={"email": "outro@befluent.local", "password": "senha-segura"})

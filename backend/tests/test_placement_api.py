@@ -16,6 +16,13 @@ def create_test(client, auth, language="en", beginner=False):
     )
 
 
+def use_legacy_catalog(db_session):
+    """Explicit historical deficit fixture for partial-planning regressions."""
+    for item in db_session.scalars(select(PlacementItem).where(PlacementItem.external_key.contains("-confirmation-"))):
+        item.is_active = False
+    db_session.commit()
+
+
 def answer_all(client, auth, test_id, db_session, correct=True, limit=40):
     """Responde itens objetivos até o teste indicar que pode concluir."""
     answered = 0

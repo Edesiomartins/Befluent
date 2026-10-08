@@ -9,19 +9,37 @@ const SKILL_ORDER: Skill[] = [
   "speaking",
 ];
 
-const BAND_STATUS = new Set<SkillResult["status"]>(["assessed", "estimated", "provisional"]);
-
 const STATUS_LABELS: Record<SkillResult["status"], string> = {
   assessed: "",
   estimated: "",
   provisional: "estimativa provisória",
   insufficient_evidence: "Faixa ainda não determinada",
-  not_collected: "não coletada",
-  unavailable: "indisponível",
+  not_collected: "Ainda não avaliada",
+  unavailable: "Avaliação não disponível",
   calibrating: "em calibração",
   not_assessed: "não avaliada",
   not_available: "não avaliada",
 };
+
+const PROGRESS_STATE_LABELS: Record<string, string> = {
+  collecting: "em coleta",
+  in_collection: "em coleta",
+  confirmation_pending: "confirmação pendente",
+  pending_confirmation: "confirmação pendente",
+  completed: "concluída",
+  estimated: "concluída",
+  assessed: "concluída",
+  provisional: "provisória",
+};
+
+export type SkillBandTone =
+  | "estimated"
+  | "provisional"
+  | "pending"
+  | "insufficient"
+  | "unavailable"
+  | "not_collected"
+  | "other";
 
 export const PARTIAL_PROFILE_TITLE = "Perfil de competências";
 
@@ -50,13 +68,69 @@ export function orderedSkills(skills: SkillResult[]): SkillResult[] {
   });
 }
 
+function levelCode(level: string): string {
+  return levelShortCode(level) ?? level;
+}
+
+export function skillBandTone(skill: SkillResult): SkillBandTone {
+  if ((skill.status === "estimated" || skill.status === "assessed") && skill.estimated_level) return "estimated";
+  if (skill.status === "provisional" && skill.estimated_level) return "provisional";
+  if (skill.status === "insufficient_evidence" && skill.candidate_level) return "pending";
+  if (skill.status === "insufficient_evidence") return "insufficient";
+  if (skill.status === "unavailable") return "unavailable";
+  if (skill.status === "not_collected") return "not_collected";
+  return "other";
+}
+
 export function skillBandLabel(skill: SkillResult): string {
-  if (BAND_STATUS.has(skill.status) && skill.estimated_level) {
-    const code = levelShortCode(skill.estimated_level) ?? skill.estimated_level;
-    return skill.status === "provisional" ? `${code} — provisório` : code;
+  if ((skill.status === "estimated" || skill.status === "assessed") && skill.estimated_level) {
+    return levelCode(skill.estimated_level);
+  }
+  if (skill.status === "provisional" && skill.estimated_level) {
+    return `${levelCode(skill.estimated_level)} — provisório`;
+  }
+  if (skill.status === "insufficient_evidence" && skill.candidate_level) {
+    return `${levelCode(skill.candidate_level)} — confirmação pendente`;
   }
   if (skill.status === "insufficient_evidence") return "Faixa ainda não determinada";
+  if (skill.status === "unavailable") return "Avaliação não disponível";
+  if (skill.status === "not_collected") return "Ainda não avaliada";
   return STATUS_LABELS[skill.status] || "Faixa ainda não determinada";
+}
+
+function confirmationGap(skill: SkillResult): number | null {
+  if (typeof skill.confirmation_needed === "number") return skill.confirmation_needed;
+  if (typeof skill.confirmation_required === "number" && typeof skill.confirmation_count === "number") {
+    return Math.max(skill.confirmation_required - skill.confirmation_count, 0);
+  }
+  return null;
+}
+
+export function skillConfirmationNote(skill: SkillResult): string | null {
+  if (skill.status !== "insufficient_evidence" || !skill.candidate_level) return null;
+  const level = levelCode(skill.candidate_level);
+  const needed = confirmationGap(skill);
+  if (needed === 1) {
+    return `Falta mais uma atividade ${level} independente para confirmar esta faixa.`;
+  }
+  if (needed != null && needed > 1) {
+    return `Faltam mais ${needed} atividades ${level} independentes para confirmar esta faixa.`;
+  }
+  const reason = skill.candidate_reason?.trim();
+  if (reason && !/^[a-z0-9_]+$/.test(reason)) return reason;
+  return null;
+}
+
+export function skillProgressLabel(info: {
+  status?: string | null;
+  candidate_level?: string | null;
+} | null | undefined): string | null {
+  const status = info?.status;
+  if (!status) return null;
+  if (status === "insufficient_evidence") {
+    return info?.candidate_level ? "confirmação pendente" : null;
+  }
+  return PROGRESS_STATE_LABELS[status] ?? null;
 }
 
 function countLabel(count: number, singular: string, plural: string): string {

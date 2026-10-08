@@ -3,7 +3,11 @@ import type { CefrLevel, LevelSource, Skill } from "@/lib/levels";
 export type PlacementProgress = {
   activities_completed?: number;
   activities_skipped?: number;
-  by_skill?: Partial<Record<Skill, { completed: number }>>;
+  by_skill?: Partial<Record<Skill, {
+    completed: number;
+    status?: string | null;
+    candidate_level?: string | null;
+  }>>;
   stop_reason?: string | null;
   answered: number;
   minimum: number;
@@ -60,6 +64,11 @@ export type SkillResult = {
   score: number | null;
   max_score: number | null;
   status: "assessed" | "calibrating" | "not_assessed" | "not_available" | "estimated" | "provisional" | "insufficient_evidence" | "not_collected" | "unavailable";
+  candidate_level?: string | null;
+  confirmation_required?: number | null;
+  confirmation_count?: number | null;
+  confirmation_needed?: number | null;
+  candidate_reason?: string | null;
   evidence_counts?: { answered: number; valid: number; excluded: number; by_cefr: Record<string, number> };
   skill_confidence?: { basis: string; label: string; reasons: string[] };
 };

@@ -55,7 +55,7 @@ from app.services.writing_evaluation import evaluate_writing
 from app.services.speech import save_temp_audio, transcribe_audio
 from app.services.placement_production import production_result, evaluate_speaking
 from app.core.config import get_settings
-from app.services.placement_coverage import bank_capacity, evidence_fingerprint
+from app.services.placement_coverage import bank_capacity
 from app.services.placement_exposure import exposure_history, exposure_metadata, semantic_keys, delivery_changed, record_answer, record_delivery, bank_freshness, adjust_result, rotation_metadata, EXPOSURE_POLICY
 
 router = APIRouter(prefix="/placement-tests", tags=["placement"])
@@ -104,33 +104,36 @@ def _answers_of(db: Session, test_id: str) -> list[PlacementTestAnswer]:
 def _state_from(answers: list[PlacementTestAnswer], declared_beginner: bool) -> engine.TestState:
     """Reconstrói o estado adaptativo a partir das respostas persistidas."""
     state = engine.TestState(current_band=engine.initial_band(declared_beginner))
-    for answer in answers:
-        if answer.skill in engine.PRODUCTION_SKILLS or answer.normalized_score is None or (answer.feedback_json or {}).get("exposure", {}).get("reused"):
-            continue
-        engine.register_answer(
-            state,
-            engine.AnswerRecord(
-                skill=answer.skill,
-                cefr_level=answer.cefr_level,
-                normalized_score=answer.normalized_score or 0.0,
-                response_time_ms=answer.response_time_ms,
-            ),
-        )
+    for record in engine.independent_answers(_records(answers)):
+        engine.register_answer(state, record)
     return state
 
 
-def _records(answers: list[PlacementTestAnswer]) -> list[engine.AnswerRecord]:
-    return [
-        engine.AnswerRecord(
-            skill=a.skill,
-            cefr_level=a.cefr_level,
-            normalized_score=a.normalized_score or 0.0,
-            response_time_ms=a.response_time_ms,
-        )
-        for a in answers
-        if a.normalized_score is not None and a.skill not in engine.PRODUCTION_SKILLS
-        and not (a.feedback_json or {}).get("exposure", {}).get("reused", False)
-    ]
+def _records(answers: list[PlacementTestAnswer], evidence_snapshots: dict | None = None) -> list[engine.AnswerRecord]:
+    from sqlalchemy import inspect
+    from sqlalchemy.orm import object_session
+    records = []
+    for answer in answers:
+        if answer.normalized_score is None or answer.skill in engine.PRODUCTION_SKILLS:
+            continue
+        exposure = (answer.feedback_json or {}).get("exposure", {})
+        if exposure.get("reused") or exposure.get("feedback_revealed") or not exposure.get("evidence_eligible", True):
+            continue
+        db = object_session(answer) if inspect(answer, raiseerr=False) is not None else None
+        snapshot = db.scalar(select(PlacementItemExposure).where(
+            PlacementItemExposure.source_test_id == answer.test_id,
+            PlacementItemExposure.source_item_id == answer.item_id)) if db else None
+        item = db.get(PlacementItem, answer.item_id) if db and not snapshot else None
+        supplied = (evidence_snapshots or {}).get(answer.item_id, {})
+        keys = supplied.get("keys") or (snapshot.keys_json if snapshot else semantic_keys(item) if item else {"id": answer.item_id})
+        revealed = exposure.get("feedback_revealed", False) or supplied.get("revealed", False) or bool(snapshot and snapshot.feedback_revealed_at)
+        records.append(engine.AnswerRecord(
+            skill=answer.skill, cefr_level=answer.cefr_level,
+            normalized_score=answer.normalized_score, response_time_ms=answer.response_time_ms,
+            evidence_keys=tuple(f"{k}:{v}" for k, v in keys.items()),
+            eligible=not exposure.get("reused", False) and not revealed and exposure.get("evidence_eligible", True),
+        ))
+    return records
 
 
 def _public_item(item: PlacementItem) -> dict:
@@ -165,7 +168,15 @@ def _grade(item: PlacementItem, answer: str | None) -> tuple[bool, float]:
     return correct, 1.0 if correct else 0.0
 
 
+def _ensure_declared_support(item, native_language):
+    support = (item.rubric_json or {}).get("native_language")
+    if support and support != native_language:
+        raise APIError(409, "native_support_unavailable", "Este item não tem apoio na sua língua nativa.")
+
+
 def _delivered_payload(db, test, item):
+    account = db.get(User, test.user_id)
+    _ensure_declared_support(item, account.native_language if account else None)
     row = db.scalar(select(PlacementItemExposure).where(PlacementItemExposure.user_id == test.user_id,
         PlacementItemExposure.source_test_id == test.id, PlacementItemExposure.source_item_id == item.id))
     return {**_public_item(item), "exposure": row.snapshot_json.get("exposure") if row else
@@ -186,6 +197,7 @@ def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = N
         "activities_skipped": sum((a.feedback_json or {}).get("status") == "skipped" for a in answers),
         "by_skill": {skill: {"completed": sum(a.skill == skill and (a.feedback_json or {}).get("status") != "skipped" for a in answers)} for skill in engine.SKILL_WEIGHTS},
         "stop_reason": (test.result_json or {}).get("stop_reason") if test else None,
+        "selection": (test.result_json or {}).get("last_selection") if test else None,
         "planned_target": (test.result_json or {}).get("coverage_plan", {}).get("target") if test else None,
     }
 
@@ -331,8 +343,12 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
         open_delivery.expires_at = _now()
         db.flush()
 
-    if engine.should_stop(state) or len([a for a in answers if a.skill in engine.OBJECTIVE_SKILLS]) >= engine.MAX_OBJECTIVE_ITEMS:
-        test.result_json = {**(test.result_json or {}), "stop_reason": "maximum_reached" if len(state.answers) >= engine.MAX_OBJECTIVE_ITEMS else "objective_coverage_satisfied"}
+    raw_objective_count = sum(a.skill in engine.OBJECTIVE_SKILLS for a in answers)
+    if engine.should_stop(state) or raw_objective_count >= engine.MAX_OBJECTIVE_ITEMS:
+        deficits = {skill: engine.confirmation_policy([a for a in state.answers if a.skill == skill])
+                    for skill in engine.OBJECTIVE_SKILLS}
+        test.result_json = {**(test.result_json or {}), "stop_reason": "maximum_reached" if raw_objective_count >= engine.MAX_OBJECTIVE_ITEMS else "objective_coverage_satisfied",
+            "confirmation_deficits": {skill: data for skill, data in deficits.items() if data["confirmation_required"]}}
         writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
@@ -343,8 +359,14 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
 
     item = _pick_objective_item(db, test.language_code, state, answered_ids, user_id=user.id, test_id=test.id)
     if item is None:
-        available = _pick_objective_item(db, test.language_code, state, answered_ids)
-        test.result_json = {**(test.result_json or {}), "stop_reason": "bank_freshness_exhausted" if available else "bank_exhausted"}
+        available = _pick_objective_item(db, test.language_code, state, answered_ids, native_language=user.native_language or "")
+        deficits = {skill: engine.confirmation_policy([a for a in state.answers if a.skill == skill])
+                    for skill in engine.OBJECTIVE_SKILLS}
+        deficits = {skill: data for skill, data in deficits.items() if data["confirmation_required"]}
+        test.result_json = {**(test.result_json or {}), "stop_reason": "bank_freshness_exhausted" if available else "bank_exhausted",
+            "stop_detail": "confirmation_freshness_exhausted" if available and deficits else
+                "confirmation_bank_exhausted" if deficits else "objective_bank_exhausted",
+            "confirmation_deficits": deficits}
         writing_item = _pick_production_item(db, test, state, answered_ids)
         if writing_item:
             deliver_item(db, test, writing_item)
@@ -365,6 +387,7 @@ def _pick_objective_item(
     state: engine.TestState,
     answered_ids: set[str],
     *, user_id: str | None = None, test_id: str | None = None, allow_reuse: bool = False,
+    native_language: str | None = None,
 ) -> PlacementItem | None:
     """Item da faixa atual na competência menos usada; relaxa se faltar item."""
     preferred_skill = engine.next_skill(state)
@@ -376,12 +399,19 @@ def _pick_objective_item(
     ]
     if answered_ids:
         base.append(PlacementItem.id.not_in(answered_ids))
-    used_fingerprints = {evidence_fingerprint(item) for item in db.scalars(
-        select(PlacementItem).where(PlacementItem.id.in_(answered_ids)))} if answered_ids else set()
     history = exposure_history(db, user_id, language_code, test_id) if user_id else []
-    # Within-session shared stimuli also do not supply independent confirmation.
-    current_history = [{"keys": semantic_keys(item), "answered": True} for item in db.scalars(
-        select(PlacementItem).where(PlacementItem.id.in_(answered_ids)))] if answered_ids else []
+    # Ledger keys describe the stimulus actually seen, even after editorial edits.
+    snapshots = list(db.scalars(select(PlacementItemExposure).where(
+        PlacementItemExposure.source_test_id == test_id))) if test_id else []
+    current_history = [{"keys": row.keys_json, "answered": bool(row.answered_at)} for row in snapshots]
+    snapshotted_ids = {row.source_item_id for row in snapshots}
+    legacy_ids = answered_ids - snapshotted_ids
+    if legacy_ids:
+        current_history.extend({"keys": semantic_keys(item), "answered": True}
+            for item in db.scalars(select(PlacementItem).where(PlacementItem.id.in_(legacy_ids))))
+    if user_id:
+        account = db.get(User, user_id)
+        native_language = account.native_language if account else native_language
     seen_candidates = []
     test = db.get(PlacementTest, test_id) if test_id else None
     selected_form = ((test.result_json or {}).get("form_policy") or {}).get("selected_form") if test else None
@@ -389,13 +419,11 @@ def _pick_objective_item(
     for skill in skill_order:
         current = engine.state_for(state, skill).current_band
         skill_answers = [a for a in state.answers if a.skill == skill]
-        buckets = engine._band_accuracy(skill_answers)
-        candidates = [band for band, (accuracy, count) in buckets.items()
-                      if accuracy >= engine.BAND_MASTERY_THRESHOLD and count < 3]
-        confirmation = max(candidates, key=engine.LEVEL_INDEX.__getitem__) if candidates else None
-        preferred = confirmation if len(skill_answers) >= engine.MIN_ITEMS_PER_SKILL and engine.estimate_skill_level(skill_answers) is None else current
+        policy = engine.confirmation_policy(skill_answers)
+        confirmation = policy["candidate_level"] if policy["confirmation_required"] else None
+        preferred = confirmation or current
         bands = sorted(engine.TESTABLE_LEVELS, key=lambda band: (
-            band != preferred, abs(engine.LEVEL_INDEX[band] - engine.LEVEL_INDEX[current]), engine.LEVEL_INDEX[band]))
+            band != preferred, abs(engine.LEVEL_INDEX[band] - engine.LEVEL_INDEX[preferred]), engine.LEVEL_INDEX[band]))
         for band in bands:
             candidates_in_band = db.scalars(select(PlacementItem).where(
                 *base, PlacementItem.cefr_level == band, PlacementItem.skill == skill,
@@ -404,11 +432,26 @@ def _pick_objective_item(
             for item in sorted(candidates_in_band, key=lambda item: (
                 bool(selected_form) and (item.rubric_json or {}).get("form_id") != selected_form,
                 item.external_key or item.id)):
-                if evidence_fingerprint(item) not in used_fingerprints:
-                    if exposure_metadata(item, current_history)["reused"]:
-                        continue
+                support = (item.rubric_json or {}).get("native_language")
+                if support and (user_id or native_language is not None) and support != native_language:
+                    continue
+                if not exposure_metadata(item, current_history)["reused"]:
                     metadata = exposure_metadata(item, history)
                     if not metadata["reused"]:
+                        phase = "confirmation" if confirmation else policy["selection_phase"]
+                        selection = {"skill": skill, "cefr_level": band, "phase": phase,
+                            "candidate_level": policy["candidate_level"], "preferred_skill": preferred_skill,
+                            "reason": "candidate_band_confirmation" if confirmation and band == confirmation else
+                                "adjacent_band_evidence" if confirmation and abs(engine.LEVEL_INDEX[band] - engine.LEVEL_INDEX[confirmation]) == 1 else
+                                "broader_band_exploration" if confirmation else "adaptive_exploration",
+                            "skill_fallback": skill != preferred_skill}
+                        if test:
+                            trace = list((test.result_json or {}).get("selection_trace", []))
+                            trace.append({"item_id": item.id, **selection})
+                            test.result_json = {**(test.result_json or {}), "selection_trace": trace,
+                                "last_selection": selection}
+                        state.active_skill = skill
+                        state.current_band = band
                         return item
                     seen_candidates.append((metadata["feedback_revealed"], metadata["previous_exposure_count"], item))
     if allow_reuse and seen_candidates:
@@ -447,6 +490,7 @@ def submit_answer(
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
     item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
+    _ensure_declared_support(item, user.native_language)
     if item.skill in engine.PRODUCTION_SKILLS:
         raise APIError(400, "wrong_endpoint", "Use o endpoint de escrita para esta atividade.")
 
@@ -643,6 +687,7 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     result["assessment_coverage"].update(capacity)
     result["assessment_coverage"]["bank_freshness"] = bank_freshness(db, user.id, test.language_code, test.id)
     result["assessment_coverage"]["stop_reason"] = (test.result_json or {}).get("stop_reason", "user_completed")
+    result["assessment_coverage"]["confirmation_deficits"] = (test.result_json or {}).get("confirmation_deficits", {})
     result["assessment_coverage"]["supported_skills"] = list(engine.OBJECTIVE_SKILLS) + ["writing", "speaking"]
     result["assessment_coverage"]["supported_scope_status"] = "sufficient" if all(
         result["skills"][s]["status"] == "estimated" for s in engine.OBJECTIVE_SKILLS) else "insufficient"
@@ -898,8 +943,10 @@ def _result_payload(db: Session, test: PlacementTest, *, user: User | None = Non
               for skill, data in result["skills"].items()]
 
     if "planning_level" not in result:
-        from app.services.placement_planning import planning_decision
-        result.update(planning_decision(result))
+        from app.services.placement_planning import legacy_planning_projection
+        profile = db.scalar(select(UserLanguage).join(Language, Language.id == UserLanguage.language_id).where(
+            UserLanguage.user_id == test.user_id, Language.code == test.language_code))
+        result.update(legacy_planning_projection(result, profile))
     overall = result.get("overall_level")
     return {
         **result,

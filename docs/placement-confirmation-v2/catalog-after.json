@@ -1,0 +1,1183 @@
+{
+  "source": "versioned_fixtures",
+  "fresh_scope": "hypothetical_unexposed_account",
+  "total_items": 255,
+  "matrix": [
+    {
+      "language_code": "de",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "de",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "de",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "en",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "en",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "en",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "en",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "en",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "es-ES",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "fr",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "fr",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "fr",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "fr",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "fr",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "it",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "it",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "it",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "ja",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "ja",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "ja",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "ja",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "ja",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "C1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "speaking",
+      "cefr": "B2",
+      "item_type": "short_answer",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "la",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_answer",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "la",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "listening",
+      "cefr": "A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "listening",
+      "cefr": "A2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "listening",
+      "cefr": "B1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "listening",
+      "cefr": "B2",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "listening",
+      "cefr": "PRE_A1",
+      "item_type": "listening_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "reading",
+      "cefr": "A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "reading",
+      "cefr": "A2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "reading",
+      "cefr": "B1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "reading",
+      "cefr": "B2",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "reading",
+      "cefr": "PRE_A1",
+      "item_type": "reading_comprehension",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "speaking",
+      "cefr": "B1",
+      "item_type": "speaking_prompt",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "A2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "B1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "B2",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "vocabulary_grammar",
+      "cefr": "PRE_A1",
+      "item_type": "multiple_choice",
+      "fresh_independent_stimulus_groups": 2,
+      "total_items": 2
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "writing",
+      "cefr": "A1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "writing",
+      "cefr": "A2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "writing",
+      "cefr": "B1",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    },
+    {
+      "language_code": "zh-CN",
+      "skill": "writing",
+      "cefr": "B2",
+      "item_type": "short_writing",
+      "fresh_independent_stimulus_groups": 1,
+      "total_items": 1
+    }
+  ]
+}
