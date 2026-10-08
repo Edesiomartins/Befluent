@@ -526,25 +526,33 @@ describe("Resultado", () => {
     skills: partialSkills,
   };
 
-  function routePartial(
-    planning: string | null,
-    curriculum: {
-      id: string;
-      duration_days: number;
-      entry_level: string;
-      target_level: string;
-      day_href: string;
-    } | null = null,
-  ) {
-    mockRoute((path) =>
-      String(path).includes("language-profiles")
-        ? { planning_level: planning, language_code: "en" }
-        : { ...partialResult, curriculum: curriculum ?? null },
-    );
+  const plan = {
+    id: "plan-1",
+    duration_days: 90,
+    entry_level: "A1",
+    target_level: "A2",
+    generated_from: "planning",
+    entry_level_source: "planning",
+    day_href: "/cronograma/dia/day-1",
+  };
+
+  function assessmentPartial(extra: Record<string, unknown> = {}) {
+    mockRoute((path) => {
+      if (String(path).includes("language-profiles")) {
+        return { planning_level: "B2", planning_level_source: "prior_global", language_code: "en" };
+      }
+      return { ...partialResult, ...extra };
+    });
   }
 
   it("mostra perfil parcial com planning_level sem chamá-lo de nível global", async () => {
-    routePartial("A1");
+    assessmentPartial({
+      planning_level: "A1",
+      planning_level_source: "partial_evidence",
+      planning_level_reason: "Entrada operacional A1 apoiada por pelo menos duas competências.",
+      planning_level_trace: { signals: [] },
+      curriculum: plan,
+    });
     render(<PlacementResultPage />);
 
     expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
@@ -559,8 +567,9 @@ describe("Resultado", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute(
       "href",
-      "/cronograma",
+      "/cronograma/dia/day-1",
     );
+    expect(apiMock.mock.calls.some(([path]) => String(path).includes("language-profiles"))).toBe(false);
     expect(screen.getByText("Pré-A1")).toBeInTheDocument();
     expect(screen.getByText("5 acertos em 8 questões")).toBeInTheDocument();
     expect(screen.getAllByText("Faixa ainda não determinada")).toHaveLength(2);
@@ -580,8 +589,79 @@ describe("Resultado", () => {
     expect(screen.queryByText("Monte seu cronograma")).not.toBeInTheDocument();
   });
 
+  it("parcial com planning_level e sem currículo não oferece CTA de jornada", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      planning_level_source: "partial_evidence",
+      planning_level_trace: { assessment_proposed_level: "A1" },
+      curriculum: null,
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("Nível recomendado para iniciar sua jornada: A1")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Começar minha jornada/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ir para o dashboard" })).toHaveAttribute("href", "/dashboard");
+    expect(screen.queryByText(/Este teste propôs/)).not.toBeInTheDocument();
+  });
+
+  it("explica quando a proposta do assessment difere da entrada aplicada", async () => {
+    assessmentPartial({
+      planning_level: "B2",
+      planning_level_source: "prior_global",
+      planning_level_reason:
+        "Mantida a entrada anterior apoiada por nível global vigente; este assessment não a substitui.",
+      planning_level_trace: {
+        action: "retained_prior_planning",
+        retained_global_level: "B2",
+        assessment_proposed_level: "A1",
+      },
+      curriculum: { ...plan, entry_level: "B2", day_href: "/cronograma/dia/day-2" },
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("Nível recomendado para iniciar sua jornada: B2")).toBeInTheDocument();
+    expect(
+      screen.getByText("Este teste propôs A1. A entrada aplicada é B2, porque o planejamento anterior foi mantido."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/este assessment não a substitui/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Começar minha jornada em B2" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-2",
+    );
+    expect(screen.queryByRole("link", { name: "Começar minha jornada em A1" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/seu nível é b2/i)).not.toBeInTheDocument();
+  });
+
+  it("usa o perfil linguístico só quando o resultado não traz planning_level", async () => {
+    mockRoute((path) =>
+      String(path).includes("language-profiles")
+        ? {
+            planning_level: "A1",
+            planning_level_source: "partial_evidence",
+            planning_level_reason: "Entrada vinda do perfil.",
+            planning_level_trace: { assessment_proposed_level: "PRE_A1" },
+            language_code: "en",
+          }
+        : { ...partialResult, curriculum: plan },
+    );
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-1",
+    );
+    expect(
+      screen.getByText("Este teste propôs Pré-A1. A entrada aplicada é A1, porque o planejamento anterior foi mantido."),
+    ).toBeInTheDocument();
+    expect(apiMock.mock.calls.some(([path]) => String(path).includes("language-profiles"))).toBe(true);
+  });
+
   it("mostra perfil parcial sem planning_level e sem CTA de jornada", async () => {
-    routePartial(null);
+    mockRoute((path) =>
+      String(path).includes("language-profiles")
+        ? { planning_level: null, language_code: "en" }
+        : partialResult,
+    );
     render(<PlacementResultPage />);
 
     expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
@@ -593,12 +673,10 @@ describe("Resultado", () => {
   });
 
   it("leva a jornada existente quando o parcial já tem dia de estudo", async () => {
-    routePartial("A1", {
-      id: "plan-1",
-      duration_days: 90,
-      entry_level: "A1",
-      target_level: "A2",
-      day_href: "/cronograma/dia/day-1",
+    assessmentPartial({
+      planning_level: "A1",
+      planning_level_source: "partial_evidence",
+      curriculum: plan,
     });
     render(<PlacementResultPage />);
 
@@ -607,6 +685,7 @@ describe("Resultado", () => {
       "/cronograma/dia/day-1",
     );
     expect(screen.queryByText(/seu nível é a1/i)).not.toBeInTheDocument();
+    expect(apiMock.mock.calls.some(([path]) => String(path).includes("language-profiles"))).toBe(false);
   });
 
   it("com overall suficiente mantém o nível global e o perfil por competência", async () => {
@@ -614,6 +693,17 @@ describe("Resultado", () => {
       ...result,
       profile_status: "complete",
       overall_estimate_status: "sufficient",
+      planning_level: "B1",
+      planning_level_source: "sufficient_overall",
+      planning_level_reason: "Entrada baseada no nível global sustentado por cobertura suficiente.",
+      planning_level_trace: { assessment_proposed_level: "A1" },
+      curriculum: {
+        id: "plan-global",
+        duration_days: 90,
+        entry_level: "B1",
+        target_level: "B2",
+        day_href: "/cronograma/dia/day-global",
+      },
       skills: [
         {
           skill: "vocabulary_grammar",
@@ -636,6 +726,12 @@ describe("Resultado", () => {
     expect(screen.getAllByText("Leitura").length).toBeGreaterThan(0);
     expect(screen.queryByRole("heading", { name: "Perfil de competências" })).not.toBeInTheDocument();
     expect(screen.queryByText(/Nível recomendado para iniciar sua jornada/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Começar minha jornada/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Este teste propôs/)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuar caminho" })).toHaveAttribute(
+      "href",
+      "/cronograma/dia/day-global",
+    );
     expect(screen.queryByText(/resposta\(s\) coletada/)).not.toBeInTheDocument();
     expect(screen.queryByText(/na tarefa/)).not.toBeInTheDocument();
   });

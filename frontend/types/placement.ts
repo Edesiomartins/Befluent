@@ -71,10 +71,18 @@ export type Recommendation = {
   href?: string;
 };
 
+export type PlanningLevelTrace = {
+  action?: string;
+  assessment_proposed_level?: string | null;
+  retained_global_level?: string | null;
+};
+
 export type PlacementResult = {
   profile_status?: "partial" | "complete";
-  /** Presente só se o payload do resultado já trouxer. A fonte atual é o perfil linguístico. */
-  planning_level?: CefrLevel | null;
+  planning_level?: string | null;
+  planning_level_source?: string | null;
+  planning_level_reason?: string | null;
+  planning_level_trace?: PlanningLevelTrace | null;
   overall_estimate_status?: "partial" | "sufficient";
   assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string; reused_evidence?: number };
   id: string;
@@ -100,6 +108,8 @@ export type PlacementResult = {
     entry_level: string;
     target_level: string;
     day_href: string;
+    generated_from?: string;
+    entry_level_source?: string;
   } | null;
 };
 

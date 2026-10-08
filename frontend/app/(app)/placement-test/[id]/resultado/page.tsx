@@ -12,10 +12,13 @@ import {
   PLANNING_LEVEL_NOTE,
   hasMeasuredOverall,
   isPartialProfile,
+  journeyDestination,
   journeyStartLabel,
   orderedSkills,
   planningRecommendation,
   priorityReasonLabel,
+  retainedPlanning,
+  retainedPlanningNote,
   skillBandLabel,
   skillEvidenceLine,
 } from "@/lib/placement-result-copy";
@@ -163,7 +166,6 @@ export default function PlacementResultPage() {
   const params = useParams<{ id: string }>();
   const testId = params.id;
   const [result, setResult] = useState<PlacementResult | null>(null);
-  const [planningLevel, setPlanningLevel] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -172,25 +174,32 @@ export default function PlacementResultPage() {
     api<PlacementResult>(`/api/v1/placement-tests/${testId}/result`)
       .then(async (payload) => {
         if (!active) return;
-        let planning: string | null = payload.planning_level ?? null;
-        const needsPlanning =
-          !planning &&
+        const hasAssessmentPlanning = payload.planning_level != null && payload.planning_level !== "";
+        const needsProfileFallback =
+          !hasAssessmentPlanning &&
           (payload.profile_status === "partial" ||
             payload.overall_estimate_status === "partial" ||
             payload.overall_level == null);
-        if (needsPlanning && payload.language_code) {
-          try {
-            const profile = await api<{ planning_level?: string | null }>(
-              `/api/v1/language-profiles/${encodeURIComponent(payload.language_code)}`,
-            );
-            planning = profile.planning_level ?? null;
-          } catch {
-            planning = null;
-          }
+        if (!needsProfileFallback || !payload.language_code) {
+          setResult(payload);
+          return;
         }
-        if (!active) return;
-        setPlanningLevel(planning);
-        setResult(payload);
+        try {
+          const profile = await api<Pick<
+            PlacementResult,
+            "planning_level" | "planning_level_source" | "planning_level_reason" | "planning_level_trace"
+          >>(`/api/v1/language-profiles/${encodeURIComponent(payload.language_code)}`);
+          if (!active) return;
+          setResult({
+            ...payload,
+            planning_level: profile.planning_level ?? null,
+            planning_level_source: profile.planning_level_source ?? null,
+            planning_level_reason: profile.planning_level_reason ?? null,
+            planning_level_trace: profile.planning_level_trace ?? null,
+          });
+        } catch {
+          if (active) setResult(payload);
+        }
       })
       .catch((caught) => {
         if (!active) return;
@@ -218,7 +227,9 @@ export default function PlacementResultPage() {
   const partial = isPartialProfile(result);
   const measured = hasMeasuredOverall(result);
   const calibrating = !partial && !measured && result.diagnostic_status === "calibrating";
-  const journeyHref = result.curriculum?.day_href || "/cronograma";
+  const retained = partial ? retainedPlanning(result) : null;
+  const planningLevel = partial ? result.planning_level : null;
+  const journeyHref = partial && planningLevel ? journeyDestination(result.curriculum) : null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -235,7 +246,18 @@ export default function PlacementResultPage() {
               <div className="mt-5 rounded-xl border border-border bg-[var(--surface-soft)] p-4">
                 <p className="text-sm font-semibold text-text-secondary">Para começar o plano</p>
                 <p className="mt-1 text-lg font-semibold">{planningRecommendation(planningLevel)}</p>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">{PLANNING_LEVEL_NOTE}</p>
+                {retained ? (
+                  <>
+                    <p className="mt-2 text-sm leading-6 text-text-secondary">
+                      {retainedPlanningNote(retained.applied, retained.proposed)}
+                    </p>
+                    {result.planning_level_reason && (
+                      <p className="mt-2 text-sm leading-6 text-text-secondary">{result.planning_level_reason}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">{PLANNING_LEVEL_NOTE}</p>
+                )}
               </div>
             )}
           </>
@@ -349,7 +371,7 @@ export default function PlacementResultPage() {
       )}
 
       <div className="mt-7 flex flex-wrap gap-3 border-t border-border pt-6">
-        {partial && planningLevel ? (
+        {journeyHref && planningLevel ? (
           <Link
             href={journeyHref}
             className="inline-flex min-h-11 items-center rounded-xl bg-primary px-5 text-sm font-bold text-white hover:bg-[var(--primary-hover)]"

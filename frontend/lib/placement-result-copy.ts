@@ -87,6 +87,30 @@ export function journeyStartLabel(level: string): string {
   return `Começar minha jornada em ${levelShortCode(level) ?? level}`;
 }
 
+export function journeyDestination(
+  curriculum: { day_href?: string | null } | null | undefined,
+): string | null {
+  const href = curriculum?.day_href?.trim();
+  return href ? href : null;
+}
+
+/** Proposta deste assessment diferente da entrada que ficou aplicada. */
+export function retainedPlanning(result: {
+  planning_level?: string | null;
+  planning_level_trace?: { assessment_proposed_level?: string | null } | null;
+}): { applied: string; proposed: string } | null {
+  const applied = result.planning_level;
+  const proposed = result.planning_level_trace?.assessment_proposed_level;
+  if (!applied || !proposed || proposed === applied) return null;
+  return { applied, proposed };
+}
+
+export function retainedPlanningNote(applied: string, proposed: string): string {
+  const appliedCode = levelShortCode(applied) ?? applied;
+  const proposedCode = levelShortCode(proposed) ?? proposed;
+  return `Este teste propôs ${proposedCode}. A entrada aplicada é ${appliedCode}, porque o planejamento anterior foi mantido.`;
+}
+
 export function priorityReasonLabel(reason: string, hasOverall: boolean): string {
   if (reason === "below_overall" || reason === "needs_practice") {
     return hasOverall ? " — abaixo do nível geral" : " — precisa de prática";

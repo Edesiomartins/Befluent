@@ -1,0 +1,1843 @@
+{
+  "environment": "Local TestClient; isolated SQLite; deployed API not tested",
+  "openapi_response_schemas": {
+    "POST /api/v1/placement-tests/{test_id}/complete": {},
+    "GET /api/v1/placement-tests/{test_id}/result": {}
+  },
+  "responses": {
+    "complete": {
+      "coverage_plan": {
+        "objective_capacity": 16,
+        "duplicate_items_excluded": 0,
+        "target": 16,
+        "bank_feasibility": "insufficient",
+        "bank_deficits": [
+          "reading",
+          "listening"
+        ],
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": 2,
+            "A1": 0,
+            "A2": 2,
+            "B1": 2,
+            "B2": 2
+          },
+          "reading": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          },
+          "listening": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          }
+        }
+      },
+      "exposure_policy_version": "placement-exposure-v2",
+      "exposure_policy": {
+        "version": "placement-exposure-v2",
+        "cooldown_days": 30,
+        "reused_evidence_eligible": false,
+        "preserve_history_on_reset": true
+      },
+      "bank_freshness": {
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "reading": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "listening": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "writing": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "speaking": {
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          }
+        },
+        "fresh_items": 21,
+        "seen_items": 0,
+        "independent_groups": {
+          "fresh": 21,
+          "seen": 0,
+          "revealed": 0
+        },
+        "policy_version": "placement-exposure-v2"
+      },
+      "form_policy": {
+        "version": "operational-rotation-v1",
+        "selected_form": null,
+        "valid_forms": [],
+        "unusable_forms": [],
+        "psychometric_equivalence": false
+      },
+      "stop_reason": "bank_exhausted",
+      "overall_level": null,
+      "confidence_score": null,
+      "confidence_label": null,
+      "result_schema_version": 2,
+      "policy_version": "placement-coverage-v2",
+      "profile_status": "partial",
+      "overall_estimate_status": "partial",
+      "assessment_coverage": {
+        "required_for_overall": [
+          "vocabulary_grammar",
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "sufficient_skills": [
+          "vocabulary_grammar"
+        ],
+        "missing_skills": [
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "objective_answered": 16,
+        "reused_evidence": 0,
+        "objective_capacity": 16,
+        "duplicate_items_excluded": 0,
+        "target": 16,
+        "bank_feasibility": "insufficient",
+        "bank_deficits": [
+          "reading",
+          "listening"
+        ],
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": 2,
+            "A1": 0,
+            "A2": 2,
+            "B1": 2,
+            "B2": 2
+          },
+          "reading": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          },
+          "listening": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          }
+        },
+        "bank_freshness": {
+          "by_skill_cefr": {
+            "vocabulary_grammar": {
+              "PRE_A1": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "reading": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "listening": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "writing": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "speaking": {
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            }
+          },
+          "fresh_items": 21,
+          "seen_items": 0,
+          "independent_groups": {
+            "fresh": 21,
+            "seen": 0,
+            "revealed": 0
+          },
+          "policy_version": "placement-exposure-v2"
+        },
+        "stop_reason": "bank_exhausted",
+        "supported_skills": [
+          "vocabulary_grammar",
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "supported_scope_status": "insufficient",
+        "supported_scope": [
+          "vocabulary_grammar",
+          "reading",
+          "listening"
+        ],
+        "speaking_scope": "transcript_linguistic_content"
+      },
+      "total_score": 16.0,
+      "max_score": 16.0,
+      "items_answered": 16,
+      "duration_seconds": 0,
+      "skills": [
+        {
+          "skill": "vocabulary_grammar",
+          "estimated_level": "B2",
+          "score": 8.0,
+          "max_score": 8.0,
+          "items_count": 8,
+          "accuracy": 1.0,
+          "status": "estimated",
+          "eligible_for_overall": true,
+          "evidence_counts": {
+            "answered": 8,
+            "valid": 8,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 2,
+              "B1": 2,
+              "PRE_A1": 2,
+              "B2": 2
+            },
+            "deciding_band": "B2",
+            "at_deciding_band": 2,
+            "fresh": 8,
+            "reused": 0,
+            "independent": 8
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "supported",
+            "reasons": []
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "sufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Vocabulário e gramática",
+          "level": {
+            "code": "B2",
+            "name_pt": "B2 — Intermediário avançado",
+            "short_description": "Interage com boa espontaneidade e compreende conteúdos mais complexos.",
+            "order_index": 4,
+            "testable": true
+          }
+        },
+        {
+          "skill": "reading",
+          "estimated_level": null,
+          "score": 4.0,
+          "max_score": 4.0,
+          "items_count": 4,
+          "accuracy": 1.0,
+          "status": "insufficient_evidence",
+          "eligible_for_overall": false,
+          "evidence_counts": {
+            "answered": 4,
+            "valid": 4,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 1,
+              "A1": 1,
+              "B1": 1,
+              "B2": 1
+            },
+            "deciding_band": null,
+            "at_deciding_band": 0,
+            "fresh": 4,
+            "reused": 0,
+            "independent": 4
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "insufficient_or_conflicting_band_evidence"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Leitura",
+          "level": null
+        },
+        {
+          "skill": "listening",
+          "estimated_level": null,
+          "score": 4.0,
+          "max_score": 4.0,
+          "items_count": 4,
+          "accuracy": 1.0,
+          "status": "insufficient_evidence",
+          "eligible_for_overall": false,
+          "evidence_counts": {
+            "answered": 4,
+            "valid": 4,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 1,
+              "A1": 1,
+              "B1": 1,
+              "B2": 1
+            },
+            "deciding_band": null,
+            "at_deciding_band": 0,
+            "fresh": 4,
+            "reused": 0,
+            "independent": 4
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "insufficient_or_conflicting_band_evidence"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Compreensão auditiva",
+          "level": null
+        },
+        {
+          "skill": "writing",
+          "estimated_level": null,
+          "status": "not_collected",
+          "eligible_for_overall": false,
+          "score": null,
+          "max_score": null,
+          "evidence_counts": {
+            "answered": 0,
+            "valid": 0,
+            "excluded": 0,
+            "by_cefr": {},
+            "fresh": 0,
+            "reused": 0,
+            "independent": 0
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "not_collected"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Escrita",
+          "level": null
+        },
+        {
+          "skill": "speaking",
+          "estimated_level": null,
+          "status": "not_collected",
+          "eligible_for_overall": false,
+          "score": null,
+          "max_score": null,
+          "evidence_counts": {
+            "answered": 0,
+            "valid": 0,
+            "excluded": 0,
+            "by_cefr": {},
+            "fresh": 0,
+            "reused": 0,
+            "independent": 0
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "not_collected"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Fala",
+          "level": null
+        }
+      ],
+      "assessed_skills": [
+        "vocabulary_grammar"
+      ],
+      "not_assessed_skills": [
+        "listening",
+        "reading",
+        "speaking",
+        "writing"
+      ],
+      "weights_used": {},
+      "recommendations": [
+        {
+          "skill": "reading",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "listening",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "vocabulary_grammar",
+          "reason": "lowest_accuracy",
+          "priority": 2,
+          "href": "/learn"
+        }
+      ],
+      "planning_level": "A1",
+      "planning_level_source": "partial_evidence",
+      "planning_level_reason": "Entrada operacional A1 apoiada por pelo menos duas competências; perfil parcial e teto conservador A1.",
+      "planning_level_trace": {
+        "policy": {
+          "version": "placement-planning-v1",
+          "partial_ceiling": "A1",
+          "entry_signal_minimum": 2,
+          "performance_minimum_items": 4,
+          "performance_minimum_accuracy": 0.75
+        },
+        "signals": [
+          {
+            "skill": "vocabulary_grammar",
+            "status": "estimated",
+            "kind": "level_for_planning",
+            "level": "B2"
+          },
+          {
+            "skill": "reading",
+            "status": "insufficient_evidence",
+            "kind": "performance_only",
+            "eligible_items": 4,
+            "accuracy": 1.0,
+            "supports_entry": true
+          },
+          {
+            "skill": "listening",
+            "status": "insufficient_evidence",
+            "kind": "performance_only",
+            "eligible_items": 4,
+            "accuracy": 1.0,
+            "supports_entry": true
+          }
+        ],
+        "excluded": [
+          {
+            "skill": "writing",
+            "reason": "no_independent_eligible_evidence"
+          },
+          {
+            "skill": "speaking",
+            "reason": "no_independent_eligible_evidence"
+          }
+        ],
+        "lower_median": "B2",
+        "candidate": "B2",
+        "entry_supporting_skills": [
+          "listening",
+          "reading",
+          "vocabulary_grammar"
+        ],
+        "ceiling_applied": "A1",
+        "corroborated": true
+      },
+      "diagnostic_status": "calibrating",
+      "priority_focus": [
+        {
+          "skill": "reading",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "listening",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "vocabulary_grammar",
+          "reason": "lowest_accuracy",
+          "priority": 2,
+          "href": "/learn"
+        }
+      ],
+      "id": "3d464663-ef67-4be8-9e2b-d116beadaa9f",
+      "language_code": "fr",
+      "status": "completed",
+      "completed_at": "2026-10-08T19:12:38.987334+00:00",
+      "overall": null,
+      "speaking_available": true,
+      "disclaimer": "Nível estimado. Não é uma certificação oficial.",
+      "curriculum": {
+        "id": "dd86ece8-0dd6-4565-88c2-1f1078c64ba7",
+        "duration_days": 90,
+        "entry_level": "A1",
+        "target_level": "B1",
+        "generated_from": "planning",
+        "entry_level_source": "planning",
+        "day_href": "/cronograma/dia/b6432c80-06f8-41d0-8891-369dfb081c5c"
+      }
+    },
+    "get_result": {
+      "coverage_plan": {
+        "objective_capacity": 16,
+        "duplicate_items_excluded": 0,
+        "target": 16,
+        "bank_feasibility": "insufficient",
+        "bank_deficits": [
+          "reading",
+          "listening"
+        ],
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": 2,
+            "A1": 0,
+            "A2": 2,
+            "B1": 2,
+            "B2": 2
+          },
+          "reading": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          },
+          "listening": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          }
+        }
+      },
+      "exposure_policy_version": "placement-exposure-v2",
+      "exposure_policy": {
+        "version": "placement-exposure-v2",
+        "cooldown_days": 30,
+        "reused_evidence_eligible": false,
+        "preserve_history_on_reset": true
+      },
+      "bank_freshness": {
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 2,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "reading": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "listening": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "writing": {
+            "A1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "A2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            },
+            "B2": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          },
+          "speaking": {
+            "B1": {
+              "fresh": 1,
+              "seen": 0,
+              "revealed": 0
+            }
+          }
+        },
+        "fresh_items": 21,
+        "seen_items": 0,
+        "independent_groups": {
+          "fresh": 21,
+          "seen": 0,
+          "revealed": 0
+        },
+        "policy_version": "placement-exposure-v2"
+      },
+      "form_policy": {
+        "version": "operational-rotation-v1",
+        "selected_form": null,
+        "valid_forms": [],
+        "unusable_forms": [],
+        "psychometric_equivalence": false
+      },
+      "stop_reason": "bank_exhausted",
+      "overall_level": null,
+      "confidence_score": null,
+      "confidence_label": null,
+      "result_schema_version": 2,
+      "policy_version": "placement-coverage-v2",
+      "profile_status": "partial",
+      "overall_estimate_status": "partial",
+      "assessment_coverage": {
+        "required_for_overall": [
+          "vocabulary_grammar",
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "sufficient_skills": [
+          "vocabulary_grammar"
+        ],
+        "missing_skills": [
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "objective_answered": 16,
+        "reused_evidence": 0,
+        "objective_capacity": 16,
+        "duplicate_items_excluded": 0,
+        "target": 16,
+        "bank_feasibility": "insufficient",
+        "bank_deficits": [
+          "reading",
+          "listening"
+        ],
+        "by_skill_cefr": {
+          "vocabulary_grammar": {
+            "PRE_A1": 2,
+            "A1": 0,
+            "A2": 2,
+            "B1": 2,
+            "B2": 2
+          },
+          "reading": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          },
+          "listening": {
+            "PRE_A1": 0,
+            "A1": 1,
+            "A2": 1,
+            "B1": 1,
+            "B2": 1
+          }
+        },
+        "bank_freshness": {
+          "by_skill_cefr": {
+            "vocabulary_grammar": {
+              "PRE_A1": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 2,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "reading": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "listening": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "writing": {
+              "A1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "A2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              },
+              "B2": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            },
+            "speaking": {
+              "B1": {
+                "fresh": 1,
+                "seen": 0,
+                "revealed": 0
+              }
+            }
+          },
+          "fresh_items": 21,
+          "seen_items": 0,
+          "independent_groups": {
+            "fresh": 21,
+            "seen": 0,
+            "revealed": 0
+          },
+          "policy_version": "placement-exposure-v2"
+        },
+        "stop_reason": "bank_exhausted",
+        "supported_skills": [
+          "vocabulary_grammar",
+          "reading",
+          "listening",
+          "writing",
+          "speaking"
+        ],
+        "supported_scope_status": "insufficient",
+        "supported_scope": [
+          "vocabulary_grammar",
+          "reading",
+          "listening"
+        ],
+        "speaking_scope": "transcript_linguistic_content"
+      },
+      "total_score": 16.0,
+      "max_score": 16.0,
+      "items_answered": 16,
+      "duration_seconds": 0,
+      "skills": [
+        {
+          "skill": "vocabulary_grammar",
+          "estimated_level": "B2",
+          "score": 8.0,
+          "max_score": 8.0,
+          "items_count": 8,
+          "accuracy": 1.0,
+          "status": "estimated",
+          "eligible_for_overall": true,
+          "evidence_counts": {
+            "answered": 8,
+            "valid": 8,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 2,
+              "B1": 2,
+              "PRE_A1": 2,
+              "B2": 2
+            },
+            "deciding_band": "B2",
+            "at_deciding_band": 2,
+            "fresh": 8,
+            "reused": 0,
+            "independent": 8
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "supported",
+            "reasons": []
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "sufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Vocabulário e gramática",
+          "level": {
+            "code": "B2",
+            "name_pt": "B2 — Intermediário avançado",
+            "short_description": "Interage com boa espontaneidade e compreende conteúdos mais complexos.",
+            "order_index": 4,
+            "testable": true
+          }
+        },
+        {
+          "skill": "reading",
+          "estimated_level": null,
+          "score": 4.0,
+          "max_score": 4.0,
+          "items_count": 4,
+          "accuracy": 1.0,
+          "status": "insufficient_evidence",
+          "eligible_for_overall": false,
+          "evidence_counts": {
+            "answered": 4,
+            "valid": 4,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 1,
+              "A1": 1,
+              "B1": 1,
+              "B2": 1
+            },
+            "deciding_band": null,
+            "at_deciding_band": 0,
+            "fresh": 4,
+            "reused": 0,
+            "independent": 4
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "insufficient_or_conflicting_band_evidence"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Leitura",
+          "level": null
+        },
+        {
+          "skill": "listening",
+          "estimated_level": null,
+          "score": 4.0,
+          "max_score": 4.0,
+          "items_count": 4,
+          "accuracy": 1.0,
+          "status": "insufficient_evidence",
+          "eligible_for_overall": false,
+          "evidence_counts": {
+            "answered": 4,
+            "valid": 4,
+            "excluded": 0,
+            "by_cefr": {
+              "A2": 1,
+              "A1": 1,
+              "B1": 1,
+              "B2": 1
+            },
+            "deciding_band": null,
+            "at_deciding_band": 0,
+            "fresh": 4,
+            "reused": 0,
+            "independent": 4
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "insufficient_or_conflicting_band_evidence"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Compreensão auditiva",
+          "level": null
+        },
+        {
+          "skill": "writing",
+          "estimated_level": null,
+          "status": "not_collected",
+          "eligible_for_overall": false,
+          "score": null,
+          "max_score": null,
+          "evidence_counts": {
+            "answered": 0,
+            "valid": 0,
+            "excluded": 0,
+            "by_cefr": {},
+            "fresh": 0,
+            "reused": 0,
+            "independent": 0
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "not_collected"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Escrita",
+          "level": null
+        },
+        {
+          "skill": "speaking",
+          "estimated_level": null,
+          "status": "not_collected",
+          "eligible_for_overall": false,
+          "score": null,
+          "max_score": null,
+          "evidence_counts": {
+            "answered": 0,
+            "valid": 0,
+            "excluded": 0,
+            "by_cefr": {},
+            "fresh": 0,
+            "reused": 0,
+            "independent": 0
+          },
+          "skill_confidence": {
+            "basis": "rule_based_evidence",
+            "label": "insufficient",
+            "reasons": [
+              "not_collected"
+            ]
+          },
+          "exposure_adjusted_evidence_support": {
+            "status": "insufficient",
+            "reused_excluded": 0,
+            "policy_version": "placement-exposure-v2"
+          },
+          "label": "Fala",
+          "level": null
+        }
+      ],
+      "assessed_skills": [
+        "vocabulary_grammar"
+      ],
+      "not_assessed_skills": [
+        "listening",
+        "reading",
+        "speaking",
+        "writing"
+      ],
+      "weights_used": {},
+      "recommendations": [
+        {
+          "skill": "reading",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "listening",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "vocabulary_grammar",
+          "reason": "lowest_accuracy",
+          "priority": 2,
+          "href": "/learn"
+        }
+      ],
+      "planning_level": "A1",
+      "planning_level_source": "partial_evidence",
+      "planning_level_reason": "Entrada operacional A1 apoiada por pelo menos duas competências; perfil parcial e teto conservador A1.",
+      "planning_level_trace": {
+        "policy": {
+          "version": "placement-planning-v1",
+          "partial_ceiling": "A1",
+          "entry_signal_minimum": 2,
+          "performance_minimum_items": 4,
+          "performance_minimum_accuracy": 0.75
+        },
+        "signals": [
+          {
+            "skill": "vocabulary_grammar",
+            "status": "estimated",
+            "kind": "level_for_planning",
+            "level": "B2"
+          },
+          {
+            "skill": "reading",
+            "status": "insufficient_evidence",
+            "kind": "performance_only",
+            "eligible_items": 4,
+            "accuracy": 1.0,
+            "supports_entry": true
+          },
+          {
+            "skill": "listening",
+            "status": "insufficient_evidence",
+            "kind": "performance_only",
+            "eligible_items": 4,
+            "accuracy": 1.0,
+            "supports_entry": true
+          }
+        ],
+        "excluded": [
+          {
+            "skill": "writing",
+            "reason": "no_independent_eligible_evidence"
+          },
+          {
+            "skill": "speaking",
+            "reason": "no_independent_eligible_evidence"
+          }
+        ],
+        "lower_median": "B2",
+        "candidate": "B2",
+        "entry_supporting_skills": [
+          "listening",
+          "reading",
+          "vocabulary_grammar"
+        ],
+        "ceiling_applied": "A1",
+        "corroborated": true
+      },
+      "diagnostic_status": "calibrating",
+      "priority_focus": [
+        {
+          "skill": "reading",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "listening",
+          "reason": "insufficient_evidence",
+          "priority": 1,
+          "href": "/learn"
+        },
+        {
+          "skill": "vocabulary_grammar",
+          "reason": "lowest_accuracy",
+          "priority": 2,
+          "href": "/learn"
+        }
+      ],
+      "id": "3d464663-ef67-4be8-9e2b-d116beadaa9f",
+      "language_code": "fr",
+      "status": "completed",
+      "completed_at": "2026-10-08T19:12:38.987334+00:00",
+      "overall": null,
+      "speaking_available": true,
+      "disclaimer": "Nível estimado. Não é uma certificação oficial.",
+      "curriculum": {
+        "id": "dd86ece8-0dd6-4565-88c2-1f1078c64ba7",
+        "duration_days": 90,
+        "entry_level": "A1",
+        "target_level": "B1",
+        "generated_from": "planning",
+        "entry_level_source": "planning",
+        "day_href": "/cronograma/dia/b6432c80-06f8-41d0-8891-369dfb081c5c"
+      }
+    },
+    "active_curriculum": {
+      "id": "dd86ece8-0dd6-4565-88c2-1f1078c64ba7",
+      "duration_days": 90,
+      "start_date": "2026-10-08",
+      "entry_level": "A1",
+      "target_level": "B1",
+      "entry": {
+        "code": "A1",
+        "name_pt": "A1 — Iniciante",
+        "short_description": "Consegue se apresentar, fornecer informações pessoais e compreender frases simples.",
+        "order_index": 1,
+        "testable": true
+      },
+      "target": {
+        "code": "B1",
+        "name_pt": "B1 — Intermediário",
+        "short_description": "Mantém conversas sobre temas familiares e relata experiências.",
+        "order_index": 3,
+        "testable": true
+      },
+      "status": "active",
+      "generated_from": "planning",
+      "entry_level_source": "planning",
+      "entry_is_measured_global": false,
+      "weeks_total": 13,
+      "disclaimer": "Plano de aprendizagem com entrada operacional; não é CEFR global medido. 90 jornadas recomendadas (não dias de calendário obrigatórios). Não é garantia de atingir o nível-meta no prazo.",
+      "progress": {
+        "days_total": 90,
+        "days_completed": 0,
+        "percent_complete": 0.0,
+        "current_day_number": 1,
+        "overdue_days": 0,
+        "needs_reschedule": false,
+        "next_checkpoint_week": 2,
+        "pace_status": "behind",
+        "pace_delta": -1,
+        "pace_label_pt": "Você tem 1 jornada pendente.",
+        "recommended_by_schedule": 1
+      },
+      "weeks": [
+        {
+          "id": "fc4097b6-cecc-484d-adf8-5803c589fc0e",
+          "week_number": 1,
+          "theme": "Gênero gramatical e artigos",
+          "cefr_focus": "A1",
+          "is_checkpoint": false
+        },
+        {
+          "id": "bec119d1-ea0d-4263-94f8-be38a8972684",
+          "week_number": 2,
+          "theme": "Liaison e ritmo da fala",
+          "cefr_focus": "A1",
+          "is_checkpoint": true
+        },
+        {
+          "id": "3f9abf4e-eadc-4266-b7ca-c1109520ebd9",
+          "week_number": 3,
+          "theme": "Apresentações e rotina",
+          "cefr_focus": "A1",
+          "is_checkpoint": false
+        },
+        {
+          "id": "1ed88e71-264c-4f6c-aa24-60454b8ea392",
+          "week_number": 4,
+          "theme": "Família e pessoas próximas",
+          "cefr_focus": "A1",
+          "is_checkpoint": true
+        },
+        {
+          "id": "e2758683-38ad-4d8f-811d-5c1b6da93cc0",
+          "week_number": 5,
+          "theme": "Conjugação: os tempos que você mais vai usar",
+          "cefr_focus": "A2",
+          "is_checkpoint": false
+        },
+        {
+          "id": "ae0a56a1-2386-4a52-8453-1d463379911c",
+          "week_number": 6,
+          "theme": "Rotina detalhada e frequência",
+          "cefr_focus": "A2",
+          "is_checkpoint": true
+        },
+        {
+          "id": "5b1375e8-6371-4878-9d6a-c09ae8de5d66",
+          "week_number": 7,
+          "theme": "Passado e memórias",
+          "cefr_focus": "A2",
+          "is_checkpoint": false
+        },
+        {
+          "id": "acfb4d57-25c3-48f2-a19a-c6835f16c663",
+          "week_number": 8,
+          "theme": "Viagem e hospedagem",
+          "cefr_focus": "A2",
+          "is_checkpoint": true
+        },
+        {
+          "id": "70853011-f27f-4990-9526-697427773d23",
+          "week_number": 9,
+          "theme": "Opinião e justificativa",
+          "cefr_focus": "B1",
+          "is_checkpoint": false
+        },
+        {
+          "id": "7582005b-1b5e-40fa-8785-2054c203dbf2",
+          "week_number": 10,
+          "theme": "Trabalho e carreira",
+          "cefr_focus": "B1",
+          "is_checkpoint": true
+        },
+        {
+          "id": "7fc723f6-f336-4cd9-b53f-af7a433c874f",
+          "week_number": 11,
+          "theme": "Saúde e bem-estar",
+          "cefr_focus": "B1",
+          "is_checkpoint": false
+        },
+        {
+          "id": "7b4ddb7e-b643-4a6b-81a3-c8b1918cce8b",
+          "week_number": 12,
+          "theme": "Notícias e atualidades",
+          "cefr_focus": "B1",
+          "is_checkpoint": true
+        },
+        {
+          "id": "7877fc61-9bb3-4ac3-8b1b-940213c4f32c",
+          "week_number": 13,
+          "theme": "Educação e formação",
+          "cefr_focus": "B1",
+          "is_checkpoint": false
+        }
+      ]
+    },
+    "today": {
+      "curriculum": {
+        "id": "dd86ece8-0dd6-4565-88c2-1f1078c64ba7",
+        "duration_days": 90,
+        "start_date": "2026-10-08",
+        "entry_level": "A1",
+        "target_level": "B1",
+        "entry": {
+          "code": "A1",
+          "name_pt": "A1 — Iniciante",
+          "short_description": "Consegue se apresentar, fornecer informações pessoais e compreender frases simples.",
+          "order_index": 1,
+          "testable": true
+        },
+        "target": {
+          "code": "B1",
+          "name_pt": "B1 — Intermediário",
+          "short_description": "Mantém conversas sobre temas familiares e relata experiências.",
+          "order_index": 3,
+          "testable": true
+        },
+        "status": "active",
+        "generated_from": "planning",
+        "entry_level_source": "planning",
+        "entry_is_measured_global": false,
+        "weeks_total": 13,
+        "disclaimer": "Plano de aprendizagem com entrada operacional; não é CEFR global medido. 90 jornadas recomendadas (não dias de calendário obrigatórios). Não é garantia de atingir o nível-meta no prazo.",
+        "progress": {
+          "days_total": 90,
+          "days_completed": 0,
+          "percent_complete": 0.0,
+          "current_day_number": 1,
+          "overdue_days": 0,
+          "needs_reschedule": false,
+          "next_checkpoint_week": 2,
+          "pace_status": "behind",
+          "pace_delta": -1,
+          "pace_label_pt": "Você tem 1 jornada pendente.",
+          "recommended_by_schedule": 1
+        }
+      },
+      "week": {
+        "id": "fc4097b6-cecc-484d-adf8-5803c589fc0e",
+        "week_number": 1,
+        "theme": "Gênero gramatical e artigos",
+        "cefr_focus": "A1",
+        "is_checkpoint": false
+      },
+      "day": {
+        "thread": {
+          "terms": [],
+          "patterns": [],
+          "sources": []
+        },
+        "id": "b6432c80-06f8-41d0-8891-369dfb081c5c",
+        "day_number": 1,
+        "scheduled_date": "2026-10-08",
+        "status": "pending",
+        "completed_at": null,
+        "total_minutes": 48,
+        "blocks_total": 5,
+        "blocks_completed": 0,
+        "sequence_label": "Ativar → Estruturar → Compreender → Produzir → Consolidar",
+        "current_block_id": "bfaa155d-451a-4e5a-b042-5d5c8081bc66",
+        "blocks": [
+          {
+            "id": "bfaa155d-451a-4e5a-b042-5d5c8081bc66",
+            "skill": "vocabulary",
+            "skill_label": "Vocabulário",
+            "mode": "vocabulary",
+            "position": 1,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — vocabulário essencial",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "activating",
+            "phase": "activate",
+            "phase_label": "Ativar",
+            "phase_why": "Primeiro ativa o léxico do tema — sem palavras, o resto trava.",
+            "locked": false,
+            "is_current": true
+          },
+          {
+            "id": "902a2eb9-2202-4648-b134-28f444d0e661",
+            "skill": "grammar",
+            "skill_label": "Gramática",
+            "mode": "grammar",
+            "position": 2,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — estruturas-chave",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "noticing",
+            "phase": "structure",
+            "phase_label": "Estruturar",
+            "phase_why": "Depois organiza a forma: padrões e sons que você vai usar.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "9db6df5a-c2b3-4acf-9087-36b5ee69e805",
+            "skill": "listening",
+            "skill_label": "Compreensão auditiva",
+            "mode": "listening",
+            "position": 3,
+            "estimated_minutes": 15,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — escuta ativa",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "practicing",
+            "phase": "input",
+            "phase_label": "Compreender",
+            "phase_why": "Escuta ou lê o tema em contexto antes de falar ou escrever.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "493580e7-0c32-45b7-b655-10fb28d4d2d9",
+            "skill": "conversation",
+            "skill_label": "Conversação",
+            "mode": "conversation",
+            "position": 4,
+            "estimated_minutes": 12,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — conversa aplicada",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "producing",
+            "phase": "output",
+            "phase_label": "Produzir",
+            "phase_why": "Só então produz: conversa ou escrita com o que acabou de ver.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "7fcb4cb0-81e7-4a39-955b-a26113735d0e",
+            "skill": "review",
+            "skill_label": "Revisão",
+            "mode": "review",
+            "position": 5,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — revisão espaçada",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": null,
+            "phase": "consolidate",
+            "phase_label": "Consolidar",
+            "phase_why": "Fecha com revisão espaçada para não esquecer amanhã.",
+            "locked": true,
+            "is_current": false
+          }
+        ],
+        "next_day": {
+          "id": "50dabab8-8fdd-421d-a8ec-ccc3cc6b332b",
+          "day_number": 2,
+          "available": false,
+          "scheduled_date": "2026-10-09",
+          "status": "pending",
+          "theme": "Gênero gramatical e artigos",
+          "topic": "Gênero gramatical e artigos — vocabulário essencial"
+        },
+        "learning_objective": null,
+        "story": null
+      },
+      "overdue_days": []
+    },
+    "first_day": {
+      "curriculum": {
+        "id": "dd86ece8-0dd6-4565-88c2-1f1078c64ba7",
+        "duration_days": 90,
+        "start_date": "2026-10-08",
+        "entry_level": "A1",
+        "target_level": "B1",
+        "entry": {
+          "code": "A1",
+          "name_pt": "A1 — Iniciante",
+          "short_description": "Consegue se apresentar, fornecer informações pessoais e compreender frases simples.",
+          "order_index": 1,
+          "testable": true
+        },
+        "target": {
+          "code": "B1",
+          "name_pt": "B1 — Intermediário",
+          "short_description": "Mantém conversas sobre temas familiares e relata experiências.",
+          "order_index": 3,
+          "testable": true
+        },
+        "status": "active",
+        "generated_from": "planning",
+        "entry_level_source": "planning",
+        "entry_is_measured_global": false,
+        "weeks_total": 13,
+        "disclaimer": "Plano de aprendizagem com entrada operacional; não é CEFR global medido. 90 jornadas recomendadas (não dias de calendário obrigatórios). Não é garantia de atingir o nível-meta no prazo.",
+        "progress": {
+          "days_total": 90,
+          "days_completed": 0,
+          "percent_complete": 0.0,
+          "current_day_number": 1,
+          "overdue_days": 0,
+          "needs_reschedule": false,
+          "next_checkpoint_week": 2,
+          "pace_status": "behind",
+          "pace_delta": -1,
+          "pace_label_pt": "Você tem 1 jornada pendente.",
+          "recommended_by_schedule": 1
+        }
+      },
+      "week": {
+        "id": "fc4097b6-cecc-484d-adf8-5803c589fc0e",
+        "week_number": 1,
+        "theme": "Gênero gramatical e artigos",
+        "cefr_focus": "A1",
+        "is_checkpoint": false
+      },
+      "day": {
+        "thread": {
+          "terms": [],
+          "patterns": [],
+          "sources": []
+        },
+        "id": "b6432c80-06f8-41d0-8891-369dfb081c5c",
+        "day_number": 1,
+        "scheduled_date": "2026-10-08",
+        "status": "pending",
+        "completed_at": null,
+        "total_minutes": 48,
+        "blocks_total": 5,
+        "blocks_completed": 0,
+        "sequence_label": "Ativar → Estruturar → Compreender → Produzir → Consolidar",
+        "current_block_id": "bfaa155d-451a-4e5a-b042-5d5c8081bc66",
+        "blocks": [
+          {
+            "id": "bfaa155d-451a-4e5a-b042-5d5c8081bc66",
+            "skill": "vocabulary",
+            "skill_label": "Vocabulário",
+            "mode": "vocabulary",
+            "position": 1,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — vocabulário essencial",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "activating",
+            "phase": "activate",
+            "phase_label": "Ativar",
+            "phase_why": "Primeiro ativa o léxico do tema — sem palavras, o resto trava.",
+            "locked": false,
+            "is_current": true
+          },
+          {
+            "id": "902a2eb9-2202-4648-b134-28f444d0e661",
+            "skill": "grammar",
+            "skill_label": "Gramática",
+            "mode": "grammar",
+            "position": 2,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — estruturas-chave",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "noticing",
+            "phase": "structure",
+            "phase_label": "Estruturar",
+            "phase_why": "Depois organiza a forma: padrões e sons que você vai usar.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "9db6df5a-c2b3-4acf-9087-36b5ee69e805",
+            "skill": "listening",
+            "skill_label": "Compreensão auditiva",
+            "mode": "listening",
+            "position": 3,
+            "estimated_minutes": 15,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — escuta ativa",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "practicing",
+            "phase": "input",
+            "phase_label": "Compreender",
+            "phase_why": "Escuta ou lê o tema em contexto antes de falar ou escrever.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "493580e7-0c32-45b7-b655-10fb28d4d2d9",
+            "skill": "conversation",
+            "skill_label": "Conversação",
+            "mode": "conversation",
+            "position": 4,
+            "estimated_minutes": 12,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — conversa aplicada",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": "producing",
+            "phase": "output",
+            "phase_label": "Produzir",
+            "phase_why": "Só então produz: conversa ou escrita com o que acabou de ver.",
+            "locked": true,
+            "is_current": false
+          },
+          {
+            "id": "7fcb4cb0-81e7-4a39-955b-a26113735d0e",
+            "skill": "review",
+            "skill_label": "Revisão",
+            "mode": "review",
+            "position": 5,
+            "estimated_minutes": 7,
+            "cefr_level": "A1",
+            "topic": "Gênero gramatical e artigos — revisão espaçada",
+            "lesson_ref": null,
+            "status": "pending",
+            "score": null,
+            "objective_id": null,
+            "teaching_flow_hint": null,
+            "phase": "consolidate",
+            "phase_label": "Consolidar",
+            "phase_why": "Fecha com revisão espaçada para não esquecer amanhã.",
+            "locked": true,
+            "is_current": false
+          }
+        ],
+        "next_day": {
+          "id": "50dabab8-8fdd-421d-a8ec-ccc3cc6b332b",
+          "day_number": 2,
+          "available": false,
+          "scheduled_date": "2026-10-09",
+          "status": "pending",
+          "theme": "Gênero gramatical e artigos",
+          "topic": "Gênero gramatical e artigos — vocabulário essencial"
+        },
+        "learning_objective": null,
+        "story": null
+      }
+    },
+    "post_curriculum_180_with_partial": {
+      "id": "d313f8f0-f8ba-4cc1-8529-8b190eb7e0fe",
+      "duration_days": 180,
+      "start_date": "2026-10-08",
+      "entry_level": "A1",
+      "target_level": "B2",
+      "entry": {
+        "code": "A1",
+        "name_pt": "A1 — Iniciante",
+        "short_description": "Consegue se apresentar, fornecer informações pessoais e compreender frases simples.",
+        "order_index": 1,
+        "testable": true
+      },
+      "target": {
+        "code": "B2",
+        "name_pt": "B2 — Intermediário avançado",
+        "short_description": "Interage com boa espontaneidade e compreende conteúdos mais complexos.",
+        "order_index": 4,
+        "testable": true
+      },
+      "status": "active",
+      "generated_from": "planning",
+      "entry_level_source": "planning",
+      "entry_is_measured_global": false,
+      "weeks_total": 26,
+      "disclaimer": "Plano de aprendizagem com entrada operacional; não é CEFR global medido. 180 jornadas recomendadas (não dias de calendário obrigatórios). Não é garantia de atingir o nível-meta no prazo.",
+      "progress": {
+        "days_total": 180,
+        "days_completed": 0,
+        "percent_complete": 0.0,
+        "current_day_number": 1,
+        "overdue_days": 0,
+        "needs_reschedule": false,
+        "next_checkpoint_week": 2,
+        "pace_status": "behind",
+        "pace_delta": -1,
+        "pace_label_pt": "Você tem 1 jornada pendente.",
+        "recommended_by_schedule": 1
+      }
+    }
+  }
+}
