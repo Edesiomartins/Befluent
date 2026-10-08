@@ -168,8 +168,15 @@ def _grade(item: PlacementItem, answer: str | None) -> tuple[bool, float]:
     return correct, 1.0 if correct else 0.0
 
 
+def _item_native_support(item):
+    # Versioned seed instructions/options are authored in PT, including legacy
+    # items predating explicit rubric metadata. Never silently serve a third language.
+    from app.services.placement_seed import OWN_SOURCE
+    return (item.rubric_json or {}).get("native_language") or ("pt-BR" if item.source == OWN_SOURCE else None)
+
+
 def _ensure_declared_support(item, native_language):
-    support = (item.rubric_json or {}).get("native_language")
+    support = _item_native_support(item)
     if support and support != native_language:
         raise APIError(409, "native_support_unavailable", "Este item não tem apoio na sua língua nativa.")
 
@@ -331,6 +338,11 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
     declared_beginner = bool((test.result_json or {}).get("declared_beginner"))
     state = _state_from(answers, declared_beginner)
 
+    supported_bank = list(db.scalars(select(PlacementItem).where(
+        PlacementItem.language_code == test.language_code, *approved_active_filter())))
+    if supported_bank and not any(_item_native_support(item) in (None, user.native_language) for item in supported_bank):
+        raise APIError(409, "native_support_unavailable", "Este catálogo não tem apoio na sua língua nativa.")
+
     # Retoma entrega aberta (mesmo item) se o aluno pedir next-item de novo.
     open_delivery = get_open_delivery(db, test.id)
     if open_delivery:
@@ -432,7 +444,7 @@ def _pick_objective_item(
             for item in sorted(candidates_in_band, key=lambda item: (
                 bool(selected_form) and (item.rubric_json or {}).get("form_id") != selected_form,
                 item.external_key or item.id)):
-                support = (item.rubric_json or {}).get("native_language")
+                support = _item_native_support(item)
                 if support and (user_id or native_language is not None) and support != native_language:
                     continue
                 if not exposure_metadata(item, current_history)["reused"]:
@@ -460,6 +472,8 @@ def _pick_objective_item(
 
 
 def _pick_production_item(db, test, state, answered_ids):
+    account = db.get(User, test.user_id)
+    native_language = account.native_language if account else None
     answered_skills = {a.skill for a in _answers_of(db, test.id)}
     for skill, item_type in ((Skill.WRITING, "short_writing"), (Skill.SPEAKING, "speaking_prompt")):
         if skill in answered_skills:
@@ -471,6 +485,9 @@ def _pick_production_item(db, test, state, answered_ids):
         ).order_by((PlacementItem.cefr_level == "B1").desc(), PlacementItem.external_key.desc()))
         history = exposure_history(db, test.user_id, test.language_code, test.id)
         for item in candidates:
+            support = _item_native_support(item)
+            if support and support != native_language:
+                continue
             if item.id in answered_ids:
                 continue
             if not exposure_metadata(item, history)["reused"]:
@@ -541,6 +558,7 @@ def submit_writing(
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
 
     item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
+    _ensure_declared_support(item, user.native_language)
     if item.skill != Skill.WRITING:
         raise APIError(404, "placement_item_not_found", "Atividade de escrita não encontrada.")
 
@@ -595,6 +613,7 @@ async def submit_speaking(test_id: str, item_id: str = Form(...), file: UploadFi
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
     item = consume_delivery_for_answer(db, test=test, item_id=item_id)
+    _ensure_declared_support(item, user.native_language)
     if item.skill != Skill.SPEAKING:
         raise APIError(400, "wrong_endpoint", "Esta atividade não é de fala.")
     mime = (file.content_type or "").split(";")[0]

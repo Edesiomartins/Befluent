@@ -115,8 +115,8 @@ def _validate_ai_payload(payload: dict, target_level: str) -> dict | None:
     score = round(max(0.0, min(1.0, float(raw_score))), 3)
 
     estimated = payload.get("estimated_level")
-    reported = estimated if estimated in LEVEL_INDEX else None
-    if estimated not in LEVEL_INDEX:
+    reported = estimated if isinstance(estimated, str) and estimated in LEVEL_INDEX else None
+    if not isinstance(estimated, str) or estimated not in LEVEL_INDEX:
         estimated = None
     # O modelo não pode promover acima do nível do item avaliado.
     if estimated and LEVEL_INDEX[estimated] > LEVEL_INDEX.get(target_level, LEVEL_INDEX["B2"]):
@@ -136,6 +136,7 @@ def _validate_ai_payload(payload: dict, target_level: str) -> dict | None:
                      and isinstance(value, (int, float)) and not isinstance(value, bool)
                      and math.isfinite(value) and 0 <= value <= 1},
         "reported_level": reported,
+        "accepted_level": estimated,
         "level_origin": "model_reported" if reported else "unavailable",
         "feedback": str(payload.get("feedback", ""))[:1000],
     }

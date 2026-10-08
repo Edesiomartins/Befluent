@@ -15,6 +15,7 @@ def production_result(answer):
         status = "not_collected"
     return {
         "skill": answer.skill, "estimated_level": level if linguistic else None,
+        "accepted_level": level if linguistic else None,
         "score": score, "max_score": 1.0 if score is not None else None,
         "status": status, "eligible_for_overall": False,
         "evidence_counts": {"answered": 1, "valid": int(linguistic), "excluded": int(not linguistic),
