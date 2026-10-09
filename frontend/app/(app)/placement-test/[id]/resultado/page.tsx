@@ -7,22 +7,26 @@ import { api, ApiError } from "@/lib/api";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { SKILL_LABELS, levelShortCode } from "@/lib/levels";
 import {
-  PARTIAL_PROFILE_LEAD,
+  INCOMPLETE_ASSESSMENT_TITLE,
   PARTIAL_PROFILE_TITLE,
   PLANNING_LEVEL_NOTE,
-  hasMeasuredOverall,
-  isPartialProfile,
+  coverageReasonNote,
   journeyDestination,
   journeyStartLabel,
   orderedSkills,
+  partialLead,
   planningRecommendation,
   priorityReasonLabel,
+  resultMode,
   retainedPlanning,
   retainedPlanningNote,
   skillBandLabel,
   skillBandTone,
   skillConfirmationNote,
+  skillCoverageReason,
   skillEvidenceLine,
+  skillWasSkipped,
+  withAllSkills,
 } from "@/lib/placement-result-copy";
 import { createCurriculum } from "@/hooks/use-curriculum";
 import { DURATIONS, type Duration } from "@/types/curriculum";
@@ -226,9 +230,12 @@ export default function PlacementResultPage() {
   const ranked = rankSkills(result);
   const priorities = result.priority_focus ?? result.recommendations;
   const hasPriorities = priorities.length > 0;
-  const partial = isPartialProfile(result);
-  const measured = hasMeasuredOverall(result);
-  const calibrating = !partial && !measured && result.diagnostic_status === "calibrating";
+  const mode = resultMode(result);
+  const measured = mode === "measured";
+  const partial = mode === "partial" || mode === "covered_partial" || mode === "incomplete";
+  const calibrating = mode === "calibrating";
+  const coverage = result.assessment_coverage ?? null;
+  const skills = withAllSkills(result.skills, coverage);
   const retained = partial ? retainedPlanning(result) : null;
   const planningLevel = partial ? result.planning_level : null;
   const journeyHref = partial && planningLevel ? journeyDestination(result.curriculum) : null;
@@ -237,13 +244,19 @@ export default function PlacementResultPage() {
     <div className="mx-auto max-w-3xl">
       <p className="text-sm font-semibold text-primary">Resultado</p>
       <h1 className="mt-2 page-title">
-        {partial ? PARTIAL_PROFILE_TITLE : measured ? "Seu nível estimado" : "Estamos calibrando suas habilidades"}
+        {mode === "incomplete"
+          ? INCOMPLETE_ASSESSMENT_TITLE
+          : partial
+            ? PARTIAL_PROFILE_TITLE
+            : measured
+              ? "Seu nível estimado"
+              : "Estamos calibrando suas habilidades"}
       </h1>
 
       <section className="panel mt-7 p-6">
         {partial ? (
           <>
-            <p className="leading-7 text-text-secondary">{PARTIAL_PROFILE_LEAD}</p>
+            <p className="leading-7 text-text-secondary">{partialLead(mode)}</p>
             {planningLevel && (
               <div className="mt-5 rounded-xl border border-border bg-[var(--surface-soft)] p-4">
                 <p className="text-sm font-semibold text-text-secondary">Para começar o plano</p>
@@ -301,10 +314,15 @@ export default function PlacementResultPage() {
 
       <section className="panel mt-5 p-6">
         <h2 className="section-title">Competências</h2>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {orderedSkills(result.skills).map((skill) => {
-            const evidence = skillEvidenceLine(skill);
-            const note = skillConfirmationNote(skill);
+        <ul className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {orderedSkills(skills).map((skill) => {
+            const skipped = skillWasSkipped(skill, coverage);
+            const evidence = skipped ? null : skillEvidenceLine(skill);
+            const note =
+              skillConfirmationNote(skill) ??
+              (skill.status === "not_collected" || skill.status === "unavailable"
+                ? coverageReasonNote(skillCoverageReason(skill, coverage))
+                : null);
             const tone = skillBandTone(skill);
             const bandClass =
               tone === "estimated"
@@ -316,12 +334,12 @@ export default function PlacementResultPage() {
               <li
                 key={skill.skill}
                 data-skill-state={tone}
-                className={`rounded-xl border bg-surface p-4 ${tone === "estimated" ? "border-primary/40" : "border-border"}`}
+                className={`min-w-0 rounded-xl border bg-surface p-4 ${tone === "estimated" ? "border-primary/40" : "border-border"}`}
               >
                 <p className="text-sm text-text-secondary">{skill.label}</p>
-                <p className={`mt-1 text-lg font-semibold ${bandClass}`}>{skillBandLabel(skill)}</p>
+                <p className={`mt-1 break-words text-lg font-semibold leading-7 ${bandClass}`}>{skillBandLabel(skill, skipped)}</p>
                 {evidence && <p className="mt-1 text-sm text-text-secondary">{evidence}</p>}
-                {note && <p className="mt-2 text-sm leading-6 text-text-secondary">{note}</p>}
+                {note && <p className="mt-2 break-words text-sm leading-6 text-text-secondary">{note}</p>}
               </li>
             );
           })}

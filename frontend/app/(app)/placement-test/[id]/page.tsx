@@ -6,7 +6,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { PlacementSpeaking } from "@/components/placement-speaking";
 import { Button, ErrorState, Loading } from "@/components/ui";
-import { collectionEnding, skillProgressLabel } from "@/lib/placement-result-copy";
+import {
+  collectionEnding,
+  coverageProgressLabel,
+  coverageSkillsInOrder,
+  skillProgressLabel,
+} from "@/lib/placement-result-copy";
 import type { NextItemResponse, PlacementItem, PlacementProgress } from "@/types/placement";
 
 function AudioPrompt({ script, languageCode }: { script: string; languageCode: string }) {
@@ -172,24 +177,39 @@ export default function PlacementTestRunnerPage() {
     }
   }
 
-  const answered = progress?.activities_completed ?? progress?.answered ?? 0;
-  const ending = collectionEnding(progress?.stop_reason);
+  const coverage = progress?.assessment_coverage ?? null;
+  const answered =
+    coverage?.completed_total ??
+    progress?.completed_activities_total ??
+    progress?.activities_completed ??
+    progress?.answered ??
+    0;
+  const coverageSkills = coverageSkillsInOrder(coverage);
+  const ending = collectionEnding(progress?.stop_reason, coverage);
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="flex items-baseline justify-between gap-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <p className="text-sm font-semibold text-primary">Teste de nivelamento</p>
         <p className="text-sm text-text-secondary">
           {answered} atividades concluídas
         </p>
       </div>
 
-      {progress?.by_skill && <ul aria-label="Atividades por competência" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
-        {Object.entries(progress.by_skill).map(([skill, info]) => {
-          const state = skillProgressLabel(info);
-          return <li key={skill}>{SKILL_LABELS[skill as keyof typeof SKILL_LABELS]}: {state ?? `${info?.completed ?? 0} concluídas`}</li>;
-        })}
-      </ul>}
+      {coverageSkills.length > 0 ? (
+        <ul aria-label="Cobertura da avaliação por competência" className="mt-3 grid gap-1 text-sm text-text-secondary sm:grid-cols-2">
+          {coverageSkills.map(({ skill, entry }) => (
+            <li key={skill}>{SKILL_LABELS[skill]}: {coverageProgressLabel(skill, entry)}</li>
+          ))}
+        </ul>
+      ) : progress?.by_skill ? (
+        <ul aria-label="Atividades por competência" className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-text-secondary">
+          {Object.entries(progress.by_skill).map(([skill, info]) => {
+            const state = skillProgressLabel(info);
+            return <li key={skill}>{SKILL_LABELS[skill as keyof typeof SKILL_LABELS]}: {state ?? `${info?.completed ?? 0} concluídas`}</li>;
+          })}
+        </ul>
+      ) : null}
       {!!progress?.activities_skipped && <p className="mt-2 text-sm text-text-secondary">{progress.activities_skipped} atividades puladas</p>}
 
       <div aria-live="polite" className="mt-7">
@@ -202,7 +222,10 @@ export default function PlacementTestRunnerPage() {
           <ErrorState message="Não foi possível confirmar o encerramento da coleta." retry={() => void loadNext()} />
         ) : stage === "ready_to_complete" || !item ? (
           <section className="panel p-6">
-            <h1 className="section-title leading-7">{ending}</h1>
+            <h1 className="section-title leading-7">{ending.title}</h1>
+            {ending.detail && (
+              <p className="mt-3 text-sm leading-6 text-text-secondary">{ending.detail}</p>
+            )}
             {error && (
               <p role="alert" className="mt-4 text-sm text-danger">
                 {error}

@@ -5,6 +5,47 @@ from app.models import PlacementItem
 from app.services.placement_delivery import approved_active_filter
 from app.services import placement_engine as engine
 
+MANDATORY_POLICY = "placement-coverage-v3"
+COVERAGE_REQUIREMENTS = {"vocabulary_grammar": 6, "reading": 4, "listening": 4,
+                         "writing": 1, "speaking": 1}
+MINIMUM_TOTAL = 16
+MAXIMUM_TOTAL = 20
+ADAPTIVE_BUDGET = 4
+
+
+def mandatory_snapshot(records, productions, objective_answered, exceptions=None, extra_completed=0):
+    """Collection coverage is separate from CEFR sufficiency and raw activity count."""
+    exceptions = dict(exceptions or {})
+    eligible = engine.independent_answers(records)
+    counts = Counter(a.skill for a in eligible)
+    submitted = Counter()
+    skipped = Counter()
+    for production in productions:
+        skill = production["skill"]
+        if production["skipped"]:
+            skipped[skill] += 1
+            exceptions[skill] = production["reason"]
+        else:
+            submitted[skill] += 1
+            if production["eligible"]:
+                counts[skill] += 1
+    skills = {skill: {"required": required, "completed": counts[skill],
+                     "satisfied": counts[skill] >= required,
+                     "deficit": max(required - counts[skill], 0),
+                     "skipped": skipped[skill],
+                     "reason": None if counts[skill] >= required else exceptions.get(skill)}
+              for skill, required in COVERAGE_REQUIREMENTS.items()}
+    completed = objective_answered + sum(submitted.values())
+    return {"coverage_policy_version": MANDATORY_POLICY, "minimum_total": MINIMUM_TOTAL,
+            "maximum_total": MAXIMUM_TOTAL, "completed_total": completed,
+            "completed_activities_total": completed, "objective_answered": objective_answered,
+            "writing_submitted": bool(submitted["writing"]), "speaking_submitted": bool(submitted["speaking"]),
+            "skipped_productions": {s: skipped[s] for s in engine.PRODUCTION_SKILLS},
+            "mandatory_complete": all(s["satisfied"] for s in skills.values()),
+            "mandatory_resolved": all(s["satisfied"] or s["reason"] for s in skills.values()),
+            "adaptive_completed": extra_completed, "adaptive_budget": ADAPTIVE_BUDGET,
+            "skills": skills}
+
 
 def evidence_fingerprint(item):
     """Identical stimuli/options do not become independent evidence via a new ID."""

@@ -263,6 +263,8 @@ def confirmation_policy(answers: list[AnswerRecord]) -> dict:
     return {"candidate_level": candidate, "highest_supported_signal": candidate,
             "estimated_level": measured, "confirmation_required": required,
             "confirmation_count": count, "confirmation_needed": needed if candidate else 0,
+            "confirmation_required_total": needed if candidate else 0,
+            "confirmation_remaining": max(needed - count, 0) if candidate else 0,
             "candidate_reason": ("conflicting_band_evidence" if conflict else
                 "confirmation_required" if required else "confirmed" if candidate else "no_positive_signal"),
             "selection_phase": "confirmed" if measured == candidate and measured else

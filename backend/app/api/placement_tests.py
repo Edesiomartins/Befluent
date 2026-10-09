@@ -41,7 +41,7 @@ from app.models import (
     User,
     UserLanguage,
 )
-from app.schemas import PlacementAnswerIn, PlacementTestCreate, PlacementWritingIn
+from app.schemas import PlacementAnswerIn, PlacementTestCreate, PlacementWritingIn, PlacementProductionSkipIn
 from app.services import placement_engine as engine
 from app.services.curriculum_generator import active_curriculum, ensure_active_curriculum
 from app.services.progression import CHECKPOINT_SOURCE, apply_checkpoint_outcome
@@ -55,7 +55,8 @@ from app.services.writing_evaluation import evaluate_writing
 from app.services.speech import save_temp_audio, transcribe_audio
 from app.services.placement_production import production_result, evaluate_speaking
 from app.core.config import get_settings
-from app.services.placement_coverage import bank_capacity
+from app.services.placement_coverage import (bank_capacity, mandatory_snapshot, MANDATORY_POLICY,
+    COVERAGE_REQUIREMENTS, MAXIMUM_TOTAL, ADAPTIVE_BUDGET)
 from app.services.placement_exposure import exposure_history, exposure_metadata, semantic_keys, delivery_changed, record_answer, record_delivery, bank_freshness, adjust_result, rotation_metadata, EXPOSURE_POLICY
 
 router = APIRouter(prefix="/placement-tests", tags=["placement"])
@@ -192,7 +193,7 @@ def _delivered_payload(db, test, item):
 
 def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = None) -> dict:
     objective = [a for a in answers if a.skill in engine.OBJECTIVE_SKILLS]
-    return {
+    progress = {
         "answered": len(objective),
         "minimum": engine.MIN_OBJECTIVE_ITEMS,
         "target": (test.result_json or {}).get("coverage_plan", {}).get("target", engine.RECOMMENDED_OBJECTIVE_ITEMS) if test else engine.RECOMMENDED_OBJECTIVE_ITEMS,
@@ -207,6 +208,108 @@ def _progress(answers: list[PlacementTestAnswer], test: PlacementTest | None = N
         "selection": (test.result_json or {}).get("last_selection") if test else None,
         "planned_target": (test.result_json or {}).get("coverage_plan", {}).get("target") if test else None,
     }
+    if _uses_mandatory_policy(test):
+        coverage = _mandatory_coverage(test, answers)
+        progress.update(assessment_coverage=coverage, minimum=16, maximum=MAXIMUM_TOTAL,
+            completed_activities_total=coverage["completed_total"],
+            writing_submitted=coverage["writing_submitted"], speaking_submitted=coverage["speaking_submitted"],
+            skipped_productions=coverage["skipped_productions"])
+    return progress
+
+
+def _uses_mandatory_policy(test):
+    return bool(test and test.source != CHECKPOINT_SOURCE and
+                (test.result_json or {}).get("coverage_policy_version") == MANDATORY_POLICY)
+
+
+def _mandatory_coverage(test, answers):
+    productions = []
+    for answer in answers:
+        if answer.skill not in engine.PRODUCTION_SKILLS:
+            continue
+        feedback = answer.feedback_json or {}
+        exposure = feedback.get("exposure", {})
+        productions.append({"skill": answer.skill, "skipped": feedback.get("status") == "skipped",
+            "eligible": not exposure.get("reused") and exposure.get("evidence_eligible", True),
+            "reason": feedback.get("skip_reason", "user_skipped")})
+    return mandatory_snapshot(_records(answers), productions,
+        sum(a.skill in engine.OBJECTIVE_SKILLS for a in answers),
+        (test.result_json or {}).get("coverage_exceptions"),
+        sum((a.feedback_json or {}).get("collection_phase") == "adaptive_confirmation" for a in answers))
+
+
+def _coverage_decision(db, test, user, state, answers, answered_ids, *, record_selection=True):
+    """Select only deficit skills before spending the four adaptive activities."""
+    exceptions = dict((test.result_json or {}).get("coverage_exceptions", {}))
+    coverage = _mandatory_coverage(test, answers)
+
+    def pick(skill, phase, *, history=True):
+        if skill in engine.OBJECTIVE_SKILLS:
+            return _pick_objective_item(db, test.language_code, state, answered_ids,
+                user_id=user.id if history else None, test_id=test.id,
+                native_language=user.native_language or "", skills=[skill],
+                collection_phase=phase, record_selection=record_selection and history)
+        item = _pick_production_item(db, test, state, answered_ids, skills=[skill], honor_history=history)
+        if item and record_selection and history:
+            selection = {"skill": skill, "cefr_level": item.cefr_level,
+                "phase": phase, "reason": "mandatory_production", "item_id": item.id}
+            test.result_json = {**(test.result_json or {}), "last_selection": selection,
+                "selection_trace": [*(test.result_json or {}).get("selection_trace", []), selection]}
+        return item
+
+    def finish(reason, detail=None):
+        test.result_json = {**(test.result_json or {}), "coverage_exceptions": exceptions,
+                           "stop_reason": reason, "stop_detail": detail}
+        snapshot = _mandatory_coverage(test, answers)
+        policies = {s: engine.confirmation_policy([a for a in state.answers if a.skill == s])
+                    for s in engine.OBJECTIVE_SKILLS}
+        test.result_json = {**test.result_json, "assessment_coverage": snapshot,
+            "confirmation_deficits": {s: p for s, p in policies.items() if p["confirmation_required"]}}
+        return None
+
+    if coverage["completed_total"] >= MAXIMUM_TOTAL:
+        for skill, data in coverage["skills"].items():
+            if not data["satisfied"] and not data["reason"]:
+                exceptions[skill] = "maximum_reached"
+        return finish("maximum_reached", "completed_activity_budget_exhausted")
+
+    deficient = [s for s, d in coverage["skills"].items() if not d["satisfied"]]
+    # Objectives remain adaptive within their quota. Productions follow before any extra.
+    deficient.sort(key=lambda s: (s in engine.PRODUCTION_SKILLS,
+        coverage["skills"][s]["completed"] / COVERAGE_REQUIREMENTS[s], list(COVERAGE_REQUIREMENTS).index(s)))
+    for skill in deficient:
+        if coverage["skills"][skill]["skipped"]:
+            continue
+        item = pick(skill, "mandatory_coverage")
+        if item:
+            exceptions.pop(skill, None)
+            test.result_json = {**(test.result_json or {}), "coverage_exceptions": exceptions,
+                "stop_reason": None, "stop_detail": None}
+            return item
+        available = pick(skill, "mandatory_coverage", history=False)
+        exceptions[skill] = "bank_freshness_exhausted" if available else (
+            "production_unavailable" if skill in engine.PRODUCTION_SKILLS else "bank_exhausted")
+    test.result_json = {**(test.result_json or {}), "coverage_exceptions": exceptions}
+    coverage = _mandatory_coverage(test, answers)
+
+    needs = []
+    for skill in engine.OBJECTIVE_SKILLS:
+        policy = engine.confirmation_policy([a for a in state.answers if a.skill == skill])
+        if policy["confirmation_required"] or policy["estimated_level"] is None:
+            needs.append((not policy["confirmation_required"], policy["confirmation_remaining"], skill))
+    if needs and coverage["adaptive_completed"] >= ADAPTIVE_BUDGET:
+        return finish("maximum_reached", "adaptive_budget_exhausted")
+    for _, _, skill in sorted(needs):
+        item = pick(skill, "adaptive_confirmation")
+        if item:
+            return item
+    incomplete = {s: d["reason"] for s, d in coverage["skills"].items() if not d["satisfied"]}
+    if incomplete:
+        reason = next((r for r in incomplete.values() if r == "bank_exhausted"),
+                      next(iter(incomplete.values())))
+        return finish(reason, "mandatory_coverage_unavailable")
+    return finish("bank_freshness_exhausted" if needs else "coverage_complete",
+                  "adaptive_evidence_unavailable" if needs else None)
 
 
 def _test_payload(test: PlacementTest, answers: list[PlacementTestAnswer]) -> dict:
@@ -286,6 +389,7 @@ def create_test(
         source=LevelSource.PLACEMENT_TEST,
         current_level_band=engine.initial_band(data.declared_beginner),
         result_json={"declared_beginner": data.declared_beginner, "coverage_plan": bank_capacity(db, data.language_code),
+            "coverage_policy_version": MANDATORY_POLICY,
             "exposure_policy_version": EXPOSURE_POLICY["version"], "exposure_policy": dict(EXPOSURE_POLICY),
             "bank_freshness": bank_freshness(db, user.id, data.language_code),
             "form_policy": rotation_metadata(db, user.id, data.language_code)},
@@ -355,6 +459,17 @@ def next_item(test_id: str, db: Session = Depends(get_db), user: User = Depends(
         open_delivery.expires_at = _now()
         db.flush()
 
+    if _uses_mandatory_policy(test):
+        item = _coverage_decision(db, test, user, state, answers, answered_ids)
+        if item:
+            deliver_item(db, test, item)
+            test.current_level_band = state.current_band
+        db.commit()
+        return {"item": _delivered_payload(db, test, item) if item else None,
+                "stage": item.skill if item and item.skill in engine.PRODUCTION_SKILLS else
+                         "objective" if item else "ready_to_complete",
+                "progress": _progress(answers, test)}
+
     raw_objective_count = sum(a.skill in engine.OBJECTIVE_SKILLS for a in answers)
     if engine.should_stop(state) or raw_objective_count >= engine.MAX_OBJECTIVE_ITEMS:
         deficits = {skill: engine.confirmation_policy([a for a in state.answers if a.skill == skill])
@@ -400,10 +515,13 @@ def _pick_objective_item(
     answered_ids: set[str],
     *, user_id: str | None = None, test_id: str | None = None, allow_reuse: bool = False,
     native_language: str | None = None,
+    skills: list[str] | None = None, collection_phase: str | None = None, record_selection: bool = True,
 ) -> PlacementItem | None:
     """Item da faixa atual na competência menos usada; relaxa se faltar item."""
     preferred_skill = engine.next_skill(state)
     skill_order = [preferred_skill] + [s for s in engine.OBJECTIVE_SKILLS if s != preferred_skill]
+    if skills is not None:
+        skill_order = skills
 
     base = [
         PlacementItem.language_code == language_code,
@@ -450,14 +568,14 @@ def _pick_objective_item(
                 if not exposure_metadata(item, current_history)["reused"]:
                     metadata = exposure_metadata(item, history)
                     if not metadata["reused"]:
-                        phase = "confirmation" if confirmation else policy["selection_phase"]
+                        phase = collection_phase or ("confirmation" if confirmation else policy["selection_phase"])
                         selection = {"skill": skill, "cefr_level": band, "phase": phase,
                             "candidate_level": policy["candidate_level"], "preferred_skill": preferred_skill,
                             "reason": "candidate_band_confirmation" if confirmation and band == confirmation else
                                 "adjacent_band_evidence" if confirmation and abs(engine.LEVEL_INDEX[band] - engine.LEVEL_INDEX[confirmation]) == 1 else
                                 "broader_band_exploration" if confirmation else "adaptive_exploration",
                             "skill_fallback": skill != preferred_skill}
-                        if test:
+                        if test and record_selection:
                             trace = list((test.result_json or {}).get("selection_trace", []))
                             trace.append({"item_id": item.id, **selection})
                             test.result_json = {**(test.result_json or {}), "selection_trace": trace,
@@ -471,24 +589,32 @@ def _pick_objective_item(
     return None
 
 
-def _pick_production_item(db, test, state, answered_ids):
+def _pick_production_item(db, test, state, answered_ids, *, skills=None, honor_history=True):
     account = db.get(User, test.user_id)
     native_language = account.native_language if account else None
     answered_skills = {a.skill for a in _answers_of(db, test.id)}
     for skill, item_type in ((Skill.WRITING, "short_writing"), (Skill.SPEAKING, "speaking_prompt")):
-        if skill in answered_skills:
+        if (skills is None and skill in answered_skills) or (skills is not None and skill not in skills):
             continue
         candidates = db.scalars(select(PlacementItem).where(
             PlacementItem.language_code == test.language_code, *approved_active_filter(),
             PlacementItem.skill == skill, PlacementItem.item_type == item_type,
             PlacementItem.cefr_level.in_(engine.TESTABLE_LEVELS),
         ).order_by((PlacementItem.cefr_level == "B1").desc(), PlacementItem.external_key.desc()))
-        history = exposure_history(db, test.user_id, test.language_code, test.id)
+        history = exposure_history(db, test.user_id, test.language_code, test.id) if honor_history else []
+        current_history = [{"keys": row.keys_json} for row in db.scalars(select(PlacementItemExposure).where(
+            PlacementItemExposure.source_test_id == test.id))]
         for item in candidates:
+            if skills is not None and skill == Skill.SPEAKING and not (
+                (item.rubric_json or {}).get("production_mode") in {"spontaneous", "semi_spontaneous"}
+                or (item.external_key or "").endswith("speaking-production-v2")):
+                continue
             support = _item_native_support(item)
             if support and support != native_language:
                 continue
             if item.id in answered_ids:
+                continue
+            if skills is not None and exposure_metadata(item, current_history)["reused"]:
                 continue
             if not exposure_metadata(item, history)["reused"]:
                 return item
@@ -533,7 +659,9 @@ def submit_answer(
         normalized_score=score,
         response_time_ms=data.response_time_ms,
         evaluated_by="auto",
-        feedback_json={"exposure": exposure},
+        feedback_json={"exposure": exposure, **({"collection_phase":
+            (test.result_json or {}).get("last_selection", {}).get("phase")}
+            if _uses_mandatory_policy(test) else {})},
     )
     db.add(record)
 
@@ -650,18 +778,21 @@ async def submit_speaking(test_id: str, item_id: str = Form(...), file: UploadFi
 
 
 @router.post("/{test_id}/skip-production")
-def skip_production(test_id: str, data: PlacementWritingIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def skip_production(test_id: str, data: PlacementProductionSkipIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
     test = _owned_test(db, test_id, user, lock=True)
     if test.status == TestStatus.COMPLETED:
         raise APIError(409, "placement_test_completed", "Este teste já foi concluído.")
     item = consume_delivery_for_answer(db, test=test, item_id=data.item_id)
+    _ensure_declared_support(item, user.native_language)
     if item.skill not in engine.PRODUCTION_SKILLS:
         raise APIError(400, "wrong_endpoint", "Esta atividade não é de produção.")
     db.add(PlacementTestAnswer(test_id=test.id, item_id=item.id, skill=item.skill,
         cefr_level=item.cefr_level, answer_json={}, evaluated_by="not_evaluated",
-        feedback_json={"status": "skipped", "limitations": ["user_skipped"]}))
+        feedback_json={"status": "skipped", "skip_reason": data.reason,
+            "reason_origin": "user_reported", "limitations": [data.reason]}))
     db.commit()
-    return {"accepted": True, "status": "not_collected"}
+    return {"accepted": True, "status": "not_collected", "reason": data.reason,
+            "progress": _progress(_answers_of(db, test.id), test)}
 
 
 @router.post("/{test_id}/complete")
@@ -671,6 +802,25 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
         return _result_payload(db, test, user=user)
 
     answers = _answers_of(db, test.id)
+    if _uses_mandatory_policy(test):
+        coverage = _mandatory_coverage(test, answers)
+        open_delivery = get_open_delivery(db, test.id)
+        if open_delivery and coverage["completed_total"] < MAXIMUM_TOTAL:
+            item = db.get(PlacementItem, open_delivery.item_id)
+            if item and item.is_active and item.review_status == ReviewStatus.APPROVED:
+                raise APIError(409, "placement_coverage_incomplete", "Conclua ou pule explicitamente a atividade aberta.")
+        excluded = {a.item_id for a in answers}
+        for exposure in db.scalars(select(PlacementItemExposure).where(
+                PlacementItemExposure.source_test_id == test.id)):
+            item = db.get(PlacementItem, exposure.source_item_id)
+            if item and delivery_changed(item, exposure):
+                excluded.add(item.id)
+        available = _coverage_decision(db, test, user,
+            _state_from(answers, bool((test.result_json or {}).get("declared_beginner"))),
+            answers, excluded, record_selection=False)
+        if available:
+            raise APIError(409, "placement_coverage_incomplete" if not coverage["mandatory_complete"] else
+                "placement_confirmation_pending", "Ainda há atividades necessárias e disponíveis para este teste.")
     history = exposure_history(db, user.id, test.language_code, test.id)
     current_stimuli = []
     for answer in answers:
@@ -713,6 +863,19 @@ def complete_test(test_id: str, db: Session = Depends(get_db), user: User = Depe
     result["assessment_coverage"]["supported_scope"] = list(engine.OBJECTIVE_SKILLS)
     result["assessment_coverage"]["speaking_scope"] = "transcript_linguistic_content"
     _add_diagnostic_contract(result, scored)
+    if _uses_mandatory_policy(test):
+        coverage = _mandatory_coverage(test, answers)
+        result["assessment_coverage"].update(coverage)
+        result["policy_version"] = MANDATORY_POLICY
+        result["assessment_status"] = "complete" if coverage["mandatory_complete"] else "incomplete"
+        result["completed_activities_total"] = coverage["completed_total"]
+        result["objective_answered"] = coverage["objective_answered"]
+        result["writing_submitted"] = coverage["writing_submitted"]
+        result["speaking_submitted"] = coverage["speaking_submitted"]
+        result["skipped_productions"] = coverage["skipped_productions"]
+        result["planning_level_trace"].update(assessment_status=result["assessment_status"],
+            mandatory_complete=coverage["mandatory_complete"], coverage_policy_version=MANDATORY_POLICY,
+            coverage_deficits={s: d for s, d in coverage["skills"].items() if not d["satisfied"]})
 
     test.status = TestStatus.COMPLETED
     test.completed_at = _now()
@@ -820,6 +983,12 @@ def _apply_to_profile(db: Session, test: PlacementTest, result: dict, user: User
                         "retained_global_level": verified_current_level(profile),
                         "assessment_proposed_level": result["planning_level"],
                         "assessment_proposal": result["planning_level_trace"]}}
+        result.update(planning)
+    if result.get("policy_version") == MANDATORY_POLICY:
+        planning["planning_level_trace"] = {**planning["planning_level_trace"],
+            "assessment_status": result["assessment_status"],
+            "mandatory_complete": result["assessment_coverage"]["mandatory_complete"],
+            "coverage_policy_version": MANDATORY_POLICY}
         result.update(planning)
     profile.last_assessment_id = test.id
     profile.assessment_summary_json = {

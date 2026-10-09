@@ -9,11 +9,29 @@ from app.services import placement_engine as engine
 
 
 def create_test(client, auth, language="en", beginner=False):
-    return client.post(
+    """Frozen v2 session fixture. Coverage-v3 tests create through HTTP directly.
+
+    Legacy completion/scoring regressions deliberately retain their old collection
+    policy instead of weakening the new public endpoint to permit early completion.
+    """
+    response = client.post(
         "/api/v1/placement-tests",
         json={"language_code": language, "declared_beginner": beginner},
         headers=auth,
     )
+    if response.status_code == 200:
+        from app.core.database import get_db
+        dependency = client.app.dependency_overrides[get_db]()
+        try:
+            db = next(dependency)
+            test = db.get(PlacementTest, response.json()["id"])
+            test.result_json = {key: value for key, value in (test.result_json or {}).items()
+                                if key != "coverage_policy_version"}
+            db.commit()
+        finally:
+            dependency.close()
+        return client.get(f'/api/v1/placement-tests/{response.json()["id"]}', headers=auth)
+    return response
 
 
 def use_legacy_catalog(db_session):

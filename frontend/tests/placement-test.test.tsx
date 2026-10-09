@@ -69,27 +69,84 @@ it.each([17, 9, 23])("encerra com %i atividades sem prometer total", async count
   expect(screen.getByRole("button", { name: "Ver meu resultado" })).toBeInTheDocument();
 });
 
+const coverageSkill = (required: number, completed: number, extra: Record<string, unknown> = {}) => ({
+  required, completed, satisfied: completed >= required, deficit: Math.max(required - completed, 0), skipped: 0, reason: null, ...extra,
+});
+
+const coverageV3 = {
+  coverage_policy_version: "placement-coverage-v3",
+  minimum_total: 16,
+  maximum_total: 20,
+  completed_total: 12,
+  completed_activities_total: 12,
+  mandatory_complete: false,
+  mandatory_resolved: false,
+  skills: {
+    vocabulary_grammar: coverageSkill(6, 4),
+    reading: coverageSkill(4, 4),
+    listening: coverageSkill(4, 3),
+    writing: coverageSkill(1, 1),
+    speaking: coverageSkill(1, 0),
+  },
+};
+
 it.each(["bank_exhausted", "bank_freshness_exhausted"])("explica encerramento parcial por %s", async reason => {
   mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
-    progress: { ...progress, activities_completed: 17, stop_reason: reason } } : { language_code: "en" });
+    progress: { ...progress, activities_completed: 17, stop_reason: reason,
+      assessment_coverage: { ...coverageV3, completed_total: 17, skills: { ...coverageV3.skills,
+        listening: coverageSkill(4, 2, { reason }), speaking: coverageSkill(1, 1) } } } } : { language_code: "en" });
   render(<PlacementTestRunnerPage />);
   expect(await screen.findByRole("heading", {
-    name: "A coleta foi encerrada porque não há mais atividades inéditas adequadas disponíveis. Você receberá um perfil parcial.",
+    name: "Não há mais atividades adequadas disponíveis para completar esta competência nesta sessão.",
   })).toBeInTheDocument();
+  expect(screen.getByText(/Não foi possível completar: Vocabulário e gramática e Compreensão auditiva\./)).toBeInTheDocument();
+  expect(screen.getByText(/Seu perfil será parcial\./)).toBeInTheDocument();
   expect(screen.getByText("17 atividades concluídas")).toBeInTheDocument();
   expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/sucesso/i)).not.toBeInTheDocument();
 });
 
 it("explica ready_to_complete quando as evidências previstas foram reunidas", async () => {
   mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
     progress: { ...progress, activities_completed: 17, stop_reason: "objective_coverage_satisfied" } } : { language_code: "en" });
   render(<PlacementTestRunnerPage />);
-  expect(await screen.findByRole("heading", {
-    name: "Coleta concluída. As evidências previstas foram reunidas.",
-  })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Coleta concluída." })).toBeInTheDocument();
+  expect(screen.getByText("As evidências previstas foram reunidas.")).toBeInTheDocument();
   expect(screen.getByText("17 atividades concluídas")).toBeInTheDocument();
   expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
   expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+it("mostra cobertura por competência do coverage-v3 sem porcentagem de domínio", async () => {
+  mockRoute(path => path.endsWith("next-item") ? { item: objectiveItem, stage: "objective",
+    progress: { ...progress, answered: 11, activities_completed: 11, assessment_coverage: coverageV3 } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByText("12 atividades concluídas")).toBeInTheDocument();
+  const list = screen.getByRole("list", { name: "Cobertura da avaliação por competência" });
+  expect(list.className).toContain("sm:grid-cols-2");
+  expect(screen.getByText("Vocabulário e gramática: 4 de 6 atividades coletadas")).toBeInTheDocument();
+  expect(screen.getByText("Leitura: 4 de 4 atividades coletadas")).toBeInTheDocument();
+  expect(screen.getByText("Compreensão auditiva: 3 de 4 atividades coletadas")).toBeInTheDocument();
+  expect(screen.getByText("Escrita: Concluída")).toBeInTheDocument();
+  expect(screen.getByText("Fala: Pendente")).toBeInTheDocument();
+  expect(screen.queryByText(/de aproximadamente/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/20 questões/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/%/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/domínio/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/fase adaptativa/i)).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+});
+
+it("encerramento por skip deixa claro qual competência não foi avaliada", async () => {
+  mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
+    progress: { ...progress, stop_reason: "user_skipped", assessment_coverage: { ...coverageV3, completed_total: 15,
+      skills: { ...coverageV3.skills, vocabulary_grammar: coverageSkill(6, 6), listening: coverageSkill(4, 4),
+        speaking: coverageSkill(1, 0, { skipped: 1, reason: "user_skipped" }) } } } } : { language_code: "en" });
+  render(<PlacementTestRunnerPage />);
+  expect(await screen.findByRole("heading", { name: "Coleta encerrada sem avaliar todas as competências." })).toBeInTheDocument();
+  expect(screen.getByText(/Não avaliada nesta sessão: Fala\./)).toBeInTheDocument();
+  expect(screen.getByText("15 atividades concluídas")).toBeInTheDocument();
+  expect(screen.getByText("Fala: Pulada")).toBeInTheDocument();
 });
 
 it("mostra estados por competência quando o progresso os traz", async () => {
@@ -122,10 +179,10 @@ it("explica maximum_reached sem prometer perfil além das evidências", async ()
   mockRoute(path => path.endsWith("next-item") ? { item: null, stage: "ready_to_complete",
     progress: { ...progress, activities_completed: 17, stop_reason: "maximum_reached" } } : { language_code: "en" });
   render(<PlacementTestRunnerPage />);
-  expect(await screen.findByRole("heading", {
-    name: "A coleta atingiu o limite desta sessão. Vamos apresentar as evidências disponíveis.",
-  })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "A avaliação atingiu o limite desta sessão." })).toBeInTheDocument();
+  expect(screen.getByText("O perfil abaixo usa as evidências coletadas.")).toBeInTheDocument();
   expect(screen.queryByText(/perfil parcial se faltar cobertura/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/sucesso/i)).not.toBeInTheDocument();
 });
 
 it("coleta fala por áudio e oferece pular sem inventar nível", async () => {
@@ -636,9 +693,11 @@ describe("Resultado", () => {
           estimated_level: null,
           candidate_level: "B2",
           status: "insufficient_evidence",
-          confirmation_needed: 1,
+          confirmation_required: true,
           confirmation_count: 1,
-          confirmation_required: 2,
+          confirmation_needed: 2,
+          confirmation_required_total: 2,
+          confirmation_remaining: 1,
           candidate_reason: "needs_independent_confirmation",
           score: 4,
           max_score: 4,
@@ -674,7 +733,12 @@ describe("Resultado", () => {
     expect(screen.getByText("Pré-A1")).toBeInTheDocument();
     expect(screen.getByText("5 acertos em 8 questões")).toBeInTheDocument();
     expect(screen.getByText("B2 — confirmação pendente")).toBeInTheDocument();
-    expect(screen.getByText("Falta mais uma atividade B2 independente para confirmar esta faixa.")).toBeInTheDocument();
+    expect(screen.getByText("Falta mais 1 atividade B2 independente para confirmar esta faixa.")).toBeInTheDocument();
+    expect(screen.queryByText(/Faltam mais 2/)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Ainda não há evidência suficiente para determinar um nível global com segurança."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Nível recomendado para iniciar sua jornada: A1")).toBeInTheDocument();
     expect(screen.getAllByText("4 acertos em 4 questões")).toHaveLength(2);
     expect(screen.getByText("Faixa ainda não determinada")).toBeInTheDocument();
     expect(screen.getByText("B1 — provisório")).toBeInTheDocument();
@@ -720,7 +784,205 @@ describe("Resultado", () => {
     expect(await screen.findByText("Avaliação não disponível")).toBeInTheDocument();
     expect(screen.getByText("Ainda não avaliada")).toBeInTheDocument();
     expect(screen.queryByText(/confirmação pendente/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/provisório/)).not.toBeInTheDocument();
     expect(screen.queryByText(/acerto/)).not.toBeInTheDocument();
+  });
+
+  const v3Coverage = (overrides: Record<string, unknown> = {}, skills: Record<string, unknown> = {}) => ({
+    coverage_policy_version: "placement-coverage-v3",
+    minimum_total: 16,
+    maximum_total: 20,
+    completed_total: 16,
+    mandatory_complete: true,
+    mandatory_resolved: true,
+    stop_reason: "coverage_complete",
+    skills: {
+      vocabulary_grammar: { required: 6, completed: 6, satisfied: true, deficit: 0, skipped: 0, reason: null },
+      reading: { required: 4, completed: 4, satisfied: true, deficit: 0, skipped: 0, reason: null },
+      listening: { required: 4, completed: 4, satisfied: true, deficit: 0, skipped: 0, reason: null },
+      writing: { required: 1, completed: 1, satisfied: true, deficit: 0, skipped: 0, reason: null },
+      speaking: { required: 1, completed: 1, satisfied: true, deficit: 0, skipped: 0, reason: null },
+      ...skills,
+    },
+    ...overrides,
+  });
+
+  const readingCandidate = (extra: Record<string, unknown>) => ({
+    skill: "reading",
+    label: "Leitura",
+    estimated_level: null,
+    level: null,
+    candidate_level: "B2",
+    status: "insufficient_evidence",
+    confirmation_required: true,
+    score: 4,
+    max_score: 4,
+    ...extra,
+  });
+
+  it("usa confirmation_remaining=2 no plural", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      skills: [readingCandidate({ confirmation_count: 0, confirmation_needed: 2, confirmation_required_total: 2, confirmation_remaining: 2 })],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("B2 — confirmação pendente")).toBeInTheDocument();
+    expect(screen.getByText("Faltam mais 2 atividades B2 independentes para confirmar esta faixa.")).toBeInTheDocument();
+  });
+
+  it("não usa confirmation_needed nem a diferença total-count como saldo", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      skills: [readingCandidate({
+        candidate_level: "A1",
+        confirmation_count: 1,
+        confirmation_needed: 3,
+        confirmation_required_total: 3,
+        confirmation_remaining: 1,
+        score: 2,
+        max_score: 6,
+      })],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("A1 — confirmação pendente")).toBeInTheDocument();
+    expect(screen.getByText("2 acertos em 6 questões")).toBeInTheDocument();
+    expect(screen.getByText("Falta mais 1 atividade A1 independente para confirmar esta faixa.")).toBeInTheDocument();
+    expect(screen.queryByText(/Faltam mais 3/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Faltam mais 2/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/seu nível é a1/i)).not.toBeInTheDocument();
+  });
+
+  it("sem confirmation_remaining não inventa quantidade restante", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      skills: [readingCandidate({ confirmation_count: 1, confirmation_needed: 2, confirmation_required: 2 })],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("B2 — confirmação pendente")).toBeInTheDocument();
+    expect(screen.queryByText(/Falta(m)? mais/)).not.toBeInTheDocument();
+    expect(screen.getByText("Esta faixa ainda precisa de confirmação com atividades B2 independentes.")).toBeInTheDocument();
+  });
+
+  it("avaliação incompleta: fala pulada aparece como não avaliada com o motivo do backend", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: plan,
+      assessment_status: "incomplete",
+      policy_version: "placement-coverage-v3",
+      completed_activities_total: 15,
+      assessment_coverage: v3Coverage(
+        { completed_total: 15, mandatory_complete: false, mandatory_resolved: true, stop_reason: "user_skipped" },
+        { speaking: { required: 1, completed: 0, satisfied: false, deficit: 1, skipped: 1, reason: "user_skipped" } },
+      ),
+      skills: [
+        ...partialSkills.filter((skill) => skill.skill !== "speaking"),
+        {
+          skill: "speaking",
+          label: "Fala",
+          estimated_level: null,
+          level: null,
+          score: null,
+          max_score: null,
+          status: "not_collected",
+          evidence_counts: { answered: 1, valid: 0, excluded: 1, by_cefr: {} },
+          skill_confidence: { basis: "single_linguistic_sample", label: "insufficient", reasons: ["user_skipped"] },
+        },
+      ],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Avaliação incompleta" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Nem todas as competências puderam ser avaliadas nesta sessão. Seu perfil abaixo mostra apenas as evidências realmente coletadas.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Não avaliada")).toBeInTheDocument();
+    expect(screen.getByText("Esta atividade foi pulada.")).toBeInTheDocument();
+    expect(screen.queryByText(/amostra de fala/)).not.toBeInTheDocument();
+    expect(screen.queryByText("A1 — provisório")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Perfil de competências" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/As cinco competências foram avaliadas/)).not.toBeInTheDocument();
+    expect(screen.getByText("Nível recomendado para iniciar sua jornada: A1")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute("href", "/cronograma/dia/day-1");
+  });
+
+  it("escrita pulada por indisponibilidade mostra o motivo sem converter score em CEFR", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      assessment_status: "incomplete",
+      assessment_coverage: v3Coverage(
+        { mandatory_complete: false, stop_reason: "production_unavailable" },
+        { writing: { required: 1, completed: 0, satisfied: false, deficit: 1, skipped: 1, reason: "production_unavailable" } },
+      ),
+      skills: [
+        ...partialSkills.filter((skill) => skill.skill !== "writing"),
+        { skill: "writing", label: "Escrita", estimated_level: null, level: null, score: 0.4, max_score: 1, status: "not_collected" },
+      ],
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByText("Não avaliada")).toBeInTheDocument();
+    expect(screen.getByText("Não foi possível realizar esta atividade nesta sessão.")).toBeInTheDocument();
+    expect(screen.queryByText(/produção escrita avaliada/)).not.toBeInTheDocument();
+    expect(screen.queryByText("B1 — provisório")).not.toBeInTheDocument();
+    expect(screen.getByText("A1 — provisório")).toBeInTheDocument();
+  });
+
+  it("cobertura completa com perfil parcial usa o texto das cinco competências", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: plan,
+      assessment_status: "complete",
+      policy_version: "placement-coverage-v3",
+      completed_activities_total: 16,
+      assessment_coverage: v3Coverage(),
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Perfil de competências" })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "As cinco competências foram avaliadas, mas ainda não há evidência suficiente para determinar um nível global com segurança.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Avaliação incompleta")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nem todas as competências/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").filter((item) => item.hasAttribute("data-skill-state"))).toHaveLength(5);
+    expect(screen.getByRole("link", { name: "Começar minha jornada em A1" })).toHaveAttribute("href", "/cronograma/dia/day-1");
+  });
+
+  it("garante cinco cards quando a cobertura descreve as cinco competências", async () => {
+    assessmentPartial({
+      planning_level: "A1",
+      curriculum: null,
+      assessment_status: "incomplete",
+      assessment_coverage: v3Coverage(
+        { mandatory_complete: false, stop_reason: "bank_exhausted" },
+        { listening: { required: 4, completed: 0, satisfied: false, deficit: 4, skipped: 0, reason: "bank_exhausted" } },
+      ),
+      skills: partialSkills.filter((skill) => skill.skill !== "listening"),
+    });
+    render(<PlacementResultPage />);
+
+    expect(await screen.findByRole("heading", { name: "Avaliação incompleta" })).toBeInTheDocument();
+    const cards = screen.getAllByRole("listitem").filter((item) => item.hasAttribute("data-skill-state"));
+    expect(cards).toHaveLength(5);
+    expect(cards[0].parentElement?.className).toContain("grid-cols-1");
+    expect(cards[0].parentElement?.className).toContain("sm:grid-cols-2");
+    expect(screen.getAllByText("Compreensão auditiva").length).toBeGreaterThan(0);
+    expect(screen.getByText("Ainda não avaliada")).toBeInTheDocument();
+    expect(
+      screen.getByText("Não há mais atividades adequadas disponíveis para completar esta competência nesta sessão."),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/whitespace-nowrap/)).not.toBeInTheDocument();
   });
 
   it("não promove faixa candidata a nível global quando o overall é outro", async () => {
@@ -870,6 +1132,8 @@ describe("Resultado", () => {
       ...result,
       profile_status: "complete",
       overall_estimate_status: "sufficient",
+      assessment_status: "complete",
+      assessment_coverage: v3Coverage(),
       planning_level: "B1",
       planning_level_source: "sufficient_overall",
       planning_level_reason: "Entrada baseada no nível global sustentado por cobertura suficiente.",
@@ -902,6 +1166,10 @@ describe("Resultado", () => {
     expect(screen.getByText("Vocabulário e gramática")).toBeInTheDocument();
     expect(screen.getAllByText("Leitura").length).toBeGreaterThan(0);
     expect(screen.queryByRole("heading", { name: "Perfil de competências" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Avaliação incompleta")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nem todas as competências/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/As cinco competências foram avaliadas/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole("listitem").filter((item) => item.hasAttribute("data-skill-state"))).toHaveLength(5);
     expect(screen.queryByText(/Nível recomendado para iniciar sua jornada/)).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Começar minha jornada/ })).not.toBeInTheDocument();
     expect(screen.queryByText(/Este teste propôs/)).not.toBeInTheDocument();

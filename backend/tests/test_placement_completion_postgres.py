@@ -1,19 +1,21 @@
 """Real concurrent finalization, opt-in dedicated PostgreSQL 18 *_test only."""
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
+import pytest
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.placement_tests import complete_test
-from app.models import Base, Curriculum, PlacementTest, PlacementTestSection, User, UserLanguage
+from app.models import Base, Curriculum, PlacementTest, PlacementTestSection, PlacementItem, PlacementTestAnswer, User, UserLanguage
 from app.services.placement_seed import seed_placement_items
 from app.services.seed import seed_languages
 from test_placement_completion import prepared_test
 from test_reset_test_user_learning_postgres import postgres_reset_database
 
 
-def test_parallel_completion_refreshes_stale_status_and_preserves_downstream(postgres_reset_database):
+@pytest.mark.parametrize("coverage_v3", [False, True])
+def test_parallel_completion_refreshes_stale_status_and_preserves_downstream(postgres_reset_database, coverage_v3):
     engine, _, _ = postgres_reset_database
     with Session(engine, autoflush=False, expire_on_commit=False) as db:
         seed_languages(db)
@@ -21,6 +23,19 @@ def test_parallel_completion_refreshes_stale_status_and_preserves_downstream(pos
         db.add(User(email="admin@befluent.local", name="Test", password_hash="unused", native_language="pt-BR"))
         db.commit()
         user, test = prepared_test(db)
+        if coverage_v3:
+            from app.services.placement_coverage import MANDATORY_POLICY
+            used = select(PlacementTestAnswer.item_id).where(PlacementTestAnswer.test_id == test.id)
+            for item in db.scalars(select(PlacementItem).where(PlacementItem.language_code == "en",
+                    PlacementItem.skill == "vocabulary_grammar", PlacementItem.id.not_in(used)).limit(2)):
+                db.add(PlacementTestAnswer(test_id=test.id, item_id=item.id, skill=item.skill,
+                    cefr_level="A2", normalized_score=1, evaluated_by="auto"))
+            speaking = db.scalar(select(PlacementItem).where(PlacementItem.language_code == "en",
+                PlacementItem.external_key.endswith("speaking-production-v2")))
+            db.add(PlacementTestAnswer(test_id=test.id, item_id=speaking.id, skill="speaking",
+                cefr_level="B1", normalized_score=.8, evaluated_by="heuristic"))
+            test.result_json = {"coverage_policy_version": MANDATORY_POLICY}
+            db.commit()
         user_id, test_id = user.id, test.id
 
     barrier = Barrier(2)
@@ -40,6 +55,10 @@ def test_parallel_completion_refreshes_stale_status_and_preserves_downstream(pos
         results = [future.result(timeout=45) for future in futures]
     assert results[0] == results[1]
     assert results[0]["status"] == "completed"
+    if coverage_v3:
+        assert results[0]["policy_version"] == "placement-coverage-v3"
+        assert results[0]["assessment_coverage"]["mandatory_complete"]
+        assert results[0]["completed_activities_total"] == 16
     with Session(engine, autoflush=False) as db:
         profile = db.scalar(select(UserLanguage).where(UserLanguage.user_id == user_id))
         assert db.scalar(select(func.count()).select_from(UserLanguage).where(UserLanguage.user_id == user_id)) == 1

@@ -11,6 +11,8 @@ export function PlacementSpeaking({ testId, itemId, onComplete }: {
   const [busy, setBusy] = useState(false);
   const [audio, setAudio] = useState<Blob | null>(null);
   const [error, setError] = useState("");
+  const [confirmingSkip, setConfirmingSkip] = useState(false);
+  const [microphoneFailed, setMicrophoneFailed] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,6 +55,7 @@ export function PlacementSpeaking({ testId, itemId, onComplete }: {
       timer.current = setTimeout(stop, 90_000);
     } catch {
       stream.current?.getTracks().forEach(track => track.stop());
+      setMicrophoneFailed(true);
       setError("Não foi possível acessar o microfone. Permita o acesso ou pule esta avaliação.");
     } finally { if (alive.current) setBusy(false); }
   }
@@ -62,8 +65,10 @@ export function PlacementSpeaking({ testId, itemId, onComplete }: {
     setBusy(true); setError("");
     try {
       if (skip) {
+        // Motivo informado pelo cliente; o backend registra como relato do usuário.
+        const reason = microphoneFailed && !audio ? "microphone_unavailable" : "user_skipped";
         await api(`/api/v1/placement-tests/${testId}/skip-production`, {
-          method: "POST", body: { item_id: itemId, text: "skip" },
+          method: "POST", body: { item_id: itemId, text: "skip", reason },
         });
       } else if (audio) {
         const form = new FormData();
@@ -82,7 +87,18 @@ export function PlacementSpeaking({ testId, itemId, onComplete }: {
     <p role="status">{recording ? "Gravando…" : audio ? "Gravação pronta para enviar" : "Microfone solicitado somente ao gravar"}</p>
     <Button onClick={recording ? stop : start} disabled={busy}>{recording ? "Parar gravação" : "Gravar resposta"}</Button>
     {audio && <Button onClick={() => void submit()} disabled={busy || recording} loading={busy}>Enviar gravação</Button>}
-    <Button variant="secondary" onClick={() => void submit(true)} disabled={busy || recording}>Pular avaliação de fala</Button>
+    {confirmingSkip ? (
+      <div role="group" aria-labelledby="skip-speaking-title" className="rounded-xl border border-border bg-[var(--surface-soft)] p-4">
+        <p id="skip-speaking-title" className="font-semibold">Pular a atividade de fala?</p>
+        <p className="mt-1 text-sm leading-6 text-text-secondary">Sem esta atividade, sua avaliação de fala ficará incompleta.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button onClick={() => setConfirmingSkip(false)} disabled={busy}>Continuar com a fala</Button>
+          <Button variant="secondary" onClick={() => void submit(true)} disabled={busy} loading={busy}>Pular atividade</Button>
+        </div>
+      </div>
+    ) : (
+      <Button variant="secondary" onClick={() => setConfirmingSkip(true)} disabled={busy || recording}>Pular avaliação de fala</Button>
+    )}
     {error && <p role="alert" className="text-sm text-danger">{error}</p>}
   </div>;
 }

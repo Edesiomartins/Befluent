@@ -1,8 +1,34 @@
 import type { CefrLevel, LevelSource, Skill } from "@/lib/levels";
 
+/** Cobertura da coleta por competência (placement-coverage-v3). Não é domínio da língua. */
+export type AssessmentCoverageSkill = {
+  required: number;
+  completed: number;
+  satisfied: boolean;
+  deficit?: number;
+  skipped?: number;
+  reason?: string | null;
+};
+
+export type AssessmentCoverage = {
+  coverage_policy_version?: string;
+  minimum_total?: number;
+  maximum_total?: number;
+  completed_total?: number;
+  completed_activities_total?: number;
+  mandatory_complete?: boolean;
+  mandatory_resolved?: boolean;
+  skills?: Partial<Record<Skill, AssessmentCoverageSkill>>;
+  missing_skills?: Skill[];
+  stop_reason?: string;
+  reused_evidence?: number;
+};
+
 export type PlacementProgress = {
   activities_completed?: number;
   activities_skipped?: number;
+  completed_activities_total?: number;
+  assessment_coverage?: AssessmentCoverage | null;
   by_skill?: Partial<Record<Skill, {
     completed: number;
     status?: string | null;
@@ -65,9 +91,13 @@ export type SkillResult = {
   max_score: number | null;
   status: "assessed" | "calibrating" | "not_assessed" | "not_available" | "estimated" | "provisional" | "insufficient_evidence" | "not_collected" | "unavailable";
   candidate_level?: string | null;
-  confirmation_required?: number | null;
+  confirmation_required?: boolean | number | null;
   confirmation_count?: number | null;
+  /** Legado: TOTAL necessário, não o saldo. Nunca usar como "faltam X". */
   confirmation_needed?: number | null;
+  confirmation_required_total?: number | null;
+  /** Único campo válido para "faltam X atividades". */
+  confirmation_remaining?: number | null;
   candidate_reason?: string | null;
   evidence_counts?: { answered: number; valid: number; excluded: number; by_cefr: Record<string, number> };
   skill_confidence?: { basis: string; label: string; reasons: string[] };
@@ -93,7 +123,11 @@ export type PlacementResult = {
   planning_level_reason?: string | null;
   planning_level_trace?: PlanningLevelTrace | null;
   overall_estimate_status?: "partial" | "sufficient";
-  assessment_coverage?: { missing_skills: Skill[]; stop_reason?: string; reused_evidence?: number };
+  /** coverage-v3: cobertura obrigatória cumprida ou não. Distinto de profile_status. */
+  assessment_status?: "complete" | "incomplete";
+  policy_version?: string;
+  completed_activities_total?: number;
+  assessment_coverage?: AssessmentCoverage | null;
   id: string;
   language_code: string;
   status: string;

@@ -1,7 +1,12 @@
-import { levelShortCode, type Skill } from "@/lib/levels";
-import type { PlacementResult, SkillResult } from "@/types/placement";
+import { SKILL_LABELS, levelShortCode, type Skill } from "@/lib/levels";
+import type {
+  AssessmentCoverage,
+  AssessmentCoverageSkill,
+  PlacementResult,
+  SkillResult,
+} from "@/types/placement";
 
-const SKILL_ORDER: Skill[] = [
+export const SKILL_ORDER: Skill[] = [
   "vocabulary_grammar",
   "reading",
   "listening",
@@ -46,6 +51,15 @@ export const PARTIAL_PROFILE_TITLE = "Perfil de competências";
 export const PARTIAL_PROFILE_LEAD =
   "Ainda não há evidência suficiente para determinar um nível global com segurança.";
 
+/** Cobertura obrigatória cumprida (cinco competências), mas sem global suficiente. */
+export const COVERED_PARTIAL_PROFILE_LEAD =
+  "As cinco competências foram avaliadas, mas ainda não há evidência suficiente para determinar um nível global com segurança.";
+
+export const INCOMPLETE_ASSESSMENT_TITLE = "Avaliação incompleta";
+
+export const INCOMPLETE_ASSESSMENT_LEAD =
+  "Nem todas as competências puderam ser avaliadas nesta sessão. Seu perfil abaixo mostra apenas as evidências realmente coletadas.";
+
 export const PLANNING_LEVEL_NOTE =
   "Esse nível é usado apenas para iniciar seu plano de estudo e será ajustado conforme novas evidências forem coletadas.";
 
@@ -58,6 +72,91 @@ export function isPartialProfile(result: PlacementResult): boolean {
 
 export function hasMeasuredOverall(result: PlacementResult): boolean {
   return Boolean(result.overall_level) && !isPartialProfile(result);
+}
+
+export type ResultMode = "measured" | "incomplete" | "covered_partial" | "partial" | "calibrating" | "other";
+
+/** Decide a tela a partir do backend; nenhuma suficiência é recalculada aqui. */
+export function resultMode(result: PlacementResult): ResultMode {
+  if (hasMeasuredOverall(result)) return "measured";
+  const partial = isPartialProfile(result);
+  if (result.assessment_status === "incomplete") return "incomplete";
+  if (partial && (result.assessment_status === "complete" || result.assessment_coverage?.mandatory_complete)) {
+    return "covered_partial";
+  }
+  if (partial) return "partial";
+  if (result.diagnostic_status === "calibrating") return "calibrating";
+  return "other";
+}
+
+export function partialLead(mode: ResultMode): string {
+  if (mode === "incomplete") return INCOMPLETE_ASSESSMENT_LEAD;
+  if (mode === "covered_partial") return COVERED_PARTIAL_PROFILE_LEAD;
+  return PARTIAL_PROFILE_LEAD;
+}
+
+const COVERAGE_REASON_NOTES: Record<string, string> = {
+  user_skipped: "Esta atividade foi pulada.",
+  microphone_unavailable: "Não foi possível acessar o microfone nesta sessão.",
+  production_unavailable: "Não foi possível realizar esta atividade nesta sessão.",
+  hard_technical_failure: "Uma falha técnica impediu esta atividade nesta sessão.",
+  bank_exhausted: "Não há mais atividades adequadas disponíveis para completar esta competência nesta sessão.",
+  bank_freshness_exhausted: "Não há mais atividades inéditas adequadas para completar esta competência nesta sessão.",
+  maximum_reached: "A sessão atingiu o limite de atividades antes de completar esta competência.",
+};
+
+const SKIP_REASONS = new Set([
+  "user_skipped", "microphone_unavailable", "production_unavailable", "hard_technical_failure",
+]);
+
+/** Motivo devolvido pelo backend em linguagem simples; código desconhecido não vira texto. */
+export function coverageReasonNote(reason: string | null | undefined): string | null {
+  if (!reason) return null;
+  return COVERAGE_REASON_NOTES[reason] ?? null;
+}
+
+/** Motivo da skill: cobertura primeiro, depois as razões da própria skill. */
+export function skillCoverageReason(
+  skill: SkillResult,
+  coverage: AssessmentCoverage | null | undefined,
+): string | null {
+  const entry = coverage?.skills?.[skill.skill];
+  if (entry && !entry.satisfied && entry.reason) return entry.reason;
+  const own = skill.skill_confidence?.reasons?.find((reason) => reason in COVERAGE_REASON_NOTES);
+  return own ?? null;
+}
+
+export function skillWasSkipped(
+  skill: SkillResult,
+  coverage: AssessmentCoverage | null | undefined,
+): boolean {
+  if (skill.status !== "not_collected") return false;
+  const entry = coverage?.skills?.[skill.skill];
+  if (entry?.skipped) return true;
+  const reason = skillCoverageReason(skill, coverage);
+  return reason != null && SKIP_REASONS.has(reason);
+}
+
+/** Garante as cinco competências quando o backend descreve a cobertura delas. */
+export function withAllSkills(
+  skills: SkillResult[],
+  coverage: AssessmentCoverage | null | undefined,
+): SkillResult[] {
+  if (!coverage?.skills) return skills;
+  const present = new Set(skills.map((skill) => skill.skill));
+  const missing = SKILL_ORDER.filter((skill) => skill in (coverage.skills ?? {}) && !present.has(skill));
+  return [
+    ...skills,
+    ...missing.map<SkillResult>((skill) => ({
+      skill,
+      label: SKILL_LABELS[skill],
+      estimated_level: null,
+      level: null,
+      score: null,
+      max_score: null,
+      status: "not_collected",
+    })),
+  ];
 }
 
 export function orderedSkills(skills: SkillResult[]): SkillResult[] {
@@ -82,7 +181,8 @@ export function skillBandTone(skill: SkillResult): SkillBandTone {
   return "other";
 }
 
-export function skillBandLabel(skill: SkillResult): string {
+export function skillBandLabel(skill: SkillResult, skipped = false): string {
+  if (skipped && skill.status === "not_collected") return "Não avaliada";
   if ((skill.status === "estimated" || skill.status === "assessed") && skill.estimated_level) {
     return levelCode(skill.estimated_level);
   }
@@ -98,27 +198,25 @@ export function skillBandLabel(skill: SkillResult): string {
   return STATUS_LABELS[skill.status] || "Faixa ainda não determinada";
 }
 
-function confirmationGap(skill: SkillResult): number | null {
-  if (typeof skill.confirmation_needed === "number") return skill.confirmation_needed;
-  if (typeof skill.confirmation_required === "number" && typeof skill.confirmation_count === "number") {
-    return Math.max(skill.confirmation_required - skill.confirmation_count, 0);
-  }
-  return null;
+/** Saldo vem só de confirmation_remaining. confirmation_needed é TOTAL e não é subtraído aqui. */
+function confirmationRemaining(skill: SkillResult): number | null {
+  const remaining = skill.confirmation_remaining;
+  return typeof remaining === "number" && Number.isFinite(remaining) ? Math.max(remaining, 0) : null;
 }
 
 export function skillConfirmationNote(skill: SkillResult): string | null {
   if (skill.status !== "insufficient_evidence" || !skill.candidate_level) return null;
   const level = levelCode(skill.candidate_level);
-  const needed = confirmationGap(skill);
-  if (needed === 1) {
-    return `Falta mais uma atividade ${level} independente para confirmar esta faixa.`;
+  const remaining = confirmationRemaining(skill);
+  if (remaining === 1) {
+    return `Falta mais 1 atividade ${level} independente para confirmar esta faixa.`;
   }
-  if (needed != null && needed > 1) {
-    return `Faltam mais ${needed} atividades ${level} independentes para confirmar esta faixa.`;
+  if (remaining != null && remaining > 1) {
+    return `Faltam mais ${remaining} atividades ${level} independentes para confirmar esta faixa.`;
   }
   const reason = skill.candidate_reason?.trim();
   if (reason && !/^[a-z0-9_]+$/.test(reason)) return reason;
-  return null;
+  return `Esta faixa ainda precisa de confirmação com atividades ${level} independentes.`;
 }
 
 export function skillProgressLabel(info: {
@@ -135,6 +233,36 @@ export function skillProgressLabel(info: {
 
 function countLabel(count: number, singular: string, plural: string): string {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+const PRODUCTION_SKILLS = new Set<Skill>(["writing", "speaking"]);
+
+/** Cobertura da coleta por competência durante o teste. Não é porcentagem de domínio. */
+export function coverageProgressLabel(skill: Skill, entry: AssessmentCoverageSkill | undefined): string | null {
+  if (!entry) return null;
+  if (PRODUCTION_SKILLS.has(skill) || entry.required <= 1) {
+    if (entry.satisfied) return "Concluída";
+    if (entry.skipped) return "Pulada";
+    return "Pendente";
+  }
+  return `${Math.min(entry.completed, entry.required)} de ${entry.required} atividades coletadas`;
+}
+
+export function coverageSkillsInOrder(
+  coverage: AssessmentCoverage | null | undefined,
+): { skill: Skill; entry: AssessmentCoverageSkill }[] {
+  const skills = coverage?.skills;
+  if (!skills) return [];
+  return SKILL_ORDER.flatMap((skill) => {
+    const entry = skills[skill];
+    return entry ? [{ skill, entry }] : [];
+  });
+}
+
+function listSkills(skills: Skill[]): string {
+  const labels = skills.map((skill) => SKILL_LABELS[skill]);
+  if (labels.length <= 1) return labels.join("");
+  return `${labels.slice(0, -1).join(", ")} e ${labels[labels.length - 1]}`;
 }
 
 export function skillEvidenceLine(skill: SkillResult): string | null {
@@ -193,12 +321,52 @@ export function priorityReasonLabel(reason: string, hasOverall: boolean): string
   return " — precisa de mais evidência";
 }
 
-export function collectionEnding(stopReason: string | null | undefined): string {
+export type CollectionEnding = { title: string; detail: string | null };
+
+/** Encerramento conforme o motivo do backend; esgotamento e skip não são sucesso. */
+export function collectionEnding(
+  stopReason: string | null | undefined,
+  coverage?: AssessmentCoverage | null,
+): CollectionEnding {
+  const unsatisfied = coverageSkillsInOrder(coverage).filter(({ entry }) => !entry.satisfied);
+  const skipped = unsatisfied.filter(({ entry }) => entry.skipped || (entry.reason != null && SKIP_REASONS.has(entry.reason)));
+  const skippedNames = listSkills(skipped.map(({ skill }) => skill));
+
   if (stopReason === "bank_exhausted" || stopReason === "bank_freshness_exhausted") {
-    return "A coleta foi encerrada porque não há mais atividades inéditas adequadas disponíveis. Você receberá um perfil parcial.";
+    const affected = unsatisfied.filter(({ entry }) => !entry.skipped).map(({ skill }) => skill);
+    const parts = [
+      affected.length ? `Não foi possível completar: ${listSkills(affected)}.` : null,
+      skippedNames ? `Não avaliada por escolha sua: ${skippedNames}.` : null,
+      "Seu perfil será parcial.",
+    ].filter(Boolean);
+    return {
+      title: "Não há mais atividades adequadas disponíveis para completar esta competência nesta sessão.",
+      detail: parts.join(" "),
+    };
   }
   if (stopReason === "maximum_reached") {
-    return "A coleta atingiu o limite desta sessão. Vamos apresentar as evidências disponíveis.";
+    return {
+      title: "A avaliação atingiu o limite desta sessão.",
+      detail: skippedNames
+        ? `O perfil abaixo usa as evidências coletadas. Não avaliada: ${skippedNames}.`
+        : "O perfil abaixo usa as evidências coletadas.",
+    };
   }
-  return "Coleta concluída. As evidências previstas foram reunidas.";
+  if (stopReason != null && SKIP_REASONS.has(stopReason)) {
+    return {
+      title: "Coleta encerrada sem avaliar todas as competências.",
+      detail: skippedNames
+        ? `Não avaliada nesta sessão: ${skippedNames}. O perfil abaixo usa as evidências coletadas.`
+        : "Uma competência não foi avaliada nesta sessão. O perfil abaixo usa as evidências coletadas.",
+    };
+  }
+  if (coverage && coverage.mandatory_complete === false && (unsatisfied.length || skippedNames)) {
+    return {
+      title: "Coleta encerrada sem avaliar todas as competências.",
+      detail: skippedNames
+        ? `Não avaliada nesta sessão: ${skippedNames}. O perfil abaixo usa as evidências coletadas.`
+        : `Não foi possível completar: ${listSkills(unsatisfied.map(({ skill }) => skill))}. O perfil abaixo usa as evidências coletadas.`,
+    };
+  }
+  return { title: "Coleta concluída.", detail: "As evidências previstas foram reunidas." };
 }

@@ -54,8 +54,28 @@ it("allows skipping after permission denial without sending a transcript", async
   expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível acessar o microfone");
   expect(apiMock).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "Pular avaliação de fala" }));
+  expect(screen.getByText("Pular a atividade de fala?")).toBeInTheDocument();
+  expect(screen.getByText("Sem esta atividade, sua avaliação de fala ficará incompleta.")).toBeInTheDocument();
+  expect(apiMock).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Pular atividade" }));
   await waitFor(() => expect(apiMock).toHaveBeenCalledOnce());
   expect(apiMock.mock.calls[0][0]).toContain("skip-production");
+  expect(apiMock.mock.calls[0][1].body).toEqual({ item_id: "task", text: "skip", reason: "microphone_unavailable" });
+  expect(screen.queryByText(/A1|PRE_A1|Pré-A1/)).not.toBeInTheDocument();
+});
+
+it("confirms intent before skipping and lets the learner continue with speaking", async () => {
+  const onComplete = vi.fn().mockResolvedValue(undefined);
+  render(<PlacementSpeaking testId="test" itemId="task" onComplete={onComplete} />);
+  fireEvent.click(screen.getByRole("button", { name: "Pular avaliação de fala" }));
+  fireEvent.click(screen.getByRole("button", { name: "Continuar com a fala" }));
+  expect(screen.queryByText("Pular a atividade de fala?")).not.toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Gravar resposta" })).toBeInTheDocument();
+  expect(apiMock).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "Pular avaliação de fala" }));
+  fireEvent.click(screen.getByRole("button", { name: "Pular atividade" }));
+  await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+  expect(apiMock.mock.calls[0][1].body).toEqual({ item_id: "task", text: "skip", reason: "user_skipped" });
 });
 
 it("retries the upload after an error and keeps the recording", async () => {

@@ -195,6 +195,11 @@ class PlacementWritingIn(BaseModel):
     response_time_ms: int | None = Field(default=None, ge=0, le=3_600_000)
 
 
+class PlacementProductionSkipIn(PlacementWritingIn):
+    text: str = Field(default="skip", min_length=1, max_length=4000)
+    reason: Literal["user_skipped", "microphone_unavailable", "production_unavailable", "hard_technical_failure"] = "user_skipped"
+
+
 class LanguageProfileUpdate(BaseModel):
     """Ajustes manuais permitidos no perfil linguístico."""
 
