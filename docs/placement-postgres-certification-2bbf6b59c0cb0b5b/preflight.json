@@ -1,0 +1,11 @@
+{
+  "version": "PostgreSQL 18.6 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+  "database": "befluent_test",
+  "user": "befluent_test",
+  "server_version_num": "180006",
+  "endpoint": "127.0.0.1:55432",
+  "application_database": "sqlite://",
+  "production_access": false,
+  "driver": "psycopg 3.2.13 python implementation with existing OS-allowed libpq 18.3",
+  "date": "2026-10-09"
+}
