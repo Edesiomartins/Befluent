@@ -21,8 +21,8 @@ def _admin(db):
     return db.scalar(select(User).where(User.email == "admin@befluent.local"))
 
 
-def _owner(db, user: User) -> UserLanguage:
-    language = db.scalar(select(Language).where(Language.code == "en"))
+def _owner(db, user: User, language_code: str = "en") -> UserLanguage:
+    language = db.scalar(select(Language).where(Language.code == language_code))
     ul = db.scalar(
         select(UserLanguage).where(
             UserLanguage.user_id == user.id,
@@ -42,7 +42,7 @@ def _owner(db, user: User) -> UserLanguage:
 
 
 def _lesson_with_questions(db, user: User, questions: list[dict]) -> Lesson:
-    ul = _owner(db, user)
+    ul = _owner(db, user, language_code="fr")
     lesson = Lesson(
         user_language_id=ul.id,
         title="Reading retry antirrepetição",
@@ -50,9 +50,15 @@ def _lesson_with_questions(db, user: User, questions: list[dict]) -> Lesson:
         status="active",
         content_json={
             "language_code": "fr",
+            "level": "A1",
+            "native_language": "pt-BR",
             "mode": "reading",
             "band": "beginner",
-            "questions": questions,
+            "questions": [{**question, "learning_objective_id": "reading-bike"} for question in questions[:1]],
+            "activity_pool": [{**question, "learning_objective_id": "reading-bike", "content_unit_id": "test-unit",
+                               "type": "multiple_choice", "skill": "reading", "target_language": "fr",
+                               "native_language": "pt-BR", "cefr_level": "A1", "quality_status": "approved",
+                               "provenance": {"source": "editorial", "reviewer": "test-editor"}} for question in questions[1:]],
             "exercises": [],
         },
     )

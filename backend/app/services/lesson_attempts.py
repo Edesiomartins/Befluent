@@ -13,8 +13,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.errors import APIError
-from app.models import Lesson, LessonActivityAttempt, UserLanguage
-from app.services.answer_feedback import build_answer_feedback
+from app.models import Language, Lesson, LessonActivityAttempt, UserLanguage, User
+from app.services.answer_feedback import build_answer_feedback, option_texts
+from app.services import activity_pool
 from app.services.question_identity import (
     fingerprints_from_snapshots,
     question_fingerprint,
@@ -143,13 +144,12 @@ def _seen_question_fingerprints(
         db.scalars(
             select(LessonActivityAttempt).where(
                 LessonActivityAttempt.lesson_id == lesson_id,
-                LessonActivityAttempt.activity_key == activity_key,
             )
         )
     )
-    return fingerprints_from_snapshots(
-        [attempt.question_snapshot_json for attempt in attempts]
-    )
+    snapshots = [attempt.question_snapshot_json for attempt in attempts]
+    snapshots.extend((attempt.feedback_json or {}).get("retry_activity") for attempt in attempts)
+    return fingerprints_from_snapshots(snapshots)
 
 
 def _build_legacy_retry_activity(
@@ -158,49 +158,66 @@ def _build_legacy_retry_activity(
     activity_key: str,
     current: dict[str, Any],
     seen_fingerprints: frozenset[str] | set[str] | None = None,
+    seen_activities: list[dict] | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
-    """Hierarquia: outro item da lição → banco curado da mesma faixa → continuar.
+    """Only unplanned candidates with the same declared objective can repair it.
 
-    Nunca reapresenta uma questão cujo fingerprint já aparece no histórico
-    desta activity_key. Embaralhar opções não conta como variante.
+    Original lesson questions are reserved for their own slots. Unknown legacy
+    objectives degrade to continue/review, never unrelated CEFR-bank remediation.
     """
-    from app.services import lesson_bank
-
-    surface, kind, _index = parse_activity_key(activity_key)
-    pool_key = "exercises" if kind == "exercise" else "questions"
-    pool = [x for x in (content.get(pool_key) or []) if isinstance(x, dict)]
+    parse_activity_key(activity_key)
+    objective_id = current.get("learning_objective_id")
+    if not objective_id:
+        return None, "fallback_continue"
+    pool = [x for x in (content.get("activity_pool") or []) if isinstance(x, dict)
+            and x.get("learning_objective_id") == objective_id
+            and x.get("target_language") == (content.get("target_language") or content.get("language_code"))
+            and content.get("level") and x.get("cefr_level") == content.get("level")
+            and x.get("native_language") == content.get("native_language")]
+    pool = activity_pool.validate_batch([], pool, batch_size=max(len(pool), 1))["accepted"]
+    planned = [x for key in ("exercises", "questions") for x in (content.get(key) or []) if isinstance(x, dict)]
     seen = set(seen_fingerprints or ())
     current_fp = question_fingerprint(current)
     if current_fp:
         seen.add(current_fp)
 
     def _usable(candidate: dict[str, Any]) -> bool:
-        if not candidate.get("answer") or not candidate.get("options"):
+        if not (candidate.get("answer") or candidate.get("canonical_answer")) or not candidate.get("options"):
             return False
         fingerprint = question_fingerprint(candidate)
-        return bool(fingerprint) and fingerprint not in seen
+        return bool(fingerprint) and fingerprint not in seen and not any(
+            activity_pool.activity_id(candidate) == activity_pool.activity_id(other)
+            or activity_pool.same_stimulus(candidate, other) for other in (seen_activities or []) + planned
+        )
 
     for candidate in pool:
         if _usable(candidate):
             variant = dict(candidate)
+            variant["answer"] = candidate.get("answer") or candidate.get("canonical_answer")
+            variant["options"] = option_texts(candidate)
             variant["post_reveal"] = True
             variant["is_retry_variant"] = True
-            return variant, "lesson_sibling"
-
-    # Banco curado: mesma faixa/nível. Sem faixa explícita ou outra CEFR → não.
-    if kind == "exercise":
-        language_code = str(content.get("language_code") or "")
-        band = str(content.get("band") or content.get("level_band") or "")
-        if language_code in lesson_bank.SUPPORTED_LANGUAGES and band:
-            for candidate in lesson_bank.grammar_exercises(language_code, band):
-                if isinstance(candidate, dict) and _usable(candidate):
-                    variant = dict(candidate)
-                    variant["post_reveal"] = True
-                    variant["is_retry_variant"] = True
-                    return variant, "curated_bank"
-
-    _ = surface
+            return variant, "objective_pool"
     return None, "fallback_continue"
+
+
+def _seen_activities(db: Session, lesson_id: str) -> list[dict]:
+    snapshots = []
+    for attempt in list_attempts_for_lesson(db, lesson_id=lesson_id):
+        snapshots.append(attempt.question_snapshot_json or {})
+        reserved = (attempt.feedback_json or {}).get("retry_activity")
+        if isinstance(reserved, dict):
+            snapshots.append(reserved)
+    return snapshots
+
+
+def _validate_lesson_language(db: Session, lesson: Lesson) -> None:
+    from app.services.language_policy import ensure_stored_content_language
+    owner = db.get(UserLanguage, lesson.user_language_id)
+    language = db.get(Language, owner.language_id)
+    user = db.get(User, owner.user_id)
+    ensure_stored_content_language(lesson.content_json, user.native_language, target_language=language.code,
+                                   stored_title=lesson.title, lesson_status=lesson.status)
 
 
 def prepare_retry(
@@ -213,6 +230,8 @@ def prepare_retry(
 
     Não cria nova tentativa até o aluno enviar resposta (submit com request_retry).
     """
+    lesson = db.scalar(select(Lesson).where(Lesson.id == lesson.id).with_for_update().execution_options(populate_existing=True))
+    _validate_lesson_language(db, lesson)
     latest = latest_attempt(db, lesson_id=lesson.id, activity_key=activity_key)
     if latest is None:
         raise APIError(409, "retry_not_available", "Não há tentativa anterior para retry.")
@@ -222,6 +241,8 @@ def prepare_retry(
             "retry_not_available",
             "Retry não é necessário após acerto nesta atividade.",
         )
+    if (latest.feedback_json or {}).get("retry_activity"):
+        return attempt_to_dict(latest)
     content = dict(lesson.content_json or {})
     current = resolve_question_item(content, activity_key)
     # Preferir snapshot da última tentativa se for variante.
@@ -236,8 +257,12 @@ def prepare_retry(
         activity_key=activity_key,
         current=current,
         seen_fingerprints=seen,
+        seen_activities=_seen_activities(db, lesson.id),
     )
     feedback = dict(latest.feedback_json or {})
+    feedback["selection_trace"] = {"session_id": lesson.id, "learning_objective_id": current.get("learning_objective_id"),
+                                   "reason": "objective_pool" if variant else ("pool_exhausted" if current.get("learning_objective_id") else "legacy_objective_unknown"),
+                                   "fallback_used": variant is None}
     if variant:
         feedback["retry"] = {
             "available": True,
@@ -286,6 +311,8 @@ def submit_objective_answer(
     if not selected:
         raise APIError(422, "empty_answer", "Envie uma resposta.")
 
+    lesson = db.scalar(select(Lesson).where(Lesson.id == lesson.id).with_for_update().execution_options(populate_existing=True))
+    _validate_lesson_language(db, lesson)
     content = dict(lesson.content_json or {})
     latest = latest_attempt(db, lesson_id=lesson.id, activity_key=activity_key)
 
@@ -324,6 +351,14 @@ def submit_objective_answer(
         attempt_number = 1
         retry_of_id = None
         post_reveal = False
+
+    # A variant consumed under another key cannot become a fresh question.
+    consumed = [
+        attempt.question_snapshot_json for attempt in list_attempts_for_lesson(db, lesson_id=lesson.id)
+    ]
+    if any(activity_pool.activity_id(question) == activity_pool.activity_id(snapshot)
+           or activity_pool.same_stimulus(question, snapshot) for snapshot in consumed):
+        raise APIError(409, "activity_already_seen", "Esta questão já foi consumida nesta lição; continue o percurso.")
 
     options = [str(o) for o in (question.get("options") or [])]
     if selected not in options:
@@ -370,6 +405,7 @@ def submit_objective_answer(
             activity_key=activity_key,
             current=question,
             seen_fingerprints=seen,
+            seen_activities=_seen_activities(db, lesson.id) + [question],
         )
         if variant:
             retry_activity_full = variant
@@ -406,6 +442,9 @@ def submit_objective_answer(
         effect = "unresolved"
 
     feedback_store = {
+        "selection_trace": {"session_id": lesson.id, "learning_objective_id": question.get("learning_objective_id"),
+                            "reason": "objective_pool" if retry_activity_full else ("pool_exhausted" if question.get("learning_objective_id") else "legacy_objective_unknown"),
+                            "fallback_used": retry_activity_full is None},
         "answer_feedback": answer_feedback,
         "correct_option": correct_answer,
         "why_selected": answer_feedback.get("why_selected"),
@@ -428,6 +467,7 @@ def submit_objective_answer(
         revealed_correct_answer=revealed,
         feedback_json=feedback_store,
         question_snapshot_json={
+            **{key: question[key] for key in ("activity_id", "learning_objective_id", "content_unit_id") if key in question},
             "prompt": question.get("prompt"),
             "options": options,
             "answer": correct_answer,

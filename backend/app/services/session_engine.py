@@ -67,7 +67,8 @@ def activity_area(activity_type: str) -> str | None:
     return _AREA_BY_TYPE.get(activity_type)
 
 
-def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None) -> dict:
+def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
+                 session_payload: dict | None = None, exposure_history: dict | None = None) -> dict:
     """Seleciona e ordena exercícios. Não completa o alvo com atividade vazia.
 
     `budget` escolhe o tamanho da sessão (dose do dia ou longa). Sem ele, a
@@ -75,6 +76,17 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None)
     comportamento.
     """
     budget = budget or FULL_SESSION_BUDGET
+    from app.services.activity_pool import activity_id, same_stimulus, is_seen, freshness_rank
+    unique = []
+    identities = set()
+    for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], exposure_history or {})):
+        activity = candidate["activity"]
+        identity = activity_id(activity)
+        if is_seen(activity, session_payload or {}) or identity in identities or any(same_stimulus(activity, other["activity"]) for other in unique):
+            continue
+        identities.add(identity)
+        unique.append(candidate)
+    candidates = unique
     selected: list[dict] = []
     counts = {area: 0 for area in AREA_ORDER}
     chosen: dict[str, set[str]] = {}
@@ -82,7 +94,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None)
         candidate
         for _, candidate in sorted(
             enumerate(candidates),
-            key=lambda pair: (pair[1].get("priority", 1), pair[0]),
+            key=lambda pair: (freshness_rank(pair[1]["activity"], exposure_history or {}), pair[1].get("priority", 1), pair[0]),
         )
     ]
     overflow = [candidate for candidate in ranked if candidate.get("overflow")]
@@ -114,6 +126,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None)
     activities = []
     for index, candidate in enumerate(ordered):
         activity = dict(candidate["activity"])
+        activity["activity_id"] = activity_id(activity)
         activity["session_area"] = candidate["area"]
         activity["index"] = index
         activities.append(activity)
@@ -126,6 +139,8 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None)
         "size": budget.key,
         "size_label": budget.label,
         "estimated_minutes": budget.estimated_minutes,
+        "selection_trace": {"candidate_count": len(candidates), "chosen_count": len(activities),
+                            "reason": "freshness_budget_modality", "fallback_used": len(activities) < budget.target_total},
     }
 
 

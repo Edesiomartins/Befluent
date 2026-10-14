@@ -151,7 +151,7 @@ def ensure_en_a1_can_001(db: Session) -> LearningObjective:
         select(LearningObjective).where(
             LearningObjective.language_id == language.id,
             LearningObjective.code == EN_A1_CAN_001["code"],
-        )
+        ).with_for_update().execution_options(populate_existing=True)
     )
     data = EN_A1_CAN_001
     if existing is None:
@@ -185,7 +185,9 @@ def ensure_en_a1_can_001(db: Session) -> LearningObjective:
     existing.target_expressions_json = data["target_expressions"]
     existing.target_patterns_json = data["target_patterns"]
     existing.pronunciation_focus_json = data["pronunciation_focus"]
-    existing.pedagogy_json = data["pedagogy"]
+    existing.pedagogy_json = {**data["pedagogy"], **{
+        key: existing.pedagogy_json[key] for key in ("activity_pool",) if key in (existing.pedagogy_json or {})
+    }}
     existing.mastery_policy_json = data["mastery_policy"]
     existing.is_active = True
     db.flush()
@@ -224,7 +226,7 @@ def ensure_theme_objective(
         select(LearningObjective).where(
             LearningObjective.language_id == language.id,
             LearningObjective.code == code,
-        )
+        ).with_for_update().execution_options(populate_existing=True)
     )
     title = f"{theme} · {level}"
     can_do = (
@@ -260,7 +262,9 @@ def ensure_theme_objective(
     existing.title = title
     existing.can_do = can_do
     existing.skill_focus = "vocabulary"
-    existing.pedagogy_json = {"theme": theme, "source": "curriculum_theme"}
+    existing.pedagogy_json = {"theme": theme, "source": "curriculum_theme", **{
+        key: existing.pedagogy_json[key] for key in ("activity_pool",) if key in (existing.pedagogy_json or {})
+    }}
     existing.is_active = True
     db.flush()
     return existing

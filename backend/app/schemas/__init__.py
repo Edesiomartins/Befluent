@@ -448,6 +448,7 @@ class VocabularyCycleAnswerIn(BaseModel):
 
     activity_index: int = Field(ge=0)
     student_response: str = Field(default="", max_length=4000)
+    remediation_id: str | None = Field(default=None, max_length=100)
 
 
 class SliceRetryIn(BaseModel):

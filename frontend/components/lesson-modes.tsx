@@ -804,6 +804,9 @@ function Vocabulary({
           body: {
             activity_index: cycle.session.flow.activity_cursor,
             student_response: acknowledgement ? "" : response.trim(),
+            ...(cycle.session.remediation
+              ? { remediation_id: cycle.session.remediation.id }
+              : {}),
           },
         },
       );

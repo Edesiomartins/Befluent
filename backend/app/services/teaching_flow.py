@@ -34,6 +34,7 @@ from app.models import (
     VocabularyItem,
 )
 from app.services import activity_generator
+from app.services import activity_pool
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ def lock_flow_for_answer(db: Session, flow_id: str) -> TeachingFlowSession:
     )
     if session is None:
         raise APIError(404, "flow_not_found", "Sessão de ensino não encontrada.")
+    payload = dict(session.payload_json or {})
+    activity_pool.restore_known_exposures(payload)
+    session.payload_json = payload
     return session
 
 
@@ -115,6 +119,29 @@ def start_flow(
         return existing
 
     activities = activity_generator.generate_activities(objective)
+    from app.models import User, UserLanguage
+    owner = db.get(UserLanguage, user_language_id)
+    native = db.get(User, owner.user_id).native_language
+    authored = activity_pool.objective_candidates(db, objective, native_language=native)
+    # Generated legacy content is kept without fabricated quality/provenance.
+    for activity in activities:
+        activity["learning_objective_id"] = objective.id
+        activity["activity_id"] = activity_pool.activity_id(activity)
+    history = activity_pool.exposure_history(db, user_language_id)
+    candidates = activities + authored
+    selected, selection_payload = [], {}
+    from app.services.session_budget import PHASE_RANK, FULL_SESSION_BUDGET
+    while candidates and len(selected) < FULL_SESSION_BUDGET.target_total:
+        choice = activity_pool.select_activity(candidates, objective_id=objective.id, exposure_history=history,
+                                               session_payload=selection_payload, previous=selected[-1] if selected else None)
+        if choice is None:
+            break
+        selected.append(dict(choice))
+        activity_pool.record_exposure(selection_payload, choice)
+        candidates.remove(choice)
+    activities = sorted(selected, key=lambda activity: PHASE_RANK.get(activity.get("phase_hint"), 2))
+    for index, activity in enumerate(activities):
+        activity["index"] = index
     session = TeachingFlowSession(
         user_language_id=user_language_id,
         objective_id=objective_id,
@@ -129,6 +156,9 @@ def start_flow(
         status="active",
     )
     db.add(session)
+    payload = dict(session.payload_json)
+    activity_pool.record_exposure(payload, activities[0] if activities else None)
+    session.payload_json = payload
     db.flush()
     logger.info(
         "teaching_flow_started objective=%s phase=%s",
@@ -234,6 +264,9 @@ def start_vocabulary_flow(
         status="active",
     )
     db.add(session)
+    payload = dict(session.payload_json)
+    activity_pool.record_exposure(payload, activities[0] if activities else None)
+    session.payload_json = payload
     db.flush()
     return session
 
@@ -322,6 +355,15 @@ def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> Teachi
         completed_index = session.activity_cursor
         activity = activities[completed_index]
         session.activity_cursor += 1
+        # A question used as remediation may also occupy a future planned slot.
+        # Consume that slot rather than presenting it a second time.
+        while session.activity_cursor < len(activities) and activity_pool.is_seen(
+            activities[session.activity_cursor], session.payload_json or {}
+        ):
+            session.activity_cursor += 1
+        payload = dict(session.payload_json or {})
+        activity_pool.record_exposure(payload, activities[session.activity_cursor] if session.activity_cursor < len(activities) else None)
+        session.payload_json = payload
         db.flush()
         from app.services.language_progress import ACTIVITY_COMPLETED, record_product_event
 
@@ -449,12 +491,12 @@ def public_activity(session: TeachingFlowSession) -> dict | None:
     if not isinstance(activity, dict):
         return activity
     public = dict(activity)
-    if public.get("vocabulary_item_id") and public.get("type") in {
+    if public.get("quality_status") == "approved" or (public.get("vocabulary_item_id") and public.get("type") in {
         "recognition",
         "reverse_recognition",
         "listening_recognition",
         "lexical_production",
-    }:
+    }):
         for private_key in {
             "accepted_variants",
             "answer",
@@ -467,6 +509,7 @@ def public_activity(session: TeachingFlowSession) -> dict | None:
             "rationale",
             "required_features",
             "required_patterns",
+            "provenance",
         }:
             public.pop(private_key, None)
     return public

@@ -247,6 +247,20 @@ describe("ciclo lexical standalone", () => {
     apiMock.mockReset();
   });
 
+  it("identifica a remediação ao responder um novo item no mesmo cursor", async () => {
+    const current = session({ type: "multiple_choice", index: 2, prompt: "Quem chegou?", options: ["Ada", "Rome"] }, 2);
+    current.flow.phase = "needs_remediation";
+    current.remediation = { id: "rem-1", action: "guided_retry", error_id: "error-1", explanation: "Tente outro contexto." };
+    apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce({ ...current, current_activity: null, status: "closed" });
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Ada" }));
+    fireEvent.click(screen.getByRole("button", { name: "Enviar tentativa" }));
+    await waitFor(() => expect(apiMock).toHaveBeenCalledWith(
+      "/api/v1/lessons/lesson-1/vocabulary-cycle/answer",
+      { method: "POST", body: { activity_index: 2, student_response: "Ada", remediation_id: "rem-1" } },
+    ));
+  });
+
   it("restaura e responde pela rota da lição com o índice atual", async () => {
     const current = session({
       type: "recognition",

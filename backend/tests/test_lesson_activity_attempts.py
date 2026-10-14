@@ -86,6 +86,13 @@ def _lesson_with_grammar(db, user: User) -> Lesson:
         },
     )
     db.add(lesson)
+    lesson.content_json = {**lesson.content_json, "level": "A1", "native_language": "pt-BR", "exercises": [
+        {**question, "learning_objective_id": "question-words"} for question in lesson.content_json["exercises"]
+    ], "activity_pool": [{"learning_objective_id": "question-words", "prompt": "____ does she live?",
+                           "options": ["Where", "What", "Who"], "answer": "Where",
+                           "content_unit_id": "test-unit", "type": "multiple_choice", "skill": "grammar",
+                           "target_language": "en", "native_language": "pt-BR", "cefr_level": "A1",
+                           "quality_status": "approved", "provenance": {"source": "editorial", "reviewer": "test-editor"}}]}
     db.commit()
     db.refresh(lesson)
     return lesson
@@ -246,6 +253,49 @@ def test_retry_creates_new_id(db_session, admin):
     assert old.is_correct is False
 
 
+def test_retry_excludes_correct_question_from_another_key(db_session, admin, monkeypatch):
+    lesson = _lesson_with_grammar(db_session, admin)
+    lesson.content_json = {**lesson.content_json, "activity_pool": []}
+    db_session.flush()
+    owner = db_session.get(UserLanguage, lesson.user_language_id)
+    monkeypatch.setattr("app.services.lesson_bank.grammar_exercises", lambda *_: [])
+    lesson_attempts.submit_objective_answer(
+        db_session, lesson=lesson, owner=owner,
+        activity_key="grammar:exercise:1", selected_answer="Where",
+    )
+    failed = lesson_attempts.submit_objective_answer(
+        db_session, lesson=lesson, owner=owner,
+        activity_key="grammar:exercise:0", selected_answer="Where",
+    )
+    assert failed["retry"]["available"] is False
+
+
+def test_language_invalid_lesson_never_enters_retry_selection(db_session, admin):
+    lesson = _lesson_with_grammar(db_session, admin)
+    owner = db_session.get(UserLanguage, lesson.user_language_id)
+    lesson.status = "language_invalid"
+    db_session.flush()
+    with pytest.raises(APIError) as exc:
+        lesson_attempts.submit_objective_answer(db_session, lesson=lesson, owner=owner,
+                                               activity_key="grammar:exercise:0", selected_answer="Where")
+    assert exc.value.code == "lesson_language_invalid"
+
+
+def test_same_declared_activity_id_cannot_be_answered_under_a_second_key(db_session, admin):
+    lesson = _lesson_with_grammar(db_session, admin)
+    owner = db_session.get(UserLanguage, lesson.user_language_id)
+    lesson.content_json = {**lesson.content_json, "exercises": [
+        {**question, "activity_id": "shared-id"} for question in lesson.content_json["exercises"]
+    ]}
+    db_session.flush()
+    lesson_attempts.submit_objective_answer(db_session, lesson=lesson, owner=owner,
+                                           activity_key="grammar:exercise:0", selected_answer="What")
+    with pytest.raises(APIError) as exc:
+        lesson_attempts.submit_objective_answer(db_session, lesson=lesson, owner=owner,
+                                               activity_key="grammar:exercise:1", selected_answer="Where")
+    assert exc.value.code == "activity_already_seen"
+
+
 def test_retry_without_variant_safe(db_session, admin):
     language = db_session.scalar(select(Language).where(Language.code == "en"))
     ul = db_session.scalar(
@@ -269,7 +319,7 @@ def test_retry_without_variant_safe(db_session, admin):
         objective="x",
         status="active",
         content_json={
-            "language_code": "zz",
+            "language_code": "en",
             "exercises": [
                 {
                     "prompt": "Only one",

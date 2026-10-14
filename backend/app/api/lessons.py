@@ -38,7 +38,7 @@ from app.services.lesson_attempts import (
 from app.services.lesson_envelope import apply_lesson_envelope
 from app.services.progress import aggregate_progress
 from app.services.study_sessions import abandon_session, complete_session
-from app.services import teaching_flow, teaching_slice, vocabulary_learning
+from app.services import teaching_flow, teaching_slice, vocabulary_learning, activity_pool
 
 
 class Create(BaseModel):
@@ -154,15 +154,26 @@ def _start_lesson_vocabulary_cycle(
             return _no_vocabulary_due(lesson_id)
         language = db.get(Language, owner.language_id)
         language_code = language.code if language else "en"
+        from app.services.objective_seed import ensure_theme_objective
+        objective = ensure_theme_objective(
+            db, language_code=language_code,
+            level=verified_current_level(owner) or owner.planning_level or "A1",
+            theme=lesson.title or "Sessão de estudo",
+        )
+        candidates = load_session_candidates(
+            db, user_language_id=owner.id, lesson_items=items,
+            language_code=language_code, level=owner.current_level,
+        )
+        if objective:
+            from app.services.session_engine import _candidate
+            for candidate in activity_pool.objective_candidates(db, objective, native_language=db.get(User, owner.user_id).native_language):
+                wrapped = _candidate(candidate, priority=1)
+                if wrapped["area"]:
+                    candidates.append(wrapped)
         plan = plan_session(
-            load_session_candidates(
-                db,
-                user_language_id=owner.id,
-                lesson_items=items,
-                language_code=language_code,
-                level=owner.current_level,
-            ),
+            candidates,
             budget=budget_for(size),
+            exposure_history=activity_pool.exposure_history(db, owner.id),
         )
         if not plan["activities"]:
             savepoint.rollback()
@@ -173,14 +184,6 @@ def _start_lesson_vocabulary_cycle(
                 for activity in plan["activities"]
                 if activity.get("vocabulary_item_id")
             )
-        )
-        from app.services.objective_seed import ensure_theme_objective
-
-        objective = ensure_theme_objective(
-            db,
-            language_code=language_code,
-            level=verified_current_level(owner) or owner.planning_level or "A1",
-            theme=lesson.title or "Sessão de estudo",
         )
         try:
             session = teaching_flow.start_vocabulary_flow(
@@ -510,12 +513,15 @@ def answer_vocabulary_cycle(
             "vocabulary_cycle_not_found",
             "Ciclo de vocabulário não iniciado para esta lição.",
         )
-    payload = teaching_slice.submit_slice_answer(
-        db,
-        session,
-        activity_index=data.activity_index,
-        student_response=data.student_response,
-    )
+    if data.remediation_id:
+        if data.activity_index != session.activity_cursor:
+            raise APIError(409, "attempt_already_submitted", "Só é possível responder a atividade atual do fluxo.")
+        payload = teaching_slice.retry_slice(db, session, remediation_id=data.remediation_id,
+                                            student_response=data.student_response)
+    else:
+        payload = teaching_slice.submit_slice_answer(
+            db, session, activity_index=data.activity_index, student_response=data.student_response,
+        )
     db.commit()
     return payload
 
