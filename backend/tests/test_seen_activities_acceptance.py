@@ -57,8 +57,9 @@ def test_a_wrong_answer_retry_never_returns_same_activity(db_session):
     flow, _ = _flow(db_session, activities=[item("a")], pool=[item("b", "Who is the visitor?")])
     response = teaching_slice.submit_slice_answer(db_session, flow, student_response="Rome", activity_index=0)
     assert response["attempt"]["result"] == "incorrect"
-    assert response["current_activity"]["activity_id"] == "b"
-    assert response["current_activity"]["activity_id"] != "a"
+    assert response["current_activity"]["activity_id"] == "a"
+    assert response["current_activity"]["prompt"] == item("a")["prompt"]
+    assert activity_pool.family_key(item("a")) in flow.payload_json["retired_families"]
     assert flow.payload_json["selection_trace"]["remediation_reason"] == "incorrect_same_objective"
     assert flow.payload_json["selection_trace"]["fallback_used"] is False
 
@@ -132,13 +133,11 @@ def test_f_insufficient_pool_never_repeats_previous_activity(db_session):
     response = teaching_slice.submit_slice_answer(db_session, flow, student_response="Rome", activity_index=0)
     assert response["attempt"]["result"] == "incorrect"
     retry = flow.payload_json["retry_activity"]
-    assert activity_pool.activity_id(retry) != "a"
-    assert not activity_pool.same_stimulus(retry, item("a"))
-    assert retry.get("prompt") != item("a")["prompt"]
-    assert retry.get("retry_strategy") != "objective_pool"
-    # Variante de padrão tem identidade derivada do conteúdo, nunca o ID de A.
-    assert response["current_activity"].get("activity_id") != "a"
-    assert activity_pool.activity_id(response["current_activity"]) != "a"
+    assert retry["retry_strategy"] == "same_activity"
+    assert retry.get("prompt") == item("a")["prompt"]
+    assert retry.get("canonical_answer") == "Ada"
+    assert activity_pool.family_key(item("a")) in flow.payload_json["retired_families"]
+    assert response["current_activity"].get("activity_id") == "a"
 
 
 def test_f_insufficient_pool_without_patterns_falls_back_to_continue(db_session):
@@ -159,11 +158,12 @@ def test_f_insufficient_pool_without_patterns_falls_back_to_continue(db_session)
     response = teaching_slice.submit_slice_answer(db_session, flow, student_response="Rome", activity_index=0)
     assert response["attempt"]["result"] == "incorrect"
     retry = flow.payload_json["retry_activity"]
-    assert retry["retry_safe"] is False
-    assert retry["retry_strategy"] == "fallback_continue"
-    assert flow.payload_json["selection_trace"]["fallback_used"] is True
-    assert flow.payload_json["selection_trace"]["chosen_activity"] is None
-    assert response["current_activity"].get("prompt") != a["prompt"]
+    assert retry["retry_safe"] is True
+    assert retry["retry_strategy"] == "same_activity"
+    assert retry["prompt"] == a["prompt"]
+    assert flow.payload_json["selection_trace"]["fallback_used"] is False
+    assert flow.payload_json["selection_trace"]["chosen_activity"] == "a"
+    assert response["current_activity"].get("prompt") == a["prompt"]
 
 
 def test_f_legacy_lesson_with_single_candidate_does_not_repeat(db_session, admin):

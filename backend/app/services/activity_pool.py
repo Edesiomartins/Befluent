@@ -33,6 +33,36 @@ def activity_id(activity: dict) -> str:
     ).hexdigest()
 
 
+def family_key(activity: dict) -> str:
+    """Família pedagógica: a palavra, a frase-modelo ou, em último caso, a atividade."""
+    vocabulary_item_id = activity.get("vocabulary_item_id")
+    if vocabulary_item_id:
+        return f"vocab:{vocabulary_item_id}"
+    answer = activity.get("canonical_answer")
+    if answer is None:
+        answer = activity.get("answer")
+    normalized = normalize_question_text(answer) if answer not in (None, "") else ""
+    if normalized:
+        return f"pattern:{normalized}"
+    return f"id:{activity_id(activity)}"
+
+
+def retire_family(payload: dict, activity: dict | None) -> str | None:
+    if not isinstance(activity, dict):
+        return None
+    key = family_key(activity)
+    retired = set(payload.get("retired_families") or [])
+    retired.add(key)
+    payload["retired_families"] = sorted(retired)
+    return key
+
+
+def family_retired(activity: dict, payload: dict | None) -> bool:
+    if not isinstance(activity, dict):
+        return False
+    return family_key(activity) in set((payload or {}).get("retired_families") or [])
+
+
 def same_stimulus(left: dict, right: dict) -> bool:
     if fingerprint(left) == fingerprint(right):
         return True
@@ -60,7 +90,9 @@ def record_exposure(payload: dict, activity: dict | None, *, now: datetime | Non
     # Refresh/resume does not restart cooldown or count a second presentation.
     exposures.setdefault(identity, {
         "at": (now or datetime.now(timezone.utc)).isoformat(),
-        "fingerprint": fingerprint(activity), "activity": dict(activity),
+        "fingerprint": fingerprint(activity),
+        "family_key": family_key(activity),
+        "activity": dict(activity),
     })
     payload["activity_exposures"] = exposures
 
@@ -76,7 +108,12 @@ def restore_known_exposures(payload: dict) -> None:
             activity = activities[index]
             identity = activity_id(activity)
             ids.add(identity)
-            exposures.setdefault(identity, {"at": None, "fingerprint": fingerprint(activity), "activity": dict(activity)})
+            exposures.setdefault(identity, {
+                "at": None,
+                "fingerprint": fingerprint(activity),
+                "family_key": family_key(activity),
+                "activity": dict(activity),
+            })
     payload["seen_activity_ids"] = sorted(ids)
     payload["activity_exposures"] = exposures
 
@@ -93,6 +130,39 @@ def is_seen(activity: dict, payload: dict) -> bool:
         return any(same_stimulus(activity, entry.get("activity") or {}) for entry in exposures.values())
     # Compatibility with pre-ledger flows: only known fingerprints are used.
     return question_fingerprint(activity) in set(payload.get("seen_question_fingerprints") or [])
+
+
+def _history_instant(raw: str) -> datetime:
+    date = datetime.fromisoformat(raw)
+    if date.tzinfo is None:
+        date = date.replace(tzinfo=timezone.utc)
+    return date
+
+
+def recently_exposed(
+    activity: dict,
+    history: dict | None,
+    *,
+    now: datetime | None = None,
+    cooldown_days: int = 7,
+    allow_deferred_family: bool = False,
+) -> bool:
+    """Atividade ou família vista na janela recente fica fora da seleção.
+
+    Família adiada pode voltar numa sessão futura, em outra modalidade: a
+    atividade exata continua bloqueada.
+    """
+    if not history:
+        return False
+    current = now or datetime.now(timezone.utc)
+    if freshness_rank(activity, history, now=current, cooldown_days=cooldown_days) >= 2:
+        return True
+    if allow_deferred_family:
+        return False
+    raw = history.get(family_key(activity))
+    if not raw:
+        return False
+    return _history_instant(raw) > current - timedelta(days=cooldown_days)
 
 
 def freshness_rank(activity: dict, history: dict, *, now: datetime | None = None, cooldown_days: int = 7) -> int:
@@ -116,7 +186,11 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
     excluded = {"seen": 0, "metadata": 0}
     eligible = []
     for position, candidate in enumerate(candidates):
-        if is_seen(candidate, payload):
+        if (
+            is_seen(candidate, payload)
+            or family_retired(candidate, payload)
+            or recently_exposed(candidate, history, now=current, cooldown_days=cooldown_days)
+        ):
             excluded["seen"] += 1
             continue
         if (objective_id and candidate.get("learning_objective_id") != objective_id) or any(
@@ -274,7 +348,11 @@ def exposure_history(db, user_language_id: str, *, exclude_session_id: str | Non
         if session.id == exclude_session_id:
             continue
         for identity, entry in ((session.payload_json or {}).get("activity_exposures") or {}).items():
-            for key in (identity, entry.get("fingerprint")):
-                if key and entry.get("at") and entry["at"] > history.get(key, ""):
+            stored = entry.get("activity") if isinstance(entry, dict) else None
+            family = entry.get("family_key") if isinstance(entry, dict) else None
+            if not family and isinstance(stored, dict):
+                family = family_key(stored)
+            for key in (identity, entry.get("fingerprint") if isinstance(entry, dict) else None, family):
+                if key and isinstance(entry, dict) and entry.get("at") and entry["at"] > history.get(key, ""):
                     history[key] = entry["at"]
     return history

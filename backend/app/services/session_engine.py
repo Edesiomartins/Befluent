@@ -16,7 +16,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.teaching import ActivityType, EvidenceType, MemorySubjectType
-from app.models import LearningEvidence, MemorySchedule, VocabularyExample, VocabularyItem
+from app.models import (
+    LearningAttempt,
+    LearningEvidence,
+    MemorySchedule,
+    TeachingFlowSession,
+    VocabularyExample,
+    VocabularyItem,
+)
 from app.services.activity_generator import generate_vocabulary_activities
 from app.services.lexical_policy import next_review_modality
 from app.services.session_budget import (
@@ -68,7 +75,8 @@ def activity_area(activity_type: str) -> str | None:
 
 
 def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
-                 session_payload: dict | None = None, exposure_history: dict | None = None) -> dict:
+                 session_payload: dict | None = None, exposure_history: dict | None = None,
+                 deferred_item_ids: set[str] | None = None) -> dict:
     """Seleciona e ordena exercícios. Não completa o alvo com atividade vazia.
 
     `budget` escolhe o tamanho da sessão (dose do dia ou longa). Sem ele, a
@@ -76,13 +84,29 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     comportamento.
     """
     budget = budget or FULL_SESSION_BUDGET
-    from app.services.activity_pool import activity_id, same_stimulus, is_seen, freshness_rank
+    from app.services.activity_pool import (
+        activity_id,
+        family_retired,
+        freshness_rank,
+        is_seen,
+        recently_exposed,
+        same_stimulus,
+    )
+    deferred_ids = {str(item_id) for item_id in (deferred_item_ids or set())}
+    history = exposure_history or {}
     unique = []
     identities = set()
-    for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], exposure_history or {})):
+    for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], history)):
         activity = candidate["activity"]
         identity = activity_id(activity)
-        if is_seen(activity, session_payload or {}) or identity in identities or any(same_stimulus(activity, other["activity"]) for other in unique):
+        allow_family = bool(candidate.get("deferred")) or str(candidate.get("item_key") or "") in deferred_ids
+        if (
+            is_seen(activity, session_payload or {})
+            or family_retired(activity, session_payload)
+            or recently_exposed(activity, history, allow_deferred_family=allow_family)
+            or identity in identities
+            or any(same_stimulus(activity, other["activity"]) for other in unique)
+        ):
             continue
         identities.add(identity)
         unique.append(candidate)
@@ -94,7 +118,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         candidate
         for _, candidate in sorted(
             enumerate(candidates),
-            key=lambda pair: (freshness_rank(pair[1]["activity"], exposure_history or {}), pair[1].get("priority", 1), pair[0]),
+            key=lambda pair: (freshness_rank(pair[1]["activity"], history), pair[1].get("priority", 1), pair[0]),
         )
     ]
     overflow = [candidate for candidate in ranked if candidate.get("overflow")]
@@ -260,12 +284,15 @@ def modalities_for_item(
         )
     )
     if EvidenceType.EXPOSURE not in evaluated_types and not required_seen:
-        opening = [item for item in _OPENING_MODALITIES if item in available_types]
-        return opening
+        return [
+            item
+            for item in _OPENING_MODALITIES
+            if item in available_types and item != last_incorrect_type
+        ]
     nxt = next_review_modality(required_seen, last_incorrect_type)
-    if nxt in available_types:
-        return [nxt]
-    return []
+    if nxt == last_incorrect_type or nxt not in available_types:
+        return []
+    return [nxt]
 
 
 def lexical_candidates_for_items(
@@ -437,6 +464,60 @@ def area_summary(activities: list[dict], cursor: int) -> list[dict]:
     ]
 
 
+def load_deferred_vocabulary_items(db: Session, user_language_id: str) -> list[dict]:
+    """Palavras erradas que devem voltar numa sessão futura, não nesta."""
+    merged: dict[str, dict] = {}
+    sessions = db.scalars(
+        select(TeachingFlowSession).where(
+            TeachingFlowSession.user_language_id == user_language_id
+        )
+    )
+    for session in sessions:
+        for entry in (session.payload_json or {}).get("deferred_vocabulary_items") or []:
+            if isinstance(entry, dict) and entry.get("vocabulary_item_id"):
+                merged[str(entry["vocabulary_item_id"])] = entry
+    schedules = db.scalars(
+        select(MemorySchedule).where(
+            MemorySchedule.user_language_id == user_language_id,
+            MemorySchedule.subject_type == MemorySubjectType.VOCABULARY,
+        )
+    )
+    for schedule in schedules:
+        for entry in (schedule.payload_json or {}).get("deferred_vocabulary_items") or []:
+            if isinstance(entry, dict) and entry.get("vocabulary_item_id"):
+                merged[str(entry["vocabulary_item_id"])] = entry
+    return list(merged.values())
+
+
+def last_incorrect_activity_types(
+    db: Session, user_language_id: str, item_ids: list[str]
+) -> dict[str, str]:
+    if not item_ids:
+        return {}
+    rows = db.execute(
+        select(
+            LearningAttempt.vocabulary_item_id,
+            LearningAttempt.activity_type,
+            LearningAttempt.evaluated_at,
+            LearningAttempt.id,
+        ).where(
+            LearningAttempt.user_language_id == user_language_id,
+            LearningAttempt.vocabulary_item_id.in_(item_ids),
+            LearningAttempt.result == "incorrect",
+            LearningAttempt.evaluated_at.is_not(None),
+        )
+    ).all()
+    best: dict[str, tuple] = {}
+    for item_id, activity_type, evaluated_at, attempt_id in rows:
+        if not item_id or evaluated_at is None:
+            continue
+        stamp = (_aware(evaluated_at), attempt_id)
+        previous = best.get(item_id)
+        if previous is None or stamp > previous[0]:
+            best[item_id] = (stamp, str(activity_type))
+    return {item_id: activity_type for item_id, (_, activity_type) in best.items()}
+
+
 def load_session_candidates(
     db: Session,
     *,
@@ -444,9 +525,17 @@ def load_session_candidates(
     lesson_items: list[VocabularyItem],
     language_code: str,
     level: str | None,
+    deferred_items: list[dict] | None = None,
 ) -> list[dict]:
     lesson_ids = {item.id for item in lesson_items}
     now = datetime.now(timezone.utc)
+    if deferred_items is None:
+        deferred_items = load_deferred_vocabulary_items(db, user_language_id)
+    deferred_ids = [
+        str(entry["vocabulary_item_id"])
+        for entry in deferred_items
+        if isinstance(entry, dict) and entry.get("vocabulary_item_id")
+    ]
     due_ids = list(
         db.scalars(
             select(MemorySchedule.subject_key)
@@ -463,6 +552,9 @@ def load_session_candidates(
         )
     )
     extra_ids = [item_id for item_id in due_ids if item_id not in lesson_ids]
+    extra_ids.extend(
+        item_id for item_id in deferred_ids if item_id not in lesson_ids and item_id not in extra_ids
+    )
     extra_items = []
     if extra_ids:
         extra_items = list(
@@ -503,14 +595,20 @@ def load_session_candidates(
         ):
             if item_id:
                 evaluated.setdefault(item_id, set()).add(evidence_type)
+    incorrect_by_item = last_incorrect_activity_types(db, user_language_id, item_ids)
     lexical = lexical_candidates_for_items(
         items,
         examples_by_item=examples_by_item,
         memory_by_item=memory_by_item,
         evaluated_by_item=evaluated,
         lesson_item_ids=lesson_ids,
+        last_incorrect_by_item=incorrect_by_item,
         now=now,
     )
+    deferred_id_set = set(deferred_ids)
+    for candidate in lexical:
+        if str(candidate.get("item_key") or "") in deferred_id_set:
+            candidate["deferred"] = True
     if not lexical:
         return []
     return lexical + supporting_candidates(language_code=language_code, level=level)

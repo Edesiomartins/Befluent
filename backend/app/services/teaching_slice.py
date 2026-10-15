@@ -20,6 +20,7 @@ from app.core.teaching import (
     FlowPhase,
     MAX_REMEDIATION_CYCLES,
     RemediationAction,
+    is_valid_flow_transition,
 )
 from app.models import LearningAttempt, LearningObjective, TeachingFlowSession
 from app.services import (
@@ -69,55 +70,35 @@ def _set_retry_activity(
     exposure_history: dict | None = None,
     session_id: str | None = None,
 ) -> dict[str, Any]:
+    """No erro, a próxima tela é a mesma atividade. A família sai da fila."""
+    del candidates, exposure_history
     seen = _record_seen_question(payload, activity)
-    # Também registrar a variante atual (se já era um retry).
     current_retry = payload.get("retry_activity")
     if isinstance(current_retry, dict):
         seen = _record_seen_question(payload, current_retry)
     activity_pool.record_exposure(payload, activity)
     if isinstance(current_retry, dict):
         activity_pool.record_exposure(payload, current_retry)
-    trace = {}
-    choice = activity_pool.select_activity(
-        candidates or [], objective_id=objective_id, session_payload=payload,
-        previous=activity, exposure_history=exposure_history, trace=trace,
-    )
-    variant = ({**choice, "post_reveal": True, "is_retry_variant": True, "retry_safe": True,
-                "retry_strategy": "objective_pool"} if choice else build_retry_variant(
-        activity, patterns, seen_fingerprints=seen
-    ))
-    # Pattern variants used to inherit the original activity_id through **activity.
-    # Content-derived identity is required for a genuinely new generated variant.
-    if not choice and variant.get("retry_safe") is not False:
-        variant.pop("activity_id", None)
-        variant.pop("id", None)
-        if activity_pool.is_seen(variant, payload):
-            variant = build_retry_variant(activity, [], seen_fingerprints=seen)
-    trace["remediation_reason"] = "incorrect_same_objective"
-    trace["session_id"] = session_id
-    trace["learning_objective_id"] = objective_id
-    trace["chosen_activity"] = activity_pool.activity_id(variant) if variant.get("retry_safe") is not False else None
-    trace["fallback_used"] = variant.get("retry_safe") is False
+    family = activity_pool.retire_family(payload, activity)
+    variant = build_retry_variant(activity, patterns, seen_fingerprints=seen)
+    trace = {
+        "candidate_count": 0,
+        "exclusions": {"seen": 0, "metadata": 0},
+        "seen_count": len(payload.get("seen_activity_ids") or []),
+        "chosen_activity": activity_pool.activity_id(variant),
+        "reason": "same_activity_retry",
+        "fallback_used": False,
+        "remediation_reason": "incorrect_same_objective",
+        "session_id": session_id,
+        "learning_objective_id": objective_id,
+        "family_key": family,
+    }
     payload["selection_trace"] = trace
     logger.debug("activity_selection trace=%s", trace)
     payload["retry_activity"] = variant
-    if variant.get("retry_safe") is not False:
-        _record_seen_question(payload, variant)
-        activity_pool.record_exposure(payload, variant)
+    _record_seen_question(payload, variant)
+    activity_pool.record_exposure(payload, variant)
     return variant
-
-
-def _retry_candidates(db: Session, session: TeachingFlowSession, objective: LearningObjective | None) -> list[dict]:
-    if objective is None:
-        return []
-    from app.models import User, UserLanguage
-    owner = db.get(UserLanguage, session.user_language_id)
-    native = db.get(User, owner.user_id).native_language
-    pool = activity_pool.objective_candidates(db, objective, native_language=native)
-    # Preserve the current evaluator contract: free AI production is not a
-    # deterministic remediation candidate.
-    return [item for item in pool if not item.get("ai_required")
-            and item.get("type") in {"multiple_choice", "fill_gap", "word_order"}]
 
 #: Fases da atividade → fase do flow (quando a resposta é correta).
 _SUCCESS_PHASE: dict[str, str] = {
@@ -425,16 +406,11 @@ def submit_slice_answer(
             else ErrorSeverity.MODERATE,
             language_feature=_feature_key(activity),
         )
-        retry_candidates = _retry_candidates(db, session, objective)
-        if activity.get("learning_objective_id") != session.objective_id:
-            retry_candidates = []
         if is_lexical_activity:
-            retry_candidates = [candidate for candidate in retry_candidates
-                                if candidate.get("vocabulary_item_id") == activity.get("vocabulary_item_id")]
-        eligible_retry = activity_pool.select_activity(retry_candidates, objective_id=session.objective_id,
-                                                      session_payload=session.payload_json or {}, previous=activity)
-        if (is_lexical_activity or (session.payload_json or {}).get("session_engine_v2")) and eligible_retry is None:
+            # A palavra não é reapresentada nesta sessão. A família sai da fila
+            # e volta numa sessão futura, em outra modalidade.
             payload = dict(session.payload_json or {})
+            activity_pool.retire_family(payload, activity)
             if activity.get("vocabulary_item_id"):
                 deferred = list(payload.get("deferred_vocabulary_items") or [])
                 deferred.append(
@@ -457,6 +433,8 @@ def submit_slice_answer(
                 escalate=True,
                 reason="Vertical slice — remediação escalonada sem IA.",
             )
+            if not is_valid_flow_transition(session.phase, FlowPhase.NEEDS_REMEDIATION):
+                _step_toward(db, session, FlowPhase.PRACTICING)
             teaching_flow.transition(
                 db, session, target_phase=FlowPhase.NEEDS_REMEDIATION, reason="incorrect_attempt"
             )
@@ -477,10 +455,11 @@ def submit_slice_answer(
             payload = dict(session.payload_json or {})
             payload["pending_remediation"] = remediation_payload
             payload["last_answer_feedback"] = answer_feedback
-            _set_retry_activity(payload, activity, patterns, candidates=retry_candidates,
-                                objective_id=session.objective_id,
-                                session_id=session.id,
-                                exposure_history=activity_pool.exposure_history(db, session.user_language_id, exclude_session_id=session.id))
+            _set_retry_activity(
+                payload, activity, patterns,
+                objective_id=session.objective_id,
+                session_id=session.id,
+            )
             session.payload_json = payload
             db.flush()
     else:
@@ -695,10 +674,11 @@ def retry_slice(
         payload = dict(session.payload_json or {})
         payload["pending_remediation"] = remediation_payload
         payload["last_answer_feedback"] = answer_feedback
-        _set_retry_activity(payload, activity, patterns, candidates=_retry_candidates(db, session, objective),
-                            objective_id=session.objective_id,
-                            session_id=session.id,
-                            exposure_history=activity_pool.exposure_history(db, session.user_language_id, exclude_session_id=session.id))
+        _set_retry_activity(
+            payload, activity, patterns,
+            objective_id=session.objective_id,
+            session_id=session.id,
+        )
         session.payload_json = payload
         db.flush()
 

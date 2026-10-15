@@ -408,18 +408,19 @@ def test_legacy_snapshots_intact_and_new_attempt_ids(db_session):
     assert second["attempt_number"] == 2
 
 
-def test_te_retry_never_same_prompt_answer_combo():
+def test_te_retry_keeps_same_prompt_and_answer():
     activity = {
         "type": "multiple_choice",
         "prompt": "Pick the correct form",
         "options": ["I live in Goiânia.", "I am a student."],
         "canonical_answer": "I live in Goiânia.",
     }
-    # Um só pattern → não pode devolver a mesma MCQ embaralhada.
     variant = build_retry_variant(activity, patterns=[{"canonical": "I live in Goiânia."}])
-    assert variant["retry_strategy"] == "fallback_continue"
-    assert variant["retry_safe"] is False
-    assert not is_same_question(variant, activity)
+    assert variant["retry_strategy"] == "same_activity"
+    assert variant["retry_safe"] is True
+    assert variant["prompt"] == activity["prompt"]
+    assert variant["canonical_answer"] == activity["canonical_answer"]
+    assert is_same_question(variant, activity)
 
 
 def test_te_recontextualized_must_change_or_fallback():
@@ -434,7 +435,9 @@ def test_te_recontextualized_must_change_or_fallback():
         patterns=[{"canonical": "A"}],
         seen_fingerprints={question_fingerprint(activity)},
     )
-    assert variant["retry_strategy"] == "fallback_continue"
+    assert variant["retry_strategy"] == "same_activity"
+    assert variant["prompt"] == activity["prompt"]
+    assert variant["canonical_answer"] == "A"
 
 
 def test_te_multi_retry_no_cycle(db_session):
@@ -479,10 +482,10 @@ def test_te_multi_retry_no_cycle(db_session):
         if retry_act.get("retry_safe") is False:
             assert retry_act.get("retry_strategy") == "fallback_continue"
             break
-        fp = question_fingerprint(retry_act)
-        content = fp  # já inclui conteúdo; garantir unicidade
-        assert content not in seen
-        seen.add(content)
+        assert question_fingerprint(retry_act) == question_fingerprint(activity)
+        assert retry_act.get("canonical_answer") == activity.get("canonical_answer")
+        assert retry_act.get("prompt") == activity.get("prompt")
+        seen.add(question_fingerprint(retry_act))
         texts = [
             o["text"] if isinstance(o, dict) else o
             for o in (retry_act.get("options") or [])

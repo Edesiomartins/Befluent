@@ -113,6 +113,23 @@ def _answer_everything(client, auth, db, lesson_id: str, *, mode: str) -> None:
         if response.status_code != 200:
             break
         session = response.json()
+        remediation = session.get("remediation") or {}
+        if remediation.get("id"):
+            # "Tentar novamente" repete a mesma atividade; o acerto libera a fila.
+            repaired = client.post(
+                f"/api/v1/lessons/{lesson_id}/vocabulary-cycle/answer",
+                headers=auth,
+                json={
+                    "activity_index": session["flow"]["activity_cursor"],
+                    "student_response": _canonical_answer(
+                        db, lesson_id, session["flow"]["activity_cursor"]
+                    ),
+                    "remediation_id": remediation["id"],
+                },
+            )
+            if repaired.status_code != 200:
+                break
+            session = repaired.json()
 
 
 def test_resposta_produtiva_deixa_entrada_no_boletim(client, auth, db_session):

@@ -55,7 +55,7 @@ def test_unseen_precedes_old_then_recent():
     history = {"a": now.isoformat(), "b": (now - timedelta(days=20)).isoformat()}
     assert choose([a, b, c], exposure_history=history, now=now) == c
     assert choose([a, b], exposure_history=history, now=now) == b
-    assert choose([a], exposure_history=history, now=now) == a
+    assert choose([a], exposure_history=history, now=now) is None
 
 
 def test_resume_exclusions_survive_json_roundtrip():
@@ -125,7 +125,7 @@ def test_incremental_persistence_and_rollback(db_session):
     assert len(db_session.get(LearningObjective, objective.id).pedagogy_json["activity_pool"]) == 1
 
 
-def test_teaching_retry_tracks_correct_seen_and_uses_objective_pool(db_session):
+def test_teaching_retry_repeats_same_activity_and_retires_family(db_session):
     from sqlalchemy import select
     from app.models import Language, User, UserLanguage, TeachingFlowSession, LearningAttempt
     from app.services import teaching_flow, teaching_slice
@@ -146,15 +146,18 @@ def test_teaching_retry_tracks_correct_seen_and_uses_objective_pool(db_session):
     db_session.add(flow)
     db_session.commit()
     response = teaching_slice.submit_slice_answer(db_session, flow, student_response="Rome", activity_index=0)
-    assert response["current_activity"]["activity_id"] == "b"
-    assert flow.payload_json["seen_activity_ids"] == ["a", "b"]
+    assert response["current_activity"]["activity_id"] == "a"
+    assert response["current_activity"]["prompt"] == a["prompt"]
+    assert flow.payload_json["seen_activity_ids"] == ["a"]
+    assert activity_pool.family_key(a) in flow.payload_json["retired_families"]
+    assert "b" not in flow.payload_json["seen_activity_ids"]
     db_session.commit()
     db_session.expire_all()
     restored = teaching_slice.restore_session_payload(db_session, db_session.get(TeachingFlowSession, flow.id), objective=objective)
-    assert restored["current_activity"]["activity_id"] == "b"
+    assert restored["current_activity"]["activity_id"] == "a"
     retried = teaching_slice.retry_slice(db_session, flow, remediation_id=response["remediation"]["id"], student_response="Ada")
     assert retried["attempt"]["result"] == "correct"
-    assert db_session.get(LearningAttempt, retried["attempt"]["id"]).activity_type == "fill_gap"
+    assert db_session.get(LearningAttempt, retried["attempt"]["id"]).activity_type == "multiple_choice"
     assert flow.activity_cursor == 1
 
 
@@ -286,7 +289,7 @@ def test_standalone_cycle_can_submit_pool_retry_without_replaying_original(db_se
     path = f"/api/v1/lessons/{lesson.id}/vocabulary-cycle/answer"
     first = client.post(path, headers=auth, json={"activity_index": 0, "student_response": "Rome"})
     assert first.status_code == 200
-    assert first.json()["current_activity"]["activity_id"] == "b"
+    assert first.json()["current_activity"]["activity_id"] == "a"
     assert "canonical_answer" not in first.json()["current_activity"]
     stale = client.post(path, headers=auth, json={"activity_index": 0, "student_response": "Rome"})
     assert stale.status_code == 409

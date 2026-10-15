@@ -101,7 +101,10 @@ def test_retry_variant_is_marked_post_reveal():
     variant = build_retry_variant(activity, patterns)
     assert variant["post_reveal"] is True
     assert variant["is_retry_variant"] is True
-    assert variant["canonical_answer"] == "I'm from Brazil."
+    assert variant["retry_strategy"] == "same_activity"
+    assert variant["canonical_answer"] == "I live in Goiânia."
+    assert variant["options"] != activity["options"]
+    assert sorted(variant["options"]) == sorted(activity["options"])
 
 
 def test_mcq_second_submit_rejected(db_session):

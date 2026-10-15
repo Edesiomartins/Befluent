@@ -200,15 +200,30 @@ def update_vocabulary_memory(
         subject_type=MemorySubjectType.VOCABULARY,
         subject_key=item.id,
     )
-    previous_summary = (schedule.payload_json or {}).get("evidence_summary", {})
+    previous_payload = schedule.payload_json or {}
+    previous_summary = previous_payload.get("evidence_summary", {})
     processed_lapses = list(previous_summary.get("processed_lapse_attempt_ids") or [])
     epoch = previous_summary.get("epoch")
+    deferred = [
+        entry
+        for entry in (previous_payload.get("deferred_vocabulary_items") or [])
+        if isinstance(entry, dict)
+    ]
     if (
         current_attempt is not None
         and current_attempt.result == AttemptResult.INCORRECT
         and current_attempt.id in processed_lapses
     ):
         return schedule
+    if (
+        current_attempt is not None
+        and current_attempt.result == AttemptResult.CORRECT
+    ):
+        deferred = [
+            entry
+            for entry in deferred
+            if entry.get("vocabulary_item_id") != item.id
+        ]
     if (
         current_attempt is not None
         and current_attempt.result == AttemptResult.INCORRECT
@@ -221,8 +236,19 @@ def update_vocabulary_memory(
         }
         schedule.lapse_count += 1
         schedule.interval_days = 1
-        schedule.due_at = _now()
+        # Não puxa due_at para agora: a palavra sai desta sessão e volta
+        # depois, registrada em deferred_vocabulary_items.
         schedule.strength = max(0.0, schedule.strength - 0.2)
+        deferred = [
+            entry for entry in deferred if entry.get("attempt_id") != current_attempt.id
+        ]
+        deferred.append(
+            {
+                "vocabulary_item_id": item.id,
+                "activity_type": current_attempt.activity_type,
+                "attempt_id": current_attempt.id,
+            }
+        )
 
     evidences = list(
         db.scalars(
@@ -249,6 +275,7 @@ def update_vocabulary_memory(
         "vocabulary_item_id": item.id,
         "term": item.term,
         "translation_pt": item.translation_pt,
+        "deferred_vocabulary_items": deferred,
         "evidence_summary": {
             "counts": counts,
             "evaluated_types": evaluated_types,

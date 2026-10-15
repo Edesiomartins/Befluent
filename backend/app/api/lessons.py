@@ -140,7 +140,11 @@ def _start_lesson_vocabulary_cycle(
         record_product_event,
     )
     from app.services.session_budget import budget_for
-    from app.services.session_engine import load_session_candidates, plan_session
+    from app.services.session_engine import (
+        load_deferred_vocabulary_items,
+        load_session_candidates,
+        plan_session,
+    )
 
     savepoint = db.begin_nested()
     try:
@@ -160,9 +164,11 @@ def _start_lesson_vocabulary_cycle(
             level=verified_current_level(owner) or owner.planning_level or "A1",
             theme=lesson.title or "Sessão de estudo",
         )
+        deferred_items = load_deferred_vocabulary_items(db, owner.id)
         candidates = load_session_candidates(
             db, user_language_id=owner.id, lesson_items=items,
             language_code=language_code, level=owner.current_level,
+            deferred_items=deferred_items,
         )
         if objective:
             from app.services.session_engine import _candidate
@@ -174,6 +180,11 @@ def _start_lesson_vocabulary_cycle(
             candidates,
             budget=budget_for(size),
             exposure_history=activity_pool.exposure_history(db, owner.id),
+            deferred_item_ids={
+                str(entry["vocabulary_item_id"])
+                for entry in deferred_items
+                if isinstance(entry, dict) and entry.get("vocabulary_item_id")
+            },
         )
         if not plan["activities"]:
             savepoint.rollback()

@@ -349,6 +349,14 @@ def transition(
     return session
 
 
+def _slot_consumed(activity: dict, payload: dict) -> bool:
+    if not isinstance(activity, dict):
+        return False
+    if activity_pool.is_seen(activity, payload):
+        return True
+    return activity_pool.family_retired(activity, payload)
+
+
 def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> TeachingFlowSession:
     activities = (session.payload_json or {}).get("activities") or []
     if session.activity_cursor < len(activities):
@@ -357,7 +365,7 @@ def advance_activity_cursor(db: Session, session: TeachingFlowSession) -> Teachi
         session.activity_cursor += 1
         # A question used as remediation may also occupy a future planned slot.
         # Consume that slot rather than presenting it a second time.
-        while session.activity_cursor < len(activities) and activity_pool.is_seen(
+        while session.activity_cursor < len(activities) and _slot_consumed(
             activities[session.activity_cursor], session.payload_json or {}
         ):
             session.activity_cursor += 1
