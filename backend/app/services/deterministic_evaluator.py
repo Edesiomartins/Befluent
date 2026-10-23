@@ -147,9 +147,8 @@ def evaluate_response(
 
     if activity_type == "word_order":
         tokens = activity.get("tokens") or []
-        student_tokens = re.findall(r"[A-Za-z']+", student_response)
-        expected = [normalize_text(t) for t in tokens]
-        got = [normalize_text(t) for t in student_tokens]
+        expected = [normalize_text(str(token)) for token in tokens]
+        got = normalize_text(student_response).split()
         exact = got == expected
         variants = _variant_set(canonical, accepted)
         in_variants = normalized in variants if variants else exact

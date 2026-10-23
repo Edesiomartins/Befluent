@@ -60,6 +60,23 @@ def _record_seen_question(
     return seen
 
 
+def _objective_pool(db: Session, session) -> list[dict]:
+    from app.core.errors import APIError
+    from app.models import LearningObjective, User, UserLanguage
+    if not session.objective_id:
+        return []
+    objective = db.get(LearningObjective, session.objective_id)
+    owner = db.get(UserLanguage, session.user_language_id)
+    user = db.get(User, owner.user_id) if owner is not None else None
+    native = getattr(user, "native_language", None)
+    if objective is None or not native:
+        return []
+    try:
+        return activity_pool.objective_candidates(db, objective, native_language=native)
+    except (ValueError, APIError):
+        return []
+
+
 def _set_retry_activity(
     payload: dict[str, Any],
     activity: dict[str, Any],
@@ -70,8 +87,7 @@ def _set_retry_activity(
     exposure_history: dict | None = None,
     session_id: str | None = None,
 ) -> dict[str, Any]:
-    """No erro, a próxima tela é a mesma atividade. A família sai da fila."""
-    del candidates, exposure_history
+    """No erro, repete a mesma atividade, ou outra interação segura do mesmo objetivo."""
     seen = _record_seen_question(payload, activity)
     current_retry = payload.get("retry_activity")
     if isinstance(current_retry, dict):
@@ -80,13 +96,25 @@ def _set_retry_activity(
     if isinstance(current_retry, dict):
         activity_pool.record_exposure(payload, current_retry)
     family = activity_pool.retire_family(payload, activity)
-    variant = build_retry_variant(activity, patterns, seen_fingerprints=seen)
+    alternate = activity_pool.choose_interaction_retry(
+        activity, candidates or [], payload, objective_id=objective_id,
+    )
+    if alternate is not None:
+        variant = dict(alternate)
+        variant["is_retry_variant"] = True
+        variant["retry_safe"] = True
+        variant["retry_strategy"] = "interaction_change"
+        variant["post_reveal"] = False
+        reason = "interaction_change_retry"
+    else:
+        variant = build_retry_variant(activity, patterns, seen_fingerprints=seen)
+        reason = "same_activity_retry"
     trace = {
-        "candidate_count": 0,
+        "candidate_count": len(candidates or []),
         "exclusions": {"seen": 0, "metadata": 0},
         "seen_count": len(payload.get("seen_activity_ids") or []),
         "chosen_activity": activity_pool.activity_id(variant),
-        "reason": "same_activity_retry",
+        "reason": reason,
         "fallback_used": False,
         "remediation_reason": "incorrect_same_objective",
         "session_id": session_id,
@@ -457,6 +485,7 @@ def submit_slice_answer(
             payload["last_answer_feedback"] = answer_feedback
             _set_retry_activity(
                 payload, activity, patterns,
+                candidates=_objective_pool(db, session),
                 objective_id=session.objective_id,
                 session_id=session.id,
             )
@@ -676,6 +705,7 @@ def retry_slice(
         payload["last_answer_feedback"] = answer_feedback
         _set_retry_activity(
             payload, activity, patterns,
+            candidates=_objective_pool(db, session),
             objective_id=session.objective_id,
             session_id=session.id,
         )
