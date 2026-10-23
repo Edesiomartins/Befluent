@@ -440,7 +440,9 @@ def _writing(context: LearnerContext, band: str, level: str) -> dict:
 
 def _conversation(context: LearnerContext, band: str, level: str) -> dict:
     """Produção falada sobre o léxico e as estruturas já vistos no dia."""
-    situation = lesson_bank.conversation_situation(context.language_code, band)
+    situation = lesson_bank.conversation_situation(
+        context.language_code, band, native_language=context.native_language
+    )
     working = _target_items(context, band, count=4)
     openers = _phrases(working) or _phrases(
         _rotate(lesson_bank.vocabulary(context.language_code, band), context)
@@ -448,8 +450,13 @@ def _conversation(context: LearnerContext, band: str, level: str) -> dict:
     opener = openers[0]
     return {
         "title": f"Conversação · {level}",
-        "objective": f"Praticar {situation['focus']} em uma situação realista.",
-        "situation": situation["situation"],
+        "objective": f"Praticar {situation.get('focus_native') or situation['focus']} em uma situação realista.",
+        "situation": situation["scenario_target"],
+        "situation_native": situation.get("scenario_native"),
+        "scenario_target": situation["scenario_target"],
+        "scenario_native": situation.get("scenario_native"),
+        "target_language": context.language_code,
+        "native_language": context.native_language,
         "opening": opener["example"],
         # Mesma regra dos turnos: acima de B1 o aluno pratica sem tradução.
         "opening_translation": (

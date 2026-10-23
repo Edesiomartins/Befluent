@@ -416,6 +416,7 @@ WRITING_TASKS: dict[str, dict[str, object]] = {
     },
 }
 
+# Legado não usado na entrega. `conversation_situation` lê o módulo por idioma.
 CONVERSATION_SITUATIONS: dict[str, dict[str, str]] = {
     BAND_BEGINNER: {"situation": "Apresentar-se a alguém que você acabou de conhecer", "focus": "cumprimentos e informação pessoal"},
     BAND_ELEMENTARY: {"situation": "Pedir comida em um restaurante", "focus": "pedidos, preferências e conta"},
@@ -1350,9 +1351,11 @@ def writing_task(language_code: str, band: str) -> dict[str, object]:
     return task
 
 
-def conversation_situation(language_code: str, band: str) -> dict[str, str]:
+def conversation_situation(language_code: str, band: str, native_language: str | None = "pt-BR") -> dict[str, str | None]:
     _by_language(VOCABULARY, language_code)
-    return dict(CONVERSATION_SITUATIONS[band])
+    from app.services.conversation_situations import situation_for
+
+    return situation_for(language_code, band, native_language)
 
 
 def grammar_focus(language_code: str, band: str) -> dict[str, object]:
