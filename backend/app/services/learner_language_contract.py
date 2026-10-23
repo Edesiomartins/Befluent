@@ -11,6 +11,7 @@ from collections.abc import Mapping
 
 from app.services.editorial_validation import has_known_incompatible_english
 from app.services.language_codes import TARGET_LANGUAGE_CODES, validate_native_language
+from app.services.language_detection import target_field_status
 
 QUALITY_STATUSES = frozenset({
     "draft",
@@ -64,16 +65,23 @@ def require_language_pair(target_language: str, native_language: str | None) -> 
 
 
 def language_safety(payload: Mapping, target_language: str | None, native_language: str | None) -> str:
-    """`language_invalid` quando o guarda editorial não pode deixar o item passar.
+    """`language_invalid` quando o guarda editorial ou o detector não pode deixar o item passar.
 
-    Não tenta identificar qualquer língua do mundo. Clones conhecidos de inglês
-    e o status já gravado são a camada determinística.
+    O detector offline olha os campos `*_target`. Confiança alta em outra língua
+    invalida o item. Confiança baixa pede revisão e o item não é entregue.
+    Texto com menos de quatro palavras fica fora do detector.
     """
     if payload.get("quality_status") == "language_invalid":
         return "language_invalid"
     target = target_language or payload.get("target_language") or payload.get("language_code")
     if isinstance(target, str) and has_known_incompatible_english(payload, target, native_language):
         return "language_invalid"
+    if isinstance(target, str):
+        detected = target_field_status(payload, target)
+        if detected == "language_invalid":
+            return "language_invalid"
+        if detected == "review_required":
+            return "review_required"
     status = payload.get("quality_status")
     if isinstance(status, str) and status in QUALITY_STATUSES:
         return status
@@ -81,7 +89,7 @@ def language_safety(payload: Mapping, target_language: str | None, native_langua
 
 
 def deliverable(payload: Mapping, target_language: str | None = None, native_language: str | None = None) -> bool:
-    return language_safety(payload, target_language, native_language) != "language_invalid"
+    return language_safety(payload, target_language, native_language) not in {"language_invalid", "review_required"}
 
 
 def apply_language_contract(
@@ -110,6 +118,8 @@ def apply_language_contract(
     safety = language_safety(activity, target if isinstance(target, str) else None, native if isinstance(native, str) else None)
     if safety == "language_invalid":
         activity["quality_status"] = "language_invalid"
+    elif safety == "review_required":
+        activity["quality_status"] = "review_required"
     return activity
 
 

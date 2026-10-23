@@ -194,10 +194,11 @@ def test_fr_b1_slice_is_french_and_varied():
     ])
     planned_types = {activity["type"] for activity in planned["activities"]}
     assert "fill_gap" in planned_types
-    assert "word_order" in planned_types
     assert "dictation" in planned_types
     assert "transfer_question" in planned_types
+    assert "word_order" not in planned_types
     assert planned["selection_trace"]["excluded_language"] == 0
+    assert planned["selection_trace"]["excluded_quality"] >= 1
     supported = session_engine.supporting_candidates(
         language_code="fr", level="B1", native_language="pt-BR",
     )

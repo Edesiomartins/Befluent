@@ -231,12 +231,16 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                     trace: dict | None = None) -> dict | None:
     payload, history = session_payload or {}, exposure_history or {}
     current = now or datetime.now(timezone.utc)
-    from app.services.learner_language_contract import deliverable
+    from app.services.learner_language_contract import language_safety
     excluded = {"seen": 0, "metadata": 0, "language": 0, "quality": 0}
     eligible = []
     for position, candidate in enumerate(candidates):
-        if not deliverable(candidate, target_language, native_language):
+        safety = language_safety(candidate, target_language, native_language)
+        if safety == "language_invalid":
             excluded["language"] += 1
+            continue
+        if safety in {"review_required", "rejected", "draft", "generated"}:
+            excluded["quality"] += 1
             continue
         if (
             is_seen(candidate, payload)

@@ -14,3 +14,4 @@ Rodada 1 de 3: somente backend. Sem push e sem deploy.
 | 1.5.1 native language | implementado | `test_conversation_candidate_omits_portuguese_support_for_other_natives` + `test_fr_b1_slice_is_french_and_varied` | exit 0, 2 testes, 6,8s |
 | 1.5.2 curated bank | implementado | `test_curated_bank_matches_metadata_and_the_selector` + `test_fr_b1_slice_is_french_and_varied` | exit 0, 2 testes, 6,9s |
 | 1.5.3 retry objective | implementado | `test_interaction_retry_requires_the_same_objective` + retry da mesma atividade e da outra interação | exit 0, 3 testes, 7,3s |
+| 1.5.4 third language guard | implementado | `tests/test_language_contract_v2.py` + fatia e exclusão de idioma | exit 0, 19 testes, 12,5s |

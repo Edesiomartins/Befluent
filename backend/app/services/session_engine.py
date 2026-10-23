@@ -110,7 +110,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     excluded_language = 0
     excluded_quality = 0
     blocked_quality = {"rejected", "draft", "generated", "review_required", "language_invalid"}
-    from app.services.learner_language_contract import apply_language_contract, deliverable, interaction_family
+    from app.services.learner_language_contract import apply_language_contract, interaction_family, language_safety
     for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], history)):
         activity = candidate["activity"]
         identity = activity_id(activity)
@@ -123,10 +123,11 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         if family_retired(activity, session_payload):
             excluded_family += 1
             continue
-        if not deliverable(activity):
+        safety = language_safety(activity, activity.get("target_language"), activity.get("native_language"))
+        if safety == "language_invalid":
             excluded_language += 1
             continue
-        if activity.get("quality_status") in blocked_quality:
+        if safety in blocked_quality:
             excluded_quality += 1
             continue
         if (
