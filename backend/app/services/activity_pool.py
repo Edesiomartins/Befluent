@@ -12,6 +12,10 @@ import hashlib
 import json
 import logging
 
+from app.core.errors import APIError
+from app.core.teaching import ActivityType
+from app.services.language_policy import ensure_stored_content_language, language_policy
+from app.services.learner_language_contract import deliverable, interaction_family, language_safety
 from app.services.question_identity import question_fingerprint, normalize_question_text
 
 logger = logging.getLogger(__name__)
@@ -231,7 +235,6 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                     trace: dict | None = None) -> dict | None:
     payload, history = session_payload or {}, exposure_history or {}
     current = now or datetime.now(timezone.utc)
-    from app.services.learner_language_contract import language_safety
     excluded = {"seen": 0, "metadata": 0, "language": 0, "quality": 0}
     eligible = []
     for position, candidate in enumerate(candidates):
@@ -265,7 +268,6 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
         difficulty_distance = 0
         if previous:
             diversity = int(candidate.get("context") == previous.get("context")) + int(candidate.get("type") == previous.get("type"))
-            from app.services.learner_language_contract import interaction_family
             diversity += int(interaction_family(candidate.get("type")) == interaction_family(previous.get("type")))
             if isinstance(candidate.get("difficulty"), (int, float)) and isinstance(previous.get("difficulty"), (int, float)):
                 difficulty_distance = abs(candidate["difficulty"] - previous["difficulty"])
@@ -281,7 +283,6 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
 def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict | None = None, *,
                              objective_id: str | None = None) -> dict | None:
     """Outra interação do mesmo objetivo, se houver item seguro. Não fabrica exercício."""
-    from app.services.learner_language_contract import deliverable, interaction_family
     payload = payload or {}
     failed_family = interaction_family(failed.get("type"))
     failed_id = activity_id(failed)
@@ -316,9 +317,6 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
     if batch_size < 1 or len(batch) > batch_size:
         raise ValueError("Batch exceeds configured size")
     accepted, rejected = [], []
-    from app.services.language_policy import ensure_stored_content_language, language_policy
-    from app.core.teaching import ActivityType
-    from app.core.errors import APIError
     for candidate in batch:
         reason = None
         try:
@@ -355,7 +353,6 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
             tokens = candidate.get("tokens") or []
             if len(tokens) < 2 or normalize_question_text(" ".join(str(token) for token in tokens)) != normalize_question_text(answer or ""):
                 reason = "invalid_tokens"
-        from app.services.learner_language_contract import deliverable, interaction_family
         candidate = dict(candidate)
         candidate["interaction_family"] = candidate.get("interaction_family") or interaction_family(candidate.get("type"))
         if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):

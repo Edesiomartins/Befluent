@@ -10,6 +10,7 @@ não cabe fica para outra sessão.
 
 from __future__ import annotations
 
+from collections import deque
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
@@ -26,8 +27,28 @@ from app.models import (
     VocabularyExample,
     VocabularyItem,
 )
-from app.services.learner_language_contract import portuguese_native
 from app.services.activity_generator import generate_vocabulary_activities
+from app.services.activity_pool import (
+    activity_id,
+    family_retired,
+    freshness_rank,
+    is_seen,
+    recently_exposed,
+    same_stimulus,
+)
+from app.services.learner_language_contract import (
+    apply_language_contract,
+    interaction_family,
+    language_safety,
+    portuguese_native,
+)
+from app.services.lesson_bank import (
+    band_for,
+    conversation_situation,
+    grammar_examples,
+    grammar_exercises,
+    listening_script,
+)
 from app.services.lexical_policy import next_review_modality
 from app.services.session_budget import (
     AREA_LABELS,
@@ -93,14 +114,6 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     """
     budget = budget or FULL_SESSION_BUDGET
     incoming_count = len(candidates)
-    from app.services.activity_pool import (
-        activity_id,
-        family_retired,
-        freshness_rank,
-        is_seen,
-        recently_exposed,
-        same_stimulus,
-    )
     deferred_ids = {str(item_id) for item_id in (deferred_item_ids or set())}
     history = exposure_history or {}
     unique = []
@@ -110,7 +123,6 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     excluded_language = 0
     excluded_quality = 0
     blocked_quality = {"rejected", "draft", "generated", "review_required", "language_invalid"}
-    from app.services.learner_language_contract import apply_language_contract, interaction_family, language_safety
     for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], history)):
         activity = candidate["activity"]
         identity = activity_id(activity)
@@ -173,7 +185,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             continue
         _take(candidate, counts, chosen, selected)
 
-    ordered, diversity_adjustments = _order_by_phase(selected)
+    ordered, diversity_adjustments, excluded_diversity = _order_by_phase(selected)
     activities = []
     trace_rows = []
     for index, candidate in enumerate(ordered):
@@ -191,7 +203,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             "freshness": freshness_rank(activity, history),
             "priority": candidate.get("priority"),
             "pedagogical_reason": candidate.get("area"),
-            "diversity_adjustment": diversity_adjustments,
+            "diversity_adjustment": candidate.get("diversity_adjustment", 0),
         })
     return {
         "activities": activities,
@@ -211,7 +223,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             "excluded_family": excluded_family,
             "excluded_language": excluded_language,
             "excluded_quality": excluded_quality,
-            "excluded_diversity": 0,
+            "excluded_diversity": excluded_diversity,
             "diversity_adjustment": diversity_adjustments,
             "reason": "freshness_budget_modality_interaction",
             "fallback_used": len(activities) < budget.target_total,
@@ -269,28 +281,30 @@ def _take(
     selected.append(candidate)
 
 
-def _order_by_phase(selected: list[dict]) -> tuple[list[dict], int]:
+def _order_by_phase(selected: list[dict]) -> tuple[list[dict], int, int]:
     buckets: dict[int, list[dict]] = {}
     for candidate in selected:
         rank = PHASE_RANK.get(str(candidate.get("phase_hint") or "practicing"), PHASE_RANK["practicing"])
         buckets.setdefault(rank, []).append(candidate)
     ordered: list[dict] = []
     adjustments = 0
+    excluded = 0
     for rank in sorted(buckets):
         spread = _spread_modalities(buckets[rank])
-        diversified, count = _spread_interaction_families(spread)
-        adjustments += count
+        diversified, changed, passed_over = _spread_interaction_families(spread)
+        adjustments += changed
+        excluded += passed_over
         ordered.extend(diversified)
-    return ordered, adjustments
+    return ordered, adjustments, excluded
 
 
-def _spread_interaction_families(phase_items: list[dict]) -> tuple[list[dict], int]:
+def _spread_interaction_families(phase_items: list[dict]) -> tuple[list[dict], int, int]:
     """No máximo duas famílias iguais seguidas, dentro da mesma fase.
 
     Se a matemática não permitir, a sequência pedagógica permanece.
+    `changed` conta posições que mudaram. `passed_over` conta as vezes em
+    que a família repetida deixou de ocupar o próximo lugar.
     """
-    from collections import deque
-    from app.services.learner_language_contract import interaction_family
     queues: dict[str, deque] = {}
     seen: list[str] = []
     original = []
@@ -304,11 +318,16 @@ def _spread_interaction_families(phase_items: list[dict]) -> tuple[list[dict], i
     ordered: list[dict] = []
     last = None
     run = 0
+    passed_over = 0
     while any(queues.values()):
         available = [family for family in seen if queues[family]]
         if last and run >= 2:
             others = [family for family in available if family != last]
-            pick = others[0] if others else last
+            if others:
+                passed_over += 1
+                pick = others[0]
+            else:
+                pick = last
         else:
             pick = max(available, key=lambda family: len(queues[family]))
         if pick != last and last is not None and run < 2 and queues.get(last) and len(queues[last]) >= len(queues[pick]):
@@ -320,8 +339,10 @@ def _spread_interaction_families(phase_items: list[dict]) -> tuple[list[dict], i
             last = pick
             run = 1
     produced = [interaction_family(item["activity"].get("type")) for item in ordered]
-    adjustments = 0 if produced == original else 1
-    return ordered, adjustments
+    changed = sum(before != after for before, after in zip(original, produced))
+    for item, before, after in zip(ordered, original, produced):
+        item["diversity_adjustment"] = int(before != after)
+    return ordered, changed, passed_over
 
 
 def _spread_modalities(phase_items: list[dict]) -> list[dict]:
@@ -445,14 +466,6 @@ def supporting_candidates(
     Não duplica exercício para completar o número. Se o banco não tiver
     a área, a sessão simplesmente fica mais curta.
     """
-    from app.services.lesson_bank import (
-        band_for,
-        conversation_situation,
-        grammar_examples,
-        grammar_exercises,
-        listening_script,
-    )
-
     band = band_for(level or "A1")
     candidates: list[dict] = []
     examples = grammar_examples(language_code, band)

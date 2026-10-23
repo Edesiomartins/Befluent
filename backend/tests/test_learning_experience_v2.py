@@ -54,8 +54,9 @@ def test_selector_breaks_three_identical_interaction_families():
     trace = plan["selection_trace"]
     assert trace["candidate_count"] == 4
     assert trace["selected_count"] == 4
+    assert trace["diversity_adjustment"] == sum(row["diversity_adjustment"] for row in trace["activities"])
     assert trace["diversity_adjustment"] >= 1
-    assert trace["excluded_diversity"] == 0
+    assert trace["excluded_diversity"] == 1
 
 
 def test_language_invalid_and_unapproved_items_stay_out():
