@@ -297,8 +297,8 @@ def test_wrong_answer_retries_a_different_interaction_then_repairs(db_session):
         phase_hint="practicing", ai_required=False, content_unit_id=unit.id,
     )
     alternate = item(
-        "gap", "Je pense que cette idée est utile.", type="fill_gap", options=[],
-        canonical_answer="utile", accepted_variants=["utile"],
+        "gap", "I think this idea is useful.", type="fill_gap", options=[],
+        canonical_answer="useful", accepted_variants=["useful"],
         learning_objective_id=objective.id, content_unit_id=unit.id,
         skill=objective.skill_focus, phase_hint="practicing", ai_required=False,
     )
@@ -316,7 +316,7 @@ def test_wrong_answer_retries_a_different_interaction_then_repairs(db_session):
     assert current["retry_strategy"] == "interaction_change"
     assert flow.payload_json["selection_trace"]["reason"] == "interaction_change_retry"
     repaired = teaching_slice.retry_slice(
-        db_session, flow, remediation_id=response["remediation"]["id"], student_response="utile",
+        db_session, flow, remediation_id=response["remediation"]["id"], student_response="useful",
     )
     assert repaired["attempt"]["result"] == "correct"
     evidence = db_session.scalar(select(LearningEvidence).where(
