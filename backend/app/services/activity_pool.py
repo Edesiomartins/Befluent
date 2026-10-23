@@ -261,6 +261,8 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
         difficulty_distance = 0
         if previous:
             diversity = int(candidate.get("context") == previous.get("context")) + int(candidate.get("type") == previous.get("type"))
+            from app.services.learner_language_contract import interaction_family
+            diversity += int(interaction_family(candidate.get("type")) == interaction_family(previous.get("type")))
             if isinstance(candidate.get("difficulty"), (int, float)) and isinstance(previous.get("difficulty"), (int, float)):
                 difficulty_distance = abs(candidate["difficulty"] - previous["difficulty"])
         eligible.append(((freshness, diversity, difficulty_distance, date.isoformat() if date else "", position), candidate))
@@ -270,6 +272,40 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                      chosen_activity=activity_id(chosen) if chosen else None,
                      reason="freshness_then_diversity" if chosen else "pool_exhausted", fallback_used=chosen is None)
     return chosen
+
+
+def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict | None = None, *,
+                             objective_id: str | None = None) -> dict | None:
+    """Outra interação do mesmo objetivo, se houver item seguro. Não fabrica exercício."""
+    from app.services.learner_language_contract import deliverable, interaction_family
+    payload = payload or {}
+    failed_family = interaction_family(failed.get("type"))
+    failed_id = activity_id(failed)
+    for candidate in candidates:
+        if not isinstance(candidate, dict):
+            continue
+        if objective_id and candidate.get("learning_objective_id") not in {None, objective_id}:
+            continue
+        if activity_id(candidate) == failed_id:
+            continue
+        if interaction_family(candidate.get("type")) == failed_family or interaction_family(candidate.get("type")) == "unknown":
+            continue
+        failed_answer = normalize_question_text(str(failed.get("canonical_answer") or failed.get("answer") or ""))
+        candidate_answer = normalize_question_text(str(candidate.get("canonical_answer") or candidate.get("answer") or ""))
+        if failed_answer and candidate_answer == failed_answer:
+            continue
+        if family_key(candidate) == family_key(failed) or family_retired(candidate, payload) or is_seen(candidate, payload):
+            continue
+        if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):
+            continue
+        if candidate.get("quality_status") not in {None, "approved"}:
+            continue
+        if failed.get("target_language") and candidate.get("target_language") and candidate.get("target_language") != failed.get("target_language"):
+            continue
+        if failed.get("cefr_level") and candidate.get("cefr_level") and candidate.get("cefr_level") != failed.get("cefr_level"):
+            continue
+        return candidate
+    return None
 
 
 def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int = 50) -> dict:
@@ -308,10 +344,18 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
                 reason = "ambiguous_answer"
         elif not answer and candidate.get("type") not in {"presentation", "listen", "matching", "conversation_prompt"}:
             reason = "missing_answer"
+        if candidate.get("type") == "dictation":
+            if candidate.get("show_text") is not False or not candidate.get("audio_text"):
+                reason = "dictation_reveals_transcript"
         if candidate.get("type") == "word_order":
             tokens = candidate.get("tokens") or []
-            if len(tokens) < 2 or normalize_question_text(" ".join(tokens)) != normalize_question_text(answer):
+            if len(tokens) < 2 or normalize_question_text(" ".join(str(token) for token in tokens)) != normalize_question_text(answer or ""):
                 reason = "invalid_tokens"
+        from app.services.learner_language_contract import deliverable, interaction_family
+        candidate = dict(candidate)
+        candidate["interaction_family"] = candidate.get("interaction_family") or interaction_family(candidate.get("type"))
+        if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):
+            reason = "language"
         if any(activity_id(candidate) == activity_id(other) or same_stimulus(candidate, other) for other in existing + accepted):
             reason = "duplicate"
         if reason:
