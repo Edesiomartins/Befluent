@@ -97,6 +97,7 @@ class ActivityType(StrEnum):
     SHADOW = "shadow"
     RECALL = "recall"
     RETELL = "retell"
+    DICTATION = "dictation"
 
 
 class MemorySubjectType(StrEnum):
