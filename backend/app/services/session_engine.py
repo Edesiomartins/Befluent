@@ -51,14 +51,19 @@ _AREA_BY_TYPE: dict[str, str] = {
     ActivityType.RECOGNITION: "vocabulary",
     ActivityType.REVERSE_RECOGNITION: "vocabulary",
     ActivityType.REVIEW: "vocabulary",
+    ActivityType.MATCHING: "vocabulary",
     ActivityType.LISTENING_RECOGNITION: "listening",
     ActivityType.LISTEN: "listening",
+    ActivityType.DICTATION: "listening",
     ActivityType.FILL_GAP: "grammar",
     ActivityType.WORD_ORDER: "grammar",
     ActivityType.MULTIPLE_CHOICE: "grammar",
     ActivityType.LEXICAL_PRODUCTION: "production",
     ActivityType.GUIDED_PRODUCTION: "production",
     ActivityType.FREE_PRODUCTION: "production",
+    ActivityType.REPEAT: "production",
+    ActivityType.SHADOW: "production",
+    ActivityType.RETELL: "production",
     ActivityType.CONVERSATION_PROMPT: "conversation",
     ActivityType.TRANSFER_QUESTION: "conversation",
 }
@@ -84,6 +89,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     comportamento.
     """
     budget = budget or FULL_SESSION_BUDGET
+    incoming_count = len(candidates)
     from app.services.activity_pool import (
         activity_id,
         family_retired,
@@ -96,15 +102,32 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
     history = exposure_history or {}
     unique = []
     identities = set()
+    excluded_seen = 0
+    excluded_family = 0
+    excluded_language = 0
+    excluded_quality = 0
+    blocked_quality = {"rejected", "draft", "generated", "review_required", "language_invalid"}
+    from app.services.learner_language_contract import apply_language_contract, deliverable, interaction_family
     for candidate in sorted(candidates, key=lambda candidate: freshness_rank(candidate["activity"], history)):
         activity = candidate["activity"]
         identity = activity_id(activity)
         allow_family = bool(candidate.get("deferred")) or str(candidate.get("item_key") or "") in deferred_ids
+        if is_seen(activity, session_payload or {}) or recently_exposed(
+            activity, history, allow_deferred_family=allow_family
+        ):
+            excluded_seen += 1
+            continue
+        if family_retired(activity, session_payload):
+            excluded_family += 1
+            continue
+        if not deliverable(activity):
+            excluded_language += 1
+            continue
+        if activity.get("quality_status") in blocked_quality:
+            excluded_quality += 1
+            continue
         if (
-            is_seen(activity, session_payload or {})
-            or family_retired(activity, session_payload)
-            or recently_exposed(activity, history, allow_deferred_family=allow_family)
-            or identity in identities
+            identity in identities
             or any(same_stimulus(activity, other["activity"]) for other in unique)
         ):
             continue
@@ -146,14 +169,26 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             continue
         _take(candidate, counts, chosen, selected)
 
-    ordered = _order_by_phase(selected)
+    ordered, diversity_adjustments = _order_by_phase(selected)
     activities = []
+    trace_rows = []
     for index, candidate in enumerate(ordered):
-        activity = dict(candidate["activity"])
+        activity = apply_language_contract(dict(candidate["activity"]))
         activity["activity_id"] = activity_id(activity)
         activity["session_area"] = candidate["area"]
         activity["index"] = index
+        activity["interaction_family"] = interaction_family(activity.get("type"))
         activities.append(activity)
+        trace_rows.append({
+            "activity_id": activity["activity_id"],
+            "learning_objective_id": activity.get("learning_objective_id"),
+            "activity_type": activity.get("type"),
+            "interaction_family": activity["interaction_family"],
+            "freshness": freshness_rank(activity, history),
+            "priority": candidate.get("priority"),
+            "pedagogical_reason": candidate.get("area"),
+            "diversity_adjustment": diversity_adjustments,
+        })
     return {
         "activities": activities,
         "counts": {area: counts[area] for area in AREA_ORDER if counts[area]},
@@ -163,8 +198,20 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         "size": budget.key,
         "size_label": budget.label,
         "estimated_minutes": budget.estimated_minutes,
-        "selection_trace": {"candidate_count": len(candidates), "chosen_count": len(activities),
-                            "reason": "freshness_budget_modality", "fallback_used": len(activities) < budget.target_total},
+        "selection_trace": {
+            "candidate_count": incoming_count,
+            "selected_count": len(activities),
+            "chosen_count": len(activities),
+            "activities": trace_rows,
+            "excluded_seen": excluded_seen,
+            "excluded_family": excluded_family,
+            "excluded_language": excluded_language,
+            "excluded_quality": excluded_quality,
+            "excluded_diversity": 0,
+            "diversity_adjustment": diversity_adjustments,
+            "reason": "freshness_budget_modality_interaction",
+            "fallback_used": len(activities) < budget.target_total,
+        },
     }
 
 
@@ -218,15 +265,59 @@ def _take(
     selected.append(candidate)
 
 
-def _order_by_phase(selected: list[dict]) -> list[dict]:
+def _order_by_phase(selected: list[dict]) -> tuple[list[dict], int]:
     buckets: dict[int, list[dict]] = {}
     for candidate in selected:
         rank = PHASE_RANK.get(str(candidate.get("phase_hint") or "practicing"), PHASE_RANK["practicing"])
         buckets.setdefault(rank, []).append(candidate)
     ordered: list[dict] = []
+    adjustments = 0
     for rank in sorted(buckets):
-        ordered.extend(_spread_modalities(buckets[rank]))
-    return ordered
+        spread = _spread_modalities(buckets[rank])
+        diversified, count = _spread_interaction_families(spread)
+        adjustments += count
+        ordered.extend(diversified)
+    return ordered, adjustments
+
+
+def _spread_interaction_families(phase_items: list[dict]) -> tuple[list[dict], int]:
+    """No máximo duas famílias iguais seguidas, dentro da mesma fase.
+
+    Se a matemática não permitir, a sequência pedagógica permanece.
+    """
+    from collections import deque
+    from app.services.learner_language_contract import interaction_family
+    queues: dict[str, deque] = {}
+    seen: list[str] = []
+    original = []
+    for item in phase_items:
+        family = interaction_family(item["activity"].get("type"))
+        original.append(family)
+        if family not in queues:
+            seen.append(family)
+            queues[family] = deque()
+        queues[family].append(item)
+    ordered: list[dict] = []
+    last = None
+    run = 0
+    while any(queues.values()):
+        available = [family for family in seen if queues[family]]
+        if last and run >= 2:
+            others = [family for family in available if family != last]
+            pick = others[0] if others else last
+        else:
+            pick = max(available, key=lambda family: len(queues[family]))
+        if pick != last and last is not None and run < 2 and queues.get(last) and len(queues[last]) >= len(queues[pick]):
+            pick = last
+        ordered.append(queues[pick].popleft())
+        if pick == last:
+            run += 1
+        else:
+            last = pick
+            run = 1
+    produced = [interaction_family(item["activity"].get("type")) for item in ordered]
+    adjustments = 0 if produced == original else 1
+    return ordered, adjustments
 
 
 def _spread_modalities(phase_items: list[dict]) -> list[dict]:
@@ -421,15 +512,22 @@ def supporting_candidates(
             )
         )
     situation = conversation_situation(language_code, band)
-    text = situation.get("situation") if isinstance(situation, dict) else None
+    text = situation.get("scenario_target") if isinstance(situation, dict) else None
     if isinstance(text, str) and text.strip():
+        support = situation.get("scenario_native") if isinstance(situation.get("scenario_native"), str) else None
         candidates.append(
             _candidate(
                 {
                     "type": ActivityType.CONVERSATION_PROMPT,
                     "phase_hint": "producing",
-                    "prompt_pt": text,
-                    "prompt": situation.get("focus") or text,
+                    "prompt": text,
+                    "prompt_target": text,
+                    "prompt_native": support,
+                    "prompt_pt": support,
+                    "scenario_target": text,
+                    "scenario_native": support,
+                    "target_language": language_code,
+                    "native_language": "pt-BR",
                     "ai_required": False,
                 },
                 priority=1,
