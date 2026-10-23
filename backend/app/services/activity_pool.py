@@ -231,9 +231,13 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                     trace: dict | None = None) -> dict | None:
     payload, history = session_payload or {}, exposure_history or {}
     current = now or datetime.now(timezone.utc)
-    excluded = {"seen": 0, "metadata": 0}
+    from app.services.learner_language_contract import deliverable
+    excluded = {"seen": 0, "metadata": 0, "language": 0, "quality": 0}
     eligible = []
     for position, candidate in enumerate(candidates):
+        if not deliverable(candidate, target_language, native_language):
+            excluded["language"] += 1
+            continue
         if (
             is_seen(candidate, payload)
             or family_retired(candidate, payload)

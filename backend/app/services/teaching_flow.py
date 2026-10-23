@@ -498,7 +498,10 @@ def public_activity(session: TeachingFlowSession) -> dict | None:
         activity = fallback
     if not isinstance(activity, dict):
         return activity
-    public = dict(activity)
+    from app.services.learner_language_contract import apply_language_contract, deliverable
+    if not deliverable(activity):
+        return None
+    public = apply_language_contract(activity)
     if public.get("quality_status") == "approved" or (public.get("vocabulary_item_id") and public.get("type") in {
         "recognition",
         "reverse_recognition",
