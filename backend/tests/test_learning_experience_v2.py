@@ -206,9 +206,35 @@ def test_fr_b1_slice_is_french_and_varied():
     )
     assert conversation["scenario_target"].startswith("Vous n'êtes pas d'accord")
     assert "Você" not in conversation["scenario_target"]
-    assert "fr-b1-presentation-pourtant" in {
+    assert "fr-b1-presentation-pourtant" not in {
         item["activity"].get("activity_id") for item in supported
     }
+
+
+def test_curated_bank_matches_metadata_and_the_selector():
+    from app.services.curated_bank import candidates_for
+
+    french = candidates_for(target_language="fr", native_language="pt-BR", cefr_level="B1")
+    assert len(french) == 10
+    for item in french:
+        assert item["learning_objective_id"] == "curated:fr:B1:pt-BR"
+        assert item["cefr_level"] == "B1"
+        assert item["target_language"] == "fr"
+        assert item["native_language"] == "pt-BR"
+        assert item["quality_status"] == "approved"
+        assert item["interaction_family"]
+    assert candidates_for(target_language="es-ES", native_language="pt-BR", cefr_level="B1") == []
+    assert candidates_for(target_language="fr", native_language="en", cefr_level="B1") == []
+    chosen = activity_pool.select_activity(
+        french, objective_id="curated:fr:B1:pt-BR", target_language="fr",
+        native_language="pt-BR", level="B1",
+    )
+    assert chosen is not None
+    assert chosen["learning_objective_id"] == "curated:fr:B1:pt-BR"
+    assert activity_pool.select_activity(
+        french, objective_id="another-objective", target_language="fr",
+        native_language="pt-BR", level="B1",
+    ) is None
 
 
 def test_conversation_candidate_omits_portuguese_support_for_other_natives():

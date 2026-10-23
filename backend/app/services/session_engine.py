@@ -541,10 +541,6 @@ def supporting_candidates(
                 area="conversation",
             )
         )
-    if language_code == "fr" and band == "intermediate":
-        from app.services.fr_b1_slice import activities as fr_b1_activities
-        for activity in fr_b1_activities():
-            candidates.append(_candidate(activity, priority=0, item_key=activity["activity_id"], area=None))
     return [item for item in candidates if item.get("area")]
 
 

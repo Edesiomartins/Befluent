@@ -170,12 +170,23 @@ def _start_lesson_vocabulary_cycle(
             language_code=language_code, level=owner.current_level,
             deferred_items=deferred_items,
         )
+        from app.services.curated_bank import candidates_for
+        from app.services.session_engine import _candidate
+        account = db.get(User, owner.user_id)
+        native = account.native_language if account is not None else None
         if objective:
-            from app.services.session_engine import _candidate
-            for candidate in activity_pool.objective_candidates(db, objective, native_language=db.get(User, owner.user_id).native_language):
+            for candidate in activity_pool.objective_candidates(db, objective, native_language=native):
                 wrapped = _candidate(candidate, priority=1)
                 if wrapped["area"]:
                     candidates.append(wrapped)
+        for activity in candidates_for(
+            target_language=language_code,
+            native_language=native,
+            cefr_level=owner.current_level,
+        ):
+            wrapped = _candidate(activity, priority=0, item_key=activity.get("activity_id"))
+            if wrapped["area"]:
+                candidates.append(wrapped)
         plan = plan_session(
             candidates,
             budget=budget_for(size),
