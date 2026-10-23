@@ -6,6 +6,7 @@ menos tradução e mais produção/contexto.
 
 from __future__ import annotations
 
+import hashlib
 import re
 from collections import Counter
 from collections.abc import Mapping, Sequence
@@ -20,6 +21,7 @@ from app.models import (
     VocabularyItem,
 )
 from app.services.deterministic_evaluator import normalize_text
+from app.services.question_identity import normalize_question_text
 
 
 def _patterns(objective: LearningObjective) -> list[dict[str, Any]]:
@@ -288,6 +290,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
 
     if patterns:
         canonical = patterns[0]["canonical"]
+        pattern_key = hashlib.sha256(normalize_question_text(canonical).encode("utf-8")).hexdigest()
         accepted = patterns[0].get("accepted") or [canonical]
         stem, gap_answer = _gap_prompt(canonical)
         activities.append(
@@ -297,6 +300,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                 "prompt": stem,
                 "prompt_pt": "Complete a frase.",
                 "canonical_answer": gap_answer,
+                "pattern_key": pattern_key,
                 "accepted_variants": [gap_answer, gap_answer.lower()],
                 "ai_required": False,
             }
@@ -310,6 +314,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                     "prompt_pt": "Ordene as palavras para formar a frase.",
                     "tokens": tokens,
                     "canonical_answer": canonical,
+                    "pattern_key": pattern_key,
                     "accepted_variants": accepted,
                     "ai_required": False,
                 }
@@ -351,6 +356,7 @@ def generate_activities(objective: LearningObjective) -> list[dict[str, Any]]:
                     "prompt": "Qual frase corresponde ao padrão trabalhado?",
                     "options": option_entries,
                     "canonical_answer": canonical,
+                    "pattern_key": pattern_key,
                     "accepted_variants": accepted,
                     "correct_explanation": (
                         f"A resposta adequada é «{canonical}», que realiza o padrão "

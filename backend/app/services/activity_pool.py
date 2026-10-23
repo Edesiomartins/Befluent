@@ -33,18 +33,49 @@ def activity_id(activity: dict) -> str:
     ).hexdigest()
 
 
+def _model_pattern_key(activity: dict) -> str | None:
+    """Use explicit metadata or a complete model actually present in a snapshot."""
+    if activity.get("pattern_key"):
+        return str(activity["pattern_key"])
+    answer = activity.get("canonical_answer") or activity.get("answer")
+    if not isinstance(answer, str) or not answer.strip():
+        return None
+    prompt = str(activity.get("prompt") or activity.get("prompt_pt") or "")
+    model = None
+    if activity.get("type") == "fill_gap" and prompt.count("___") == 1:
+        # A single explicit gap and its answer define a complete model.
+        model = prompt.replace("___", answer)
+    elif activity.get("type") == "word_order" and activity.get("tokens"):
+        model = answer
+    elif activity.get("type") == "multiple_choice" and normalize_question_text(prompt) == (
+        "qual frase corresponde ao padrão trabalhado"
+    ):
+        model = answer
+    if model is None:
+        return None
+    return hashlib.sha256(normalize_question_text(model).encode("utf-8")).hexdigest()
+
+
 def family_key(activity: dict) -> str:
-    """Família pedagógica: a palavra, a frase-modelo ou, em último caso, a atividade."""
+    """A word, an explicit model, or a contextual question; never an answer alone."""
     vocabulary_item_id = activity.get("vocabulary_item_id")
     if vocabulary_item_id:
         return f"vocab:{vocabulary_item_id}"
-    answer = activity.get("canonical_answer")
-    if answer is None:
-        answer = activity.get("answer")
-    normalized = normalize_question_text(answer) if answer not in (None, "") else ""
-    if normalized:
-        return f"pattern:{normalized}"
-    return f"id:{activity_id(activity)}"
+    scope = {key: activity.get(key) for key in (
+        "learning_objective_id", "target_language", "native_language", "cefr_level",
+    )}
+    if not scope["learning_objective_id"]:
+        scope["content_unit_id"] = activity.get("content_unit_id")
+    pattern = _model_pattern_key(activity)
+    if pattern:
+        scope["model"] = str(pattern)
+    else:
+        parts = question_fingerprint(activity).split("|", 2)
+        if len(parts) != 3 or not parts[0] or not parts[1]:
+            return f"id:{activity_id(activity)}"
+        scope["question"] = parts[:2]
+    digest = hashlib.sha256(json.dumps(scope, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
+    return f"pattern:v2:{digest}"
 
 
 def retire_family(payload: dict, activity: dict | None) -> str | None:
@@ -60,7 +91,24 @@ def retire_family(payload: dict, activity: dict | None) -> str | None:
 def family_retired(activity: dict, payload: dict | None) -> bool:
     if not isinstance(activity, dict):
         return False
-    return family_key(activity) in set((payload or {}).get("retired_families") or [])
+    payload = payload or {}
+    retired = set(payload.get("retired_families") or [])
+    key = family_key(activity)
+    if key in retired:
+        return True
+    # Old broad keys are meaningful only together with the original snapshot.
+    # Reinterpret in memory; do not rewrite historical payloads on resume.
+    for entry in (payload.get("activity_exposures") or {}).values():
+        stored = entry.get("activity") if isinstance(entry, dict) else None
+        if not isinstance(stored, dict):
+            continue
+        answer = stored.get("canonical_answer")
+        if answer is None:
+            answer = stored.get("answer")
+        legacy = f"pattern:{normalize_question_text(answer)}"
+        if legacy in retired and family_key(stored) == key:
+            return True
+    return False
 
 
 def same_stimulus(left: dict, right: dict) -> bool:
@@ -350,8 +398,10 @@ def exposure_history(db, user_language_id: str, *, exclude_session_id: str | Non
         for identity, entry in ((session.payload_json or {}).get("activity_exposures") or {}).items():
             stored = entry.get("activity") if isinstance(entry, dict) else None
             family = entry.get("family_key") if isinstance(entry, dict) else None
-            if not family and isinstance(stored, dict):
+            if isinstance(stored, dict):
                 family = family_key(stored)
+            elif isinstance(family, str) and family.startswith("pattern:") and not family.startswith("pattern:v2:"):
+                family = None  # An answer-only key cannot prove a shared model.
             for key in (identity, entry.get("fingerprint") if isinstance(entry, dict) else None, family):
                 if key and isinstance(entry, dict) and entry.get("at") and entry["at"] > history.get(key, ""):
                     history[key] = entry["at"]

@@ -31,8 +31,8 @@ def _owner(db):
 def test_retry_does_not_repeat_family_in_the_same_session(db_session):
     owner = _owner(db_session)
     objective = ensure_en_a1_can_001(db_session)
-    first = item("a", "First situation")
-    sibling = item("sibling", "Second situation with the same model")
+    first = item("a", "First situation", pattern_key="introducing-ada")
+    sibling = item("sibling", "Second situation with the same model", pattern_key="introducing-ada")
     other = item(
         "other",
         "A different model",
@@ -129,8 +129,8 @@ def test_lexical_error_skips_the_same_word_later_in_the_queue(db_session):
 def test_recent_family_is_excluded_from_the_next_session(db_session):
     owner = _owner(db_session)
     now = datetime.now(timezone.utc)
-    seen = item("seen", "Already practiced")
-    sibling = item("sibling", "Same model, different wording")
+    seen = item("seen", "Already practiced", pattern_key="introducing-ada")
+    sibling = item("sibling", "Same model, different wording", pattern_key="introducing-ada")
     fresh = item("fresh", "A new model", canonical_answer="Rio", options=["Rio", "Lisbon"])
     payload = {"activities": [seen]}
     activity_pool.record_exposure(payload, seen, now=now)

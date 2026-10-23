@@ -59,7 +59,7 @@ def test_a_wrong_answer_retry_never_returns_same_activity(db_session):
     assert response["attempt"]["result"] == "incorrect"
     assert response["current_activity"]["activity_id"] == "a"
     assert response["current_activity"]["prompt"] == item("a")["prompt"]
-    assert activity_pool.family_key(item("a")) in flow.payload_json["retired_families"]
+    assert activity_pool.family_key(flow.payload_json["activities"][0]) in flow.payload_json["retired_families"]
     assert flow.payload_json["selection_trace"]["remediation_reason"] == "incorrect_same_objective"
     assert flow.payload_json["selection_trace"]["fallback_used"] is False
 
@@ -136,7 +136,7 @@ def test_f_insufficient_pool_never_repeats_previous_activity(db_session):
     assert retry["retry_strategy"] == "same_activity"
     assert retry.get("prompt") == item("a")["prompt"]
     assert retry.get("canonical_answer") == "Ada"
-    assert activity_pool.family_key(item("a")) in flow.payload_json["retired_families"]
+    assert activity_pool.family_key(flow.payload_json["activities"][0]) in flow.payload_json["retired_families"]
     assert response["current_activity"].get("activity_id") == "a"
 
 

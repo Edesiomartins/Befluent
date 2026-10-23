@@ -10,7 +10,7 @@ não cabe fica para outra sessão.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -465,7 +465,7 @@ def area_summary(activities: list[dict], cursor: int) -> list[dict]:
 
 
 def load_deferred_vocabulary_items(db: Session, user_language_id: str) -> list[dict]:
-    """Palavras erradas que devem voltar numa sessão futura, não nesta."""
+    """Reconcile historical deferrals with real evaluated attempts, read-only."""
     merged: dict[str, dict] = {}
     sessions = db.scalars(
         select(TeachingFlowSession).where(
@@ -486,36 +486,57 @@ def load_deferred_vocabulary_items(db: Session, user_language_id: str) -> list[d
         for entry in (schedule.payload_json or {}).get("deferred_vocabulary_items") or []:
             if isinstance(entry, dict) and entry.get("vocabulary_item_id"):
                 merged[str(entry["vocabulary_item_id"])] = entry
-    return list(merged.values())
+    latest = _latest_lexical_results(db, user_language_id, list(merged))
+    unresolved = []
+    for item_id, entry in merged.items():
+        attempt = latest.get(item_id)
+        if attempt is None:
+            # Legacy metadata alone cannot prove a later recovery.
+            unresolved.append(entry)
+        elif attempt.result == "incorrect":
+            unresolved.append({
+                "vocabulary_item_id": item_id,
+                "activity_type": attempt.activity_type,
+                "attempt_id": attempt.id,
+            })
+    return unresolved
+
+
+def _latest_lexical_results(
+    db: Session, user_language_id: str, item_ids: list[str]
+) -> dict[str, LearningAttempt]:
+    """Partial/pending answers neither resolve nor replace a lexical error."""
+    if not item_ids:
+        return {}
+    attempts = db.scalars(select(LearningAttempt).where(
+        LearningAttempt.user_language_id == user_language_id,
+        LearningAttempt.vocabulary_item_id.in_(item_ids),
+        LearningAttempt.result.in_(("correct", "incorrect")),
+        LearningAttempt.evaluated_at.is_not(None),
+    ))
+    latest: dict[str, LearningAttempt] = {}
+    def order(attempt: LearningAttempt) -> tuple:
+        return (_aware(attempt.evaluated_at), _aware(attempt.created_at), attempt.id)
+
+    for attempt in attempts:
+        item_id = attempt.vocabulary_item_id
+        previous = latest.get(item_id)
+        if previous is None or order(attempt) > order(previous):
+            latest[item_id] = attempt
+    return latest
 
 
 def last_incorrect_activity_types(
-    db: Session, user_language_id: str, item_ids: list[str]
+    db: Session, user_language_id: str, item_ids: list[str],
+    *, now: datetime | None = None,
 ) -> dict[str, str]:
-    if not item_ids:
-        return {}
-    rows = db.execute(
-        select(
-            LearningAttempt.vocabulary_item_id,
-            LearningAttempt.activity_type,
-            LearningAttempt.evaluated_at,
-            LearningAttempt.id,
-        ).where(
-            LearningAttempt.user_language_id == user_language_id,
-            LearningAttempt.vocabulary_item_id.in_(item_ids),
-            LearningAttempt.result == "incorrect",
-            LearningAttempt.evaluated_at.is_not(None),
-        )
-    ).all()
-    best: dict[str, tuple] = {}
-    for item_id, activity_type, evaluated_at, attempt_id in rows:
-        if not item_id or evaluated_at is None:
-            continue
-        stamp = (_aware(evaluated_at), attempt_id)
-        previous = best.get(item_id)
-        if previous is None or stamp > previous[0]:
-            best[item_id] = (stamp, str(activity_type))
-    return {item_id: activity_type for item_id, (_, activity_type) in best.items()}
+    """Avoid the failed modality for seven days, until a later correct answer."""
+    cutoff = _aware(now or datetime.now(timezone.utc)) - timedelta(days=7)
+    return {
+        item_id: str(attempt.activity_type)
+        for item_id, attempt in _latest_lexical_results(db, user_language_id, item_ids).items()
+        if attempt.result == "incorrect" and _aware(attempt.evaluated_at) > cutoff
+    }
 
 
 def load_session_candidates(
