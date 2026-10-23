@@ -17,3 +17,4 @@ Rodada 1 de 3: somente backend. Sem push e sem deploy.
 | 1.5.4 third language guard | implementado | `tests/test_language_contract_v2.py` + fatia e exclusão de idioma | exit 0, 19 testes, 12,5s |
 | 1.5.5 selection trace | implementado | `test_selector_breaks_three_identical_interaction_families` | exit 0, 1 teste, 6,5s; `excluded_diversity` 1 e `diversity_adjustment` igual à soma das linhas |
 | 1.5.6 FR B1 review batches | implementado | `tests/test_activity_pool.py` + `test_validate_batch_rejects_generated_and_third_language`; `tests/test_fr_b1_review_batches.py` | pool exit 0, 27 testes, 15,6s; lote exit 0, 1 teste, 6,5s. Script: 10 gerados, 9 em revisão, 1 rejeitado por `review_required`. IA bloqueada (mock) |
+| 1.5.7 lint baseline | implementado | `npx vitest run tests/speech-ui-latin.test.tsx`; `npm run lint` | 9 passed, exit 0; lint exit 0, 0 erros, 5 warnings anteriores |

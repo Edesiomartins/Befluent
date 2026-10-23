@@ -45,6 +45,10 @@ describe("AudioPlayer — fallback latim eclesiástico (it-IT)", () => {
     getVoices = vi.fn(() => []);
     lastUtterance = null;
 
+    function rememberUtterance(utterance: FakeUtterance) {
+      lastUtterance = utterance;
+    }
+
     class FakeUtteranceClass {
       text: string;
       lang = "";
@@ -54,7 +58,7 @@ describe("AudioPlayer — fallback latim eclesiástico (it-IT)", () => {
       onerror: (() => void) | null = null;
       constructor(text: string) {
         this.text = text;
-        lastUtterance = this;
+        rememberUtterance(this);
       }
     }
 
