@@ -13,3 +13,4 @@ Rodada 1 de 3: somente backend. Sem push e sem deploy.
 | 6 FR B1 slice | implementado | `tests/test_learning_experience_v2.py` + contrato, situações, família e retry da mesma atividade; depois `test_session_engine.py` + `test_lesson_bank_coverage.py` | exit 0, 28 testes em 15,6s; exit 0, 640 testes em 220s |
 | 1.5.1 native language | implementado | `test_conversation_candidate_omits_portuguese_support_for_other_natives` + `test_fr_b1_slice_is_french_and_varied` | exit 0, 2 testes, 6,8s |
 | 1.5.2 curated bank | implementado | `test_curated_bank_matches_metadata_and_the_selector` + `test_fr_b1_slice_is_french_and_varied` | exit 0, 2 testes, 6,9s |
+| 1.5.3 retry objective | implementado | `test_interaction_retry_requires_the_same_objective` + retry da mesma atividade e da outra interação | exit 0, 3 testes, 7,3s |

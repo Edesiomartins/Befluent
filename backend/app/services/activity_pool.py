@@ -284,7 +284,7 @@ def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict
     for candidate in candidates:
         if not isinstance(candidate, dict):
             continue
-        if objective_id and candidate.get("learning_objective_id") not in {None, objective_id}:
+        if objective_id and candidate.get("learning_objective_id") != objective_id:
             continue
         if activity_id(candidate) == failed_id:
             continue

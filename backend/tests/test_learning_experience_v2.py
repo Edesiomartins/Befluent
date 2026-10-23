@@ -237,6 +237,35 @@ def test_curated_bank_matches_metadata_and_the_selector():
     ) is None
 
 
+def test_interaction_retry_requires_the_same_objective():
+    failed = {
+        "activity_id": "failed",
+        "type": "multiple_choice",
+        "prompt": "Choisissez un nom.",
+        "canonical_answer": "Ada",
+        "learning_objective_id": "obj-1",
+        "target_language": "fr",
+        "native_language": "pt-BR",
+        "cefr_level": "B1",
+        "quality_status": "approved",
+        "options": ["Ada", "Rome"],
+    }
+    orphan = {
+        "activity_id": "orphan",
+        "type": "fill_gap",
+        "prompt": "Je pense que cette idée est ___.",
+        "canonical_answer": "utile",
+        "target_language": "fr",
+        "native_language": "pt-BR",
+        "cefr_level": "B1",
+        "quality_status": "approved",
+    }
+    same = dict(orphan, activity_id="same", learning_objective_id="obj-1")
+    assert activity_pool.choose_interaction_retry(failed, [orphan], objective_id="obj-1") is None
+    chosen = activity_pool.choose_interaction_retry(failed, [orphan, same], objective_id="obj-1")
+    assert chosen["activity_id"] == "same"
+
+
 def test_conversation_candidate_omits_portuguese_support_for_other_natives():
     supported = session_engine.supporting_candidates(
         language_code="fr", level="B1", native_language="en",
