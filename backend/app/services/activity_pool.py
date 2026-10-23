@@ -14,6 +14,7 @@ import logging
 
 from app.core.errors import APIError
 from app.core.teaching import ActivityType
+from app.services.language_detection import target_field_status
 from app.services.language_policy import ensure_stored_content_language, language_policy
 from app.services.learner_language_contract import deliverable, interaction_family, language_safety
 from app.services.question_identity import question_fingerprint, normalize_question_text
@@ -313,7 +314,8 @@ def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict
     return None
 
 
-def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int = 50) -> dict:
+def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int = 50,
+                   required_quality: str = "approved") -> dict:
     if batch_size < 1 or len(batch) > batch_size:
         raise ValueError("Batch exceeds configured size")
     accepted, rejected = [], []
@@ -331,7 +333,10 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
         if candidate.get("vocabulary_item_id") or candidate.get("user_language_id"):
             reason = "learner_specific_reference"
         provenance = candidate.get("provenance") or {}
-        if candidate.get("quality_status") != "approved" or not provenance.get("source") or not provenance.get("reviewer"):
+        if required_quality == "approved":
+            if candidate.get("quality_status") != "approved" or not provenance.get("source") or not provenance.get("reviewer"):
+                reason = "editorial_approval_required"
+        elif candidate.get("quality_status") not in {"generated", "review_required"}:
             reason = "editorial_approval_required"
         answer = candidate.get("canonical_answer") or candidate.get("answer")
         options = candidate.get("options") or []
@@ -355,14 +360,24 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
                 reason = "invalid_tokens"
         candidate = dict(candidate)
         candidate["interaction_family"] = candidate.get("interaction_family") or interaction_family(candidate.get("type"))
-        if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):
+        detected = target_field_status(candidate, candidate.get("target_language"))
+        if detected == "language_invalid" or language_safety(
+            candidate, candidate.get("target_language"), candidate.get("native_language"),
+        ) == "language_invalid":
             reason = "language"
+        elif detected == "review_required":
+            reason = "review_required"
         if any(activity_id(candidate) == activity_id(other) or same_stimulus(candidate, other) for other in existing + accepted):
             reason = "duplicate"
         if reason:
             rejected.append({"activity_id": activity_id(candidate), "reason": reason})
         else:
             normalized = dict(candidate)
+            if normalized.get("quality_status") == "generated":
+                normalized["quality_status"] = "review_required"
+            if required_quality == "approved" and normalized.get("quality_status") != "approved":
+                rejected.append({"activity_id": activity_id(candidate), "reason": "editorial_approval_required"})
+                continue
             if answer:
                 normalized["canonical_answer"] = answer
                 normalized.setdefault("accepted_variants", [answer])
@@ -371,7 +386,7 @@ def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int =
 
 
 def generate_incremental_batches(db, *, objective_id: str, generate_batch, batch_count: int,
-                                 batch_size: int = 50) -> list[dict]:
+                                 batch_size: int = 50, required_quality: str = "approved") -> list[dict]:
     """Provider-neutral editorial pipeline, one batch at a time.
 
     Caller supplies generation/review and owns transaction boundaries. Existing
@@ -388,11 +403,14 @@ def generate_incremental_batches(db, *, objective_id: str, generate_batch, batch
             raise ValueError("Unknown learning objective")
         existing = list((objective.pedagogy_json or {}).get("activity_pool") or [])
         batch = generate_batch(objective=objective, existing=existing, batch_size=batch_size)
-        results.append(append_objective_batch(db, objective_id=objective_id, batch=batch, batch_size=batch_size))
+        results.append(append_objective_batch(
+            db, objective_id=objective_id, batch=batch, batch_size=batch_size, required_quality=required_quality,
+        ))
     return results
 
 
-def append_objective_batch(db, *, objective_id: str, batch: list[dict], batch_size: int = 50) -> dict:
+def append_objective_batch(db, *, objective_id: str, batch: list[dict], batch_size: int = 50,
+                           required_quality: str = "approved") -> dict:
     """Internal editorial entrypoint. Locks and appends one validated batch;
     never commits, calls an LLM, fills a quota or rewrites legacy metadata.
     """
@@ -412,7 +430,7 @@ def append_objective_batch(db, *, objective_id: str, batch: list[dict], batch_si
             raise ValueError("Activity requires an approved compatible content unit/source")
     pedagogy = dict(objective.pedagogy_json or {})
     existing = list(pedagogy.get("activity_pool") or [])
-    result = validate_batch(existing, batch, batch_size=batch_size)
+    result = validate_batch(existing, batch, batch_size=batch_size, required_quality=required_quality)
     pedagogy["activity_pool"] = existing + result["accepted"]
     objective.pedagogy_json = pedagogy
     db.flush()
