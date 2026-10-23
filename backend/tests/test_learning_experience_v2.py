@@ -198,7 +198,9 @@ def test_fr_b1_slice_is_french_and_varied():
     assert "dictation" in planned_types
     assert "transfer_question" in planned_types
     assert planned["selection_trace"]["excluded_language"] == 0
-    supported = session_engine.supporting_candidates(language_code="fr", level="B1")
+    supported = session_engine.supporting_candidates(
+        language_code="fr", level="B1", native_language="pt-BR",
+    )
     conversation = next(
         item["activity"] for item in supported if item["activity"]["type"] == "conversation_prompt"
     )
@@ -207,6 +209,21 @@ def test_fr_b1_slice_is_french_and_varied():
     assert "fr-b1-presentation-pourtant" in {
         item["activity"].get("activity_id") for item in supported
     }
+
+
+def test_conversation_candidate_omits_portuguese_support_for_other_natives():
+    supported = session_engine.supporting_candidates(
+        language_code="fr", level="B1", native_language="en",
+    )
+    conversation = next(
+        item["activity"] for item in supported if item["activity"]["type"] == "conversation_prompt"
+    )
+    assert conversation["native_language"] == "en"
+    assert conversation["target_language"] == "fr"
+    assert conversation["scenario_target"].startswith("Vous n'êtes pas d'accord")
+    assert conversation.get("scenario_native") is None
+    assert conversation.get("prompt_pt") is None
+    assert conversation.get("prompt_native") is None
 
 
 def test_wrong_answer_retries_a_different_interaction_then_repairs(db_session):

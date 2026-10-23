@@ -21,9 +21,12 @@ from app.models import (
     LearningEvidence,
     MemorySchedule,
     TeachingFlowSession,
+    User,
+    UserLanguage,
     VocabularyExample,
     VocabularyItem,
 )
+from app.services.learner_language_contract import portuguese_native
 from app.services.activity_generator import generate_vocabulary_activities
 from app.services.lexical_policy import next_review_modality
 from app.services.session_budget import (
@@ -434,6 +437,7 @@ def supporting_candidates(
     *,
     language_code: str,
     level: str | None,
+    native_language: str | None = None,
 ) -> list[dict]:
     """Gramática, escuta e conversação que já existem no banco de lições.
 
@@ -511,25 +515,27 @@ def supporting_candidates(
                 area="listening",
             )
         )
-    situation = conversation_situation(language_code, band)
+    situation = conversation_situation(language_code, band, native_language)
     text = situation.get("scenario_target") if isinstance(situation, dict) else None
     if isinstance(text, str) and text.strip():
+        activity = {
+            "type": ActivityType.CONVERSATION_PROMPT,
+            "phase_hint": "producing",
+            "prompt": text,
+            "prompt_target": text,
+            "scenario_target": text,
+            "target_language": language_code,
+            "native_language": native_language,
+            "ai_required": False,
+        }
         support = situation.get("scenario_native") if isinstance(situation.get("scenario_native"), str) else None
+        if portuguese_native(native_language) and support:
+            activity["prompt_native"] = support
+            activity["prompt_pt"] = support
+            activity["scenario_native"] = support
         candidates.append(
             _candidate(
-                {
-                    "type": ActivityType.CONVERSATION_PROMPT,
-                    "phase_hint": "producing",
-                    "prompt": text,
-                    "prompt_target": text,
-                    "prompt_native": support,
-                    "prompt_pt": support,
-                    "scenario_target": text,
-                    "scenario_native": support,
-                    "target_language": language_code,
-                    "native_language": "pt-BR",
-                    "ai_required": False,
-                },
+                activity,
                 priority=1,
                 item_key=f"conversation-{band}",
                 area="conversation",
@@ -734,4 +740,10 @@ def load_session_candidates(
             candidate["deferred"] = True
     if not lexical:
         return []
-    return lexical + supporting_candidates(language_code=language_code, level=level)
+    owner = db.get(UserLanguage, user_language_id)
+    account = db.get(User, owner.user_id) if owner is not None else None
+    return lexical + supporting_candidates(
+        language_code=language_code,
+        level=level,
+        native_language=account.native_language if account is not None else None,
+    )
