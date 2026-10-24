@@ -1,6 +1,9 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 import DashboardPage from "@/app/(app)/dashboard/page";
+import DashboardStudyPage from "@/app/(app)/dashboard/estudo/page";
+import DashboardPracticePage from "@/app/(app)/dashboard/pratica/page";
 import { DashboardSkeleton } from "@/components/dashboard-skeleton";
 
 const apiMock = vi.fn();
@@ -78,13 +81,32 @@ describe("DashboardPage", () => {
 
     await waitFor(() => expect(apiMock).toHaveBeenCalledWith("/api/v1/dashboard"));
     expect(await screen.findByText("Inglês")).toBeInTheDocument();
-    expect(screen.getByText(/Objetivo: Conversar com confiança/)).toBeInTheDocument();
-    expect(screen.getByText("Próxima atividade")).toBeInTheDocument();
-    expect(screen.getByText("Plano do dia")).toBeInTheDocument();
-    expect(screen.getByText("Prática livre")).toBeInTheDocument();
-    expect(screen.getByText("Atividade recente")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Continuar a missão de hoje" })).toHaveAttribute(
+      "href",
+      "/learn/conversation",
+    );
+    expect(screen.getByText("Sequência")).toBeInTheDocument();
+    expect(screen.getByText("Meta diária")).toBeInTheDocument();
+    expect(screen.getByText("dias seguidos")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Idioma e plano" })).toHaveAttribute("href", "/dashboard/estudo");
+    expect(screen.queryByText("Prática livre")).not.toBeInTheDocument();
     expect(screen.queryByText("Escolha um idioma para começar.")).not.toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Progresso do plano do dia" })).toHaveAttribute("aria-valuenow", "33");
+  });
+
+  it("mostra plano e prática nas telas secundárias", async () => {
+    apiMock.mockResolvedValue(dashboardWithPlan);
+    const home = render(<DashboardStudyPage />);
+    expect(await screen.findByText(/Objetivo: Conversar com confiança/)).toBeInTheDocument();
+    expect(screen.getByText("Plano do dia")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Progresso do plano do dia" })).toHaveAttribute(
+      "aria-valuenow",
+      "33",
+    );
+    home.unmount();
+
+    render(<DashboardPracticePage />);
+    expect(await screen.findByText("Prática livre")).toBeInTheDocument();
+    expect(screen.getByText("Atividade recente")).toBeInTheDocument();
   });
 
   it("mantém estado vazio apenas sem plano", async () => {
@@ -116,9 +138,45 @@ describe("DashboardPage", () => {
     });
 
     render(<DashboardPage />);
+    expect(await screen.findByRole("heading", { name: "Bem-vindo ao BeFluent" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Começar onboarding" })).toHaveAttribute("href", "/onboarding");
+    expect(screen.queryByText("Prática livre")).not.toBeInTheDocument();
+  });
+
+  it("guarda o vazio de plano e revisão nas telas secundárias", async () => {
+    apiMock.mockResolvedValue({
+      onboarding_completed: false,
+      active_language: null,
+      next_activity: {
+        title: "Configurar seu plano",
+        description: "Defina idioma, nível e objetivo para começar.",
+        href: "/onboarding",
+        cta: "Começar onboarding",
+        kind: "onboarding",
+      },
+      day_plan: {
+        minutes_per_day: null,
+        goal: null,
+        skills: [],
+        items: [{ label: "Concluir onboarding para montar o plano do dia", done: false }],
+      },
+      progress: {
+        vocabulary_items: 0,
+        study_sessions: 0,
+        reviews_due_count: 0,
+        streak_days: 0,
+      },
+      reviews_due_count: 0,
+      reviews_due: [],
+      recent_activity: [],
+    });
+
+    const study = render(<DashboardStudyPage />);
     expect(await screen.findByText("Escolha um idioma para começar.")).toBeInTheDocument();
-    expect(screen.getByText("Nenhuma revisão pendente por enquanto.")).toBeInTheDocument();
     expect(screen.getByText("Plano ainda não definido.")).toBeInTheDocument();
+    study.unmount();
+    render(<DashboardPracticePage />);
+    expect(await screen.findByText("Nenhuma revisão pendente por enquanto.")).toBeInTheDocument();
   });
 
   it("mostra erro real quando a API falha", async () => {
@@ -175,7 +233,7 @@ describe("DashboardPage — nível linguístico", () => {
       active_language: { ...dashboardWithPlan.active_language, level: levelFromTest },
     });
 
-    render(<DashboardPage />);
+    render(<DashboardStudyPage />);
 
     expect(await screen.findByText("Teste de nivelamento")).toBeInTheDocument();
     expect(screen.getByText("B1 — Intermediário")).toBeInTheDocument();
@@ -189,7 +247,7 @@ describe("DashboardPage — nível linguístico", () => {
       active_language: { ...dashboardWithPlan.active_language, level: levelFromTest },
     });
 
-    render(<DashboardPage />);
+    render(<DashboardStudyPage />);
 
     expect(await screen.findByText("Leitura")).toBeInTheDocument();
     // "Fala" não foi avaliada e não deve aparecer na lista de competências.
@@ -218,7 +276,7 @@ describe("DashboardPage — nível linguístico", () => {
       },
     });
 
-    render(<DashboardPage />);
+    render(<DashboardStudyPage />);
 
     expect(await screen.findByText("Nível ainda não definido")).toBeInTheDocument();
     expect(screen.getByText("Fazer teste de nível")).toBeInTheDocument();
@@ -240,7 +298,7 @@ describe("DashboardPage — nível linguístico", () => {
       },
     });
 
-    render(<DashboardPage />);
+    render(<DashboardStudyPage />);
 
     expect(await screen.findByText("Nível informado")).toBeInTheDocument();
     expect(screen.getByText("Confirmar com o teste")).toBeInTheDocument();
@@ -350,16 +408,31 @@ describe("DashboardPage — nível linguístico", () => {
       });
     });
 
-    render(<DashboardPage />);
+    const view = render(<DashboardPage />);
 
-    expect(await screen.findByText("Missão de hoje")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Confirmar a reserva na recepção." })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Confirmar a reserva na recepção." })).toBeInTheDocument();
+    expect(screen.getByText("Missão de hoje")).toBeInTheDocument();
     expect(screen.getAllByText(/Francês/).length).toBeGreaterThan(0);
-    expect(screen.getByRole("link", { name: /Continuar missão/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Continuar a missão de hoje" })).toHaveAttribute(
       "href",
       "/cronograma/dia/day-12",
     );
-    expect(screen.getByText("Preparar")).toBeInTheDocument();
+    expect(screen.getByText("Sequência")).toBeInTheDocument();
+    expect(screen.getByText("Meta diária")).toBeInTheDocument();
+    expect(screen.queryByText("Preparar")).not.toBeInTheDocument();
+    view.unmount();
+
+    render(<DashboardStudyPage />);
+    expect(await screen.findByText("Preparar")).toBeInTheDocument();
     expect(screen.getByText("Compreender")).toBeInTheDocument();
+  });
+
+  it("a tela de hoje passa na checagem automática", async () => {
+    apiMock.mockResolvedValue(dashboardWithPlan);
+    const view = render(<DashboardPage />);
+    expect(await screen.findByRole("link", { name: "Continuar a missão de hoje" })).toBeInTheDocument();
+    expect(
+      (await axe(view.container, { rules: { "color-contrast": { enabled: false } } })).violations,
+    ).toEqual([]);
   });
 });
