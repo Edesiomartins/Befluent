@@ -1,0 +1,347 @@
+{
+  "ai_generation": "blocked",
+  "ai_block_reason": "Geração por modelo bloqueada: ai_mock_mode está ativo ou não há chave OpenRouter utilizável. O lote abaixo é a fatia curada local, não texto de um modelo.",
+  "target_language": "fr",
+  "native_language": "pt-BR",
+  "cefr_level": "B1",
+  "database": "sqlite-memory",
+  "generated": 10,
+  "accepted_for_review": 9,
+  "rejected": 1,
+  "rejection_reasons": {
+    "review_required": 1
+  },
+  "skills": [
+    {
+      "skill": "vocabulary",
+      "objective_id": "ad1faa5f-2ec1-45f3-a373-b3383729c3c8",
+      "drafts": 2
+    },
+    {
+      "skill": "listening",
+      "objective_id": "14ff82e0-a95b-4de7-9e59-7d0d9e0608c7",
+      "drafts": 2
+    },
+    {
+      "skill": "reading",
+      "objective_id": "9ee2c60b-552e-4878-ad10-240f1fe9bf7c",
+      "drafts": 1
+    },
+    {
+      "skill": "grammar",
+      "objective_id": "ad8eb253-4bab-4f3b-8469-2209e98e95f1",
+      "drafts": 2
+    },
+    {
+      "skill": "production",
+      "objective_id": "2a8650a9-0c24-47e8-9491-34c1651b8e86",
+      "drafts": 1
+    },
+    {
+      "skill": "speaking",
+      "objective_id": "353d7298-7b00-4d90-a344-dc0ac8bd3f2f",
+      "drafts": 1
+    },
+    {
+      "skill": "conversation",
+      "objective_id": "3bcbdd68-8293-4999-ad69-55f83ca2452d",
+      "drafts": 1
+    }
+  ],
+  "accepted": [
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-presentation-pourtant",
+      "type": "presentation",
+      "skill": "vocabulary",
+      "phase_hint": "input",
+      "term": "pourtant",
+      "translation": "contudo",
+      "prompt": "pourtant",
+      "prompt_native": "Veja como marcar contraste.",
+      "example_sentence": "L'idée est simple, pourtant elle change la discussion.",
+      "example_translation_pt": "A ideia é simples, contudo ela muda a discussão.",
+      "learning_objective_id": "ad1faa5f-2ec1-45f3-a373-b3383729c3c8",
+      "content_unit_id": "unit-vocabulary",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "presentation"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-match-courtesy",
+      "type": "matching",
+      "skill": "vocabulary",
+      "phase_hint": "practicing",
+      "prompt_native": "Relacione cada expressão ao sentido.",
+      "prompt": "Reliez chaque expression à son sens.",
+      "pairs": [
+        {
+          "term": "je suis d'accord",
+          "hint_pt": "eu concordo"
+        },
+        {
+          "term": "je ne suis pas d'accord",
+          "hint_pt": "eu não concordo"
+        },
+        {
+          "term": "à mon avis",
+          "hint_pt": "na minha opinião"
+        }
+      ],
+      "learning_objective_id": "ad1faa5f-2ec1-45f3-a373-b3383729c3c8",
+      "content_unit_id": "unit-vocabulary",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "pair_match"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-listen-train",
+      "type": "listening_recognition",
+      "skill": "listening",
+      "phase_hint": "practicing",
+      "audio_text": "Le train de huit heures part du quai numéro deux.",
+      "show_text": false,
+      "prompt_native": "Qual opção corresponde ao áudio?",
+      "prompt": "Écoutez et choisissez.",
+      "options": [
+        "Le train part à huit heures.",
+        "Le train arrive à minuit.",
+        "Le quai est fermé."
+      ],
+      "canonical_answer": "Le train part à huit heures.",
+      "learning_objective_id": "14ff82e0-a95b-4de7-9e59-7d0d9e0608c7",
+      "content_unit_id": "unit-listening",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "audio_choice",
+      "accepted_variants": [
+        "Le train part à huit heures."
+      ]
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-dictation-agree",
+      "type": "dictation",
+      "skill": "listening",
+      "phase_hint": "practicing",
+      "audio_text": "Je suis d'accord avec cette idée.",
+      "show_text": false,
+      "prompt": "Écrivez ce que vous entendez.",
+      "instruction_native": "Escreva o que ouviu.",
+      "prompt_native": "Escreva o que ouviu.",
+      "canonical_answer": "Je suis d'accord avec cette idée.",
+      "accepted_variants": [
+        "Je suis d'accord avec cette idée."
+      ],
+      "compare": "normalized_text",
+      "response_mode": "typing",
+      "learning_objective_id": "14ff82e0-a95b-4de7-9e59-7d0d9e0608c7",
+      "content_unit_id": "unit-listening",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "dictation"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-reading-opinion",
+      "type": "multiple_choice",
+      "skill": "reading",
+      "phase_hint": "noticing",
+      "prompt": "« Je pense que ce plan est utile, mais il coûte trop cher. » Que fait la personne ?",
+      "prompt_native": "O que a pessoa faz nessa frase?",
+      "options": [
+        "Elle donne un avis et une réserve.",
+        "Elle demande l'addition.",
+        "Elle se présente."
+      ],
+      "canonical_answer": "Elle donne un avis et une réserve.",
+      "learning_objective_id": "9ee2c60b-552e-4878-ad10-240f1fe9bf7c",
+      "content_unit_id": "unit-reading",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "choice",
+      "accepted_variants": [
+        "Elle donne un avis et une réserve."
+      ]
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-gap-utile",
+      "type": "fill_gap",
+      "skill": "grammar",
+      "phase_hint": "practicing",
+      "prompt": "Je pense que cette idée est ___.",
+      "prompt_native": "Complete com a palavra que falta.",
+      "canonical_answer": "utile",
+      "accepted_variants": [
+        "utile"
+      ],
+      "learning_objective_id": "ad8eb253-4bab-4f3b-8469-2209e98e95f1",
+      "content_unit_id": "unit-grammar",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "inline_gap"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-guided-train",
+      "type": "guided_production",
+      "skill": "production",
+      "phase_hint": "producing",
+      "prompt": "Dites que vous préférez le train.",
+      "prompt_native": "Diga que você prefere o trem.",
+      "scaffold_pt": "Je préfère…",
+      "canonical_answer": "Je préfère le train.",
+      "accepted_variants": [
+        "Je préfère le train."
+      ],
+      "learning_objective_id": "2a8650a9-0c24-47e8-9491-34c1651b8e86",
+      "content_unit_id": "unit-production",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "guided_input"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-repeat-agree",
+      "type": "repeat",
+      "skill": "speaking",
+      "phase_hint": "producing",
+      "prompt": "Je suis d'accord.",
+      "prompt_native": "Repita a frase.",
+      "models": [
+        "Je suis d'accord."
+      ],
+      "canonical_answer": "Je suis d'accord.",
+      "accepted_variants": [
+        "Je suis d'accord."
+      ],
+      "response_modes": [
+        "typing",
+        "speech"
+      ],
+      "learning_objective_id": "353d7298-7b00-4d90-a344-dc0ac8bd3f2f",
+      "content_unit_id": "unit-speaking",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "speech_repeat"
+    },
+    {
+      "target_language": "fr",
+      "native_language": "pt-BR",
+      "cefr_level": "B1",
+      "quality_status": "review_required",
+      "review_status": "approved",
+      "content_source": "curated_fr_b1_slice",
+      "ai_required": false,
+      "support_visibility": "spot",
+      "difficulty": "unknown",
+      "topic": "opinion",
+      "activity_id": "fr-b1-transfer-station",
+      "type": "transfer_question",
+      "skill": "conversation",
+      "phase_hint": "transfer_check",
+      "prompt": "Vous avez demandé des informations à l'hôtel. Maintenant, demandez à un agent en gare où se trouve le bon quai.",
+      "prompt_native": "Você praticou pedir informação. Agora pergunte na estação onde fica a plataforma certa.",
+      "canonical_answer": "Où se trouve le bon quai ?",
+      "accepted_variants": [
+        "Où se trouve le bon quai ?",
+        "Où est le bon quai ?"
+      ],
+      "learning_objective_id": "3bcbdd68-8293-4999-ad69-55f83ca2452d",
+      "content_unit_id": "unit-conversation",
+      "provenance": {
+        "source": "curated_fr_b1_slice"
+      },
+      "interaction_family": "transfer"
+    }
+  ],
+  "rejected_items": [
+    {
+      "activity_id": "fr-b1-order-disagree",
+      "reason": "review_required"
+    }
+  ]
+}
