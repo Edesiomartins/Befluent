@@ -14,6 +14,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
+import { SessionSummary } from "@/components/activities/session-summary";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import { SessionProgress } from "@/components/session-progress";
 import { Button, Loading } from "@/components/ui";
@@ -900,23 +901,12 @@ function Vocabulary({
     const areas = finished?.session_progress?.areas ?? [];
     return (
       <div className="panel p-7 text-center" role="status">
-        <h2 className="text-xl font-semibold">Sessão concluída</h2>
-        <p className="mt-3 text-sm leading-6 text-text-secondary">
-          Este bloco terminou. Os itens que precisam de reforço voltam depois.
-        </p>
-        {finishedTotal ? (
-          <p className="mt-2 text-sm text-text-secondary">{finishedTotal} exercícios nesta sessão.</p>
-        ) : null}
-        {areas.length > 0 && (
-          <ul className="mx-auto mt-4 max-w-sm space-y-1 text-left text-sm text-text-secondary">
-            {areas.map((area) => (
-              <li key={area.key} className="flex justify-between gap-3">
-                <span>{area.label}</span>
-                <span className="tabular-nums">{area.total}</span>
-              </li>
-            ))}
-          </ul>
-        )}
+        <SessionSummary
+          total={finishedTotal}
+          completed={finished?.session_progress?.completed}
+          areas={areas}
+          masteryState={finished?.mastery?.state}
+        />
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           {SESSION_SIZES.map((option, index) => (
             <Button

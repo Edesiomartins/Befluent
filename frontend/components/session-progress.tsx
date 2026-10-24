@@ -30,6 +30,7 @@ export function SessionProgress({
   const reduced = usePrefersReducedMotion();
   if (total <= 0) return null;
   const width = Math.max(0, Math.min(100, percent));
+  const remaining = Math.max(total - completed, 0);
 
   return (
     <div className="mb-4" aria-live="polite">
@@ -80,7 +81,16 @@ export function SessionProgress({
         </ul>
       )}
       <div className="mt-2 flex items-center justify-between gap-3 text-xs text-text-secondary">
-        <p>{nextLabel ? `Próxima: ${nextLabel}` : "Última atividade desta sessão"}</p>
+        <p>
+          {nextLabel ? (
+            <span>{`Próxima: ${nextLabel}`}</span>
+          ) : remaining > 0 ? (
+            <span>{`Faltam ${remaining}.`}</span>
+          ) : (
+            <span>Última atividade desta sessão</span>
+          )}
+          {nextLabel && remaining > 0 ? <span>{` · Faltam ${remaining}.`}</span> : null}
+        </p>
         {justCompleted && (
           <span className={`inline-flex items-center gap-1 text-primary ${reduced ? "" : "session-check"}`}>
             <Check className="size-3.5" aria-hidden />
