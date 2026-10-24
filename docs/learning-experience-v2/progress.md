@@ -19,3 +19,18 @@ Rodada 1 de 3: somente backend. Sem push e sem deploy.
 | 1.5.6 FR B1 review batches | implementado | `tests/test_activity_pool.py` + `test_validate_batch_rejects_generated_and_third_language`; `tests/test_fr_b1_review_batches.py` | pool exit 0, 27 testes, 15,6s; lote exit 0, 1 teste, 6,5s. Script: 10 gerados, 9 em revisão, 1 rejeitado por `review_required`. IA bloqueada (mock) |
 | 1.5.7 lint baseline | implementado | `npx vitest run tests/speech-ui-latin.test.tsx`; `npm run lint` | 9 passed, exit 0; lint exit 0, 0 erros, 5 warnings anteriores |
 | 1.5.8 suíte completa | registrado | `py -3 -m pytest -o addopts= --tb=line -q`; `npm test`; `npm run typecheck`; `npm run lint` | backend 1859 passed, 5 skipped, 41 warnings, exit 0, 1533,20s; frontend 335 passed / 39 arquivos, exit 0; typecheck exit 0; lint exit 0, 0 erros, 5 warnings |
+
+Rodada 2 de 3: somente frontend. Sem push e sem deploy.
+
+| Fase | Status | Testes | Resultado |
+|---|---|---|---|
+| 7 activity registry | implementado | `frontend/tests/activity-registry.test.ts` | 4 passed. Commit `0ce8505`. Família explícita desconhecida não vira texto livre |
+| 8 interactive components | implementado | `frontend/tests/activity-interactions.test.tsx` + `activity-feedback.test.tsx` | Commit `4979821`. Ordem por toque, pares, lacuna, ditado sem transcript, escuta sem texto, nativo não português |
+| 9 activity shell | implementado | `frontend/tests/activity-shell.test.tsx` + `teaching-slice.test.tsx` | Commit `a58d29a`. Fase pedagógica no lugar do rótulo antigo |
+| 10 daily journey | implementado | coberto por `frontend/tests/cronograma.test.tsx` na suíte | Commit `a58d29a`. "Ao terminar, você será capaz de…" no dia |
+| 11 feedback + remediation | implementado | `frontend/tests/activity-feedback.test.tsx` | Componente no `4979821`. A página diz que tentar novamente mantém atividade, objetivo e idioma |
+| 12 session summary | implementado | `frontend/tests/session-summary.test.tsx` | Commit `48cfb57`. Dominado só com `mastered` do backend |
+| 13 accessibility | implementado | backspace em `activity-interactions.test.tsx`; alvos de toque e `motion-reduce` no caminho do dia | Commits `4979821` e `a58d29a` |
+| 2 suíte frontend | registrado | `npm test`; `npm run typecheck`; `npm run lint` | 354 passed, 44 arquivos, exit 0; typecheck exit 0; lint exit 0, 0 erros, 5 warnings anteriores |
+| 2 suíte backend | registrado | `py -3 -m pytest -o addopts= --tb=line -q` | 1859 passed, 5 skipped, 41 warnings, exit 0, 823,96s. Os 5 skips continuam o gate PostgreSQL (`POSTGRES_TEST_URL` ausente). Sem mudança de backend nesta rodada |
+
