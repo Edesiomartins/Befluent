@@ -12,9 +12,9 @@ import type { PlacementTest } from "@/types/placement";
 
 const CHECKLIST: Array<{ icon: typeof Clock; color: ModeColor; text: string }> = [
   { icon: Clock, color: "primary", text: "Duração aproximada: 15 a 20 minutos." },
-  { icon: Headphones, color: "violet", text: "Use fones de ouvido: há atividades de compreensão auditiva." },
-  { icon: Save, color: "teal", text: "Você pode sair e retomar depois — suas respostas ficam salvas." },
-  { icon: CircleAlert, color: "gold", text: "O resultado é um nível estimado, não uma certificação oficial." },
+  { icon: Headphones, color: "primary", text: "Use fones de ouvido: há atividades de compreensão auditiva." },
+  { icon: Save, color: "success", text: "Você pode sair e retomar depois — suas respostas ficam salvas." },
+  { icon: CircleAlert, color: "streak", text: "O resultado é um nível estimado, não uma certificação oficial." },
 ];
 
 export default function PlacementTestIntroPage() {

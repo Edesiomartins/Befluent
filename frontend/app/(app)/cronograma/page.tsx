@@ -370,7 +370,7 @@ export default function CronogramaPage() {
             <span className="text-sm text-text-secondary">
               Semana {currentWeek.week_number} · {currentWeek.theme}
               {currentWeek.is_checkpoint && (
-                <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">
+                <span className="ml-2 text-xs font-semibold text-streak">
                   Checkpoint
                 </span>
               )}

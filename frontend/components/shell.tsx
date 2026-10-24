@@ -144,7 +144,7 @@ function LanguageContext() {
   return <Link href="/languages" className="inline-flex min-h-11 min-w-0 items-center gap-2 rounded-[10px] px-2 text-sm font-medium hover:bg-surface-soft"
     aria-label={language ? language.name_pt + " — Trocar idioma" : loading ? "Carregando idioma" : "Escolher idioma"}>
     <Globe className="size-4 shrink-0 text-primary" aria-hidden />
-    <span className="truncate">{loading ? "Carregando…" : language?.name_pt ?? "Escolher idioma"}</span>
+    <span className="truncate text-language-accent">{loading ? "Carregando…" : language?.name_pt ?? "Escolher idioma"}</span>
     <ChevronDown className="size-4 shrink-0 text-text-secondary" aria-hidden />
   </Link>;
 }

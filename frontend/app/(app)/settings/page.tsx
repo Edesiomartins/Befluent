@@ -171,7 +171,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection icon={Clock} color="teal" title="Fuso horário">
+        <SettingsSection icon={Clock} color="primary" title="Fuso horário">
           <label className="grid max-w-sm gap-2 text-sm font-medium">
             Seu fuso (streak e minutos de hoje)
             <select
@@ -190,7 +190,7 @@ export default function SettingsPage() {
           </label>
         </SettingsSection>
 
-        <SettingsSection icon={MessagesSquare} color="violet" title="Apoio durante o estudo">
+        <SettingsSection icon={MessagesSquare} color="streak" title="Apoio durante o estudo">
           <label className="grid max-w-sm gap-2 text-sm font-medium">
             Momento das correções
             <select
@@ -213,7 +213,7 @@ export default function SettingsPage() {
           </div>
         </SettingsSection>
 
-        <SettingsSection icon={Shield} color="rose" title="Privacidade">
+        <SettingsSection icon={Shield} color="success" title="Privacidade">
           <Toggle
             label="Salvar gravações de voz"
             description="Desativado: o áudio é descartado após o processamento."

@@ -20,36 +20,18 @@
   --success-soft: #dcfce9;
   --success-shadow: #0f7a37;
 
-  --warning: #b45309;
-  --warning-soft: #fef3c7;
-
   --danger: #dc2626;
   --danger-soft: #fee2e2;
   --danger-shadow: #a51818;
 
-  --info: #2563eb;
+  --streak: #9a3412;
+  --streak-soft: #ffedd5;
+  --streak-shadow: #7c2d12;
+  --warning: var(--streak);
+  --warning-soft: var(--streak-soft);
 
-  /* Legacy accents retained for semantic states, never competing navigation. */
-  --streak: #b45309;
-  --streak-soft: #fff1de;
-  --streak-shadow: #c96e00;
-
-  --gold: #8a5a00;
-  --gold-soft: #fff6d6;
-  --gold-ink: #8a5a00;
-  --gold-shadow: #d99e00;
-
-  --violet: #63548c;
-  --violet-soft: #efe6fe;
-  --violet-shadow: #5b21b6;
-
-  --teal: #0f766e;
-  --teal-soft: #d9f5f1;
-  --teal-shadow: #0b6e64;
-
-  --rose: #be3455;
-  --rose-soft: #ffe4e9;
-  --rose-shadow: #a8123a;
+  --language-accent: #1d4ed8;
+  --language-accent-soft: #dbeafe;
 
   --secondary-shadow: #c9d3e6;
   --radius-control: 10px;
@@ -68,12 +50,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --color-info: var(--info);
   --color-streak: var(--streak);
-  --color-gold: var(--gold);
-  --color-violet: var(--violet);
-  --color-teal: var(--teal);
-  --color-rose: var(--rose);
+  --color-language-accent: var(--language-accent);
   --font-sans: var(--font-inter);
   --font-display: var(--font-newsreader);
 }

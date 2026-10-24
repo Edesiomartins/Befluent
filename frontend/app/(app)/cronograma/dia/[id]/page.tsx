@@ -629,7 +629,7 @@ export default function CurriculumDayPage() {
         <p className="text-sm text-text-secondary">
           Semana {week.week_number} · {week.theme}
           {week.is_checkpoint && (
-            <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">Checkpoint</span>
+            <span className="ml-2 text-xs font-semibold text-streak">Checkpoint</span>
           )}
         </p>
         <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
@@ -674,7 +674,7 @@ export default function CurriculumDayPage() {
 
       {week.is_checkpoint && finished && (
         <div className="panel mt-6 p-5">
-          <p className="text-sm font-semibold text-[var(--gold-ink)]">
+          <p className="text-sm font-semibold text-streak">
             Semana de checkpoint
           </p>
           <p className="mt-1 text-sm text-text-secondary">

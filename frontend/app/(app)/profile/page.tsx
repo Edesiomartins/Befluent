@@ -149,7 +149,7 @@ export default function ProfilePage() {
   const stats = [
     { label: "Idioma principal", value: languageLabel, icon: BookOpen, color: "primary" as const },
     { label: "Tempo estudado", value: timeLabel, icon: Clock, color: "streak" as const },
-    { label: "Sessões", value: String(sessions), icon: Flame, color: "gold" as const },
+    { label: "Sessões", value: String(sessions), icon: Flame, color: "success" as const },
   ];
 
   return (

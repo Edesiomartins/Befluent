@@ -12,7 +12,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type ModeColor = "primary" | "success" | "streak" | "gold" | "violet" | "teal" | "rose";
+export type ModeColor = "primary" | "success" | "streak";
 
 /** Grupo do hub de Prática (`/learn`) — puramente de apresentação/roteamento,
  * não tem relação com fases do Teaching Engine (ACTIVATING/INPUT/...). */
@@ -47,16 +47,16 @@ export type ModeMeta = {
  * acessar a URL diretamente; só não aparece mais como card aqui.
  */
 export const MODES: ModeMeta[] = [
-  { slug: "guided", title: "Aula guiada", description: "Uma sequência estruturada de explicação e prática.", duration: "20 min", icon: GraduationCap, color: "teal", section: "recommended" },
-  { slug: "review", title: "Revisão", description: "Revise o que precisa antes de esquecer.", duration: "8 min", icon: RotateCcw, color: "gold", section: "recommended" },
+  { slug: "guided", title: "Aula guiada", description: "Uma sequência estruturada de explicação e prática.", duration: "20 min", icon: GraduationCap, color: "primary", section: "recommended" },
+  { slug: "review", title: "Revisão", description: "Revise o que precisa antes de esquecer.", duration: "8 min", icon: RotateCcw, color: "streak", section: "recommended" },
 
-  { slug: "vocabulary", title: "Vocabulário", description: "Aprenda, relembre e use palavras em contexto.", duration: "10 min", icon: Brain, color: "gold", section: "skill" },
-  { slug: "grammar", title: "Gramática", description: "Entenda estruturas e use-as em situações reais.", duration: "15 min", icon: SpellCheck2, color: "rose", section: "skill" },
-  { slug: "voice", title: "Conversação", description: "Ouça e responda por voz em conversas reais.", duration: "15 min", icon: Mic, color: "violet", section: "skill" },
-  { slug: "pronunciation", title: "Pronúncia", description: "Ouça, repita e torne sua fala mais clara.", duration: "10 min", icon: Volume2, color: "streak", section: "skill" },
+  { slug: "vocabulary", title: "Vocabulário", description: "Aprenda, relembre e use palavras em contexto.", duration: "10 min", icon: Brain, color: "success", section: "skill" },
+  { slug: "grammar", title: "Gramática", description: "Entenda estruturas e use-as em situações reais.", duration: "15 min", icon: SpellCheck2, color: "primary", section: "skill" },
+  { slug: "voice", title: "Conversação", description: "Ouça e responda por voz em conversas reais.", duration: "15 min", icon: Mic, color: "streak", section: "skill" },
+  { slug: "pronunciation", title: "Pronúncia", description: "Ouça, repita e torne sua fala mais clara.", duration: "10 min", icon: Volume2, color: "success", section: "skill" },
   { slug: "listening", title: "Compreensão auditiva", description: "Ouça sem legenda e teste sua compreensão.", duration: "12 min", icon: Headphones, color: "success", section: "skill" },
-  { slug: "reading", title: "Leitura", description: "Leia textos do seu nível e compreenda pelo contexto.", duration: "15 min", icon: AudioLines, color: "violet", section: "skill" },
-  { slug: "writing", title: "Escrita", description: "Produza textos e entenda cada correção.", duration: "20 min", icon: PenLine, color: "rose", section: "skill" },
+  { slug: "reading", title: "Leitura", description: "Leia textos do seu nível e compreenda pelo contexto.", duration: "15 min", icon: AudioLines, color: "primary", section: "skill" },
+  { slug: "writing", title: "Escrita", description: "Produza textos e entenda cada correção.", duration: "20 min", icon: PenLine, color: "streak", section: "skill" },
 
   { slug: "assessment", title: "Diagnóstico", description: "Atualize a estimativa do seu nível.", duration: "25 min", icon: ClipboardCheck, color: "primary", section: "assessment" },
 ];
@@ -83,8 +83,4 @@ export const modeColorClasses: Record<ModeColor, { bg: string; text: string; rin
   primary: { bg: "bg-primary-soft", text: "text-primary", ring: "group-hover:border-primary" },
   success: { bg: "bg-[var(--success-soft)]", text: "text-success", ring: "group-hover:border-success" },
   streak: { bg: "bg-[var(--streak-soft)]", text: "text-[var(--streak)]", ring: "group-hover:border-[var(--streak)]" },
-  gold: { bg: "bg-[var(--gold-soft)]", text: "text-[var(--gold-ink)]", ring: "group-hover:border-[var(--gold)]" },
-  violet: { bg: "bg-[var(--violet-soft)]", text: "text-[var(--violet)]", ring: "group-hover:border-[var(--violet)]" },
-  teal: { bg: "bg-[var(--teal-soft)]", text: "text-[var(--teal)]", ring: "group-hover:border-[var(--teal)]" },
-  rose: { bg: "bg-[var(--rose-soft)]", text: "text-[var(--rose)]", ring: "group-hover:border-[var(--rose)]" },
 };
