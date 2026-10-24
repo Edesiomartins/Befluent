@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, RotateCcw } from "lucide-react";
-import { ActivityShell, ActivityEmpty } from "@/components/activities/activity-shell";
+import { ActivityShell, ActivityEmpty, focusCurrentActivity } from "@/components/activities/activity-shell";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -29,6 +29,7 @@ export default function ObjectiveSlicePage() {
       const data = await api<SliceSession>("/api/v1/teaching/slice/en-a1-can-001/active");
       setSession(data);
       setResponse("");
+      queueMicrotask(() => focusCurrentActivity());
       setAwaitingResult(Boolean(data.activity_locked && !data.remediation));
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
@@ -101,6 +102,7 @@ export default function ObjectiveSlicePage() {
       );
       setSession(data);
       setResponse("");
+      queueMicrotask(() => focusCurrentActivity());
     } catch (err) {
       setAwaitingResult(false);
       setError(err instanceof ApiError ? err.message : "Falha ao enviar a tentativa.");
@@ -138,6 +140,7 @@ export default function ObjectiveSlicePage() {
       );
       setSession(data);
       setResponse("");
+      queueMicrotask(() => focusCurrentActivity());
       setAwaitingResult(Boolean(data.answer_feedback && !data.remediation));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Falha no retry.");

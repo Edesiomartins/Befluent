@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { displayOrder } from "@/lib/display-order";
-import { choiceClass, useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
+import { choiceClass, focusSiblingButton, useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
 
 type Side = { id: number; text: string };
 
@@ -63,7 +63,7 @@ export function MatchingActivity({
         Selecione um item e depois o correspondente. Os pares certos não aparecem prontos.
       </p>
       <div className="grid gap-4 sm:grid-cols-2">
-        <div role="group" aria-label="Itens">
+        <div role="group" aria-label="Itens" onKeyDown={focusSiblingButton}>
           {left.map((item) => {
             const done = usedLeft.has(item.id);
             return (
@@ -80,7 +80,7 @@ export function MatchingActivity({
             );
           })}
         </div>
-        <div role="group" aria-label="Correspondentes">
+        <div role="group" aria-label="Correspondentes" onKeyDown={focusSiblingButton}>
           {right.map((item) => {
             const done = usedRight.has(item.id);
             return (

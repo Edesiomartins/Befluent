@@ -3,6 +3,13 @@
 import type { ReactNode } from "react";
 import { teachingPhaseLabel } from "@/lib/teaching-phase-label";
 
+export const ACTIVITY_FOCUS_ID = "atividade-atual";
+
+export function focusCurrentActivity() {
+  const node = document.getElementById(ACTIVITY_FOCUS_ID);
+  if (node instanceof HTMLElement) node.focus();
+}
+
 export function ActivityShell({
   phase,
   phaseLabel,
@@ -34,7 +41,12 @@ export function ActivityShell({
     step != null && total != null && total > 0 ? `${step} / ${total}` : null;
 
   return (
-    <section className="mx-auto w-full max-w-3xl" aria-label="Atividade">
+    <section
+      id={ACTIVITY_FOCUS_ID}
+      tabIndex={-1}
+      className="mx-auto w-full max-w-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      aria-label="Atividade"
+    >
       <header className="mb-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="label">{showPhase ? label : "Atividade"}</p>

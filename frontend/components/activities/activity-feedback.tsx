@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { ChoiceFeedbackPanel } from "@/components/objective-choice";
 import type { AnswerFeedback } from "@/types/teaching";
 
@@ -10,9 +11,19 @@ export function ActivityFeedback({
   feedback: AnswerFeedback | null | undefined;
   sameObjectiveRetry?: boolean;
 }) {
+  const region = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    region.current?.focus();
+  }, [feedback]);
+
   if (!feedback) return null;
   return (
-    <div aria-live="polite">
+    <div
+      ref={region}
+      tabIndex={-1}
+      aria-live="polite"
+      className="outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
       <ChoiceFeedbackPanel feedback={feedback} />
       {!feedback.is_correct && (
         <p className="mt-3 text-sm leading-6 text-text-secondary">

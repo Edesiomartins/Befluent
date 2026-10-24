@@ -3,6 +3,7 @@
 import type { TeachingActivity } from "@/types/teaching";
 import { supportText } from "@/lib/bilingual";
 import { useLearnerNativeLanguage } from "@/components/native-language-context";
+import type { KeyboardEvent } from "react";
 
 export type ActivityRenderProps = {
   activity: TeachingActivity;
@@ -41,3 +42,16 @@ export const choiceClass = (selected: boolean, locked: boolean) =>
       ? "border-primary bg-primary-soft text-primary"
       : "border-border bg-surface text-text-primary hover:border-primary/40"
   } ${locked ? "cursor-not-allowed opacity-80" : ""}`;
+
+/** Move o foco entre botões irmãos. Enter e Espaço continuam ativando o botão. */
+export function focusSiblingButton(event: KeyboardEvent<HTMLElement>) {
+  if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+  const buttons = Array.from(
+    event.currentTarget.querySelectorAll<HTMLButtonElement>("button:not(:disabled)"),
+  );
+  const current = buttons.indexOf(event.target as HTMLButtonElement);
+  if (current < 0 || buttons.length === 0) return;
+  event.preventDefault();
+  const delta = event.key === "ArrowRight" ? 1 : -1;
+  buttons[(current + delta + buttons.length) % buttons.length]?.focus();
+}

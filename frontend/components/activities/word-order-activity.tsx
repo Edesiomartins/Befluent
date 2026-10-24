@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { displayOrder } from "@/lib/display-order";
-import { choiceClass, useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
+import { choiceClass, focusSiblingButton, useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
 
 export function WordOrderActivity({
   activity,
@@ -71,7 +71,12 @@ export function WordOrderActivity({
               </ol>
             )}
           </div>
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Palavras disponíveis">
+          <div
+            className="flex flex-wrap gap-2"
+            role="group"
+            aria-label="Palavras disponíveis"
+            onKeyDown={focusSiblingButton}
+          >
             {bank.map((index) =>
               used.has(index) ? null : (
                 <button
