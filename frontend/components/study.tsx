@@ -304,7 +304,9 @@ export function AudioPlayer({
           onClick={() => void play(SLOW_REPLAY_SPEED)}
           disabled={loading || !text.trim()}
           className="text-xs text-text-secondary underline hover:text-text-primary disabled:opacity-50"
-          aria-label={`Mais devagar: ${text}`}
+          aria-label={
+            accessibleName ? `${accessibleName}, mais devagar` : `Mais devagar: ${text}`
+          }
         >
           Mais devagar
         </button>

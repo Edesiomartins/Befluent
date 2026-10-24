@@ -253,7 +253,7 @@ describe("ciclo lexical standalone", () => {
     current.remediation = { id: "rem-1", action: "guided_retry", error_id: "error-1", explanation: "Tente outro contexto." };
     apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce({ ...current, current_activity: null, status: "closed" });
     render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Ada" }));
+    fireEvent.click(await screen.findByRole("radio", { name: "Ada" }));
     fireEvent.click(screen.getByRole("button", { name: "Enviar tentativa" }));
     await waitFor(() => expect(apiMock).toHaveBeenCalledWith(
       "/api/v1/lessons/lesson-1/vocabulary-cycle/answer",
