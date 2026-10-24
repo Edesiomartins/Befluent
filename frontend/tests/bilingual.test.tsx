@@ -1,5 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 import { BilingualText } from "@/components/bilingual-text";
 import { NativeLanguageProvider } from "@/components/native-language-context";
 import { TeachingActivityBody } from "@/components/teaching-activity";
@@ -52,7 +53,27 @@ describe("apoio bilíngue", () => {
     const title = screen.getByRole("heading", { name: "La logique" });
     const support = screen.getByText("A lógica");
     expect(title.compareDocumentPosition(support) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(title.className).toContain("text-xl");
+    expect(title.className).toContain("leading-8");
+    expect(support.className).toContain("border-t");
     expect(screen.queryByText("The logic")).not.toBeInTheDocument();
+  });
+
+  it("mantém o áudio ao lado do texto no idioma alvo", async () => {
+    const view = render(
+      <BilingualText
+        heading
+        target="clé"
+        native="chave"
+        audio={<button type="button">Ouvir</button>}
+      />,
+    );
+    const title = screen.getByRole("heading", { name: "clé" });
+    expect(title.parentElement).toContainElement(screen.getByRole("button", { name: "Ouvir" }));
+    expect(title.compareDocumentPosition(screen.getByText("chave")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(
+      (await axe(view.container, { rules: { "color-contrast": { enabled: false } } })).violations,
+    ).toEqual([]);
   });
 
   it("não usa a tradução como texto de áudio", () => {

@@ -2,11 +2,22 @@ import type { ReactNode } from "react";
 import { resolveSupportVisibility, type SupportVisibility } from "@/lib/bilingual";
 
 const nativeClass: Record<Exclude<SupportVisibility, "off">, string> = {
-  prominent: "mt-1 text-base leading-7 text-text-secondary",
-  discreet: "mt-1 text-sm leading-6 text-text-secondary",
-  spot: "mt-1 text-xs leading-5 text-text-secondary",
+  prominent: "mt-3 border-t border-border pt-3 text-base leading-7 text-text-secondary",
+  discreet: "mt-3 border-t border-border pt-3 text-sm leading-6 text-text-secondary",
+  spot: "mt-3 border-t border-border pt-3 text-xs leading-5 text-text-secondary",
   expandable: "mt-2 text-sm leading-6 text-text-secondary",
 };
+
+export const targetUtteranceClass = "min-w-0 flex-1 text-xl font-medium leading-8 text-text-primary";
+
+export function TargetLine({ text, audio }: { text: string; audio?: ReactNode }) {
+  return (
+    <div className="flex items-start gap-3">
+      <p className={targetUtteranceClass}>{text}</p>
+      {audio ? <div className="shrink-0">{audio}</div> : null}
+    </div>
+  );
+}
 
 /**
  * Língua estudada em destaque e apoio nativo por baixo.
@@ -32,17 +43,11 @@ export function BilingualText({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-3">
-        <TargetTag
-          className={
-            heading
-              ? "text-2xl font-semibold tracking-tight text-text-primary"
-              : "font-medium text-text-primary"
-          }
-        >
+      <div className="flex items-start gap-3">
+        <TargetTag className={heading ? `${targetUtteranceClass} text-xl` : targetUtteranceClass}>
           {target}
         </TargetTag>
-        {audio}
+        {audio ? <div className="shrink-0">{audio}</div> : null}
       </div>
       {showSupport && mode === "expandable" && (
         <details className="mt-2">

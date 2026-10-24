@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { AudioPlayer } from "@/components/study";
 import { speechText } from "@/lib/bilingual";
+import { TargetLine } from "@/components/bilingual-text";
 import { choiceClass, useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
 import { AudioModelActivity } from "@/components/activities/audio-model-activity";
 
@@ -75,9 +76,21 @@ export function ChoiceActivity(props: ActivityRenderProps) {
 
   return (
     <div className="space-y-5">
-      {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
+      {instruction && <p className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>}
       {activity.show_text !== false && stimulus && (
-        <p className="text-2xl font-semibold text-text-primary">{stimulus}</p>
+        <TargetLine
+          text={stimulus}
+          audio={
+            activity.audio_text ? (
+              <AudioPlayer
+                variant="compact"
+                accessibleName={`Ouvir ${stimulus}`}
+                text={speechText(activity.audio_text)}
+                languageCode={props.languageCode}
+              />
+            ) : undefined
+          }
+        />
       )}
       {activity.is_retry_variant && (
         <p className="text-xs text-text-secondary">
@@ -109,23 +122,27 @@ export function AudioChoiceActivity({
 
   return (
     <div className="space-y-5">
-      {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
-      {activity.audio_text && (
-        <AudioPlayer
-          variant="compact"
-          label="Ouvir"
-          accessibleName={
-            activity.audio_target_type === "example_sentence"
-              ? "Ouvir frase de exemplo"
-              : "Ouvir expressão"
-          }
-          text={speechText(activity.audio_text)}
-          languageCode={languageCode}
-        />
-      )}
-      {showTranscript && activity.prompt_target && (
-        <p className="font-medium text-text-primary">{activity.prompt_target}</p>
-      )}
+      {instruction && <p className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>}
+      <div className="flex items-start gap-3">
+        {showTranscript && activity.prompt_target && (
+          <p className="min-w-0 flex-1 text-xl font-medium leading-8 text-text-primary">{activity.prompt_target}</p>
+        )}
+        {activity.audio_text && (
+          <div className="shrink-0">
+            <AudioPlayer
+              variant="compact"
+              label="Ouvir"
+              accessibleName={
+                activity.audio_target_type === "example_sentence"
+                  ? "Ouvir frase de exemplo"
+                  : "Ouvir expressão"
+              }
+              text={speechText(activity.audio_text)}
+              languageCode={languageCode}
+            />
+          </div>
+        )}
+      </div>
       <ChoiceOptions
         options={activity.options ?? []}
         response={response}

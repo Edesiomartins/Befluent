@@ -2,6 +2,7 @@
 
 import { AudioPlayer, Recorder } from "@/components/study";
 import { speechText } from "@/lib/bilingual";
+import { TargetLine } from "@/components/bilingual-text";
 import { useActivityCopy, type ActivityRenderProps } from "@/components/activities/activity-props";
 
 const TITLES: Record<string, string> = {
@@ -31,20 +32,21 @@ export function SpeechActivity({
   return (
     <div className="space-y-4">
       <p className="label">{title}</p>
-      {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
+      {instruction && <p className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>}
       {model && (
-        <div>
-          <p className="text-sm text-text-secondary">O que dizer</p>
-          <p className="mt-1 text-lg font-semibold text-text-primary">{model}</p>
-        </div>
-      )}
-      {activity.audio_text && (
-        <AudioPlayer
-          variant="compact"
-          label="Ouvir modelo"
-          accessibleName="Ouvir o modelo"
-          text={speechText(activity.audio_text)}
-          languageCode={languageCode}
+        <TargetLine
+          text={model}
+          audio={
+            activity.audio_text ? (
+              <AudioPlayer
+                variant="compact"
+                label="Ouvir modelo"
+                accessibleName="Ouvir o modelo"
+                text={speechText(activity.audio_text)}
+                languageCode={languageCode}
+              />
+            ) : undefined
+          }
         />
       )}
       <Recorder onTranscript={onResponse} languageCode={languageCode} />
