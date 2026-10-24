@@ -903,6 +903,7 @@ def _session_payload(
             "level": objective.level if objective else None,
         },
         "progress_state": progress_state,
+        "status": session.status,
         "current_activity": current,
         "activities_total": len(payload.get("activities") or []),
         "session_progress": session_progress_from_flow(session),
