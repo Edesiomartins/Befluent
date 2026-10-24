@@ -34,3 +34,19 @@ Rodada 2 de 3: somente frontend. Sem push e sem deploy.
 | 2 suíte frontend | registrado | `npm test`; `npm run typecheck`; `npm run lint` | 354 passed, 44 arquivos, exit 0; typecheck exit 0; lint exit 0, 0 erros, 5 warnings anteriores |
 | 2 suíte backend | registrado | `py -3 -m pytest -o addopts= --tb=line -q` | 1859 passed, 5 skipped, 41 warnings, exit 0, 823,96s. Os 5 skips continuam o gate PostgreSQL (`POSTGRES_TEST_URL` ausente). Sem mudança de backend nesta rodada |
 
+Rodada 3 de 3: testes, sessão FR B1 no navegador, documentação e gate PostgreSQL local. Sem push e sem deploy.
+
+| Fase | Status | Testes | Resultado |
+|---|---|---|---|
+| 14 testes de família | implementado | `activity-a11y.test.tsx`, `activity-diversity.test.tsx` | Commit `f73035b`. Tipo oficial tem renderizador; famílias diferentes não caem na mesma interação. axe sem contraste no jsdom |
+| 14 jornada | implementado | `daily-journey.test.tsx` | Commit `6862b3c`. Objetivo, progresso, dia vazio e erro. Dia vazio não é missão concluída |
+| 15 sessão FR B1 | implementado e validado pelo Playwright | `npm run test:e2e` | 1 passed, 10,9s. Commit `3272718`. Evidência em `verification.md` e `evidence/` |
+| correção da sessão | implementado | `vocabulary-cycle.test.tsx` | Commit `e6acda4`. A resposta traz `status`; o SQLite local espera em vez de falhar com `database is locked` |
+| correção do retry | implementado | `activity-feedback.test.tsx` | Commit `d330c8a`. A frase de manter a atividade só aparece na remediação |
+| 16 documentação | implementado | `architecture.md`, `ui-system.md`, `verification.md` | Sem migration |
+| gate PostgreSQL | executado | os 5 testes que usam `POSTGRES_TEST_URL` | 5 passed, 14,55s. PostgreSQL 18.6, banco `befluent_test`, porta 5433, container descartável. Sem volume de produção |
+| 3 suíte frontend | registrado | `npm test`; `npm run typecheck`; `npm run lint` | 379 passed, 47 arquivos, exit 0; typecheck exit 0; lint exit 0, 0 erros, 5 warnings anteriores |
+| 3 suíte backend | registrado | `py -3 -m pytest -o addopts= --tb=line -q` com `POSTGRES_TEST_URL` no Postgres 18.6 local | 1864 passed, 0 skipped, 41 warnings, exit 0, 1521,72s. Os 5 testes do gate entraram nesta suíte |
+| 17 segundo cérebro | registrado | `BEFLUENT.md` no Obsidian, sem nota nova | Sem git nessa pasta |
+
+
