@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowRight, CalendarCheck, Check, Circle, Target } from "lucide-react";
 import { Button, ErrorState, Loading } from "@/components/ui";
+import { JourneyTrail } from "@/components/journey-trail";
 import { ApiError } from "@/lib/api";
 import { levelShortCode } from "@/lib/levels";
 import { useActiveLanguage } from "@/hooks/use-active-language";
@@ -35,8 +36,6 @@ const DURATION_LABELS: Record<Duration, { title: string; hint: string }> = {
 };
 
 type WeekState = "done" | "current" | "future";
-
-/** Estado da semana derivado do dia corrente — o payload não traz os dias. */
 function weekState(week: CurriculumWeek, currentDay: number | null): WeekState {
   if (currentDay == null) return "future";
   const lastDay = week.week_number * DAYS_PER_WEEK;
@@ -45,12 +44,6 @@ function weekState(week: CurriculumWeek, currentDay: number | null): WeekState {
   if (currentDay >= firstDay) return "current";
   return "future";
 }
-
-const WEEK_STATE_LABELS: Record<WeekState, string> = {
-  done: "Concluída",
-  current: "Em andamento",
-  future: "Próximas jornadas",
-};
 
 function formatDate(value: string): string {
   // `scheduled_date` é uma data pura (sem hora): construir com `new Date(str)`
@@ -424,52 +417,24 @@ export default function CronogramaPage() {
       </section>
 
       {/* Semanas */}
-      <section className="mt-8">
-        <h2 className="section-title">Semanas</h2>
-        <ul className="panel mt-4 divide-y divide-border overflow-hidden">
-          {plan.weeks.map((week) => {
-            const state = weekState(week, progress.current_day_number);
-            return (
-              <li
-                key={week.id}
-                className={`grid grid-cols-[3.5rem_minmax(0,1fr)_auto] items-baseline gap-3 px-5 py-3 text-sm ${
-                  state === "current" ? "bg-primary-soft/40" : ""
-                }`}
-                aria-current={state === "current" ? "step" : undefined}
-              >
-                <span
-                  className={`display-number text-lg leading-none ${
-                    state === "future" ? "text-text-secondary" : "text-text-primary"
-                  }`}
-                >
-                  {week.week_number}
-                </span>
-                <span className="min-w-0">
-                  <span className={state === "current" ? "font-semibold" : ""}>{week.theme}</span>
-                  {week.is_checkpoint && (
-                    <span className="ml-2 text-xs font-semibold text-[var(--gold-ink)]">
-                      Checkpoint
-                    </span>
-                  )}
-                </span>
-                <span className="flex shrink-0 items-baseline gap-3 text-xs">
-                  <span className="font-semibold tabular-nums">{levelShortCode(week.cefr_focus)}</span>
-                  <span
-                    className={`hidden w-28 text-right sm:inline ${
-                      state === "done"
-                        ? "text-success"
-                        : state === "current"
-                          ? "font-semibold text-primary"
-                          : "text-text-secondary"
-                    }`}
-                  >
-                    {WEEK_STATE_LABELS[state]}
-                  </span>
-                </span>
-              </li>
-            );
-          })}
-        </ul>
+      <section className="mt-8" aria-labelledby="cronograma-semanas">
+        <h2 id="cronograma-semanas" className="section-title">Semanas</h2>
+        <div className="panel mt-4 p-5">
+          <JourneyTrail
+            steps={plan.weeks.map((week) => {
+              const state = weekState(week, progress.current_day_number);
+              return {
+                id: week.id,
+                title: `Semana ${week.week_number}`,
+                detail: week.theme,
+                meta: levelShortCode(week.cefr_focus),
+                badge: week.is_checkpoint ? "Checkpoint" : null,
+                state: state === "future" ? "locked" : state,
+                href: state === "current" && currentDay ? `/cronograma/dia/${currentDay.id}` : undefined,
+              };
+            })}
+          />
+        </div>
       </section>
     </div>
   );
