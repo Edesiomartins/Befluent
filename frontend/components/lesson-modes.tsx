@@ -9,6 +9,7 @@
  */
 
 import { FocusFrame, useFocusSession } from "@/components/focus-session";
+import { FeedbackSheet } from "@/components/feedback-sheet";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -697,6 +698,21 @@ function sessionIsOpen(session: import("@/types/teaching").SliceSession) {
   return status === "active" && Boolean(session.current_activity);
 }
 
+function retriesSameActivity(
+  current: import("@/types/teaching").SliceSession,
+  next: import("@/types/teaching").SliceSession,
+) {
+  if (!sessionIsOpen(next) || !next.current_activity) return false;
+  const retrying =
+    Boolean(next.remediation) ||
+    next.flow.phase === "needs_remediation" ||
+    next.flow.phase === "retrying";
+  if (!retrying) return false;
+  const currentKey = current.current_activity?.index ?? current.flow.activity_cursor;
+  const nextKey = next.current_activity.index ?? next.flow.activity_cursor;
+  return currentKey === nextKey;
+}
+
 function Vocabulary({
   lesson,
   enableCycle = true,
@@ -707,6 +723,7 @@ function Vocabulary({
   const [cycle, setCycle] = useState<VocabularyCycleState>(
     lesson.lesson_id && enableCycle ? { kind: "loading" } : { kind: "legacy" },
   );
+  const [pending, setPending] = useState<import("@/types/teaching").SliceSession | null>(null);
   const [response, setResponse] = useState("");
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -787,6 +804,16 @@ function Vocabulary({
     };
   }, [enableCycle, lesson.lesson_id]);
 
+  function applySession(next: import("@/types/teaching").SliceSession) {
+    const cleaned = { ...next, answer_feedback: null };
+    setPending(null);
+    setResponse("");
+    if (!sessionIsOpen(cleaned)) {
+      finishedSession.current = cleaned;
+    }
+    setCycle(sessionIsOpen(cleaned) ? { kind: "active", session: cleaned } : { kind: "closed" });
+  }
+
   async function submitCycle() {
     if (
       cycle.kind !== "active" ||
@@ -823,6 +850,10 @@ function Vocabulary({
         },
       );
       setResponse("");
+      if (next.answer_feedback) {
+        setPending(next);
+        return;
+      }
       if (!sessionIsOpen(next)) {
         finishedSession.current = next;
       }
@@ -865,6 +896,7 @@ function Vocabulary({
           const next = payload;
           setResponse("");
           finishedSession.current = null;
+          setPending(null);
           setCycle(
             sessionIsOpen(next)
               ? { kind: "active", session: next }
@@ -957,6 +989,7 @@ function Vocabulary({
       actionLabel={acknowledgement ? "Continuar" : "Verificar"}
       actionDisabled={!acknowledgement && !response.trim()}
       loading={sending}
+      hideAction={Boolean(pending)}
       onAction={() => void submitCycle()}
     >
       <div className="panel p-7 sm:p-9">
@@ -965,7 +998,7 @@ function Vocabulary({
           activity={activity}
           response={response}
           onResponse={setResponse}
-          locked={sending}
+          locked={sending || Boolean(pending)}
           languageCode={lesson.target_language || lesson.language_code}
           supportVisibility={lesson.support_visibility}
         />
@@ -980,6 +1013,14 @@ function Vocabulary({
           <p role="alert" className="mt-4 text-sm text-danger">{submitError}</p>
         )}
       </div>
+      {pending?.answer_feedback && (
+        <FeedbackSheet
+          feedback={pending.answer_feedback}
+          canRetry={retriesSameActivity(cycle.session, pending)}
+          onContinue={() => applySession(pending)}
+          onRetry={() => applySession(pending)}
+        />
+      )}
     </FocusFrame>
   );
 }

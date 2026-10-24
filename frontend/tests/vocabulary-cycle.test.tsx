@@ -384,6 +384,80 @@ describe("ciclo lexical standalone", () => {
     expect(send).toBeEnabled();
   });
 
+  it("segura a mesma atividade no painel até continuar", async () => {
+    const current = session({
+      type: "recognition",
+      vocabulary_item_id: "v-1",
+      prompt_pt: "Escolha o significado.",
+      prompt: "clé",
+      options: ["chave", "porta"],
+    });
+    const next = session(
+      {
+        type: "multiple_choice",
+        prompt_pt: "Escolha a forma.",
+        prompt: "Je ___ .",
+        options: ["suis", "es"],
+      },
+      1,
+    );
+    next.answer_feedback = {
+      is_correct: false,
+      selected: "porta",
+      correct_option: "chave",
+      why_correct: "Clé é a chave.",
+    };
+    apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce(next);
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "porta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
+
+    const sheet = await screen.findByRole("dialog", { name: "Resposta incorreta" });
+    expect(sheet).toHaveTextContent("chave");
+    expect(screen.getByText("clé")).toBeInTheDocument();
+    expect(screen.queryByText("Escolha a forma.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Tentar novamente" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByText("Escolha a forma.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("oferece tentar novamente quando a mesma atividade continua aberta", async () => {
+    const current = session({
+      type: "recognition",
+      index: 1,
+      vocabulary_item_id: "v-1",
+      prompt: "clé",
+      options: ["chave", "porta"],
+    }, 1);
+    const retry = session({
+      type: "recognition",
+      index: 1,
+      vocabulary_item_id: "v-1",
+      prompt: "clé",
+      options: ["chave", "porta"],
+    }, 1);
+    retry.flow.phase = "retrying";
+    retry.answer_feedback = {
+      is_correct: false,
+      selected: "porta",
+      correct_option: "chave",
+      why_selected: "Porta é outra palavra.",
+    };
+    apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce(retry);
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "porta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Tentar novamente" }));
+
+    expect(await screen.findByRole("button", { name: "Verificar" })).toBeDisabled();
+    expect(screen.getByText("clé")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("inicia quando ainda não há ciclo e mostra estado sem itens devidos", async () => {
     const { ApiError } = await import("@/lib/api");
     apiMock

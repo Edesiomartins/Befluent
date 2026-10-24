@@ -37,6 +37,7 @@ export function FocusFrame({
   actionLabel,
   actionDisabled = false,
   loading = false,
+  hideAction = false,
   onAction,
   children,
 }: {
@@ -47,6 +48,7 @@ export function FocusFrame({
   actionLabel: string;
   actionDisabled?: boolean;
   loading?: boolean;
+  hideAction?: boolean;
   onAction: () => void;
   children: ReactNode;
 }) {
@@ -90,18 +92,20 @@ export function FocusFrame({
         </div>
       </div>
       <div className="flex flex-1 flex-col justify-center py-8">{children}</div>
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-xl">
-          <button
-            type="button"
-            className="min-h-14 w-full rounded-2xl bg-primary text-lg font-semibold text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
-            disabled={actionDisabled || loading}
-            onClick={onAction}
-          >
-            {loading ? "Verificando…" : actionLabel}
-          </button>
+      {!hideAction && (
+        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-surface px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <div className="mx-auto max-w-xl">
+            <button
+              type="button"
+              className="min-h-14 w-full rounded-2xl bg-primary text-lg font-semibold text-white hover:bg-[var(--primary-hover)] disabled:opacity-50"
+              disabled={actionDisabled || loading}
+              onClick={onAction}
+            >
+              {loading ? "Verificando…" : actionLabel}
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {confirming && (
         <div className="fixed inset-0 z-40 grid place-items-center bg-[var(--text-primary)]/40 px-5">
           <div

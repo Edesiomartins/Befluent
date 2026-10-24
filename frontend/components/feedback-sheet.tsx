@@ -1,0 +1,79 @@
+"use client";
+
+import { useEffect, useId, useRef } from "react";
+import type { AnswerFeedback } from "@/types/teaching";
+
+export function FeedbackSheet({
+  feedback,
+  canRetry,
+  onContinue,
+  onRetry,
+}: {
+  feedback: AnswerFeedback;
+  canRetry: boolean;
+  onContinue: () => void;
+  onRetry: () => void;
+}) {
+  const titleId = useId();
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const correct = feedback.is_correct;
+  const explanation = feedback.why_correct || feedback.why_selected || feedback.remember || "";
+
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, [feedback]);
+
+  return (
+    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        className={`mx-auto w-full max-w-xl rounded-t-2xl border p-5 shadow-xl ${
+          correct ? "border-success bg-success/10" : "border-danger bg-danger/10"
+        }`}
+      >
+        <h2
+          ref={titleRef}
+          id={titleId}
+          tabIndex={-1}
+          className={`text-lg font-semibold outline-none ${correct ? "text-success" : "text-danger"}`}
+        >
+          {correct ? "Correto." : "Resposta incorreta"}
+        </h2>
+        <div aria-live="assertive" className="mt-2 text-sm leading-6 text-text-primary">
+          <p>{correct ? "Correto." : "Resposta incorreta"}</p>
+          {!correct && (
+            <p className="mt-2">
+              <span className="font-semibold">Resposta correta:</span> {feedback.correct_option}
+            </p>
+          )}
+          {explanation && <p className="mt-2">{explanation}</p>}
+          {canRetry && !correct && (
+            <p className="mt-2 text-text-secondary">
+              Tentar novamente mantém esta atividade, este objetivo e o idioma que você está estudando.
+            </p>
+          )}
+        </div>
+        <div className="mt-4 grid gap-2">
+          <button
+            type="button"
+            className="min-h-12 rounded-xl bg-primary font-semibold text-white"
+            onClick={onContinue}
+          >
+            Continuar
+          </button>
+          {canRetry && (
+            <button
+              type="button"
+              className="min-h-12 rounded-xl border border-border bg-surface font-semibold text-text-primary"
+              onClick={onRetry}
+            >
+              Tentar novamente
+            </button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
