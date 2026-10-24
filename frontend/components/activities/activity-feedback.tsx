@@ -7,9 +7,11 @@ import type { AnswerFeedback } from "@/types/teaching";
 export function ActivityFeedback({
   feedback,
   sameObjectiveRetry = true,
+  showRetryNote = true,
 }: {
   feedback: AnswerFeedback | null | undefined;
   sameObjectiveRetry?: boolean;
+  showRetryNote?: boolean;
 }) {
   const region = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -25,7 +27,7 @@ export function ActivityFeedback({
       className="outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
       <ChoiceFeedbackPanel feedback={feedback} />
-      {!feedback.is_correct && (
+      {showRetryNote && !feedback.is_correct && (
         <p className="mt-3 text-sm leading-6 text-text-secondary">
           {sameObjectiveRetry
             ? "Tentar novamente mantém esta atividade, este objetivo e o idioma que você está estudando."

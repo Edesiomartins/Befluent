@@ -692,6 +692,11 @@ function isSliceSession(value: unknown): value is import("@/types/teaching").Sli
   return Boolean(payload.flow && typeof payload.flow === "object");
 }
 
+function sessionIsOpen(session: import("@/types/teaching").SliceSession) {
+  const status = session.status ?? session.flow.status;
+  return status === "active" && Boolean(session.current_activity);
+}
+
 function Vocabulary({
   lesson,
   enableCycle = true,
@@ -747,9 +752,9 @@ function Vocabulary({
         } else if (isSliceSession(payload)) {
           const session = payload;
           setCycle(
-            session.status !== "active" || !session.current_activity
-              ? { kind: "closed" }
-              : { kind: "active", session },
+            sessionIsOpen(session)
+              ? { kind: "active", session }
+              : { kind: "closed" },
           );
         } else {
           setCycle({ kind: "legacy" });
@@ -813,14 +818,10 @@ function Vocabulary({
       );
       setResponse("");
       setJustCompleted(true);
-      if (next.status !== "active" || !next.current_activity) {
+      if (!sessionIsOpen(next)) {
         finishedSession.current = next;
       }
-      setCycle(
-        next.status !== "active" || !next.current_activity
-          ? { kind: "closed" }
-          : { kind: "active", session: next },
-      );
+      setCycle(sessionIsOpen(next) ? { kind: "active", session: next } : { kind: "closed" });
     } catch (caught) {
       if (
         caught instanceof ApiError &&
@@ -860,9 +861,9 @@ function Vocabulary({
           setJustCompleted(false);
           finishedSession.current = null;
           setCycle(
-            next.status !== "active" || !next.current_activity
-              ? { kind: "closed" }
-              : { kind: "active", session: next },
+            sessionIsOpen(next)
+              ? { kind: "active", session: next }
+              : { kind: "closed" },
           );
           return;
         }
@@ -936,6 +937,10 @@ function Vocabulary({
   const activity = cycle.session.current_activity;
   if (!activity) return null;
   const acknowledgement = activityIsAcknowledgement(activity);
+  const retryingSameActivity =
+    Boolean(cycle.session.remediation) ||
+    cycle.session.flow.phase === "needs_remediation" ||
+    cycle.session.flow.phase === "retrying";
   const sessionProgress = cycle.session.session_progress;
   const completed = sessionProgress?.completed ?? cycle.session.flow.activity_cursor;
   const total = sessionProgress?.total ?? cycle.session.activities_total;
@@ -961,7 +966,13 @@ function Vocabulary({
           languageCode={lesson.target_language || lesson.language_code}
           supportVisibility={lesson.support_visibility}
         />
-        <TeachingAnswerFeedback feedback={cycle.session.answer_feedback} />
+        {cycle.session.answer_feedback && !retryingSameActivity && (
+          <p className="mt-4 text-sm font-semibold text-text-primary">Correção da resposta anterior</p>
+        )}
+        <TeachingAnswerFeedback
+          feedback={cycle.session.answer_feedback}
+          showRetryNote={retryingSameActivity}
+        />
         {submitError && (
           <p role="alert" className="mt-4 text-sm text-danger">{submitError}</p>
         )}

@@ -331,6 +331,30 @@ describe("ciclo lexical standalone", () => {
     expect(screen.getByRole("button", { name: "Enviar tentativa" })).toBeDisabled();
   });
 
+  it("não encerra a sessão quando a resposta só marca o fluxo como ativo", async () => {
+    const current = session({
+      type: "presentation",
+      prompt_pt: "Leia e siga.",
+      examples: ["Bonjour."],
+    });
+    const next = session(
+      {
+        type: "multiple_choice",
+        prompt: "Je suis d'accord.",
+        options: ["Oui", "Non"],
+      },
+      1,
+    );
+    next.status = undefined;
+    apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce(next);
+
+    render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar" }));
+
+    expect(await screen.findByText("Je suis d'accord.")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Sessão concluída" })).not.toBeInTheDocument();
+  });
+
   it.each(["presentation", "listen", "matching", "conversation_prompt"] as const)(
     "trata %s como continuar, sem exigir resposta",
     async (type) => {

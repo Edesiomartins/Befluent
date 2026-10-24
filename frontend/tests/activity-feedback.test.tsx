@@ -20,6 +20,13 @@ describe("feedback da atividade", () => {
     expect(screen.getByText(/mantém esta atividade/)).toBeInTheDocument();
   });
 
+  it("não promete a mesma atividade quando a sessão já avançou", () => {
+    render(<ActivityFeedback feedback={wrong} showRetryNote={false} />);
+    expect(screen.getByText("Resposta incorreta")).toBeInTheDocument();
+    expect(screen.queryByText(/mantém esta atividade/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/outra interação/)).not.toBeInTheDocument();
+  });
+
   it("só anuncia outra interação quando o backend mandou essa troca", () => {
     render(<ActivityFeedback feedback={wrong} sameObjectiveRetry={false} />);
     expect(screen.getByText(/Esta tentativa usa outra interação/)).toBeInTheDocument();

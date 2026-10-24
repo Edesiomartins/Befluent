@@ -27,11 +27,19 @@ import type { AnswerFeedback } from "@/types/teaching";
 export function TeachingAnswerFeedback({
   feedback,
   sameObjectiveRetry = true,
+  showRetryNote = true,
 }: {
   feedback: AnswerFeedback | null | undefined;
   sameObjectiveRetry?: boolean;
+  showRetryNote?: boolean;
 }) {
-  return <ActivityFeedback feedback={feedback} sameObjectiveRetry={sameObjectiveRetry} />;
+  return (
+    <ActivityFeedback
+      feedback={feedback}
+      sameObjectiveRetry={sameObjectiveRetry}
+      showRetryNote={showRetryNote}
+    />
+  );
 }
 
 const RENDERERS: Record<string, ComponentType<ActivityRenderProps>> = {
