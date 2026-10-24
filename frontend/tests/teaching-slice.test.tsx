@@ -68,7 +68,7 @@ describe("Teaching Engine V2 slice UI", () => {
     fireEvent.click(screen.getByRole("button", { name: /começar objetivo/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Você está aprendendo")).toBeInTheDocument();
+      expect(screen.getByText("Aquecimento")).toBeInTheDocument();
     });
     expect(screen.getByText(/EN-A1-CAN-001/i)).toBeInTheDocument();
     expect(apiMock).toHaveBeenCalledWith(
@@ -91,7 +91,7 @@ describe("Teaching Engine V2 slice UI", () => {
     render(<ObjectiveSlicePage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Praticando")).toBeInTheDocument();
+      expect(screen.getByText("Prática")).toBeInTheDocument();
     });
     expect(apiMock).toHaveBeenCalledWith("/api/v1/teaching/slice/en-a1-can-001/active");
     expect(screen.queryByRole("button", { name: /começar objetivo/i })).not.toBeInTheDocument();

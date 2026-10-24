@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Lock } from "lucide-react";
+import { ActivityShell } from "@/components/activities/activity-shell";
 import { LessonContent } from "@/components/lesson-modes";
 import { Button, ErrorState, Loading, Note } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -369,10 +370,15 @@ function MiniTeachingPractice({
 
   return (
     <div className="panel mb-6 p-5">
-      <p className="label">
-        Prática do objetivo · {session.flow.phase_label_pt}
-      </p>
-      <div className="mt-4">
+      <ActivityShell
+        phase={session.flow.phase}
+        phaseLabel={session.flow.phase_label_pt}
+        languageLabel={languageCode || null}
+        level={session.objective.level}
+        step={(session.flow.activity_cursor ?? 0) + 1}
+        total={session.activities_total}
+        objective={session.objective.can_do}
+      >
         <TeachingActivityBody
           activity={activity}
           response={response}
@@ -381,27 +387,28 @@ function MiniTeachingPractice({
           languageCode={languageCode}
           supportVisibility={supportVisibility}
         />
-      </div>
-      <TeachingAnswerFeedback
-        feedback={session.answer_feedback ?? session.remediation?.answer_feedback}
-      />
-      {session.remediation && (
-        <p className="mt-3 text-sm text-warning">
-          {supportText({
-            nativeLanguage,
-            legacyPortuguese: session.remediation.hint_pt,
-          }) ||
-            "A tentativa anterior ficou registrada. Responda a nova atividade."}
-        </p>
-      )}
-      {session.mastery?.state === "mastered" && (
-        <p className="mt-3 text-sm font-semibold text-primary">Objetivo demonstrado.</p>
-      )}
-      {error && (
-        <p role="alert" className="mt-2 text-sm text-danger">
-          {error}
-        </p>
-      )}
+        <TeachingAnswerFeedback
+          feedback={session.answer_feedback ?? session.remediation?.answer_feedback}
+          sameObjectiveRetry={!activity.is_retry_variant}
+        />
+        {session.remediation && (
+          <p className="mt-3 text-sm text-warning">
+            {supportText({
+              nativeLanguage,
+              legacyPortuguese: session.remediation.hint_pt,
+            }) ||
+              "A tentativa anterior ficou registrada. A nova tentativa continua esta atividade e este idioma."}
+          </p>
+        )}
+        {session.mastery?.state === "mastered" && (
+          <p className="mt-3 text-sm font-semibold text-primary">Objetivo demonstrado.</p>
+        )}
+        {error && (
+          <p role="alert" className="mt-2 text-sm text-danger">
+            {error}
+          </p>
+        )}
+      </ActivityShell>
       <div className="mt-4">
         <Button
           loading={busy}
@@ -628,7 +635,7 @@ export default function CurriculumDayPage() {
         </p>
         <h1 className="mt-2 page-title">{mission.title}</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
-          {mission.learner_goal}
+          Ao terminar, você será capaz de {mission.learner_goal.charAt(0).toLowerCase() + mission.learner_goal.slice(1)}
         </p>
         <p className="mt-2 text-xs text-text-secondary">
           {coach.display_name} acompanha esta missão
@@ -651,7 +658,7 @@ export default function CurriculumDayPage() {
           aria-valuenow={day.blocks_completed}
         >
           <div
-            className="h-full rounded-full bg-primary transition-all"
+            className="h-full rounded-full bg-primary motion-reduce:transition-none"
             style={{ width: `${progressPct}%` }}
           />
         </div>
@@ -710,7 +717,7 @@ export default function CurriculumDayPage() {
                       if (!locked) setActiveBlockId(block.id);
                     }}
                     aria-current={selected ? "step" : undefined}
-                    className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-primary ${
                       selected
                         ? "bg-surface font-semibold text-text-primary shadow-[inset_0_0_0_1px_var(--border)]"
                         : locked

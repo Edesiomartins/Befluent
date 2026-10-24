@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { ArrowLeft, RotateCcw } from "lucide-react";
+import { ActivityShell, ActivityEmpty } from "@/components/activities/activity-shell";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { supportText } from "@/lib/bilingual";
 import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import { activityIsAcknowledgement } from "@/lib/teaching-response";
+import { teachingPhaseLabel } from "@/lib/teaching-phase-label";
 import type { SliceSession } from "@/types/teaching";
 
 export default function ObjectiveSlicePage() {
@@ -205,7 +207,7 @@ export default function ObjectiveSlicePage() {
               Estado pedagógico
             </p>
             <p className="mt-2 text-lg font-semibold text-text-primary">
-              {session.flow.phase_label_pt}
+              {teachingPhaseLabel(session.flow.phase, session.flow.phase_label_pt)}
             </p>
             <p className="mt-1 text-sm text-text-secondary">
               Domínio: {session.progress_state}
@@ -224,52 +226,62 @@ export default function ObjectiveSlicePage() {
               </Button>
             </div>
           ) : activity ? (
-            <>
+            <ActivityShell
+              phase={session.flow.phase}
+              phaseLabel={session.flow.phase_label_pt}
+              showPhase={false}
+              level={session.objective.level}
+              step={(session.flow.activity_cursor ?? 0) + 1}
+              total={session.activities_total}
+              objective={session.objective.can_do}
+              footer={
+                <div className="flex flex-wrap gap-3">
+                  {inRemediation ? (
+                    <Button
+                      onClick={() => void retry()}
+                      disabled={loading || (!response.trim() && !acknowledgement)}
+                      loading={loading}
+                    >
+                      <RotateCcw className="mr-2 size-4" aria-hidden />
+                      {acknowledgement ? "Continuar" : "Tentar novamente"}
+                    </Button>
+                  ) : (
+                    <Button
+                      onClick={() => void submit()}
+                      disabled={loading || locked}
+                      loading={loading}
+                    >
+                      {acknowledgement ? "Continuar" : "Enviar tentativa"}
+                    </Button>
+                  )}
+                </div>
+              }
+            >
               <TeachingActivityBody
                 activity={activity}
                 response={response}
                 onResponse={setResponse}
                 locked={locked && !inRemediation}
               />
-
-              <TeachingAnswerFeedback feedback={feedback} />
-
+              <TeachingAnswerFeedback
+                feedback={feedback}
+                sameObjectiveRetry={!activity.is_retry_variant}
+              />
               {session.remediation && (
-                <div className="rounded-2xl border border-amber-500/30 bg-amber-50 px-5 py-4 dark:bg-amber-950/20">
+                <div className="mt-4 rounded-2xl border border-warning/30 bg-warning/10 px-5 py-4">
                   <p className="font-semibold text-text-primary">Vamos corrigir isto</p>
                   <p className="mt-2 text-sm leading-6 text-text-secondary">
                     {supportText({
                       nativeLanguage,
                       legacyPortuguese: session.remediation.hint_pt,
                     }) ||
-                      "A tentativa anterior ficou registrada. Responda a nova atividade abaixo."}
+                      "A tentativa anterior ficou registrada. A nova tentativa continua esta atividade e este idioma."}
                   </p>
                 </div>
               )}
-
-              <div className="flex flex-wrap gap-3">
-                {inRemediation ? (
-                  <Button
-                    onClick={() => void retry()}
-                    disabled={loading || (!response.trim() && !acknowledgement)}
-                    loading={loading}
-                  >
-                    <RotateCcw className="mr-2 size-4" aria-hidden />
-                    {acknowledgement ? "Continuar" : "Tentar novamente"}
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => void submit()}
-                    disabled={loading || locked}
-                    loading={loading}
-                  >
-                    {acknowledgement ? "Continuar" : "Enviar tentativa"}
-                  </Button>
-                )}
-              </div>
-            </>
+            </ActivityShell>
           ) : (
-            <p className="text-sm text-text-secondary">Sem atividade atual neste fluxo.</p>
+            <ActivityEmpty label="Sem atividade atual neste fluxo." />
           )}
         </div>
       )}
