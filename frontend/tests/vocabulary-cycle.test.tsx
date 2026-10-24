@@ -254,7 +254,7 @@ describe("ciclo lexical standalone", () => {
     apiMock.mockResolvedValueOnce(current).mockResolvedValueOnce({ ...current, current_activity: null, status: "closed" });
     render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
     fireEvent.click(await screen.findByRole("radio", { name: "Ada" }));
-    fireEvent.click(screen.getByRole("button", { name: "Enviar tentativa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
     await waitFor(() => expect(apiMock).toHaveBeenCalledWith(
       "/api/v1/lessons/lesson-1/vocabulary-cycle/answer",
       { method: "POST", body: { activity_index: 2, student_response: "Ada", remediation_id: "rem-1" } },
@@ -277,7 +277,7 @@ describe("ciclo lexical standalone", () => {
     render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
 
     fireEvent.click(await screen.findByRole("radio", { name: "poder" }));
-    fireEvent.click(screen.getByRole("button", { name: "Enviar tentativa" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
 
     await waitFor(() =>
       expect(apiMock).toHaveBeenCalledWith(
@@ -328,7 +328,7 @@ describe("ciclo lexical standalone", () => {
       ),
     );
     expect(await screen.findByText("Escolha a forma adequada.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Enviar tentativa" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Verificar" })).toBeDisabled();
   });
 
   it("não encerra a sessão quando a resposta só marca o fluxo como ativo", async () => {
@@ -363,7 +363,7 @@ describe("ciclo lexical standalone", () => {
       );
       render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
       expect(await screen.findByRole("button", { name: "Continuar" })).toBeEnabled();
-      expect(screen.queryByRole("button", { name: "Enviar tentativa" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Verificar" })).not.toBeInTheDocument();
     },
   );
 
@@ -378,7 +378,7 @@ describe("ciclo lexical standalone", () => {
       }),
     );
     render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
-    const send = await screen.findByRole("button", { name: "Enviar tentativa" });
+    const send = await screen.findByRole("button", { name: "Verificar" });
     expect(send).toBeDisabled();
     fireEvent.click(screen.getByRole("radio", { name: "chave" }));
     expect(send).toBeEnabled();

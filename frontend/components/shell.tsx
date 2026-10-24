@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { ArrowLeft, CalendarDays, ChevronDown, Compass, Globe, Home, LogOut, Menu, Settings, SlidersHorizontal, TrendingUp, User, Users, X } from "lucide-react";
 import { api, clearCsrfToken } from "@/lib/api";
+import { useFocusSession } from "@/components/focus-session";
 import { Logo } from "@/components/logo";
 
 const navigation = [
@@ -205,12 +206,16 @@ export function MobileNav() {
 }
 export function AppShell({ children, tutor }: { children: ReactNode; tutor?: ReactNode }) {
   const pathname = usePathname();
+  const { active: sessionFocus } = useFocusSession();
   const languagePicker = pathname === "/languages";
   const focus = /^\/learn\/(?!objetivo(?:\/|$))[^/]+\/?$/.test(pathname)
     || /^\/cronograma\/dia\/[^/]+\/?$/.test(pathname)
     || /^\/placement-test\/[^/]+\/?$/.test(pathname);
   const assessment = pathname.startsWith("/placement-test/");
   const practice = pathname.startsWith("/learn/");
+  if (sessionFocus) {
+    return <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">{children}</main>;
+  }
   return <>
     <a href="#main-content" className="skip-link">Pular para o conteúdo</a>
     {languagePicker ? <>

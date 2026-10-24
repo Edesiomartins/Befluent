@@ -8,15 +8,15 @@
  * e duplicar estes componentes faria as duas telas divergirem com o tempo.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FocusFrame, useFocusSession } from "@/components/focus-session";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AudioPlayer, Chat, Recorder } from "@/components/study";
 import { ObjectiveChoice } from "@/components/objective-choice";
 import { SpeechCoach } from "@/components/speech-coach";
 import { SessionSummary } from "@/components/activities/session-summary";
 import { TeachingActivityBody, TeachingAnswerFeedback } from "@/components/teaching-activity";
-import { SessionProgress } from "@/components/session-progress";
 import { Button, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
 import { coachFor } from "@/lib/coach";
@@ -710,8 +710,14 @@ function Vocabulary({
   const [response, setResponse] = useState("");
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [justCompleted, setJustCompleted] = useState(false);
   const finishedSession = useRef<import("@/types/teaching").SliceSession | null>(null);
+  const { setActive: setSessionFocus } = useFocusSession();
+  const sessionOpen = cycle.kind === "active";
+
+  useEffect(() => {
+    setSessionFocus(sessionOpen);
+    return () => setSessionFocus(false);
+  }, [sessionOpen, setSessionFocus]);
 
   useEffect(() => {
     if (!lesson.lesson_id || !enableCycle) {
@@ -817,7 +823,6 @@ function Vocabulary({
         },
       );
       setResponse("");
-      setJustCompleted(true);
       if (!sessionIsOpen(next)) {
         finishedSession.current = next;
       }
@@ -858,7 +863,7 @@ function Vocabulary({
         }
         if (isSliceSession(payload)) {
           const next = payload;
-          setJustCompleted(false);
+          setResponse("");
           finishedSession.current = null;
           setCycle(
             sessionIsOpen(next)
@@ -944,18 +949,16 @@ function Vocabulary({
   const sessionProgress = cycle.session.session_progress;
   const completed = sessionProgress?.completed ?? cycle.session.flow.activity_cursor;
   const total = sessionProgress?.total ?? cycle.session.activities_total;
-  const percent = sessionProgress?.percent ?? (total ? Math.round((completed / total) * 100) : 0);
   return (
-    <div className="mx-auto max-w-2xl">
-      <SessionProgress
-        completed={completed}
-        total={total}
-        percent={percent}
-        currentLabel={sessionProgress?.current_label}
-        nextLabel={sessionProgress?.next_label}
-        justCompleted={justCompleted}
-        areas={sessionProgress?.areas}
-      />
+    <FocusFrame
+      value={completed}
+      max={total || 1}
+      label="Progresso da sessão"
+      actionLabel={acknowledgement ? "Continuar" : "Verificar"}
+      actionDisabled={!acknowledgement && !response.trim()}
+      loading={sending}
+      onAction={() => void submitCycle()}
+    >
       <div className="panel p-7 sm:p-9">
         <TeachingActivityBody
           key={`${cycle.session.flow.id}-${cycle.session.flow.activity_cursor}`}
@@ -976,17 +979,8 @@ function Vocabulary({
         {submitError && (
           <p role="alert" className="mt-4 text-sm text-danger">{submitError}</p>
         )}
-        <div className="mt-6 border-t border-border pt-5">
-          <Button
-            loading={sending}
-            disabled={sending || (!acknowledgement && !response.trim())}
-            onClick={() => void submitCycle()}
-          >
-            {acknowledgement ? "Continuar" : "Enviar tentativa"}
-          </Button>
-        </div>
       </div>
-    </div>
+    </FocusFrame>
   );
 }
 

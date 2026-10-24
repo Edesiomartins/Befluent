@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { LessonContent } from "@/components/lesson-modes";
+import { useFocusSession } from "@/components/focus-session";
 import { AudioPlayer } from "@/components/study";
 import { Button, ErrorState, Loading } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -343,9 +344,10 @@ function AdaptiveLesson({ mode }: { mode: string }) {
   const { code, resolved } = useActiveLanguage();
   const language = resolved && code ? code : null;
   const { status, lesson, error, rawError, reload } = useLesson(mode, language);
+  const { active: sessionFocus } = useFocusSession();
   return (
-    <div className="mx-auto max-w-3xl">
-      <PageHeader mode={mode} lesson={lesson} />
+    <div className={sessionFocus ? "" : "mx-auto max-w-3xl"}>
+      {!sessionFocus && <PageHeader mode={mode} lesson={lesson} />}
       {resolved && !code && (
         <ErrorState message="Não foi possível identificar o idioma do seu plano." />
       )}
