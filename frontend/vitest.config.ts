@@ -8,6 +8,7 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./tests/setup.ts"],
+    include: ["tests/**/*.{test,spec}.{ts,tsx}"],
     css: true,
     // threads evita falha de forks+jsdom/undici em alguns ambientes CI
     pool: "threads",
