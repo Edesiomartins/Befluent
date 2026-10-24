@@ -14,6 +14,12 @@ const navigation = [
   { href: "/learn", label: "Praticar", icon: Compass },
   { href: "/progress", label: "Progresso", icon: TrendingUp },
 ];
+const mobileNavigation = [
+  { href: "/dashboard", label: "Hoje", icon: Home },
+  { href: "/learn", label: "Aprender", icon: Compass },
+  { href: "/progress", label: "Progresso", icon: TrendingUp },
+  { href: "/profile", label: "Perfil", icon: User },
+];
 const secondary = [
   { href: "/languages", label: "Idiomas", icon: Globe },
   { href: "/onboarding", label: "Ajustar plano", icon: SlidersHorizontal },
@@ -195,7 +201,7 @@ export function Header() {
 export function MobileNav() {
   const pathname = usePathname();
   return <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-border bg-surface px-2 pb-[env(safe-area-inset-bottom)] lg:hidden" aria-label="Navegação móvel">
-    {navigation.map(({ href, label, icon: Icon }) => {
+    {mobileNavigation.map(({ href, label, icon: Icon }) => {
       const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(href + "/"));
       return <Link key={href} href={href} aria-current={active ? "page" : undefined}
         className={`flex min-h-16 flex-col items-center justify-center gap-1 px-1 py-2 text-xs font-medium transition-colors ${active ? "text-primary" : "text-text-secondary"}`}>

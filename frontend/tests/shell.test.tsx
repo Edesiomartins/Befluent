@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { axe } from "vitest-axe";
 import { Header, MobileNav, Sidebar, AppShell } from "@/components/shell";
 
 const state = vi.hoisted(() => ({ path: "/dashboard", api: vi.fn() }));
@@ -11,13 +12,19 @@ describe("estrutura editorial", () => {
     state.path = "/dashboard";
     state.api.mockReset().mockResolvedValue([{ code: "fr", name_pt: "Francês", active: true }]);
   });
-  it("oferece os mesmos quatro destinos principais no desktop e celular", () => {
+  it("mantém o plano na lateral e troca o celular para Hoje, Aprender, Progresso e Perfil", () => {
     render(<><Sidebar /><MobileNav /></>);
-    for (const name of ["Navegação principal", "Navegação móvel"]) {
-      const nav = within(screen.getByRole("navigation", { name }));
-      expect(nav.getAllByRole("link").map((link) => link.textContent)).toEqual(["Hoje", "Meu plano", "Praticar", "Progresso"]);
-      expect(nav.getByRole("link", { name: "Hoje" })).toHaveAttribute("aria-current", "page");
-    }
+    const desktop = within(screen.getByRole("navigation", { name: "Navegação principal" }));
+    expect(desktop.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Hoje", "Meu plano", "Praticar", "Progresso",
+    ]);
+    const mobile = within(screen.getByRole("navigation", { name: "Navegação móvel" }));
+    expect(mobile.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "Hoje", "Aprender", "Progresso", "Perfil",
+    ]);
+    expect(mobile.getByRole("link", { name: "Hoje" })).toHaveAttribute("aria-current", "page");
+    expect(mobile.getByRole("link", { name: "Perfil" })).toHaveAttribute("href", "/profile");
+    expect(mobile.getByRole("link", { name: "Aprender" })).toHaveAttribute("href", "/learn");
   });
   it("mostra idioma real e recarrega o contexto após uma troca", async () => {
     render(<Header />);
@@ -128,5 +135,8 @@ describe("estrutura editorial", () => {
     expect(screen.getByRole("navigation", { name: "Navegação móvel" })).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: /Francês.*Trocar idioma/ })).toBeInTheDocument();
     expect(screen.getByText("Tutor flutuante")).toBeInTheDocument();
+    const mobile = screen.getByRole("navigation", { name: "Navegação móvel" });
+    expect(within(mobile).getByRole("link", { name: "Aprender" })).toBeInTheDocument();
+    expect((await axe(mobile, { rules: { "color-contrast": { enabled: false } } })).violations).toEqual([]);
   });
 });
