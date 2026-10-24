@@ -53,3 +53,10 @@ O dashboard, a trilha e a barra inferior aparecem nas capturas. A sessão, o fee
 - A página do dia ainda usa «Enviar tentativa» e o chrome «Voltar ao plano».
 - Contraste AA foi medido nos tokens, não pelo axe no navegador.
 - IA continua em modo mock. Sem escolha de provedor.
+
+## Atualização — Reformulação Híbrida de Alta Precisão (2026-10-24)
+
+- Direção aplicada: SaaS de alta precisão (estilo Linear / Stripe) com arquitetura híbrida (*Command Dark* `#0B1220` na sidebar, cabeçalho de estudo e hero cards de missão/plano/progresso + *Studio Light* `#F3F6FB`/`#FFFFFF` nos exercícios e listas).
+- Especificação: `docs/superpowers/specs/2026-10-24-hybrid-precision-layout-design.md`.
+- Validação completa: `npm test` (51 arquivos, 396 passed, exit 0), `npm run typecheck` (exit 0), `npm run lint` (0 erros, 5 warnings anteriores).
+- Capturas `docs/layout-v1/after/` (14 PNGs desktop e mobile) atualizadas com o novo layout.

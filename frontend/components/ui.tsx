@@ -33,16 +33,19 @@ export function Button({
   ...props
 }: ButtonProps) {
   const styles = {
-    primary: "bg-primary text-white hover:bg-[var(--primary-hover)]",
+    primary:
+      "bg-primary text-white shadow-[0_1px_2px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.18)] hover:bg-[var(--primary-hover)]",
     secondary:
-      "border border-border bg-surface text-text-primary hover:border-text-secondary/40 hover:bg-surface-soft",
-    success: "bg-success text-white hover:opacity-95",
-    danger: "bg-danger text-white hover:opacity-95",
+      "border border-border bg-surface text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.04)] hover:border-[var(--border-strong)] hover:bg-[var(--surface-soft)]",
+    success:
+      "bg-success text-white shadow-[0_1px_2px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.18)] hover:opacity-95",
+    danger:
+      "bg-danger text-white shadow-[0_1px_2px_rgba(15,23,42,0.12),inset_0_1px_0_rgba(255,255,255,0.18)] hover:opacity-95",
     ghost: "text-text-secondary hover:bg-surface-elevated hover:text-text-primary",
   };
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-5 py-2.5 text-sm font-semibold transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[10px] px-4.5 py-2.5 text-sm font-semibold tracking-[-0.01em] transition-all duration-150 disabled:cursor-not-allowed disabled:opacity-55 ${styles[variant]} ${className}`}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...props}
@@ -65,17 +68,17 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const generatedId = useId();
   const inputId = id ?? props.name ?? generatedId;
   return (
-    <label className="grid gap-2 text-sm font-medium" htmlFor={inputId}>
+    <label className="grid gap-1.5 text-sm font-medium text-text-primary" htmlFor={inputId}>
       {label}
       <input
         ref={ref}
         id={inputId}
-        className={`min-h-11 rounded-[10px] border bg-surface px-3.5 py-2.5 text-text-primary placeholder:text-text-secondary focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+        className={`min-h-11 rounded-[10px] border bg-surface px-3.5 py-2.5 text-sm text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-colors placeholder:text-text-secondary/75 focus:border-primary focus:bg-surface ${error ? "border-danger" : "border-border hover:border-[var(--border-strong)]"} ${className}`}
         aria-invalid={Boolean(error)}
         aria-describedby={error ? `${inputId}-error` : undefined}
         {...props}
       />
-      {error && <span id={`${inputId}-error`} className="text-sm font-normal text-danger">{error}</span>}
+      {error && <span id={`${inputId}-error`} className="text-xs font-medium text-danger">{error}</span>}
     </label>
   );
 });
@@ -91,35 +94,35 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
     const toggleLabel = visible ? "Ocultar senha" : "Mostrar senha";
 
     return (
-      <div className="grid gap-2 text-sm font-medium">
+      <div className="grid gap-1.5 text-sm font-medium text-text-primary">
         <label htmlFor={inputId}>{label}</label>
         <div className="relative">
           <input
             ref={ref}
             id={inputId}
             type={visible ? "text" : "password"}
-            className={`min-h-11 w-full rounded-[10px] border bg-surface py-2.5 pl-3.5 pr-12 text-text-primary placeholder:text-text-secondary focus:border-primary ${error ? "border-danger" : "border-border"} ${className}`}
+            className={`min-h-11 w-full rounded-[10px] border bg-surface py-2.5 pl-3.5 pr-12 text-sm text-text-primary shadow-[0_1px_2px_rgba(15,23,42,0.03)] transition-colors placeholder:text-text-secondary/75 focus:border-primary ${error ? "border-danger" : "border-border hover:border-[var(--border-strong)]"} ${className}`}
             aria-invalid={Boolean(error)}
             aria-describedby={error ? `${inputId}-error` : undefined}
             {...props}
           />
           <button
             type="button"
-            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+            className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-[10px] text-text-secondary transition hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
             onClick={() => setVisible((value) => !value)}
             aria-label={toggleLabel}
             aria-pressed={visible}
             title={toggleLabel}
           >
             {visible ? (
-              <EyeOff className="size-5" aria-hidden />
+              <EyeOff className="size-4.5" aria-hidden />
             ) : (
-              <Eye className="size-5" aria-hidden />
+              <Eye className="size-4.5" aria-hidden />
             )}
           </button>
         </div>
         {error && (
-          <span id={`${inputId}-error`} className="text-sm font-normal text-danger">
+          <span id={`${inputId}-error`} className="text-xs font-medium text-danger">
             {error}
           </span>
         )}
@@ -132,7 +135,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
 export function Note({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <p className={`note ${className}`}>
-      <Info className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <Info className="mt-0.5 size-3.5 shrink-0 text-primary/80" aria-hidden />
       <span>{children}</span>
     </p>
   );
@@ -143,7 +146,7 @@ export function Loading({ label = "Carregando" }: { label?: string }) {
     <div className="grid gap-4" aria-label={label} role="status">
       <span className="sr-only">{label}</span>
       <div className="skeleton h-8 w-2/5" />
-      <div className="skeleton h-24 w-full" />
+      <div className="skeleton h-28 w-full" />
       <div className="skeleton h-16 w-4/5" />
     </div>
   );
@@ -159,10 +162,10 @@ export function EmptyState({
   action?: ReactNode;
 }) {
   return (
-    <div className="mt-4 grid justify-items-start gap-2">
+    <div className="mt-4 grid justify-items-start gap-2 rounded-xl border border-dashed border-border bg-[var(--surface-soft)]/60 p-5">
       <h2 className="section-title">{title}</h2>
       <p className="max-w-lg text-sm leading-6 text-text-secondary">{description}</p>
-      {action}
+      {action && <div className="mt-1">{action}</div>}
     </div>
   );
 }
@@ -184,12 +187,12 @@ export function ErrorState({
   const nativeLanguage = nativeLanguageRequiredMessage(error);
 
   return (
-    <div className="rounded-xl border border-danger/20 bg-surface p-5" role="alert">
+    <div className="panel border-danger/25 p-5" role="alert">
       <h2 className="flex items-center gap-2 font-semibold text-danger">
         <AlertTriangle className="size-5 shrink-0" aria-hidden />
         {aiUnavailable ? "IA temporariamente indisponível" : "Algo não saiu como esperado"}
       </h2>
-      <p className="mt-1 text-sm text-text-secondary">
+      <p className="mt-1.5 text-sm leading-6 text-text-secondary">
         {aiUnavailable
           ? "O provedor de IA está sobrecarregado ou indisponível no momento. Isso costuma se resolver sozinho em pouco tempo."
           : nativeLanguage ?? message}

@@ -179,27 +179,29 @@ export default function ProgressPage() {
         )}
       </div>
 
-      <section className="panel mt-8 p-6 sm:p-8">
-        <p className="label">Aprendizado baseado em evidências</p>
-        <div className="mt-2 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+      <section className="command-panel mt-6 p-6 sm:p-8">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs font-semibold text-[#93c5fd]">
+          Aprendizado baseado em evidências
+        </p>
+        <div className="mt-4 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
-            <h2 className="font-display text-[1.75rem] font-medium leading-tight tracking-[-0.015em]">Domínio demonstrado</h2>
+            <h2 className="text-xl font-semibold tracking-[-0.02em] text-white sm:text-2xl">Domínio demonstrado</h2>
             {hasDemonstratedMastery ? (
-              <p className="mt-3 font-display text-5xl font-medium leading-none tracking-[-0.03em]">{mastery.overall_percent}%</p>
+              <p className="display-number mt-3 text-5xl leading-none text-white">{mastery.overall_percent}%</p>
             ) : mastery?.status === "unavailable" ? (
-              <div className="mt-3 text-sm text-text-secondary">
+              <div className="mt-3 text-sm text-[var(--command-muted)]">
                 <p>Configure ou selecione um idioma para acompanhar seu domínio.</p>
-                <Link className="mt-2 inline-block font-semibold text-primary hover:underline" href="/onboarding">Configurar idioma</Link>
+                <Link className="mt-2 inline-block font-semibold text-[#93c5fd] hover:underline" href="/onboarding">Configurar idioma</Link>
               </div>
             ) : (
-              <p className="mt-3 text-sm text-text-secondary">Dados em calibração: pratique atividades com objetivo para formar uma medida confiável.</p>
+              <p className="mt-3 text-sm text-[var(--command-muted)]">Dados em calibração: pratique atividades com objetivo para formar uma medida confiável.</p>
             )}
           </div>
           {hasDemonstratedMastery && mastery.cefr && (
-            <div className="rounded-xl border border-border bg-surface-soft px-4 py-3 sm:text-right">
-              <p className="text-xs text-text-secondary">Caminho CEFR</p>
-              <p className="mt-1 font-display text-2xl leading-none">{mastery.cefr.current} → {mastery.cefr.next}</p>
-              <p className="mt-2 text-xs text-text-secondary">Faixa registrada no perfil. O estudo de hoje não promove o nível sozinho.</p>
+            <div className="rounded-xl border border-white/12 bg-white/6 px-4 py-3 sm:text-right">
+              <p className="text-xs text-[var(--command-muted)]">Caminho CEFR</p>
+              <p className="display-number mt-1 text-2xl leading-none text-white">{mastery.cefr.current} → {mastery.cefr.next}</p>
+              <p className="mt-2 text-xs text-[var(--command-muted)]">Faixa registrada no perfil. O estudo de hoje não promove o nível sozinho.</p>
             </div>
           )}
         </div>
@@ -207,18 +209,18 @@ export default function ProgressPage() {
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
             {mastery.by_skill.map((skill) => (
               <div key={skill.skill}>
-                <div className="flex justify-between gap-4 text-sm"><span className="font-medium">{skillLabel(skill.skill, skill.label)}</span><span className="tabular-nums text-text-secondary">{skill.percent}%</span></div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-soft"><div className="h-full rounded-full bg-primary" style={{ width: `${skill.percent}%` }} /></div>
+                <div className="flex justify-between gap-4 text-sm text-white"><span className="font-medium">{skillLabel(skill.skill, skill.label)}</span><span className="tabular-nums text-[var(--command-muted)]">{skill.percent}%</span></div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/12"><div className="h-full rounded-full bg-primary" style={{ width: `${skill.percent}%` }} /></div>
               </div>
             ))}
           </div>
         )}
         {hasDemonstratedMastery && mastery.priorities.length > 0 && (
-          <div className="mt-6 border-t border-border pt-5">
-            <p className="text-sm font-semibold">Prioridades para avançar</p>
+          <div className="mt-6 border-t border-[var(--command-border)] pt-5">
+            <p className="text-sm font-semibold text-white">Prioridades para avançar</p>
             <ul className="mt-2 grid gap-2 text-sm">
               {mastery.priorities.slice(0, 3).map((priority, index) => (
-                <li key={`${priority.skill}-${index}`}><Link className="font-medium text-primary hover:underline" href={priority.href ?? "/learn"}>{priority.label ?? priority.reason ?? skillLabel(priority.skill)}</Link></li>
+                <li key={`${priority.skill}-${index}`}><Link className="font-medium text-[#93c5fd] hover:underline" href={priority.href ?? "/learn"}>{priority.label ?? priority.reason ?? skillLabel(priority.skill)}</Link></li>
               ))}
             </ul>
           </div>

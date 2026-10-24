@@ -625,35 +625,41 @@ export default function CurriculumDayPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <header>
-        <p className="text-sm text-text-secondary">
-          Semana {week.week_number} · {week.theme}
-          {week.is_checkpoint && (
-            <span className="ml-2 text-xs font-semibold text-streak">Checkpoint</span>
-          )}
-        </p>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-wide text-text-secondary">
-          Missão {day.day_number}
-        </p>
-        <h1 className="mt-2 page-title">{mission.title}</h1>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-text-secondary">
+      <header className="command-panel p-6 sm:p-8">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-xs font-medium text-[var(--command-muted)]">
+            Semana {week.week_number} · {week.theme}
+            {week.is_checkpoint && (
+              <span className="ml-2 rounded-full bg-[var(--streak-soft)] px-2 py-0.5 text-xs font-semibold text-streak">
+                Checkpoint
+              </span>
+            )}
+          </p>
+          <p className="rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#93c5fd]">
+            Missão {day.day_number}
+          </p>
+        </div>
+        <h1 className="mt-3 page-title text-white">{mission.title}</h1>
+        <p className="mt-2.5 max-w-2xl text-sm leading-6 text-[var(--command-muted)]">
           Ao terminar, você será capaz de {mission.learner_goal.charAt(0).toLowerCase() + mission.learner_goal.slice(1)}
         </p>
-        <p className="mt-2 text-xs text-text-secondary">
-          {coach.display_name} acompanha esta missão
-          {mission.level ? ` · ${levelShortCode(mission.level) ?? mission.level}` : ""}
-          {" · "}
-          {day.total_minutes} min
-        </p>
-        <p className="mt-2 text-sm text-text-secondary">
-          Dia {day.day_number}
-          {curriculum.duration_days ? ` de ${curriculum.duration_days}` : ""}
-          {" · "}
-          {day.blocks_completed} de {day.blocks_total} blocos
-        </p>
+        <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-[var(--command-muted)]">
+          <span>
+            {coach.display_name} acompanha esta missão
+            {mission.level ? ` · ${levelShortCode(mission.level) ?? mission.level}` : ""}
+            {" · "}
+            {day.total_minutes} min
+          </span>
+          <span>
+            Dia {day.day_number}
+            {curriculum.duration_days ? ` de ${curriculum.duration_days}` : ""}
+            {" · "}
+            {day.blocks_completed} de {day.blocks_total} blocos
+          </span>
+        </div>
         {day.blocks_total > 0 && (
           <div
-            className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated"
+            className="mt-4 h-2 max-w-md rounded-full bg-white/12"
             role="progressbar"
             aria-label="Progresso da missão"
             aria-valuemin={0}
@@ -704,10 +710,10 @@ export default function CurriculumDayPage() {
         </div>
       )}
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)]">
-        <nav aria-label="Caminho do dia" className="lg:sticky lg:top-6 lg:self-start">
+      <div className="mt-7 grid gap-7 lg:grid-cols-[16.5rem_minmax(0,1fr)]">
+        <nav aria-label="Caminho do dia" className="panel p-4 lg:sticky lg:top-20 lg:self-start">
           <p className="label mb-3">Sequência do dia</p>
-          <ol className="grid gap-1">
+          <ol className="grid gap-1.5">
             {day.blocks.map((block, index) => {
               const done = block.status === "completed";
               const locked = Boolean(block.locked);
@@ -721,21 +727,21 @@ export default function CurriculumDayPage() {
                       if (!locked) setActiveBlockId(block.id);
                     }}
                     aria-current={selected ? "step" : undefined}
-                    className={`flex min-h-11 w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm outline-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-primary ${
+                    className={`flex min-h-11 w-full items-center gap-3 rounded-xl px-3 py-2 text-left text-sm outline-none motion-reduce:transition-none focus-visible:ring-2 focus-visible:ring-primary ${
                       selected
-                        ? "bg-surface font-semibold text-text-primary shadow-[inset_0_0_0_1px_var(--border)]"
+                        ? "bg-primary-soft/55 font-semibold text-text-primary shadow-[inset_0_0_0_1px_rgba(37,99,235,0.35)]"
                         : locked
-                          ? "cursor-not-allowed text-text-secondary"
-                          : "hover:bg-surface-elevated"
+                          ? "cursor-not-allowed text-text-secondary/75"
+                          : "hover:bg-[var(--surface-soft)]"
                     }`}
                   >
                     <span
-                      className={`display-number grid size-7 shrink-0 place-items-center rounded-full text-sm ${
+                      className={`display-number grid size-7 shrink-0 place-items-center rounded-full text-xs ${
                         done
                           ? "bg-success text-white"
                           : selected
                             ? "bg-primary text-white"
-                            : "border border-border bg-background text-text-secondary"
+                            : "border border-border bg-surface text-text-secondary"
                       }`}
                     >
                       {done ? (

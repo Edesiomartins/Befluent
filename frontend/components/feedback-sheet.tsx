@@ -24,12 +24,12 @@ export function FeedbackSheet({
   }, [feedback]);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+    <div className="fixed inset-x-0 bottom-0 z-30 bg-surface/95 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-md">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={`mx-auto w-full max-w-xl rounded-t-2xl border p-5 shadow-xl ${
+        className={`mx-auto w-full max-w-2xl rounded-2xl border p-5 shadow-2xl ${
           correct ? "border-success bg-success/10" : "border-danger bg-danger/10"
         }`}
       >
@@ -55,10 +55,10 @@ export function FeedbackSheet({
             </p>
           )}
         </div>
-        <div className="mt-4 grid gap-2">
+        <div className="mt-4 grid gap-2 sm:grid-cols-2">
           <button
             type="button"
-            className="min-h-12 rounded-xl bg-primary font-semibold text-white"
+            className="min-h-12 rounded-xl bg-primary text-sm font-semibold text-white shadow-[0_1px_2px_rgba(15,23,42,0.12)] hover:bg-[var(--primary-hover)]"
             onClick={onContinue}
           >
             Continuar
@@ -66,7 +66,7 @@ export function FeedbackSheet({
           {canRetry && (
             <button
               type="button"
-              className="min-h-12 rounded-xl border border-border bg-surface font-semibold text-text-primary"
+              className="min-h-12 rounded-xl border border-border bg-surface text-sm font-semibold text-text-primary hover:bg-[var(--surface-soft)]"
               onClick={onRetry}
             >
               Tentar novamente

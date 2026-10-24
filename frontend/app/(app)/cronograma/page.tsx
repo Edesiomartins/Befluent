@@ -298,61 +298,66 @@ export default function CronogramaPage() {
 
   return (
     <div>
-      <header className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-        <div>
-          <h1 className="page-title">Seu plano de {plan.duration_days} jornadas</h1>
-          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-secondary">
-            <span className="flex items-center gap-1.5">
-              <Target className="size-4" aria-hidden />
-              <span>
-                {levelShortCode(plan.entry_level)} → {levelShortCode(plan.target_level)}
-              </span>
-            </span>
-            {progress.next_checkpoint_week && (
-              <span className="flex items-center gap-1.5">
-                <CalendarCheck className="size-4" aria-hidden />
-                <span>Próximo checkpoint: semana {progress.next_checkpoint_week}</span>
-              </span>
-            )}
-          </div>
-        </div>
-        <p className="display-number text-3xl leading-none md:text-right">
-          Dia {progress.current_day_number ?? progress.days_total} de {progress.days_total}
-        </p>
-      </header>
-
-      {/* Progresso geral */}
-      <section className="mt-6">
-        <div
-          className="h-1.5 rounded-full bg-surface-elevated"
-          role="progressbar"
-          aria-label="Progresso do cronograma"
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={progress.percent_complete}
-        >
-          <div
-            className="h-full rounded-full bg-primary transition-[width]"
-            style={{ width: `${progress.percent_complete}%` }}
-          />
-        </div>
-        <div className="mt-2 flex flex-wrap justify-between gap-2 text-sm text-text-secondary">
-          <span>
-            {progress.days_completed}{" "}
-            {progress.days_completed === 1 ? "jornada concluída" : "jornadas concluídas"} ·{" "}
-            {progress.percent_complete}%
-          </span>
-          {progress.pace_label_pt && <span>{progress.pace_label_pt}</span>}
-        </div>
-        {plan.disclaimer && (
-          <details className="disclosure mt-3">
-            <summary>Sobre este cronograma</summary>
-            <p className="mt-2 max-w-2xl text-xs leading-5 text-text-secondary">
-              {plan.disclaimer}
+      <header className="command-panel p-6 sm:p-7">
+        <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+          <div>
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs font-semibold text-[#93c5fd]">
+              Plano estruturado
             </p>
-          </details>
-        )}
-      </section>
+            <h1 className="page-title mt-3 text-white">Seu plano de {plan.duration_days} jornadas</h1>
+            <div className="mt-2.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-[var(--command-muted)]">
+              <span className="flex items-center gap-1.5">
+                <Target className="size-4 text-[#60a5fa]" aria-hidden />
+                <span>
+                  {levelShortCode(plan.entry_level)} → {levelShortCode(plan.target_level)}
+                </span>
+              </span>
+              {progress.next_checkpoint_week && (
+                <span className="flex items-center gap-1.5">
+                  <CalendarCheck className="size-4 text-[#60a5fa]" aria-hidden />
+                  <span>Próximo checkpoint: semana {progress.next_checkpoint_week}</span>
+                </span>
+              )}
+            </div>
+          </div>
+          <p className="display-number text-2xl leading-none text-white sm:text-3xl md:text-right">
+            Dia {progress.current_day_number ?? progress.days_total} de {progress.days_total}
+          </p>
+        </div>
+
+        {/* Progresso geral */}
+        <section className="mt-6 border-t border-[var(--command-border)] pt-5">
+          <div
+            className="h-2 rounded-full bg-white/12"
+            role="progressbar"
+            aria-label="Progresso do cronograma"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress.percent_complete}
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width]"
+              style={{ width: `${progress.percent_complete}%` }}
+            />
+          </div>
+          <div className="mt-2.5 flex flex-wrap justify-between gap-2 text-xs font-medium text-[var(--command-muted)]">
+            <span>
+              {progress.days_completed}{" "}
+              {progress.days_completed === 1 ? "jornada concluída" : "jornadas concluídas"} ·{" "}
+              {progress.percent_complete}%
+            </span>
+            {progress.pace_label_pt && <span>{progress.pace_label_pt}</span>}
+          </div>
+          {plan.disclaimer && (
+            <details className="disclosure mt-3">
+              <summary className="!text-[var(--command-muted)] hover:!text-white">Sobre este cronograma</summary>
+              <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--command-muted)]">
+                {plan.disclaimer}
+              </p>
+            </details>
+          )}
+        </section>
+      </header>
 
       {progress.overdue_days > 0 && (
         <OverdueNotice
@@ -363,11 +368,11 @@ export default function CronogramaPage() {
       )}
 
       {/* Próxima jornada (progresso, não calendário) */}
-      <section className="panel mt-6 p-6">
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
+      <section className="panel mt-6 p-6 sm:p-7">
+        <div className="flex flex-wrap items-baseline justify-between gap-3 border-b border-border pb-4">
           <h2 className="section-title">Continuar aprendendo</h2>
           {currentWeek && (
-            <span className="text-sm text-text-secondary">
+            <span className="tech-badge">
               Semana {currentWeek.week_number} · {currentWeek.theme}
               {currentWeek.is_checkpoint && (
                 <span className="ml-2 text-xs font-semibold text-streak">

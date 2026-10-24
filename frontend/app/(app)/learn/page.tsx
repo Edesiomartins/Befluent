@@ -45,14 +45,19 @@ export default function LearnPage() {
 
   return (
     <div>
-      <h1 className="page-title">O que vamos praticar?</h1>
-      <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
-        {pathDay
-          ? "Reforce uma habilidade fora da sequência do dia."
-          : plan?.level_is_estimated
-            ? "As atividades abaixo estão calibradas pelo seu resultado no teste de nivelamento."
-            : "Escolha uma habilidade para trabalhar agora. Faça o teste de nível para receber recomendações personalizadas."}
-      </p>
+      <header className="command-panel p-6 sm:p-8">
+        <p className="inline-flex items-center gap-1.5 rounded-full border border-white/12 bg-white/8 px-3 py-1 text-xs font-semibold text-[#93c5fd]">
+          Estúdio de prática
+        </p>
+        <h1 className="page-title mt-3 text-white">O que vamos praticar?</h1>
+        <p className="mt-2.5 max-w-2xl text-sm leading-6 text-[var(--command-muted)]">
+          {pathDay
+            ? "Reforce uma habilidade fora da sequência do dia."
+            : plan?.level_is_estimated
+              ? "As atividades abaixo estão calibradas pelo seu resultado no teste de nivelamento."
+              : "Escolha uma habilidade para trabalhar agora. Faça o teste de nível para receber recomendações personalizadas."}
+        </p>
+      </header>
 
       {pathDay && (
         <Link

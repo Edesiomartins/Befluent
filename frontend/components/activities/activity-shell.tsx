@@ -44,19 +44,27 @@ export function ActivityShell({
     <section
       id={ACTIVITY_FOCUS_ID}
       tabIndex={-1}
-      className="mx-auto w-full max-w-3xl outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      className="panel mx-auto w-full max-w-3xl p-6 outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-8"
       aria-label="Atividade"
     >
-      <header className="mb-4">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <p className="label">{showPhase ? label : "Atividade"}</p>
-          {position && <p className="text-sm tabular-nums text-text-secondary">{position}</p>}
+      <header className="mb-5 border-b border-border pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="tech-badge">{showPhase ? label : "Atividade"}</p>
+            {meta && <p className="text-xs font-medium text-text-secondary">{meta}</p>}
+          </div>
+          {position && (
+            <p className="rounded-md bg-[var(--surface-soft)] px-2 py-0.5 text-xs font-semibold tabular-nums text-text-secondary">
+              {position}
+            </p>
+          )}
         </div>
-        {meta && <p className="mt-1 text-sm text-text-secondary">{meta}</p>}
-        {objective && <p className="mt-2 text-sm leading-6 text-text-primary">{objective}</p>}
+        {objective && (
+          <p className="mt-3 text-sm font-medium leading-6 text-text-primary">{objective}</p>
+        )}
       </header>
       {children}
-      {footer && <div className="mt-4">{footer}</div>}
+      {footer && <div className="mt-5 border-t border-border pt-4">{footer}</div>}
     </section>
   );
 }

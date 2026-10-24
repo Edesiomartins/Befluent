@@ -11,48 +11,61 @@ export function Logo({
   className = "",
   showWordmark = true,
 }: LogoProps) {
-  const markColor = variant === "light" ? "#FFFFFF" : "var(--primary)";
+  const markColor = variant === "light" ? "#FFFFFF" : "#FFFFFF";
   const textColor = variant === "light" ? "text-white" : "text-text-primary";
 
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <svg
-        width="36"
-        height="36"
+        width="34"
+        height="34"
         viewBox="0 0 36 36"
         fill="none"
         xmlns="http://www.w3.org/2000/svg"
         aria-hidden
       >
-        <rect width="36" height="36" rx="10" fill={variant === "light" ? "rgba(255,255,255,0.15)" : "var(--primary-soft)"} />
+        <rect
+          width="36"
+          height="36"
+          rx="9"
+          fill={variant === "light" ? "#2563eb" : "#0b1220"}
+        />
+        <rect
+          x="0.5"
+          y="0.5"
+          width="35"
+          height="35"
+          rx="8.5"
+          stroke="rgba(255,255,255,0.16)"
+        />
         <path
-          d="M10 12.5h10.5a4.5 4.5 0 0 1 0 9H10V12.5Z"
+          d="M10.5 12.5h10a4.5 4.5 0 0 1 0 9h-10V12.5Z"
           stroke={markColor}
           strokeWidth="2"
           strokeLinejoin="round"
         />
         <path
-          d="M10 21.5h8"
+          d="M10.5 21.5h7.5"
           stroke={markColor}
           strokeWidth="2"
           strokeLinecap="round"
         />
         <path
-          d="M24.5 14c1.8 1.2 2.8 2.8 2.8 4.5s-1 3.3-2.8 4.5"
-          stroke={markColor}
+          d="M24.2 14c1.7 1.2 2.7 2.8 2.7 4.5s-1 3.3-2.7 4.5"
+          stroke="#60a5fa"
           strokeWidth="2"
           strokeLinecap="round"
         />
         <path
-          d="M27.2 12c2.4 1.7 3.8 3.9 3.8 6.5s-1.4 4.8-3.8 6.5"
-          stroke={markColor}
-          strokeWidth="2"
+          d="M27 12c2.3 1.7 3.6 3.9 3.6 6.5S29.3 23.3 27 25"
+          stroke="#93c5fd"
+          strokeWidth="1.75"
           strokeLinecap="round"
-          opacity="0.55"
+          opacity="0.75"
         />
       </svg>
       {showWordmark && (
-        <span className={`text-lg font-semibold tracking-[-0.02em] ${textColor}`}>
+        <span className={`text-[1.05rem] font-semibold tracking-[-0.03em] ${textColor}`}>
           {BRAND.name}
         </span>
       )}
