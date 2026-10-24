@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Check, Lock } from "lucide-react";
-import { ActivityShell } from "@/components/activities/activity-shell";
+import { ActivityShell, focusCurrentActivity } from "@/components/activities/activity-shell";
 import { LessonContent } from "@/components/lesson-modes";
 import { Button, ErrorState, Loading, Note } from "@/components/ui";
 import { api, ApiError } from "@/lib/api";
@@ -358,6 +358,7 @@ function MiniTeachingPractice({
       const next = await api<SliceSession>(path, { method: "POST", body });
       setSession(next);
       setResponse("");
+      queueMicrotask(() => focusCurrentActivity());
     } catch (caught) {
       setError(
         nativeLanguageRequiredMessage(caught) ??
@@ -617,7 +618,8 @@ export default function CurriculumDayPage() {
     null;
   const active =
     day.blocks.find((block) => block.id === activeBlockId && !block.locked) ?? current;
-  const finished = day.blocks.every((block) => block.status === "completed");
+  const finished =
+    day.blocks.length > 0 && day.blocks.every((block) => block.status === "completed");
   const progressPct =
     day.blocks_total > 0 ? Math.round((day.blocks_completed / day.blocks_total) * 100) : 0;
 
@@ -649,19 +651,21 @@ export default function CurriculumDayPage() {
           {" · "}
           {day.blocks_completed} de {day.blocks_total} blocos
         </p>
-        <div
-          className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated"
-          role="progressbar"
-          aria-label="Progresso da missão"
-          aria-valuemin={0}
-          aria-valuemax={day.blocks_total}
-          aria-valuenow={day.blocks_completed}
-        >
+        {day.blocks_total > 0 && (
           <div
-            className="h-full rounded-full bg-primary motion-reduce:transition-none"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
+            className="mt-4 h-1.5 max-w-md rounded-full bg-surface-elevated"
+            role="progressbar"
+            aria-label="Progresso da missão"
+            aria-valuemin={0}
+            aria-valuemax={day.blocks_total}
+            aria-valuenow={day.blocks_completed}
+          >
+            <div
+              className="h-full rounded-full bg-primary motion-reduce:transition-none"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        )}
       </header>
 
       {day.learning_objective && (
@@ -762,6 +766,11 @@ export default function CurriculumDayPage() {
         </nav>
 
         <div className="min-w-0 max-w-3xl">
+          {day.blocks.length === 0 && (
+            <p className="panel p-6 text-sm leading-6 text-text-secondary" role="status">
+              Este dia ainda não tem atividades.
+            </p>
+          )}
           {day.story && <DayStoryScene story={day.story} />}
           {finished && !activeBlockId ? (
             <div className="panel p-8" role="status">
