@@ -693,6 +693,12 @@ function isSliceSession(value: unknown): value is import("@/types/teaching").Sli
   return Boolean(payload.flow && typeof payload.flow === "object");
 }
 
+function numberField(session: object | null | undefined, key: string) {
+  if (!session || !(key in session)) return null;
+  const value = (session as Record<string, unknown>)[key];
+  return typeof value === "number" ? value : null;
+}
+
 function sessionIsOpen(session: import("@/types/teaching").SliceSession) {
   const status = session.status ?? session.flow.status;
   return status === "active" && Boolean(session.current_activity);
@@ -944,6 +950,9 @@ function Vocabulary({
           completed={finished?.session_progress?.completed}
           areas={areas}
           masteryState={finished?.mastery?.state}
+          correct={numberField(finished, "correct_count")}
+          masteredWords={numberField(finished, "mastered_words")}
+          minutes={numberField(finished, "elapsed_minutes")}
         />
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           {SESSION_SIZES.map((option, index) => (
