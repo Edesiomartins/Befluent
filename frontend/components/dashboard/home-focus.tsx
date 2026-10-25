@@ -1,10 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Clock, Flame, Layers, Sparkles, TrendingUp } from "lucide-react";
+import { ArrowRight, CalendarRange, Clock, Flame, Layers, RotateCcw, Sparkles, TrendingUp } from "lucide-react";
 import { deriveDailyMission } from "@/lib/journey";
+import { levelShortCode } from "@/lib/levels";
 import type { TodayPayload } from "@/types/curriculum";
 import type { DashboardData } from "@/components/dashboard/types";
+
+function nextReviewText(review: DashboardData["reviews_due"][number] | undefined): string | null {
+  if (!review) return null;
+  if (typeof review.payload?.term === "string" && review.payload.term.trim()) {
+    return review.payload.term.trim();
+  }
+  if (typeof review.payload?.prompt === "string" && review.payload.prompt.trim()) {
+    return review.payload.prompt.trim();
+  }
+  return review.item_type || null;
+}
 
 export function HomeFocus({
   data,
@@ -28,6 +40,11 @@ export function HomeFocus({
   const label = hasPlan ? "Continuar a missão de hoje" : data.next_activity.cta;
   const streak = data.progress?.streak_days ?? 0;
   const minutes = data.day_plan?.minutes_per_day;
+  const reviews = data.reviews_due ?? [];
+  const reviewsCount = Math.max(data.reviews_due_count ?? 0, reviews.length);
+  const firstReview = nextReviewText(reviews[0]);
+  const week = today?.week ?? null;
+  const curriculumProgress = today?.curriculum?.progress ?? null;
 
   return (
     <div className="grid gap-6">
@@ -155,6 +172,73 @@ export function HomeFocus({
           <span>Progresso</span>
         </Link>
       </nav>
+
+      <section
+        className="grid gap-4 md:grid-cols-2"
+        aria-label="Panorama de revisões e semana"
+      >
+        <div className="panel p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="label">Revisões de hoje</h2>
+            <RotateCcw className="size-4 text-text-secondary" aria-hidden />
+          </div>
+          {reviewsCount > 0 ? (
+            <div className="mt-3">
+              <p className="text-base font-semibold text-text-primary tabular-nums">
+                {reviewsCount}{" "}
+                {reviewsCount === 1 ? "revisão pendente hoje" : "revisões pendentes hoje"}
+              </p>
+              {firstReview && (
+                <p className="mt-1 text-sm text-text-secondary">
+                  Próximo item: <span className="font-medium text-text-primary">{firstReview}</span>
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3">
+              <p className="text-sm font-semibold text-text-primary">
+                Sem revisões vencidas agora
+              </p>
+              <p className="mt-1 text-xs leading-5 text-text-secondary">
+                Novos itens entram na fila conforme você avança nas missões.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="panel p-5">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="label">Trilha da semana</h2>
+            <CalendarRange className="size-4 text-text-secondary" aria-hidden />
+          </div>
+          {week ? (
+            <div className="mt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-base font-semibold text-text-primary">
+                  Semana {week.week_number} · {week.theme}
+                </p>
+                {week.cefr_focus && (
+                  <span className="tech-badge">{levelShortCode(week.cefr_focus)}</span>
+                )}
+              </div>
+              {curriculumProgress && (
+                <p className="mt-1 text-xs font-medium tabular-nums text-text-secondary">
+                  {curriculumProgress.days_completed} de {curriculumProgress.days_total} jornadas concluídas ({curriculumProgress.percent_complete}%)
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3">
+              <p className="text-sm font-semibold text-text-primary">
+                Trilha semanal ainda não iniciada
+              </p>
+              <p className="mt-1 text-xs leading-5 text-text-secondary">
+                O resumo da semana aparece assim que houver uma jornada ativa no cronograma.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
     </div>
   );
 }

@@ -88,9 +88,30 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Sequência")).toBeInTheDocument();
     expect(screen.getByText("Meta diária")).toBeInTheDocument();
     expect(screen.getByText("dias seguidos")).toBeInTheDocument();
+    expect(screen.getByText("Sem revisões vencidas agora")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Idioma e plano" })).toHaveAttribute("href", "/dashboard/estudo");
     expect(screen.queryByText("Prática livre")).not.toBeInTheDocument();
     expect(screen.queryByText("Escolha um idioma para começar.")).not.toBeInTheDocument();
+  });
+
+  it("exibe quantidade e próximo item quando há revisões pendentes hoje", async () => {
+    apiMock.mockResolvedValue({
+      ...dashboardWithPlan,
+      reviews_due_count: 2,
+      reviews_due: [
+        {
+          id: "rev-1",
+          item_type: "vocabulary",
+          reference_id: "v-1",
+          payload: { term: "se rendre compte" },
+          next_review_at: "2026-10-25T10:00:00Z",
+        },
+      ],
+    });
+
+    render(<DashboardPage />);
+    expect(await screen.findByText("2 revisões pendentes hoje")).toBeInTheDocument();
+    expect(screen.getByText(/Próximo item:/)).toHaveTextContent("Próximo item: se rendre compte");
   });
 
   it("mostra plano e prática nas telas secundárias", async () => {
@@ -419,6 +440,7 @@ describe("DashboardPage — nível linguístico", () => {
     );
     expect(screen.getByText("Sequência")).toBeInTheDocument();
     expect(screen.getByText("Meta diária")).toBeInTheDocument();
+    expect(screen.getByText("Semana 2 · Hotel")).toBeInTheDocument();
     expect(screen.queryByText("Preparar")).not.toBeInTheDocument();
     view.unmount();
 
