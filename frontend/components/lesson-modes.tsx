@@ -719,6 +719,62 @@ function retriesSameActivity(
   return currentKey === nextKey;
 }
 
+function buildFreePracticeActivities(lesson: VocabularyLesson): Array<{
+  activity: import("@/types/teaching").TeachingActivity;
+  expected?: string;
+}> {
+  const source = lesson.items.slice(0, 2);
+  if (source.length === 0) {
+    return [
+      {
+        activity: {
+          type: "presentation",
+          prompt_pt: "Revise este ponto de vocabulário.",
+          term: lesson.title || "Vocabulário",
+          translation_pt: lesson.objective || "Prática curta de consolidação.",
+        },
+      },
+    ];
+  }
+  const steps: Array<{
+    activity: import("@/types/teaching").TeachingActivity;
+    expected?: string;
+  }> = [];
+  source.forEach((item, index) => {
+    steps.push({
+      activity: {
+        type: "presentation",
+        prompt_pt: "Conheça este item de vocabulário.",
+        term: item.term,
+        translation_pt: item.translation,
+        example_sentence: item.example,
+        example_translation_pt: item.example_translation,
+        audio_targets: [
+          ...(item.term
+            ? [{ audio_target_type: "vocabulary_item" as const, audio_text: item.term }]
+            : []),
+          ...(item.example
+            ? [{ audio_target_type: "example_sentence" as const, audio_text: item.example }]
+            : []),
+        ],
+      },
+    });
+    if (index === 0 && source.length >= 2 && item.translation && source[1].translation) {
+      steps.push({
+        activity: {
+          type: "recognition",
+          vocabulary_item_id: `free-practice-${index}`,
+          prompt_pt: "Escolha o significado.",
+          prompt: item.term,
+          options: [item.translation, source[1].translation],
+        },
+        expected: item.translation,
+      });
+    }
+  });
+  return steps;
+}
+
 function Vocabulary({
   lesson,
   enableCycle = true,
@@ -730,12 +786,16 @@ function Vocabulary({
     lesson.lesson_id && enableCycle ? { kind: "loading" } : { kind: "legacy" },
   );
   const [pending, setPending] = useState<import("@/types/teaching").SliceSession | null>(null);
+  const [freeIndex, setFreeIndex] = useState(0);
+  const [freeFeedback, setFreeFeedback] = useState<import("@/types/teaching").AnswerFeedback | null>(null);
   const [response, setResponse] = useState("");
   const [sending, setSending] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const finishedSession = useRef<import("@/types/teaching").SliceSession | null>(null);
+  const freeActivities = useMemo(() => buildFreePracticeActivities(lesson), [lesson]);
   const { setActive: setSessionFocus } = useFocusSession();
-  const sessionOpen = cycle.kind === "active";
+  const freeActive = cycle.kind === "no_due" && freeIndex < freeActivities.length;
+  const sessionOpen = cycle.kind === "active" || freeActive;
 
   useEffect(() => {
     setSessionFocus(sessionOpen);
@@ -895,6 +955,9 @@ function Vocabulary({
           typeof payload === "object" &&
           (payload as { status?: string }).status === "no_vocabulary_due"
         ) {
+          setFreeIndex(0);
+          setFreeFeedback(null);
+          setResponse("");
           setCycle({ kind: "no_due" });
           return;
         }
@@ -930,13 +993,90 @@ function Vocabulary({
     );
   }
   if (cycle.kind === "no_due") {
+    const currentFree = freeActivities[freeIndex];
+    if (!currentFree) {
+      return (
+        <div className="panel p-7 text-center" role="status">
+          <SessionSummary
+            total={freeActivities.length}
+            completed={freeActivities.length}
+            masteryState={null}
+          />
+          <p className="mt-2 text-xs text-text-secondary">
+            Prática curta concluída sem alterar seu progresso de domínio.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            {SESSION_SIZES.map((option, index) => (
+              <Button
+                key={option.size}
+                variant={index === 0 ? undefined : "secondary"}
+                onClick={() => startCycle(option.size)}
+              >
+                {option.label}
+              </Button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    const freeAck = activityIsAcknowledgement(currentFree.activity);
     return (
-      <div className="panel p-7 text-center" role="status">
-        <h2 className="text-xl font-semibold">Vocabulário em dia</h2>
-        <p className="mt-3 text-sm leading-6 text-text-secondary">
-          Não há itens de vocabulário devidos agora. Eles voltarão no momento adequado.
-        </p>
-      </div>
+      <FocusFrame
+        value={freeIndex + 1}
+        max={freeActivities.length}
+        label="Progresso da sessão"
+        actionLabel={freeAck ? "Continuar" : "Verificar"}
+        actionDisabled={!freeAck && !response.trim()}
+        hideAction={Boolean(freeFeedback)}
+        onAction={() => {
+          if (freeAck) {
+            setResponse("");
+            setFreeIndex((idx) => idx + 1);
+            return;
+          }
+          const selected = response.trim();
+          const expected = currentFree.expected ?? "";
+          const isCorrect = selected === expected;
+          setFreeFeedback({
+            is_correct: isCorrect,
+            selected,
+            correct_option: expected,
+            why_correct: isCorrect
+              ? "Significado adequado ao contexto."
+              : `O significado esperado é ${expected}.`,
+          });
+        }}
+      >
+        <div className="panel p-7 sm:p-9">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-2 border-b border-border pb-3">
+            <span className="tech-badge">Vocabulário em dia</span>
+            <span className="text-xs text-text-secondary">
+              Prática curta sem alterar o progresso de domínio
+            </span>
+          </div>
+          <TeachingActivityBody
+            key={`free-${freeIndex}`}
+            activity={currentFree.activity}
+            response={response}
+            onResponse={setResponse}
+            locked={Boolean(freeFeedback)}
+            languageCode={lesson.target_language || lesson.language_code}
+            supportVisibility={lesson.support_visibility}
+          />
+        </div>
+        {freeFeedback && (
+          <FeedbackSheet
+            feedback={freeFeedback}
+            canRetry={false}
+            onContinue={() => {
+              setFreeFeedback(null);
+              setResponse("");
+              setFreeIndex((idx) => idx + 1);
+            }}
+            onRetry={() => {}}
+          />
+        )}
+      </FocusFrame>
     );
   }
   if (cycle.kind === "closed") {

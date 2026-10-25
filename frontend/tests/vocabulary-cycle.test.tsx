@@ -473,10 +473,16 @@ describe("ciclo lexical standalone", () => {
     render(<LessonContent mode="vocabulary" lesson={vocabularyLesson()} />);
 
     expect(await screen.findByText("Vocabulário em dia")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Progresso da sessão" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sair" })).toBeInTheDocument();
     expect(apiMock).toHaveBeenCalledWith(
       "/api/v1/lessons/lesson-1/vocabulary-cycle/start",
       { method: "POST", body: { size: "short" } },
     );
+
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(await screen.findByRole("heading", { name: "Sessão concluída" })).toBeInTheDocument();
+    expect(screen.queryByText(/Dominado/)).not.toBeInTheDocument();
   });
 
   it("preserva o card legado quando o backend não oferece o ciclo", async () => {
