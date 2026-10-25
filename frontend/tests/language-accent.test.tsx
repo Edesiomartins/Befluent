@@ -83,7 +83,7 @@ describe("acento do idioma alvo", () => {
     for (const code of LANGUAGE_CODES) {
       const glowSurface = mixHex(LANGUAGE_ACCENTS[code].ink, "#111c33", 0.26);
       expect(contrast("#f8fafc", glowSurface)).toBeGreaterThanOrEqual(4.5);
-      expect(contrast("#94a3b8", glowSurface)).toBeGreaterThanOrEqual(4.5);
+      expect(contrast("#cbd5e1", glowSurface)).toBeGreaterThanOrEqual(4.5);
     }
   });
 });

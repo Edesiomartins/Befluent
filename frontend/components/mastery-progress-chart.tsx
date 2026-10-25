@@ -49,39 +49,98 @@ export function MasteryProgressChart({ timeline }: { timeline?: MasteryTimelineP
   const knownPoints = groups.flat();
 
   if (knownPoints.length === 0) {
-    return <p className="mt-5 text-sm text-text-secondary">Dados em calibração: ainda não há histórico de domínio suficiente.</p>;
+    return (
+      <p className="mt-5 text-sm text-[var(--command-muted)]">
+        Dados em calibração: ainda não há histórico de domínio suficiente.
+      </p>
+    );
   }
 
   return (
     <figure className="mt-5">
-      <figcaption className="text-sm text-text-secondary">
+      <figcaption className="text-sm text-[var(--command-muted)]">
         A curva mostra somente evidências demonstradas em cada dia.
       </figcaption>
-      <div className="mt-4 overflow-x-auto">
-        <svg className="h-44 min-w-[20rem] w-full" viewBox="0 0 100 80" preserveAspectRatio="none" role="img" aria-labelledby="mastery-chart-title" aria-describedby="mastery-chart-description">
+      <div className="mt-4">
+        <svg
+          className="h-44 w-full"
+          viewBox="0 0 100 80"
+          preserveAspectRatio="none"
+          role="img"
+          aria-labelledby="mastery-chart-title"
+          aria-describedby="mastery-chart-description"
+        >
           <title id="mastery-chart-title">Evolução do domínio demonstrado</title>
-          <desc id="mastery-chart-description">Percentual de domínio demonstrado nos dias com evidência disponível.</desc>
-          <line x1="0" x2="100" y1="64" y2="64" className="stroke-border" strokeWidth="0.5" />
-          <line x1="0" x2="100" y1="32" y2="32" className="stroke-border" strokeWidth="0.3" strokeDasharray="2 2" />
-          {groups.map((group, index) => group.length > 1 && (
-            <polyline key={index} points={group.map((point) => `${point.x},${point.y}`).join(" ")} fill="none" className="stroke-primary" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
-          ))}
+          <desc id="mastery-chart-description">
+            Percentual de domínio demonstrado nos dias com evidência disponível.
+          </desc>
+          <line x1="0" x2="100" y1="64" y2="64" stroke="rgba(255,255,255,0.22)" strokeWidth="0.5" />
+          <line
+            x1="0"
+            x2="100"
+            y1="32"
+            y2="32"
+            stroke="rgba(255,255,255,0.16)"
+            strokeWidth="0.3"
+            strokeDasharray="2 2"
+          />
+          {groups.map(
+            (group, index) =>
+              group.length > 1 && (
+                <polyline
+                  key={index}
+                  points={group.map((point) => `${point.x},${point.y}`).join(" ")}
+                  fill="none"
+                  stroke="#60a5fa"
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                />
+              ),
+          )}
           {knownPoints.map((point, index) => (
-            <circle key={index} cx={point.x} cy={point.y} r="1.5" className="fill-primary" vectorEffect="non-scaling-stroke" />
+            <circle
+              key={index}
+              cx={point.x}
+              cy={point.y}
+              r="1.5"
+              fill="#60a5fa"
+              vectorEffect="non-scaling-stroke"
+            />
           ))}
           {points.map((point, index) => (
-            <text key={point.date} x={points.length === 1 ? 50 : (index / (points.length - 1)) * 100} y="77" textAnchor="middle" className="fill-text-secondary" fontSize="5">{shortDate(point.date)}</text>
+            <text
+              key={point.date}
+              x={points.length === 1 ? 50 : (index / (points.length - 1)) * 100}
+              y="77"
+              textAnchor="middle"
+              fill="#cbd5e1"
+              fontSize="5"
+            >
+              {shortDate(point.date)}
+            </text>
           ))}
         </svg>
       </div>
       <details className="mt-4 text-sm">
-        <summary className="cursor-pointer font-semibold text-primary">Ver dados</summary>
-        <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border">
+        <summary className="cursor-pointer font-semibold text-[#93c5fd] hover:text-white">
+          Ver dados
+        </summary>
+        <div className="mt-3 max-h-64 overflow-auto rounded-xl border border-border bg-surface text-text-primary">
           <table className="w-full text-left" aria-label="Domínio por dia">
-            <thead className="sticky top-0 bg-surface-soft"><tr><th className="px-3 py-2">Data</th><th className="px-3 py-2">Domínio demonstrado</th></tr></thead>
+            <thead className="sticky top-0 bg-surface-soft">
+              <tr>
+                <th className="px-3 py-2">Data</th>
+                <th className="px-3 py-2">Domínio demonstrado</th>
+              </tr>
+            </thead>
             <tbody>
               {points.map((point) => (
-                <tr key={point.date} className="border-t border-border"><td className="px-3 py-2">{longDate(point.date)}</td><td className="px-3 py-2">{typeof point.percent === "number" ? `${point.percent}%` : "Sem evidência"}</td></tr>
+                <tr key={point.date} className="border-t border-border">
+                  <td className="px-3 py-2">{longDate(point.date)}</td>
+                  <td className="px-3 py-2">
+                    {typeof point.percent === "number" ? `${point.percent}%` : "Sem evidência"}
+                  </td>
+                </tr>
               ))}
             </tbody>
           </table>
