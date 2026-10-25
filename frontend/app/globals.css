@@ -135,8 +135,13 @@ main:focus { outline: none; }
 }
 .command-panel {
   border: 1px solid var(--command-border);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.24), transparent 52%),
+  background-color: var(--command-bg);
+  background-image:
+    radial-gradient(
+      circle at 100% 0%,
+      color-mix(in srgb, var(--language-accent) 26%, transparent),
+      transparent 52%
+    ),
     linear-gradient(160deg, var(--command-surface) 0%, var(--command-bg) 100%);
   color: var(--command-text);
   border-radius: var(--radius-panel);
