@@ -56,7 +56,9 @@ describe("estrutura editorial", () => {
     state.path = "/cronograma/dia/day-1";
     render(<AppShell tutor={<span>Tutor flutuante</span>}><h1>Sua escrita</h1></AppShell>);
     expect(screen.getByRole("heading", { name: "Sua escrita" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Voltar ao plano/ })).toHaveAttribute("href", "/cronograma");
+    const back = screen.getByRole("link", { name: /Voltar ao plano/ });
+    expect(back).toHaveAttribute("href", "/cronograma");
+    expect(back.closest("header")?.className).toContain("rounded-xl");
     expect(screen.queryByRole("navigation", { name: "Navegação principal" })).not.toBeInTheDocument();
     expect(screen.queryByText("Tutor flutuante")).not.toBeInTheDocument();
   });

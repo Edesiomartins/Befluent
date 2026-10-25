@@ -471,6 +471,55 @@ describe("Execução do dia", () => {
     );
   });
 
+  it("usa o rótulo Verificar na prática interativa do dia", async () => {
+    const teaching = {
+      status: "active",
+      flow: {
+        id: "flow-lexical-check",
+        phase: "practicing",
+        phase_label_pt: "Praticando",
+        status: "active",
+        activity_cursor: 1,
+        remediation_cycles: 0,
+      },
+      objective: { id: "obj-1", code: "A2-1", title: "Rotina", can_do: "Falar da rotina.", level: "A2" },
+      progress_state: "learning",
+      current_activity: {
+        index: 1,
+        type: "multiple_choice",
+        vocabulary_item_id: "v-1",
+        prompt: "I'm ___ my way.",
+        options: ["on", "at"],
+        audio_targets: [],
+      },
+      activities_total: 5,
+    };
+    routeApi([
+      ["/api/v1/curriculum/day/day-1", dayDetail],
+      ["/api/v1/curriculum/block/b-1/start", { block: day.blocks[0], lesson, teaching }],
+      [
+        "/api/v1/curriculum/block/b-1/teaching/answer",
+        { ...teaching, status: "closed", current_activity: null },
+      ],
+    ]);
+
+    render(<CurriculumDayPage />);
+    expect(await screen.findByRole("button", { name: "Verificar" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Enviar tentativa" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "on" }));
+    fireEvent.click(screen.getByRole("button", { name: "Verificar" }));
+
+    await waitFor(() =>
+      expect(apiMock).toHaveBeenCalledWith(
+        "/api/v1/curriculum/block/b-1/teaching/answer",
+        {
+          method: "POST",
+          body: { activity_index: 1, student_response: "on" },
+        },
+      ),
+    );
+  });
+
   it("declara fila vazia no bloco de revisão em vez de inventar itens", async () => {
     routeApi([
       [

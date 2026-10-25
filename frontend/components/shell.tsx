@@ -391,34 +391,32 @@ export function AppShell({ children, tutor }: { children: ReactNode; tutor?: Rea
           </main>
         </>
       ) : focus ? (
-        <>
-          <header className="sticky top-0 z-20 border-b border-[var(--command-border)] bg-[var(--command-bg)] text-[var(--command-text)]">
-            <div className="mx-auto flex min-h-15 max-w-6xl items-center justify-between gap-4 px-5 md:px-8">
-              <Link
-                href={assessment ? "/placement-test" : practice ? "/learn" : "/cronograma"}
-                className="inline-flex min-h-10 items-center gap-2 rounded-lg px-2 text-sm font-medium text-[var(--command-muted)] transition-colors hover:bg-white/5 hover:text-white"
-              >
-                <ArrowLeft className="size-4" aria-hidden />
-                {assessment
-                  ? "Voltar ao teste"
-                  : practice
-                    ? "Voltar à prática"
-                    : "Voltar ao plano"}
-              </Link>
-              <span className="hidden text-xs font-semibold tracking-wide text-[var(--command-muted)] sm:block">
-                {assessment ? "Seu diagnóstico" : "Seu momento de estudo"}
-              </span>
-              <Logo variant="light" showWordmark={false} />
-            </div>
+        <div className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-5 pb-12 pt-5 md:px-8">
+          <header className="flex items-center justify-between gap-3.5 rounded-xl border border-border bg-surface px-3.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+            <Link
+              href={assessment ? "/placement-test" : practice ? "/learn" : "/cronograma"}
+              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-[var(--surface-soft)] hover:text-text-primary"
+            >
+              <ArrowLeft className="size-3.5" aria-hidden />
+              {assessment
+                ? "Voltar ao teste"
+                : practice
+                  ? "Voltar à prática"
+                  : "Voltar ao plano"}
+            </Link>
+            <span className="hidden text-xs font-semibold text-text-secondary sm:block">
+              {assessment ? "Seu diagnóstico" : "Seu momento de estudo"}
+            </span>
+            <Logo showWordmark={false} />
           </header>
           <main
             id="main-content"
             tabIndex={-1}
-            className="study-content mx-auto w-full max-w-5xl px-5 py-8 md:px-8 md:py-10"
+            className="study-content mt-6 w-full flex-1"
           >
             {children}
           </main>
-        </>
+        </div>
       ) : (
         <>
           <Sidebar />

@@ -424,7 +424,7 @@ function MiniTeachingPractice({
             ? "Continuar"
             : inRemediation
               ? "Tentar novamente"
-              : "Enviar tentativa"}
+              : "Verificar"}
         </Button>
       </div>
     </div>
