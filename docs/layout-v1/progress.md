@@ -60,3 +60,26 @@ O dashboard, a trilha e a barra inferior aparecem nas capturas. A sessão, o fee
 - Especificação: `docs/superpowers/specs/2026-10-24-hybrid-precision-layout-design.md`.
 - Validação completa: `npm test` (51 arquivos, 396 passed, exit 0), `npm run typecheck` (exit 0), `npm run lint` (0 erros, 5 warnings anteriores).
 - Capturas `docs/layout-v1/after/` (14 PNGs desktop e mobile) atualizadas com o novo layout.
+
+## Rodada 5 — Ajustes pós-layout híbrido (2026-10-25)
+
+| Item | Status | Commit | Escopo |
+|---|---|---|---|
+| 1 cor do idioma no `.command-panel` | implementado | `867f675` | Brilho radial usa `color-mix(in srgb, var(--language-accent) 26%, transparent)` mantendo contraste AA >= 4,5:1 |
+| 2 dashboard sem espaço vazio | implementado | `11dda67` | Bloco leve abaixo dos links secundários com revisões pendentes de hoje (quantidade e próximo item) e trilha da semana, com estado vazio honesto |
+| 3 contraste real no navegador (Playwright + axe-core) | implementado | `8233d99` | `--command-muted` elevado para `#cbd5e1`, `MasteryProgressChart` adaptado ao `.command-panel` escuro e título do `FeedbackSheet` em `--danger-shadow`/`--success-shadow` |
+| 4 página do dia alinhada ao FocusFrame | implementado | `1ea9c0d` | Botão da prática interativa do dia trocado de «Enviar tentativa» para «Verificar» e cabeçalho «Voltar ao plano» alinhado ao trilho superior do `FocusFrame` |
+| 5 prática livre em modo foco mesmo sem itens devidos | implementado | `faf567d` | Quando `no_vocabulary_due`, abre `FocusFrame` com sessão curta de prática sem alterar nem inventar progresso de domínio |
+| 6 resumo da sessão com métricas reais | implementado | `eec5609` | Backend envia `correct_count`, `mastered_words` e `elapsed_minutes` reais no encerramento da sessão; frontend exibe somente o que vier preenchido |
+| 7 housekeeping `.gitignore` | implementado | `199dee4` | `backend/scripts/out/` adicionado ao `.gitignore` |
+
+### Achados do axe no navegador (`docs/layout-v1/axe-contrast-report.json`)
+- Antes das correções da Rodada 5, a auditoria com Playwright + `axe-core` detectou:
+  1. `MasteryProgressChart` dentro do `.command-panel` em `/progress`: `figcaption` (`#475569` sobre `#111c33`, contraste `2.23:1`) e `summary` «Ver dados» (`#2563eb` sobre `#111c33`, contraste `3.28:1`), além de `scrollable-region-focusable` em `390px` causado por `min-w-[20rem]` no `<svg>`.
+  2. `FeedbackSheet` aberto em estado de erro (`feedback`): `h2` «Resposta incorreta» com `#dc2626` sobre `#fbe9e9` (`bg-danger/10`) tinha contraste `4.12:1` (< 4,5:1).
+- Após elevar `--command-muted` para `#cbd5e1`, ajustar `MasteryProgressChart` para o fundo escuro e usar `--danger-shadow` (`#a51818`, contraste `6.45:1`) e `--success-shadow` (`#0f7a37`, contraste `5.12:1`) no título do `FeedbackSheet`: **0 violações** (`violations=0`, `flatContrast=0`, `lowCommandNodes=0`, contraste mínimo em superfícies escuras `>= 5.17:1`) nas 12 telas auditadas (`dashboard`, `cronograma`, `dia`, `sessao`, `feedback`, `progresso` em desktop `1280×800` e mobile `390×844`).
+
+### Suíte final da Rodada 5
+- Frontend: `npm test` **400 passed** (51 arquivos, exit 0), `npm run typecheck` exit 0, `npm run lint` exit 0 (0 erros, 5 warnings anteriores).
+- Backend: `py -3 -m pytest` nos 15 módulos de sessão/ensino/ciclo lexical (**262 passed**, exit 0).
+- Capturas `docs/layout-v1/after/` (14 PNGs) regeneradas incluindo o `FocusFrame`, o `FeedbackSheet` e o `SessionSummary` reais em `/learn/vocabulary`.

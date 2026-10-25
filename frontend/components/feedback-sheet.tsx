@@ -37,7 +37,9 @@ export function FeedbackSheet({
           ref={titleRef}
           id={titleId}
           tabIndex={-1}
-          className={`text-lg font-semibold outline-none ${correct ? "text-success" : "text-danger"}`}
+          className={`text-lg font-semibold outline-none ${
+            correct ? "text-[var(--success-shadow)]" : "text-[var(--danger-shadow)]"
+          }`}
         >
           {correct ? "Correto." : "Resposta incorreta"}
         </h2>

@@ -360,11 +360,47 @@ export function AppShell({ children, tutor }: { children: ReactNode; tutor?: Rea
     /^\/placement-test\/[^/]+\/?$/.test(pathname);
   const assessment = pathname.startsWith("/placement-test/");
   const practice = pathname.startsWith("/learn/");
-  if (sessionFocus) {
+  if (focus || sessionFocus) {
     return (
-      <main id="main-content" tabIndex={-1} className="min-h-screen bg-background">
-        {children}
-      </main>
+      <div
+        className={
+          sessionFocus
+            ? "min-h-screen bg-background"
+            : "mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-5 pb-12 pt-5 md:px-8"
+        }
+      >
+        {!sessionFocus && (
+          <>
+            <a href="#main-content" className="skip-link">
+              Pular para o conteúdo
+            </a>
+            <header className="flex items-center justify-between gap-3.5 rounded-xl border border-border bg-surface px-3.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
+              <Link
+                href={assessment ? "/placement-test" : practice ? "/learn" : "/cronograma"}
+                className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-[var(--surface-soft)] hover:text-text-primary"
+              >
+                <ArrowLeft className="size-3.5" aria-hidden />
+                {assessment
+                  ? "Voltar ao teste"
+                  : practice
+                    ? "Voltar à prática"
+                    : "Voltar ao plano"}
+              </Link>
+              <span className="hidden text-xs font-semibold text-text-secondary sm:block">
+                {assessment ? "Seu diagnóstico" : "Seu momento de estudo"}
+              </span>
+              <Logo showWordmark={false} />
+            </header>
+          </>
+        )}
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={sessionFocus ? "min-h-screen bg-background" : "study-content mt-6 w-full flex-1"}
+        >
+          {children}
+        </main>
+      </div>
     );
   }
   return (
@@ -390,33 +426,6 @@ export function AppShell({ children, tutor }: { children: ReactNode; tutor?: Rea
             {children}
           </main>
         </>
-      ) : focus ? (
-        <div className="mx-auto flex min-h-[100dvh] w-full max-w-5xl flex-col px-5 pb-12 pt-5 md:px-8">
-          <header className="flex items-center justify-between gap-3.5 rounded-xl border border-border bg-surface px-3.5 py-2 shadow-[0_1px_2px_rgba(15,23,42,0.03)]">
-            <Link
-              href={assessment ? "/placement-test" : practice ? "/learn" : "/cronograma"}
-              className="inline-flex min-h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-semibold text-text-secondary transition-colors hover:bg-[var(--surface-soft)] hover:text-text-primary"
-            >
-              <ArrowLeft className="size-3.5" aria-hidden />
-              {assessment
-                ? "Voltar ao teste"
-                : practice
-                  ? "Voltar à prática"
-                  : "Voltar ao plano"}
-            </Link>
-            <span className="hidden text-xs font-semibold text-text-secondary sm:block">
-              {assessment ? "Seu diagnóstico" : "Seu momento de estudo"}
-            </span>
-            <Logo showWordmark={false} />
-          </header>
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="study-content mt-6 w-full flex-1"
-          >
-            {children}
-          </main>
-        </div>
       ) : (
         <>
           <Sidebar />

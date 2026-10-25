@@ -214,12 +214,19 @@ async function auditViewport(browser, viewportName, viewport) {
 
   const box = page.getByRole("textbox", { name: "Sua resposta" });
   const radios = page.getByRole("radio");
+  if (!(await box.count()) && !(await radios.count())) {
+    const cont = page.getByRole("button", { name: "Continuar" });
+    if (await cont.isVisible().catch(() => false)) {
+      await cont.click();
+      await page.waitForTimeout(200);
+    }
+  }
   if (await box.count()) await box.fill("zzz");
   else if (await radios.count()) await radios.last().click();
   const action = page.getByRole("button", { name: /Enviar tentativa|Continuar|Verificar/ });
   if ((await box.count()) || (await radios.count())) {
     await action.click();
-    await page.getByText(/Resposta incorreta|Correto\.|Correção da resposta anterior/).waitFor({ timeout: 20_000 });
+    await page.getByText(/Resposta incorreta|Correto\.|Correção da resposta anterior/).first().waitFor({ timeout: 20_000 });
   }
   entries.push(await runAxe(page, "feedback", viewportName));
 

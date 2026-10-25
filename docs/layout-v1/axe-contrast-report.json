@@ -38,26 +38,26 @@
   {
     "viewport": "desktop",
     "screen": "sessao",
-    "url": "http://127.0.0.1:3011/cronograma/dia/590ef8e2-2068-4759-b73d-c7dde6eca1a8",
+    "url": "http://127.0.0.1:3011/learn/vocabulary",
     "violationsCount": 0,
     "contrastViolationsCount": 0,
     "violations": [],
     "flatContrastViolations": [],
     "lowCommandNodes": [],
-    "minCommandContrast": 6.74,
-    "passesCount": 24
+    "minCommandContrast": 99,
+    "passesCount": 20
   },
   {
     "viewport": "desktop",
     "screen": "feedback",
-    "url": "http://127.0.0.1:3011/cronograma/dia/590ef8e2-2068-4759-b73d-c7dde6eca1a8",
+    "url": "http://127.0.0.1:3011/learn/vocabulary",
     "violationsCount": 0,
     "contrastViolationsCount": 0,
     "violations": [],
     "flatContrastViolations": [],
     "lowCommandNodes": [],
-    "minCommandContrast": 6.74,
-    "passesCount": 24
+    "minCommandContrast": 99,
+    "passesCount": 20
   },
   {
     "viewport": "desktop",
@@ -110,26 +110,26 @@
   {
     "viewport": "mobile",
     "screen": "sessao",
-    "url": "http://127.0.0.1:3011/cronograma/dia/590ef8e2-2068-4759-b73d-c7dde6eca1a8",
+    "url": "http://127.0.0.1:3011/learn/vocabulary",
     "violationsCount": 0,
     "contrastViolationsCount": 0,
     "violations": [],
     "flatContrastViolations": [],
     "lowCommandNodes": [],
-    "minCommandContrast": 6.74,
-    "passesCount": 24
+    "minCommandContrast": 99,
+    "passesCount": 20
   },
   {
     "viewport": "mobile",
     "screen": "feedback",
-    "url": "http://127.0.0.1:3011/cronograma/dia/590ef8e2-2068-4759-b73d-c7dde6eca1a8",
+    "url": "http://127.0.0.1:3011/learn/vocabulary",
     "violationsCount": 0,
     "contrastViolationsCount": 0,
     "violations": [],
     "flatContrastViolations": [],
     "lowCommandNodes": [],
-    "minCommandContrast": 6.74,
-    "passesCount": 24
+    "minCommandContrast": 99,
+    "passesCount": 20
   },
   {
     "viewport": "mobile",

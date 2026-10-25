@@ -109,12 +109,19 @@ async function capturePractice(page, prefix) {
 
   const box = page.getByRole("textbox", { name: "Sua resposta" });
   const radios = page.getByRole("radio");
+  if (!(await box.count()) && !(await radios.count())) {
+    const cont = page.getByRole("button", { name: "Continuar" });
+    if (await cont.isVisible().catch(() => false)) {
+      await cont.click();
+      await page.waitForTimeout(200);
+    }
+  }
   if (await box.count()) await box.fill("zzz");
   else if (await radios.count()) await radios.last().click();
   const action = page.getByRole("button", { name: /Enviar tentativa|Continuar|Verificar/ });
   if (await box.count() || (await radios.count())) {
     await action.click();
-    await page.getByText(/Resposta incorreta|Correto\.|Correção da resposta anterior/).waitFor({ timeout: 20_000 });
+    await page.getByText(/Resposta incorreta|Correto\.|Correção da resposta anterior/).first().waitFor({ timeout: 20_000 });
     await shot(page, `${prefix}-feedback.png`);
   } else {
     await shot(page, `${prefix}-feedback.png`);
@@ -122,6 +129,15 @@ async function capturePractice(page, prefix) {
 
   for (let step = 0; step < 24; step += 1) {
     if (await page.getByRole("heading", { name: "Sessão concluída" }).isVisible()) break;
+    const sheet = page.getByRole("dialog");
+    if (await sheet.isVisible().catch(() => false)) {
+      const sheetContinue = sheet.getByRole("button", { name: "Continuar" });
+      if (await sheetContinue.isVisible().catch(() => false)) {
+        await sheetContinue.click();
+        await page.waitForTimeout(250);
+        continue;
+      }
+    }
     const revealed = page.locator("p", { hasText: "Resposta correta:" }).first();
     const answer = (await revealed.isVisible().catch(() => false))
       ? ((await revealed.textContent()) ?? "").replace(/^.*Resposta correta:\s*/, "").trim()
