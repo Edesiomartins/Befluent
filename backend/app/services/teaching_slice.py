@@ -389,6 +389,10 @@ def submit_slice_answer(
     if result != AttemptResult.INCORRECT:
         completed.add(index)
         payload["completed_indices"] = sorted(completed)
+        if student_response != "__ack__":
+            correct_indices = set(payload.get("correct_indices") or [])
+            correct_indices.add(index)
+            payload["correct_indices"] = sorted(correct_indices)
     session.payload_json = payload
     db.flush()
 
@@ -652,6 +656,10 @@ def retry_slice(
         completed = set(payload.get("completed_indices") or [])
         completed.add(session.activity_cursor)
         payload["completed_indices"] = sorted(completed)
+        if not is_acknowledgement:
+            correct_indices = set(payload.get("correct_indices") or [])
+            correct_indices.add(session.activity_cursor)
+            payload["correct_indices"] = sorted(correct_indices)
         payload.pop("pending_remediation", None)
         payload.pop("retry_activity", None)
         payload["last_answer_feedback"] = answer_feedback
@@ -873,6 +881,67 @@ def _hint_for(action: str, activity: dict) -> str:
     return "Vamos tentar de novo com apoio."
 
 
+def _session_summary_metrics(
+    db: Session,
+    session: TeachingFlowSession,
+) -> dict[str, int]:
+    from datetime import datetime, timezone
+    from sqlalchemy import func, select
+    from app.core.teaching import MemorySubjectType
+    from app.models import MemorySchedule
+
+    payload = session.payload_json or {}
+    correct_count = len(payload.get("correct_indices") or [])
+    vocab_ids = list(
+        dict.fromkeys(
+            [
+                *(str(v) for v in (payload.get("vocabulary_item_ids") or []) if v),
+                *(
+                    str(a["vocabulary_item_id"])
+                    for a in (payload.get("activities") or [])
+                    if isinstance(a, dict) and a.get("vocabulary_item_id")
+                ),
+            ]
+        )
+    )
+    if vocab_ids:
+        mastered_words = int(
+            db.scalar(
+                select(func.count())
+                .select_from(MemorySchedule)
+                .where(
+                    MemorySchedule.user_language_id == session.user_language_id,
+                    MemorySchedule.subject_type == MemorySubjectType.VOCABULARY,
+                    MemorySchedule.subject_key.in_(vocab_ids),
+                    MemorySchedule.state == "mastered",
+                )
+            )
+            or 0
+        )
+    else:
+        mastered_words = 0
+
+    elapsed_minutes = 0
+    if session.started_at is not None:
+        end_ts = session.closed_at or session.updated_at or datetime.now(timezone.utc)
+        start_aware = (
+            session.started_at
+            if session.started_at.tzinfo
+            else session.started_at.replace(tzinfo=timezone.utc)
+        )
+        end_aware = (
+            end_ts if end_ts.tzinfo else end_ts.replace(tzinfo=timezone.utc)
+        )
+        seconds = max(0.0, (end_aware - start_aware).total_seconds())
+        elapsed_minutes = max(1, round(seconds / 60)) if seconds > 0 else 0
+
+    return {
+        "correct_count": correct_count,
+        "mastered_words": mastered_words,
+        "elapsed_minutes": elapsed_minutes,
+    }
+
+
 def _session_payload(
     db: Session,
     session: TeachingFlowSession,
@@ -886,6 +955,11 @@ def _session_payload(
     if isinstance(current, dict) and current.get("options"):
         texts = option_texts(current)
         current = {**current, "options": texts or current.get("options")}
+    summary = (
+        _session_summary_metrics(db, session)
+        if current is None or session.status != "active"
+        else {}
+    )
     return {
         "flow": {
             "id": session.id,
@@ -912,4 +986,5 @@ def _session_payload(
         "activity_locked": session.phase
         not in {FlowPhase.NEEDS_REMEDIATION, FlowPhase.RETRYING}
         and session.activity_cursor in set(payload.get("submitted_indices") or []),
+        **summary,
     }

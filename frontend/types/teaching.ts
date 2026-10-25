@@ -132,5 +132,8 @@ export type SliceSession = {
     reasons: string[];
     memory_schedule_id?: string | null;
   };
+  correct_count?: number | null;
+  mastered_words?: number | null;
+  elapsed_minutes?: number | null;
   ai_called?: boolean;
 };

@@ -42,4 +42,12 @@ describe("resumo da sessão", () => {
       (await axe(view.container, { rules: { "color-contrast": { enabled: false } } })).violations,
     ).toEqual([]);
   });
+
+  it("exibe somente as métricas preenchidas pelo backend", () => {
+    render(<SessionSummary correct={4} masteredWords={null} minutes={undefined} />);
+    expect(screen.getByText("Acertos")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.queryByText("Palavras dominadas")).not.toBeInTheDocument();
+    expect(screen.queryByText("Minutos")).not.toBeInTheDocument();
+  });
 });

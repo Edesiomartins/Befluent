@@ -840,6 +840,9 @@ function Vocabulary({
           setCycle({ kind: "no_due" });
         } else if (isSliceSession(payload)) {
           const session = payload;
+          if (!sessionIsOpen(session)) {
+            finishedSession.current = session;
+          }
           setCycle(
             sessionIsOpen(session)
               ? { kind: "active", session }

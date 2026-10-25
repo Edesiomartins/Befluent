@@ -325,3 +325,81 @@ def test_wrong_answer_retries_a_different_interaction_then_repairs(db_session):
     assert evidence is not None
     assert evidence.evidence_type == EvidenceType.ERROR_REPAIRED
     assert db_session.get(LearningAttempt, repaired["attempt"]["id"]).activity_type == "fill_gap"
+    assert repaired["correct_count"] == 1
+    assert repaired["mastered_words"] == 0
+    assert isinstance(repaired["elapsed_minutes"], int)
+    assert repaired["elapsed_minutes"] >= 0
+
+
+def test_closed_session_payload_reports_real_summary_metrics(db_session):
+    from datetime import datetime, timedelta, timezone
+    from app.core.teaching import MemorySubjectType
+    from app.models import MemorySchedule, VocabularyItem
+
+    objective = ensure_en_a1_can_001(db_session)
+    user = db_session.scalar(select(User).where(User.email == "admin@befluent.local"))
+    user.native_language = "pt-BR"
+    language = db_session.scalar(select(Language).where(Language.code == "en"))
+    owner = UserLanguage(user_id=user.id, language_id=language.id, is_active=True)
+    db_session.add(owner)
+    db_session.flush()
+
+    vocab = VocabularyItem(
+        user_language_id=owner.id,
+        term="check in",
+        translation_pt="fazer check-in",
+    )
+    db_session.add(vocab)
+    db_session.flush()
+    schedule = MemorySchedule(
+        user_language_id=owner.id,
+        subject_type=MemorySubjectType.VOCABULARY,
+        subject_key=vocab.id,
+        state="mastered",
+    )
+    db_session.add(schedule)
+    db_session.flush()
+
+    act = {
+        "activity_id": "v-act-1",
+        "type": "recognition",
+        "vocabulary_item_id": vocab.id,
+        "prompt": "check in",
+        "options": ["fazer check-in", "sair"],
+        "canonical_answer": "fazer check-in",
+        "accepted_variants": ["fazer check-in"],
+        "target_language": "en",
+        "native_language": "pt-BR",
+        "cefr_level": "A1",
+        "quality_status": "approved",
+    }
+    now_ts = datetime.now(timezone.utc)
+    flow = TeachingFlowSession(
+        user_language_id=owner.id,
+        objective_id=objective.id,
+        phase=FlowPhase.PRACTICING,
+        payload_json={
+            "lexical_cycle": True,
+            "session_engine_v2": True,
+            "vocabulary_item_ids": [vocab.id],
+            "activities": [act],
+        },
+        status="active",
+        started_at=now_ts - timedelta(minutes=6),
+    )
+    db_session.add(flow)
+    db_session.commit()
+
+    schedule.state = "mastered"
+    db_session.commit()
+
+    out = teaching_slice.submit_slice_answer(
+        db_session,
+        flow,
+        student_response="fazer check-in",
+        activity_index=0,
+    )
+    assert out["correct_count"] == 1
+    assert isinstance(out["mastered_words"], int)
+    assert out["elapsed_minutes"] >= 1
+
