@@ -32,6 +32,7 @@ _BY_CODE = {
 }
 
 _DETECTOR = None
+_CODE_BY_LANGUAGE = {language: code for code, language in _BY_CODE.items()}
 
 
 def _detector():
@@ -77,3 +78,12 @@ def target_field_status(payload: Mapping, target_language: str | None) -> str | 
     if uncertain:
         return "review_required"
     return None
+
+
+def top_language(text: str) -> tuple[str | None, float]:
+    """Idioma vencedor entre os oito ensinados e a confiança, sem corte de tamanho."""
+    values = _detector().compute_language_confidence_values(text)
+    if not values:
+        return None, 0.0
+    top = values[0]
+    return _CODE_BY_LANGUAGE.get(top.language), float(top.value)

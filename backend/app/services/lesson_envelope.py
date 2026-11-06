@@ -96,6 +96,12 @@ def apply_lesson_envelope(
     if "target_expressions" not in base and mode in {"conversation", "voice"}:
         base["target_expressions"] = list(payload.get("target_expressions") or [])
 
+    from app.services.language_roles import apply_language_roles
+    apply_language_roles(
+        base,
+        target_language=context.language_code,
+        native_language=context.native_language,
+    )
     from app.services.language_policy import ensure_stored_content_language
     ensure_stored_content_language(base, context.native_language)
     return base

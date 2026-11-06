@@ -297,7 +297,15 @@ def _build_legacy_retry_activity(
         variant["options"] = option_texts(candidate)
         variant["post_reveal"] = True
         variant["is_retry_variant"] = True
+        from app.services.language_roles import apply_language_roles
+        language_roles = apply_language_roles(
+            variant,
+            target_language=target_language if isinstance(target_language, str) else None,
+            native_language=content.get("native_language"),
+        )
         if trace is not None:
+            if language_roles:
+                trace["language_roles"] = language_roles
             trace.update(legacy_selection_trace(
                 session_id=None, current=current, variant=variant, strategy="objective_pool", rejections=notes,
             ))

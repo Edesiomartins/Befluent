@@ -209,6 +209,16 @@ def message(
         payload={"context": keys[0] if keys else "general"},
     )
     result = get_ai_provider().conversation_turn(data.text, context, history)
+    from app.services.language_roles import apply_language_roles
+
+    checked = dict(result)
+    language_roles = apply_language_roles(
+        checked,
+        target_language=result.get("target_language") or language.code,
+        native_language=result.get("native_language") or user.native_language,
+    )
+    if language_roles:
+        result = checked
 
     reply = ConversationMessage(
         conversation_id=conversation.id,
@@ -235,6 +245,8 @@ def message(
         "kind": "conversation_turn",
         "reason": "conversation_turn",
     }
+    if language_roles:
+        selection_trace["language_roles"] = language_roles
     _delivery_log(selection_trace)
     return {"message_id": reply.id, **result, "selection_trace": selection_trace}
 

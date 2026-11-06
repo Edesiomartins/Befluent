@@ -469,6 +469,8 @@ def generate(
         "exhaustion": None,
         "excluded_candidates": [],
     }
+    if payload.get("language_role_findings"):
+        selection_trace["language_roles"] = payload["language_role_findings"]
     log_selection(selection_trace)
     return {**payload, "selection_trace": selection_trace}
 

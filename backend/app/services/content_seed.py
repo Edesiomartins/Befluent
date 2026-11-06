@@ -109,10 +109,25 @@ def _payload_for(mode: str, language_code: str, band: str, level: str) -> dict:
     if mode == "conversation":
         situation = lesson_bank.conversation_situation(language_code, band)
         items = lesson_bank.vocabulary(language_code, band)
-        return {
+        focus_native = situation.get("focus_native")
+        focus_target = situation["focus"]
+        objective = (
+            f"Praticar {focus_native} em uma situação realista."
+            if focus_native
+            else f"Praticar {focus_target} em uma situação realista."
+        )
+        payload = {
             "title": f"Conversação · {level}",
-            "objective": f"Praticar {situation['focus']} em uma situação realista.",
+            "objective": objective,
+            "objective_target": focus_target,
             "situation": situation["situation"],
+        }
+        if focus_native:
+            payload["objective_native"] = objective
+        if situation.get("scenario_native"):
+            payload["situation_native"] = situation["scenario_native"]
+        return {
+            **payload,
             "opening": items[0]["example"],
             "opening_translation": items[0]["example_translation"],
             "suggested_replies": [item["example"] for item in items[1:4]],

@@ -6,6 +6,7 @@ erro/remediação/retry → transfer → mastery → memória.
 
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any
 
@@ -1041,6 +1042,35 @@ def _public_trace(trace: dict | None) -> dict | None:
     return {**safe, "latest": dict(safe)}
 
 
+def _language_roles(current: Any, feedback: Any) -> tuple[list[dict[str, Any]], Any]:
+    """Valida a atividade e o feedback devolvidos, sem gravar de volta na sessão."""
+    from app.services.language_roles import apply_language_roles
+
+    findings: list[dict[str, Any]] = []
+    target = native = None
+    if isinstance(current, dict):
+        target = current.get("target_language") or current.get("language_code")
+        native = current.get("native_language")
+        findings.extend(apply_language_roles(
+            current, target_language=target, native_language=native,
+        ))
+    assessed = feedback
+    if isinstance(feedback, dict):
+        assessed = copy.deepcopy(feedback)
+        findings.extend(apply_language_roles(
+            assessed, target_language=target, native_language=native,
+        ))
+    return findings, assessed
+
+
+def _with_language_roles(trace: dict[str, Any] | None, findings: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not findings:
+        return trace
+    base = dict(trace) if isinstance(trace, dict) else {}
+    base["language_roles"] = findings
+    return base
+
+
 def _session_payload(
     db: Session,
     session: TeachingFlowSession,
@@ -1050,10 +1080,11 @@ def _session_payload(
     activity = teaching_flow.public_activity(session)
     payload = session.payload_json or {}
     # Normalizar options tipadas → textos para o frontend legado.
-    current = dict(activity) if isinstance(activity, dict) else activity
+    current = copy.deepcopy(activity) if isinstance(activity, dict) else activity
     if isinstance(current, dict) and current.get("options"):
         texts = option_texts(current)
         current = {**current, "options": texts or current.get("options")}
+    language_roles, answer_feedback = _language_roles(current, payload.get("last_answer_feedback"))
     summary = (
         _session_summary_metrics(db, session)
         if current is None or session.status != "active"
@@ -1080,8 +1111,11 @@ def _session_payload(
         "current_activity": current,
         "activities_total": len(payload.get("activities") or []),
         "session_progress": session_progress_from_flow(session),
-        "answer_feedback": payload.get("last_answer_feedback"),
-        "selection_trace": _public_trace(payload.get("selection_trace")),
+        "answer_feedback": answer_feedback,
+        "selection_trace": _with_language_roles(
+            _public_trace(payload.get("selection_trace")),
+            language_roles,
+        ),
         "selection_events": [
             activity_pool.public_selection_trace(event)
             for event in (payload.get("selection_events") or [])
