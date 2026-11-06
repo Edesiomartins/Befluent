@@ -1,0 +1,36 @@
+{
+  "head": "b93507c0dc7e3f9085bc7b6b5d0f81cb386a9d68",
+  "date": "2026-11-06T12:12:03.585Z",
+  "environment": "local",
+  "database": "sqlite backend/tmp/e2e-fr-b1.sqlite3",
+  "viewports": [
+    "desktop 1280x800",
+    "mobile 390x844"
+  ],
+  "same_account": true,
+  "desktop_flow_id": "1b3f8ea4-551e-4b2c-8d83-104060a435b6",
+  "mobile_flow_id": "1b3f8ea4-551e-4b2c-8d83-104060a435b6",
+  "commands": [
+    "frontend: npx playwright test e2e/fr-b1-session.spec.ts"
+  ],
+  "providers": {
+    "ai": "mock",
+    "stt": "mock com dispositivo falso do Chromium, se /speech/transcribe foi chamado; microfone físico e fala humana PENDENTES",
+    "tts": "mock se /speech/synthesize foi chamado; audição humana PENDENTE"
+  },
+  "checks": {
+    "desktop_text": true,
+    "desktop_voice_ui": true,
+    "desktop_stt_stub": true,
+    "desktop_tts_stub": true,
+    "desktop_vocabulary": true,
+    "desktop_error": true,
+    "desktop_retry_or_defer": true,
+    "mobile_resume_same_flow": true,
+    "mobile_text_same_account": true,
+    "exhaustion": "não observado",
+    "stt_microphone": "PENDENTE — microfone real não foi usado",
+    "tts_human_listening": "PENDENTE — áudio real não foi ouvido por uma pessoa"
+  },
+  "result": "concluiu"
+}

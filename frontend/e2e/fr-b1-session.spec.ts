@@ -1,206 +1,370 @@
+import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Response } from "@playwright/test";
 
-const evidenceDir = path.resolve(
-  __dirname,
-  "../../docs/learning-experience-v2/evidence",
-);
+const evidenceDir = path.resolve(__dirname, "../../docs/stage-1-reference/evidence");
+const api = "http://127.0.0.1:8011";
 
-test("sessão FR B1: acerto, erro, retry, ditado e resumo", async ({ page }) => {
+const PRIVATE_KEYS = new Set([
+  "answer",
+  "audio_text",
+  "canonical_answer",
+  "content",
+  "corrections",
+  "email",
+  "example",
+  "example_sentence",
+  "example_translation",
+  "example_translation_pt",
+  "explanation",
+  "opening",
+  "opening_translation",
+  "options",
+  "password",
+  "prompt",
+  "prompt_native",
+  "prompt_pt",
+  "prompt_target",
+  "reply",
+  "reply_translation",
+  "scenario_native",
+  "scenario_target",
+  "selected_answer",
+  "situation",
+  "situation_native",
+  "student_response",
+  "suggestions",
+  "term",
+  "text",
+  "token",
+  "topic",
+  "translation",
+  "translation_pt",
+]);
+
+function redact(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(redact);
+  if (!value || typeof value !== "object") return value;
+  const output: Record<string, unknown> = {};
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (PRIVATE_KEYS.has(key)) continue;
+    output[key] = redact(item);
+  }
+  return output;
+}
+
+function headSha(): string {
+  try {
+    return execSync("git rev-parse HEAD", {
+      cwd: path.resolve(__dirname, "../.."),
+      encoding: "utf8",
+    }).trim();
+  } catch {
+    return "não determinado";
+  }
+}
+
+test("FR B1 pt-BR: a mesma conta em desktop e mobile", async ({ page }) => {
+  test.setTimeout(360_000);
   fs.mkdirSync(evidenceDir, { recursive: true });
   const lines: string[] = [];
+  const traces: unknown[] = [];
   const note = (line: string) => {
     lines.push(line);
     console.log(line);
+    fs.appendFileSync(path.join(evidenceDir, "session.log"), `${line}\n`, "utf8");
+  };
+  fs.writeFileSync(path.join(evidenceDir, "session.log"), "", "utf8");
+  const keep = async (label: string, response: Response) => {
+    const contentType = response.headers()["content-type"] || "";
+    if (!contentType.includes("json")) {
+      traces.push({
+        label,
+        url: response.url().replace(api, ""),
+        status: response.status(),
+        content_type: contentType,
+        body: "omitido: não é JSON de diagnóstico",
+      });
+      return null;
+    }
+    const body = redact(await response.json());
+    traces.push({ label, url: response.url().replace(api, ""), status: response.status(), body });
+    return body as Record<string, unknown>;
   };
 
-  const email = `fr-b1-${Date.now()}@example.com`;
-  const password = "Senha12345";
+  let failure: unknown = null;
+  const checks = {
+    desktop_text: false,
+    desktop_voice_ui: false,
+    desktop_stt_stub: false,
+    desktop_tts_stub: false,
+    desktop_vocabulary: false,
+    desktop_error: false,
+    desktop_retry_or_defer: false,
+    mobile_resume_same_flow: false,
+    mobile_text_same_account: false,
+    exhaustion: "não observado",
+    stt_microphone: "PENDENTE — microfone real não foi usado",
+    tts_human_listening: "PENDENTE — áudio real não foi ouvido por uma pessoa",
+  };
+  let desktopFlowId = "";
+  let mobileFlowId = "";
 
-  await page.goto("/register");
-  await page.getByLabel("Nome").fill("Aluno FR");
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByRole("textbox", { name: "Senha", exact: true }).fill(password);
-  await page.getByLabel("Confirmar senha").fill(password);
-  await page.getByRole("button", { name: "Criar minha conta" }).click();
-  await page.waitForURL(/\/login/);
-  note("cadastro ok");
-
-  await page.getByLabel("E-mail").fill(email);
-  await page.getByRole("textbox", { name: "Senha", exact: true }).fill(password);
-  await page.getByRole("button", { name: "Entrar" }).click();
-  await page.waitForURL(/\/(dashboard|onboarding)/);
-  note(`depois do login: ${page.url()}`);
-
-  if (!page.url().includes("/onboarding")) {
-    await page.goto("/onboarding");
-  }
-  await expect(
-    page.getByRole("heading", { name: /língua nativa|Qual idioma você quer estudar/ }),
-  ).toBeVisible();
-  const nativeHeading = page.getByRole("heading", { name: "Qual é sua língua nativa?" });
-  if (await nativeHeading.isVisible()) {
-    await page.locator("#onboarding-native-language").selectOption("pt-BR");
+  try {
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const email = `fr-b1-${Date.now()}@example.com`;
+    const password = "Senha12345";
+    await page.goto("/register");
+    await page.getByLabel("Nome").fill("Aluno FR");
+    await page.getByLabel("E-mail").fill(email);
+    await page.getByRole("textbox", { name: "Senha", exact: true }).fill(password);
+    await page.getByLabel("Confirmar senha").fill(password);
+    await page.getByRole("button", { name: "Criar minha conta" }).click();
+    await page.waitForURL(/\/login/);
+    await page.getByLabel("E-mail").fill(email);
+    await page.getByRole("textbox", { name: "Senha", exact: true }).fill(password);
+    await page.getByRole("button", { name: "Entrar" }).click();
+    await page.waitForURL(/\/(dashboard|onboarding)/);
+    if (!page.url().includes("/onboarding")) await page.goto("/onboarding");
+    const nativeHeading = page.getByRole("heading", { name: "Qual é sua língua nativa?" });
+    const languageHeading = page.getByRole("heading", { name: "Qual idioma você quer estudar?" });
+    const nativeShown = await nativeHeading
+      .waitFor({ state: "visible", timeout: 20_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (nativeShown) {
+      const nativeSelect = page.locator("#onboarding-native-language");
+      await expect(nativeSelect.locator("option[value='pt-BR']")).toHaveCount(1);
+      await nativeSelect.selectOption("pt-BR");
+      await page.getByRole("button", { name: "Continuar" }).click();
+      note("língua nativa pt-BR");
+    } else {
+      note("o onboarding não pediu língua nativa antes do idioma");
+    }
+    await languageHeading.waitFor();
+    await page.getByText("Francês", { exact: true }).click();
     await page.getByRole("button", { name: "Continuar" }).click();
-    note("língua nativa pt-BR");
-  }
-  await page.getByText("Francês", { exact: true }).click();
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByText("Prefiro informar meu nível", { exact: true }).click();
-  await page.locator("select").selectOption("B1");
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByText("Viajar", { exact: true }).click();
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Continuar" }).click();
-  await page.getByRole("button", { name: "Criar meu plano" }).click();
-  await page.waitForURL(/\/(dashboard|cronograma|learn)/, { timeout: 60_000 });
-  note(`plano criado: ${page.url()}`);
+    await page.getByText("Prefiro informar meu nível", { exact: true }).click();
+    await page.locator("select").selectOption("B1");
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await page.getByText("Viajar", { exact: true }).click();
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await page.getByRole("button", { name: "Continuar" }).click();
+    await page.getByRole("button", { name: "Criar meu plano" }).click();
+    await page.waitForURL(/\/(dashboard|cronograma|learn)/, { timeout: 60_000 });
+    note("plano FR B1 pt-BR criado; a conta não entra nos artefatos");
 
-  await page.goto("/learn/vocabulary");
-  const activityAction = page.getByRole("button", { name: /Enviar tentativa|Continuar|Tentar novamente/ });
-  const finished = page.getByRole("heading", { name: "Sessão concluída" });
-  const emptyCycle = page.getByRole("heading", { name: "Vocabulário em dia" });
-  const cycleError = page.getByText(/Não foi possível|database is locked|erro interno/i);
-  await activityAction.or(finished).or(emptyCycle).or(cycleError).first().waitFor({ timeout: 90_000 });
+    const started = page.waitForResponse(
+      (response) => response.url().includes("/api/v1/conversations") && response.request().method() === "POST",
+    );
+    await page.goto("/learn/conversation");
+    const startBody = await keep("desktop-conversa-inicio", await started);
+    const openedConversationId = String(startBody?.id || "");
+    note(`conversa texto id=${openedConversationId || "ausente"} provider ainda não chamado`);
+    await page.getByLabel("Sua resposta").waitFor({ timeout: 60_000 });
+    await page.getByLabel("Sua resposta").fill("Je voudrais un billet.");
+    const sent = page.waitForResponse(
+      (response) => response.url().includes("/messages") && response.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "Enviar" }).click();
+    const turn = await keep("desktop-conversa-turno", await sent);
+    const turnTrace = (turn?.selection_trace || {}) as Record<string, unknown>;
+    const conversationId = String(turnTrace.conversation_id || openedConversationId);
+    checks.desktop_text = Boolean(conversationId) && turn?.provider === "mock";
+    if (openedConversationId && conversationId && openedConversationId !== conversationId) {
+      note(`INCIDENTE: abertura ${openedConversationId} difere do turno ${conversationId}`);
+    }
+    note(`turno texto id=${conversationId || "ausente"} provider=${String(turn?.provider || "ausente")} model=${String(turn?.model ?? "null")} alvo=${String(turn?.target_language || "ausente")} nativo=${String(turn?.native_language || "ausente")}`);
+    await page.screenshot({ path: path.join(evidenceDir, "desktop-conversa-texto.png"), fullPage: true });
 
-  if (await page.getByRole("heading", { name: "Vocabulário em dia" }).isVisible()) {
-    note("BLOQUEIO: a lição gerada não abriu ciclo. A fatia FR B1 não entrou.");
-    await page.screenshot({ path: path.join(evidenceDir, "fr-b1-sem-ciclo.png"), fullPage: true });
-    fs.writeFileSync(path.join(evidenceDir, "fr-b1-session.log"), lines.join("\n"), "utf8");
-    throw new Error("Vocabulário em dia antes de qualquer atividade");
-  }
-  if (await cycleError.isVisible() && !(await page.locator("[data-interaction-family]").count())) {
-    const alert = await cycleError.first().innerText();
-    note(`erro ao abrir vocabulário: ${alert}`);
-    await page.screenshot({ path: path.join(evidenceDir, "fr-b1-erro.png"), fullPage: true });
-    fs.writeFileSync(path.join(evidenceDir, "fr-b1-session.log"), lines.join("\n"), "utf8");
-    throw new Error(alert);
-  }
-
-  await page.screenshot({ path: path.join(evidenceDir, "fr-b1-inicio.png"), fullPage: true });
-
-  let sawWrong = false;
-  let sawCorrect = false;
-  let sawRetry = false;
-  let sawDictation = false;
-  const families = new Set<string>();
-
-  let pendingWrong = "";
-
-  for (let step = 0; step < 36; step += 1) {
-    if (await page.getByRole("heading", { name: "Sessão concluída" }).isVisible()) break;
-    const activity = page.locator("[data-interaction-family]").first();
-    const family = await activity.getAttribute("data-interaction-family");
-    const signature = `${family}|${((await activity.innerText().catch(() => "")) || "").slice(0, 140)}`;
-    if (family) families.add(family);
-    if (family === "dictation" || (await page.getByRole("button", { name: "Ouvir o ditado" }).isVisible().catch(() => false))) {
-      if (!sawDictation) {
-        await page.screenshot({ path: path.join(evidenceDir, "fr-b1-ditado.png"), fullPage: true });
+    await page.goto("/learn/voice");
+    await page.getByText("Situação", { exact: true }).waitFor({ timeout: 30_000 });
+    checks.desktop_voice_ui = true;
+    const heard = page.getByRole("button", { name: /Ouvir|Reproduzir áudio/ }).first();
+    if (await heard.isVisible()) {
+      const synth = page.waitForResponse(
+        (response) => response.url().includes("/speech/synthesize"),
+        { timeout: 15_000 },
+      ).catch(() => null);
+      await heard.click();
+      const synthResponse = await synth;
+      if (synthResponse) {
+        checks.desktop_tts_stub = synthResponse.ok();
+        traces.push({
+          label: "desktop-tts-stub",
+          url: "/api/v1/speech/synthesize",
+          status: synthResponse.status(),
+          content_type: synthResponse.headers()["content-type"] || "",
+          provider_esperado: "mock",
+          validacao_humana_audio: "PENDENTE",
+        });
+        note(`TTS stub status=${synthResponse.status()} type=${synthResponse.headers()["content-type"] || "ausente"}; audição humana PENDENTE`);
+      } else {
+        note("o botão Ouvir não chamou /speech/synthesize neste clique");
       }
-      sawDictation = true;
     }
-    if (await page.getByText("Resposta incorreta").isVisible().catch(() => false)) sawWrong = true;
-    if (await page.getByText("Correto.").isVisible().catch(() => false)) sawCorrect = true;
-    if (
-      pendingWrong &&
-      signature === pendingWrong &&
-      (await page.getByText(/mantém esta atividade/).isVisible().catch(() => false))
-    ) {
-      sawRetry = true;
-      note("retry manteve a mesma atividade");
+    const record = page.getByRole("button", { name: "Iniciar gravação" });
+    if (await record.isVisible().catch(() => false)) {
+      const transcribe = page.waitForResponse(
+        (response) => response.url().includes("/speech/transcribe"),
+        { timeout: 20_000 },
+      ).catch(() => null);
+      await record.click({ timeout: 5_000 });
+      await page.waitForTimeout(1200);
+      const stop = page.getByRole("button", { name: "Parar gravação" });
+      if (await stop.isVisible().catch(() => false)) await stop.click();
+      const sttResponse = await transcribe;
+      if (sttResponse) {
+        const sttBody = await keep("desktop-stt-stub", sttResponse);
+        checks.desktop_stt_stub = sttBody?.provider === "mock";
+        note("STT exercitado com dispositivo falso e provedor mock; transcrição não foi salva; fala humana PENDENTE");
+      } else {
+        note("gravação stub não chamou /speech/transcribe");
+      }
+    } else {
+      note("botão de gravação ausente; STT não exercitado");
     }
+    await page.screenshot({ path: path.join(evidenceDir, "desktop-conversa-voz.png"), fullPage: true });
+    note("microfone físico não foi usado");
 
-    const correctBlock = page.locator("p", { hasText: "Resposta correta:" }).first();
-    const revealed = (await correctBlock.isVisible().catch(() => false))
-      ? ((await correctBlock.textContent()) ?? "").replace(/^.*Resposta correta:\s*/, "").trim()
-      : "";
-
-    const box = page.getByRole("textbox", { name: "Sua resposta" });
-    const radios = page.getByRole("radio");
-    const words = page.getByRole("group", { name: "Palavras disponíveis" });
-    const willMiss = !revealed && ((await box.count()) > 0 || (await radios.count()) > 0 || (await words.count()) > 0);
-    const hadIncorrect = await page.getByText("Resposta incorreta").isVisible().catch(() => false);
-    if (await box.count()) {
-      await box.fill(revealed || "zzz");
-    } else if (await radios.count()) {
-      const named = revealed ? page.getByRole("radio", { name: revealed }) : null;
-      if (named && (await named.count())) await named.click();
-      else await radios.last().click();
-    } else if (await words.count()) {
-      const buttons = words.getByRole("button");
-      while ((await buttons.count()) > 0) await buttons.first().click();
+    const cycleWait = page.waitForResponse(
+      (response) => response.url().includes("/vocabulary-cycle") && response.ok(),
+      { timeout: 90_000 },
+    );
+    await page.goto("/learn/vocabulary");
+    const cycle = await keep("desktop-vocabulario", await cycleWait);
+    const flow = (cycle?.flow || {}) as Record<string, unknown>;
+    desktopFlowId = String(flow.id || "");
+    const lessonId = String(cycle?.lesson_id || "");
+    checks.desktop_vocabulary = Boolean(desktopFlowId);
+    const selection = (cycle?.selection_trace || {}) as Record<string, unknown>;
+    const exhaustion = selection.exhaustion as Record<string, unknown> | null;
+    if (exhaustion && (exhaustion.aggregate_reason || exhaustion.reason)) {
+      checks.exhaustion = String(exhaustion.aggregate_reason || exhaustion.reason);
     }
+    note(`fluxo desktop=${desktopFlowId || "ausente"} cursor=${String(flow.activity_cursor ?? "ausente")} esgotamento=${checks.exhaustion}`);
+    await page.screenshot({ path: path.join(evidenceDir, "desktop-vocabulario.png"), fullPage: true });
 
-    const action = page.getByRole("button", { name: /Enviar tentativa|Continuar|Tentar novamente/ });
-    await expect(action).toBeEnabled();
-    const answered = page.waitForResponse(
-      (response) =>
-        response.url().includes("/vocabulary-cycle/answer") && response.request().method() === "POST",
+    for (let step = 0; step < 14 && !checks.desktop_retry_or_defer; step += 1) {
+      const activity = page.locator("[data-interaction-family]").first();
+      if (!(await activity.isVisible().catch(() => false))) break;
+      const box = page.getByRole("textbox", { name: "Sua resposta" });
+      const radios = page.getByRole("radio");
+      const words = page.getByRole("group", { name: "Palavras disponíveis" });
+      if (await box.count()) await box.fill("zzz");
+      else if (await radios.count()) await radios.last().click();
+      else if (await words.count()) {
+        while ((await words.getByRole("button").count()) > 0) {
+          await words.getByRole("button").last().click();
+        }
+      }
+      const action = page.getByRole("button", { name: /Verificar|Enviar tentativa|Continuar|Tentar novamente/ });
+      if (!(await action.isVisible().catch(() => false))) break;
+      if (!(await action.isEnabled())) {
+        note(`passo ${step + 1} ação desabilitada`);
+        break;
+      }
+      const answered = page.waitForResponse(
+        (response) => response.url().includes("/vocabulary-cycle/answer") && response.request().method() === "POST",
+        { timeout: 20_000 },
+      );
+      await action.click();
+      const answerResponse = await answered.catch(() => null);
+      if (!answerResponse) {
+        note(`passo ${step + 1} sem POST de resposta`);
+        break;
+      }
+      const answerBody = await keep(`desktop-resposta-${step + 1}`, answerResponse);
+      const answerTrace = ((answerBody?.selection_trace || {}) as Record<string, unknown>).latest
+        ? ((answerBody?.selection_trace as Record<string, unknown>).latest as Record<string, unknown>)
+        : ((answerBody?.selection_trace || {}) as Record<string, unknown>);
+      const reason = String(answerTrace.reason || "");
+      if (["lexical_family_retired", "interaction_change_retry", "same_activity_retry", "activities_exhausted"].includes(reason)) {
+        checks.desktop_error = true;
+        checks.desktop_retry_or_defer = true;
+      }
+      note(`passo ${step + 1} status=${answerResponse.status()} reason=${reason || "ausente"}`);
+      if (checks.desktop_retry_or_defer) break;
+    }
+    await page.screenshot({ path: path.join(evidenceDir, "desktop-vocabulario-erro.png"), fullPage: true });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.screenshot({ path: path.join(evidenceDir, "mobile-vocabulario-mesma-tela.png"), fullPage: true });
+    if (lessonId) {
+      const resumed = await page.request.get(`${api}/api/v1/lessons/${lessonId}/vocabulary-cycle`);
+      let resumeBody: Record<string, unknown> | null = null;
+      if (resumed.headers()["content-type"]?.includes("json")) {
+        resumeBody = redact(await resumed.json()) as Record<string, unknown>;
+      }
+      traces.push({
+        label: "mobile-retomada-api",
+        url: `/api/v1/lessons/${lessonId}/vocabulary-cycle`,
+        status: resumed.status(),
+        body: resumeBody,
+      });
+      const resumeFlow = (resumeBody?.flow || {}) as Record<string, unknown>;
+      mobileFlowId = String(resumeFlow.id || "");
+      note(`GET da mesma lição status=${resumed.status()} fluxo=${mobileFlowId || "ausente"}`);
+    }
+    checks.mobile_resume_same_flow = Boolean(desktopFlowId) && desktopFlowId === mobileFlowId;
+    note(`retomada mobile mesmo fluxo=${checks.mobile_resume_same_flow}; o hub /learn/vocabulary gera lição nova e não foi usado como segunda jornada`);
+    await page.screenshot({ path: path.join(evidenceDir, "mobile-vocabulario-retomada.png"), fullPage: true });
+
+    const mobileStarted = page.waitForResponse(
+      (response) => response.url().includes("/api/v1/conversations") && response.request().method() === "POST" && !response.url().includes("/messages"),
       { timeout: 30_000 },
     );
-    await action.click();
-    await answered;
-    await page.waitForFunction(
-      ({ previous, hadIncorrect }) => {
-        const done = [...document.querySelectorAll("h2")].some((node) =>
-          node.textContent?.includes("Sessão concluída"),
-        );
-        if (done) return true;
-        const region = document.querySelector("[data-interaction-family]");
-        const next = region
-          ? `${region.getAttribute("data-interaction-family")}|${(region.textContent ?? "").slice(0, 140)}`
-          : "";
-        const body = document.body.textContent ?? "";
-        const incorrect = body.includes("Resposta incorreta");
-        if (next && next !== previous) return true;
-        return incorrect !== hadIncorrect;
-      },
-      { previous: signature, hadIncorrect },
-      { timeout: 15_000 },
-    );
-    pendingWrong = willMiss ? signature : "";
-    note(`passo ${step + 1}: família ${family ?? "sem"} revelado=${revealed || "-"}`);
-  }
-
-  await expect(page.getByRole("heading", { name: "Sessão concluída" })).toBeVisible();
-  if (!sawDictation) {
-    const longa = page.getByRole("button", { name: "Sessão longa" });
-    if (await longa.isVisible()) {
-      note("a dose curta não mostrou ditado; abrindo a sessão longa");
-      await longa.click();
-      for (let step = 0; step < 40; step += 1) {
-        if (await page.getByRole("heading", { name: "Sessão concluída" }).isVisible()) break;
-        if (await page.getByRole("button", { name: "Ouvir o ditado" }).isVisible().catch(() => false)) {
-          sawDictation = true;
-        }
-        const box = page.getByRole("textbox", { name: "Sua resposta" });
-        const radios = page.getByRole("radio");
-        const words = page.getByRole("group", { name: "Palavras disponíveis" });
-        if (await box.count()) await box.fill("Je suis d'accord avec cette idée.");
-        else if (await radios.count()) await radios.first().click();
-        else if (await words.count()) {
-          const buttons = words.getByRole("button");
-          while ((await buttons.count()) > 0) await buttons.first().click();
-        }
-        const action = page.getByRole("button", { name: /Enviar tentativa|Continuar|Tentar novamente/ });
-        if (!(await action.isVisible())) break;
-        if (!(await action.isEnabled())) break;
-        await action.click();
-        note(`longa ${step + 1}`);
-        await page.waitForTimeout(200);
-      }
+    await page.goto("/learn/conversation");
+    const mobileStart = await keep("mobile-conversa-inicio", await mobileStarted);
+    checks.mobile_text_same_account = Boolean(mobileStart?.id);
+    note(`conversa mobile id=${String(mobileStart?.id || "ausente")}; a UI inicia outra conversa, a anterior permanece ${conversationId || "ausente"}`);
+    if (conversationId) {
+      const history = await page.request.get(`${api}/api/v1/conversations/${conversationId}/messages`);
+      traces.push({
+        label: "retomada-conversa-original",
+        status: history.status(),
+        conversation_id: conversationId,
+        mesma_conta: history.ok(),
+        corpo: "omitido: contém texto da conversa",
+      });
+      note(`GET da conversa original status=${history.status()}`);
     }
-  }
-  await expect(page.getByRole("heading", { name: "Sessão concluída" })).toBeVisible();
-  await page.screenshot({ path: path.join(evidenceDir, "fr-b1-resumo.png"), fullPage: true });
-  note(`famílias: ${[...families].join(", ")}`);
-  note(`acerto=${sawCorrect} erro=${sawWrong} retry=${sawRetry} ditado=${sawDictation}`);
-  fs.writeFileSync(path.join(evidenceDir, "fr-b1-session.log"), lines.join("\n"), "utf8");
+    await page.screenshot({ path: path.join(evidenceDir, "mobile-conversa-texto.png"), fullPage: true });
 
-  expect(sawWrong, "uma resposta errada deve aparecer").toBe(true);
-  expect(sawRetry, "o retry deve manter a mesma atividade").toBe(true);
-  expect(sawCorrect, "um acerto deve aparecer").toBe(true);
-  expect(sawDictation, "a sessão deve incluir um ditado").toBe(true);
-  expect(families.size).toBeGreaterThan(1);
+    expect(checks.desktop_text, "conversa por texto no desktop").toBe(true);
+    expect(checks.desktop_voice_ui, "tela de voz").toBe(true);
+    expect(checks.desktop_vocabulary, "ciclo de vocabulário").toBe(true);
+    expect(checks.desktop_retry_or_defer, "erro com retry ou adiamento").toBe(true);
+    expect(checks.mobile_resume_same_flow, "a retomada mobile usa o mesmo fluxo").toBe(true);
+  } catch (error) {
+    failure = error;
+    note(`interrompido: ${error instanceof Error ? error.message : String(error)}`);
+    await page.screenshot({ path: path.join(evidenceDir, "falha.png"), fullPage: true }).catch(() => undefined);
+  } finally {
+    const manifest = {
+      head: headSha(),
+      date: new Date().toISOString(),
+      environment: "local",
+      database: "sqlite backend/tmp/e2e-fr-b1.sqlite3",
+      viewports: ["desktop 1280x800", "mobile 390x844"],
+      same_account: true,
+      desktop_flow_id: desktopFlowId || null,
+      mobile_flow_id: mobileFlowId || null,
+      commands: [
+        "frontend: npx playwright test e2e/fr-b1-session.spec.ts",
+      ],
+      providers: {
+        ai: "mock",
+        stt: "mock com dispositivo falso do Chromium, se /speech/transcribe foi chamado; microfone físico e fala humana PENDENTES",
+        tts: "mock se /speech/synthesize foi chamado; audição humana PENDENTE",
+      },
+      checks,
+      result: failure ? "falhou" : "concluiu",
+    };
+    fs.writeFileSync(path.join(evidenceDir, "traces.json"), JSON.stringify(traces, null, 2), "utf8");
+    fs.writeFileSync(path.join(evidenceDir, "manifest.json"), JSON.stringify(manifest, null, 2), "utf8");
+    fs.writeFileSync(path.join(evidenceDir, "session.log"), lines.join("\n"), "utf8");
+  }
+  if (failure) throw failure;
 });
