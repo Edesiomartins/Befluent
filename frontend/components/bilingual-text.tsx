@@ -10,10 +10,18 @@ const nativeClass: Record<Exclude<SupportVisibility, "off">, string> = {
 
 export const targetUtteranceClass = "min-w-0 flex-1 text-xl font-medium leading-8 text-text-primary";
 
-export function TargetLine({ text, audio }: { text: string; audio?: ReactNode }) {
+export function TargetLine({
+  text,
+  audio,
+  lang,
+}: {
+  text: string;
+  audio?: ReactNode;
+  lang?: string | null;
+}) {
   return (
     <div className="flex items-start gap-3">
-      <p className={targetUtteranceClass}>{text}</p>
+      <p lang={lang || undefined} className={targetUtteranceClass}>{text}</p>
       {audio ? <div className="shrink-0">{audio}</div> : null}
     </div>
   );
@@ -29,12 +37,16 @@ export function BilingualText({
   visibility,
   heading = false,
   audio,
+  targetLang,
+  nativeLang,
 }: {
   target: string;
   native?: string | null;
   visibility?: string | null;
   heading?: boolean;
   audio?: ReactNode;
+  targetLang?: string | null;
+  nativeLang?: string | null;
 }) {
   const mode = resolveSupportVisibility(visibility);
   const support = native?.trim() && native.trim() !== target.trim() ? native.trim() : "";
@@ -44,7 +56,10 @@ export function BilingualText({
   return (
     <div>
       <div className="flex items-start gap-3">
-        <TargetTag className={heading ? `${targetUtteranceClass} text-xl` : targetUtteranceClass}>
+        <TargetTag
+          lang={targetLang || undefined}
+          className={heading ? `${targetUtteranceClass} text-xl` : targetUtteranceClass}
+        >
           {target}
         </TargetTag>
         {audio ? <div className="shrink-0">{audio}</div> : null}
@@ -52,10 +67,12 @@ export function BilingualText({
       {showSupport && mode === "expandable" && (
         <details className="mt-2">
           <summary className="cursor-pointer text-sm font-semibold text-primary">Ver apoio</summary>
-          <p className={nativeClass.expandable}>{support}</p>
+          <p lang={nativeLang || undefined} className={nativeClass.expandable}>{support}</p>
         </details>
       )}
-      {showSupport && mode !== "expandable" && <p className={nativeClass[mode]}>{support}</p>}
+      {showSupport && mode !== "expandable" && (
+        <p lang={nativeLang || undefined} className={nativeClass[mode]}>{support}</p>
+      )}
     </div>
   );
 }

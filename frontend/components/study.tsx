@@ -5,6 +5,7 @@ import { Button } from "@/components/ui";
 import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
 import { prepareEcclesiasticalLatinForSpeech } from "@/lib/ecclesiastical-latin-speech";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
 const AI_RETRY_COOLDOWN_SECONDS = 30;
@@ -570,6 +571,7 @@ export function Chat({
   openingTranslation?: string | null;
   studySessionId?: string;
 }) {
+  const nativeLanguage = useLearnerNativeLanguage();
   const [messages, setMessages] = useState<Message[]>(() =>
     opening
       ? [{ role: "tutor", text: opening, translation: openingTranslation }]
@@ -747,10 +749,10 @@ export function Chat({
                 message.role === "user" ? "bg-primary text-white" : "bg-surface-elevated"
               }`}
             >
-              {message.text}
+              <span lang={message.role === "tutor" ? languageCode : undefined}>{message.text}</span>
             </div>
             {message.translation && (
-              <p className="mt-1.5 pl-1 text-sm italic text-text-secondary">
+              <p lang={nativeLanguage || undefined} className="mt-1.5 pl-1 text-sm italic text-text-secondary">
                 {message.translation}
               </p>
             )}
@@ -766,13 +768,13 @@ export function Chat({
                 {correction.corrected && (
                   <div className="mt-3">
                     <p className="text-xs font-semibold text-primary">Sugestão</p>
-                    <p className="mt-1 text-text-primary">{correction.corrected}</p>
+                    <p lang={languageCode} className="mt-1 text-text-primary">{correction.corrected}</p>
                   </div>
                 )}
                 {correction.explanation && (
                   <div className="mt-3">
                     <p className="text-xs font-semibold text-text-secondary">Explicação</p>
-                    <p className="mt-1 leading-6 text-text-secondary">{correction.explanation}</p>
+                    <p lang={nativeLanguage || undefined} className="mt-1 leading-6 text-text-secondary">{correction.explanation}</p>
                   </div>
                 )}
               </div>

@@ -187,12 +187,18 @@ function Conversation({
         <p className="label">
           Situação
         </p>
-        <p className="mt-2 font-medium">{topic}</p>
+        <p lang={lesson.language_code} className="mt-2 font-medium">{topic}</p>
+        {lesson.situation_native && lesson.situation_native !== topic && (
+          <p lang={lesson.native_language || "pt-BR"} className="mt-2 text-sm leading-6 text-text-secondary">
+            {lesson.situation_native}
+          </p>
+        )}
         {lesson.target_expressions.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             {lesson.target_expressions.map((expression) => (
               <span
                 key={expression}
+                lang={lesson.language_code}
                 className="rounded-full bg-surface-elevated px-3 py-1 text-xs font-medium"
               >
                 {expression}
@@ -325,7 +331,12 @@ function Voice({
         <p className="label">
           Situação
         </p>
-        <p className="mt-2 font-medium">{topic}</p>
+        <p lang={lesson.language_code} className="mt-2 font-medium">{topic}</p>
+        {lesson.situation_native && lesson.situation_native !== topic && (
+          <p lang={lesson.native_language || "pt-BR"} className="mt-2 text-sm leading-6 text-text-secondary">
+            {lesson.situation_native}
+          </p>
+        )}
 
         <div className="mt-6 rounded-xl bg-surface-elevated p-5 text-center">
           <p className="label">
@@ -582,7 +593,7 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
           Expressão
         </p>
         <div className="mt-5 flex flex-wrap items-center gap-4">
-          <h2 className="text-3xl font-semibold tracking-tight">{item.term}</h2>
+          <h2 lang={lesson.language_code} className="text-3xl font-semibold tracking-tight">{item.term}</h2>
           {(item.term ?? "").trim() && (
             <AudioPlayer
               variant="compact"
@@ -596,7 +607,7 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
         {contextual && (
           <div className="mt-4">
             <p className="label">Na frase</p>
-            <p className="mt-2 font-medium">{contextual.exampleForm}</p>
+            <p lang={lesson.language_code} className="mt-2 font-medium">{contextual.exampleForm}</p>
             {contextual.formNote && (
               <p className="mt-1 text-sm leading-6 text-text-secondary">{contextual.formNote}</p>
             )}
@@ -611,18 +622,18 @@ function LegacyVocabulary({ lesson }: { lesson: VocabularyLesson }) {
               text={item.example}
               languageCode={lesson.language_code}
             />
-            <p className="text-lg italic text-text-secondary">“{item.example}”</p>
+            <p lang={lesson.language_code} className="text-lg italic text-text-secondary">“{item.example}”</p>
           </div>
         )}
         {revealed ? (
           <div className="mt-8 border-t border-border pt-6">
             {supportText({ nativeLanguage, legacyPortuguese: item.translation }) && (
-              <p className="text-sm text-text-secondary">
+              <p lang={nativeLanguage || undefined} className="text-sm text-text-secondary">
                 {supportText({ nativeLanguage, legacyPortuguese: item.translation })}
               </p>
             )}
             {supportText({ nativeLanguage, legacyPortuguese: item.example_translation }) && (
-              <p className="mt-1 text-sm text-text-secondary">
+              <p lang={nativeLanguage || undefined} className="mt-1 text-sm text-text-secondary">
                 {supportText({ nativeLanguage, legacyPortuguese: item.example_translation })}
               </p>
             )}

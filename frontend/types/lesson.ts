@@ -20,6 +20,10 @@ export type LessonEnvelope = {
   study_session_id?: string;
   title: string;
   objective: string;
+  /** Trecho no idioma estudado, quando o objetivo traz os dois papéis. */
+  objective_target?: string | null;
+  /** Instrução na língua nativa, quando o backend já a separou. */
+  objective_native?: string | null;
 };
 
 export type VocabularyLesson = LessonEnvelope & {
@@ -80,6 +84,7 @@ export type WritingLesson = LessonEnvelope & {
 
 export type ConversationLesson = LessonEnvelope & {
   situation: string;
+  situation_native?: string | null;
   opening: string;
   opening_translation: string;
   suggested_replies: string[];

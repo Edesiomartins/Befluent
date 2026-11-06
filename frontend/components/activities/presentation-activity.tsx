@@ -11,7 +11,7 @@ export function PresentationActivity({
   languageCode = "",
   supportVisibility,
 }: ActivityRenderProps) {
-  const { gloss, instruction, visibility } = useActivityCopy(activity, supportVisibility);
+  const { gloss, instruction, visibility, nativeLanguage } = useActivityCopy(activity, supportVisibility);
   const termAudio = activity.audio_targets?.find(
     (target) => target.audio_target_type === "vocabulary_item",
   );
@@ -22,7 +22,9 @@ export function PresentationActivity({
 
   return (
     <div className="space-y-6">
-      {instruction && <p className="leading-7 text-text-secondary">{instruction}</p>}
+      {instruction && (
+        <p lang={nativeLanguage || undefined} className="leading-7 text-text-secondary">{instruction}</p>
+      )}
       <NoticingWhy why={gloss(activity.why_native, activity.why_pt)} examples={activity.examples} />
       <div>
         <p className="label">Expressão</p>
@@ -32,6 +34,8 @@ export function PresentationActivity({
               heading
               target={activity.term}
               native={gloss(activity.translation, activity.translation_pt)}
+              targetLang={languageCode}
+              nativeLang={nativeLanguage}
               visibility={visibility}
               audio={
                 termAudio?.audio_text ? (
@@ -54,7 +58,7 @@ export function PresentationActivity({
         <div className="border-t border-border pt-5">
           <p className="label">Frase de exemplo</p>
           <div className="mt-3 flex flex-wrap items-center gap-3">
-            <p className="font-medium text-text-primary">{activity.example_sentence}</p>
+            <p lang={languageCode || undefined} className="font-medium text-text-primary">{activity.example_sentence}</p>
             {exampleAudio?.audio_text && (
               <AudioPlayer
                 variant="compact"
@@ -65,7 +69,7 @@ export function PresentationActivity({
             )}
           </div>
           {exampleSupport && (
-            <p className="mt-2 text-sm text-text-secondary">{exampleSupport}</p>
+            <p lang={nativeLanguage || undefined} className="mt-2 text-sm text-text-secondary">{exampleSupport}</p>
           )}
         </div>
       )}

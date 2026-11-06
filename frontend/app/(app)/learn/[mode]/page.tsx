@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notFound, useParams } from "next/navigation";
 import { LessonContent } from "@/components/lesson-modes";
+import { LessonObjective } from "@/components/lesson-objective";
 import { useFocusSession } from "@/components/focus-session";
 import { AudioPlayer } from "@/components/study";
 import { Button, ErrorState, Loading } from "@/components/ui";
@@ -63,16 +64,19 @@ function LevelBadge({ lesson }: { lesson: LessonEnvelope }) {
 
 function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | null }) {
   const fallback = meta[mode];
+  const nativeLanguage = useLearnerNativeLanguage();
   return (
     <header className="mb-8">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="page-title">{lesson?.title ?? fallback.title}</h1>
-          {lesson?.objective && (
-            <p className="mt-3 max-w-2xl leading-7 text-text-secondary">
-              <span className="font-semibold text-text-primary">Objetivo: </span>
-              {lesson.objective}
-            </p>
+          {lesson && (
+            <LessonObjective
+              objective={lesson.objective_native || lesson.objective}
+              objectiveTarget={lesson.objective_target}
+              targetLanguage={lesson.target_language || lesson.language_code}
+              nativeLanguage={lesson.native_language || nativeLanguage}
+            />
           )}
         </div>
         {lesson && <LevelBadge lesson={lesson} />}

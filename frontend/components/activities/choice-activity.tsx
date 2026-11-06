@@ -63,7 +63,7 @@ export function ChoiceOptions({
 
 export function ChoiceActivity(props: ActivityRenderProps) {
   const { activity, response, onResponse, locked = false } = props;
-  const { instruction, stimulus } = useActivityCopy(activity, props.supportVisibility);
+  const { instruction, stimulus, nativeLanguage } = useActivityCopy(activity, props.supportVisibility);
   const options = activity.options ?? [];
   if (
     options.length === 0 &&
@@ -76,9 +76,12 @@ export function ChoiceActivity(props: ActivityRenderProps) {
 
   return (
     <div className="space-y-5">
-      {instruction && <p className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>}
+      {instruction && (
+        <p lang={nativeLanguage || undefined} className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>
+      )}
       {activity.show_text !== false && stimulus && (
         <TargetLine
+          lang={props.languageCode}
           text={stimulus}
           audio={
             activity.audio_text ? (
@@ -116,16 +119,18 @@ export function AudioChoiceActivity({
   languageCode = "",
   supportVisibility,
 }: ActivityRenderProps) {
-  const { instruction } = useActivityCopy(activity, supportVisibility);
+  const { instruction, nativeLanguage } = useActivityCopy(activity, supportVisibility);
   const groupLabel = instruction || "Opções da atividade de escuta";
   const showTranscript = activity.show_text === true;
 
   return (
     <div className="space-y-5">
-      {instruction && <p className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>}
+      {instruction && (
+        <p lang={nativeLanguage || undefined} className="border-b border-border pb-3 text-sm leading-6 text-text-secondary">{instruction}</p>
+      )}
       <div className="flex items-start gap-3">
         {showTranscript && activity.prompt_target && (
-          <p className="min-w-0 flex-1 text-xl font-medium leading-8 text-text-primary">{activity.prompt_target}</p>
+          <p lang={languageCode || undefined} className="min-w-0 flex-1 text-xl font-medium leading-8 text-text-primary">{activity.prompt_target}</p>
         )}
         {activity.audio_text && (
           <div className="shrink-0">

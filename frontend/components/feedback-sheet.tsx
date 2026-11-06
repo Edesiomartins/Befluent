@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef } from "react";
+import { useLearnerNativeLanguage } from "@/components/native-language-context";
 import type { AnswerFeedback } from "@/types/teaching";
 
 export function FeedbackSheet({
@@ -17,6 +18,7 @@ export function FeedbackSheet({
   const titleId = useId();
   const titleRef = useRef<HTMLHeadingElement>(null);
   const correct = feedback.is_correct;
+  const nativeLanguage = useLearnerNativeLanguage();
   const explanation = feedback.why_correct || feedback.why_selected || feedback.remember || "";
 
   useEffect(() => {
@@ -50,7 +52,9 @@ export function FeedbackSheet({
               <span className="font-semibold">Resposta correta:</span> {feedback.correct_option}
             </p>
           )}
-          {explanation && <p className="mt-2">{explanation}</p>}
+          {explanation && (
+            <p lang={nativeLanguage || undefined} className="mt-2">{explanation}</p>
+          )}
           {canRetry && !correct && (
             <p className="mt-2 text-text-secondary">
               Tentar novamente mantém esta atividade, este objetivo e o idioma que você está estudando.
