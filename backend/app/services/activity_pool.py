@@ -21,6 +21,149 @@ from app.services.question_identity import question_fingerprint, normalize_quest
 
 logger = logging.getLogger(__name__)
 
+_LOG_OMIT = {
+    "accepted_variants",
+    "answer",
+    "audio_text",
+    "authorization",
+    "canonical_answer",
+    "cookie",
+    "cookies",
+    "correct_explanation",
+    "email",
+    "examples",
+    "explanation",
+    "models",
+    "option_rationales",
+    "options",
+    "password",
+    "prompt",
+    "prompt_native",
+    "prompt_pt",
+    "prompt_target",
+    "rationale",
+    "reply",
+    "reply_translation",
+    "scenario_native",
+    "scenario_target",
+    "secret",
+    "student_response",
+    "text",
+    "token",
+}
+
+
+def _omit_private(value):
+    if isinstance(value, dict):
+        return {
+            key: _omit_private(item)
+            for key, item in value.items()
+            if key not in _LOG_OMIT
+        }
+    if isinstance(value, list):
+        return [_omit_private(item) for item in value]
+    return value
+
+
+def _declared(*values):
+    for value in values:
+        if isinstance(value, str) and value.strip():
+            return value
+        if value not in (None, "", [], {}):
+            return value
+    return None
+
+
+def activity_diagnostic(activity: dict | None) -> dict:
+    """Identidade de diagnóstico. Não inclui enunciado, resposta nem texto privado."""
+    empty = {
+        "activity_id": None,
+        "legacy_id": None,
+        "learning_objective_id": None,
+        "type": None,
+        "interaction_family": None,
+        "content_source_id": None,
+        "content_unit_id": None,
+        "source": "unknown",
+        "provider": None,
+        "model": None,
+        "content_version": None,
+        "content_version_status": "unknown",
+        "target_language": None,
+        "native_language": None,
+        "cefr_level": None,
+        "quality_status": None,
+    }
+    if not isinstance(activity, dict):
+        return empty
+    provenance = activity.get("provenance") if isinstance(activity.get("provenance"), dict) else {}
+    version = _declared(
+        activity.get("content_version"),
+        provenance.get("content_version"),
+        provenance.get("version"),
+    )
+    source = _declared(provenance.get("source"), activity.get("content_source"), activity.get("source"))
+    row_id = activity.get("id")
+    declared_activity_id = activity.get("activity_id")
+    return {
+        "activity_id": activity_id(activity),
+        "legacy_id": str(row_id) if row_id else (str(declared_activity_id) if declared_activity_id else None),
+        "learning_objective_id": activity.get("learning_objective_id"),
+        "type": activity.get("type"),
+        "interaction_family": activity.get("interaction_family") or interaction_family(activity.get("type")),
+        "content_source_id": _declared(
+            activity.get("content_source_id"),
+            provenance.get("content_source_id"),
+            provenance.get("source_id"),
+        ),
+        "content_unit_id": _declared(activity.get("content_unit_id"), provenance.get("content_unit_id")),
+        "source": source if source else "unknown",
+        "provider": _declared(activity.get("provider"), provenance.get("provider")),
+        "model": _declared(activity.get("model"), provenance.get("model")),
+        "content_version": version,
+        "content_version_status": "declared" if version else "unknown",
+        "target_language": activity.get("target_language"),
+        "native_language": activity.get("native_language"),
+        "cefr_level": activity.get("cefr_level"),
+        "quality_status": activity.get("quality_status"),
+    }
+
+
+def log_selection(trace: dict) -> None:
+    logger.info(
+        "activity_selection %s",
+        json.dumps(_omit_private(trace), ensure_ascii=False, sort_keys=True, default=str),
+    )
+
+
+def public_selection_trace(trace: dict | None) -> dict | None:
+    if not isinstance(trace, dict):
+        return None
+    return _omit_private(trace)
+
+
+def stamp_selection_trace(
+    trace: dict,
+    *,
+    session_id: str | None,
+    attempt_id: str | None = None,
+    retry: bool | None = None,
+) -> dict:
+    stamped = json.loads(json.dumps(_omit_private(trace), ensure_ascii=False, default=str))
+    stamped["session_id"] = session_id
+    if attempt_id is not None:
+        stamped["attempt_id"] = attempt_id
+    if retry is not None:
+        stamped["retry"] = retry
+    for row in stamped.get("activities") or []:
+        if isinstance(row, dict):
+            row["session_id"] = session_id
+            if attempt_id is not None:
+                row["attempt_id"] = attempt_id
+            if retry is not None:
+                row["retry"] = retry
+    return stamped
+
 
 def fingerprint(activity: dict) -> str:
     # Expository activities often have the same instruction but different input.
@@ -228,6 +371,29 @@ def freshness_rank(activity: dict, history: dict, *, now: datetime | None = None
     return 2 if date > (now or datetime.now(timezone.utc)) - timedelta(days=cooldown_days) else 1
 
 
+def _select_exclusion(candidate: dict, *, payload: dict, history: dict, objective_id: str | None,
+                      target_language: str | None, native_language: str | None, level: str | None,
+                      now: datetime, cooldown_days: int) -> tuple[str, str] | None:
+    """Primeira regra que já excluía o candidato. O balde agregado permanece o antigo."""
+    safety = language_safety(candidate, target_language, native_language)
+    if safety == "language_invalid":
+        return "language", "language"
+    if safety in {"review_required", "rejected", "draft", "generated"}:
+        return "quality", "quality"
+    if is_seen(candidate, payload):
+        return "seen", "seen"
+    if family_retired(candidate, payload):
+        return "family", "seen"
+    if recently_exposed(candidate, history, now=now, cooldown_days=cooldown_days):
+        return "cooldown", "seen"
+    if (objective_id and candidate.get("learning_objective_id") != objective_id) or any(
+        expected is not None and candidate.get(key) != expected
+        for key, expected in (("target_language", target_language), ("native_language", native_language), ("cefr_level", level))
+    ) or candidate.get("quality_status", "approved") != "approved":
+        return "metadata", "metadata"
+    return None
+
+
 def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                     session_payload: dict | None = None, exposure_history: dict | None = None,
                     target_language: str | None = None, native_language: str | None = None,
@@ -237,27 +403,22 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
     payload, history = session_payload or {}, exposure_history or {}
     current = now or datetime.now(timezone.utc)
     excluded = {"seen": 0, "metadata": 0, "language": 0, "quality": 0}
+    rejected = []
     eligible = []
     for position, candidate in enumerate(candidates):
-        safety = language_safety(candidate, target_language, native_language)
-        if safety == "language_invalid":
-            excluded["language"] += 1
-            continue
-        if safety in {"review_required", "rejected", "draft", "generated"}:
-            excluded["quality"] += 1
-            continue
-        if (
-            is_seen(candidate, payload)
-            or family_retired(candidate, payload)
-            or recently_exposed(candidate, history, now=current, cooldown_days=cooldown_days)
-        ):
-            excluded["seen"] += 1
-            continue
-        if (objective_id and candidate.get("learning_objective_id") != objective_id) or any(
-            expected is not None and candidate.get(key) != expected
-            for key, expected in (("target_language", target_language), ("native_language", native_language), ("cefr_level", level))
-        ) or candidate.get("quality_status", "approved") != "approved":
+        if not isinstance(candidate, dict):
+            rejected.append({"activity_id": None, "code": "metadata"})
             excluded["metadata"] += 1
+            continue
+        found = _select_exclusion(
+            candidate, payload=payload, history=history, objective_id=objective_id,
+            target_language=target_language, native_language=native_language, level=level,
+            now=current, cooldown_days=cooldown_days,
+        )
+        if found is not None:
+            code, bucket = found
+            rejected.append({"activity_id": activity_id(candidate), "code": code})
+            excluded[bucket] += 1
             continue
         identity = activity_id(candidate)
         raw = history.get(identity) or history.get(fingerprint(candidate))
@@ -274,44 +435,117 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                 difficulty_distance = abs(candidate["difficulty"] - previous["difficulty"])
         eligible.append(((freshness, diversity, difficulty_distance, date.isoformat() if date else "", position), candidate))
     chosen = min(eligible, key=lambda pair: pair[0])[1] if eligible else None
+    rules = sorted({row["code"] for row in rejected})
+    decision = {
+        "candidate_count": len(candidates),
+        "exclusions": excluded,
+        "excluded_candidates": rejected,
+        "seen_count": len(payload.get("seen_activity_ids") or []),
+        "chosen_activity": activity_id(chosen) if chosen else None,
+        "chosen": activity_diagnostic(chosen) if chosen else None,
+        "reason": "freshness_then_diversity" if chosen else "pool_exhausted",
+        "fallback_used": chosen is None,
+        "exhaustion": None if chosen else {
+            "aggregate_reason": "pool_exhausted",
+            "contributing_rules": rules or ["no_candidates"],
+        },
+        "learning_objective_id": objective_id,
+        "target_language": target_language,
+        "native_language": native_language,
+        "cefr_level": level,
+        "retry": False,
+        "session_id": None,
+        "attempt_id": None,
+    }
     if trace is not None:
-        trace.update(candidate_count=len(candidates), exclusions=excluded, seen_count=len(payload.get("seen_activity_ids") or []),
-                     chosen_activity=activity_id(chosen) if chosen else None,
-                     reason="freshness_then_diversity" if chosen else "pool_exhausted", fallback_used=chosen is None)
+        trace.update(decision)
+    log_selection(decision)
     return chosen
 
 
+def interaction_retry_rejection(failed: dict, candidate, payload: dict, objective_id: str | None) -> str | None:
+    """Primeiro motivo do `continue` já existente. Não muda a ordem nem a escolha."""
+    if not isinstance(candidate, dict):
+        return "metadata"
+    if objective_id and candidate.get("learning_objective_id") != objective_id:
+        return "objective"
+    if activity_id(candidate) == activity_id(failed):
+        return "same_activity"
+    family = interaction_family(candidate.get("type"))
+    if family == interaction_family(failed.get("type")) or family == "unknown":
+        return "family"
+    failed_answer = normalize_question_text(str(failed.get("canonical_answer") or failed.get("answer") or ""))
+    candidate_answer = normalize_question_text(str(candidate.get("canonical_answer") or candidate.get("answer") or ""))
+    if failed_answer and candidate_answer == failed_answer:
+        return "duplicate"
+    if family_key(candidate) == family_key(failed) or family_retired(candidate, payload):
+        return "family"
+    if is_seen(candidate, payload):
+        return "seen"
+    if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):
+        safety = language_safety(candidate, candidate.get("target_language"), candidate.get("native_language"))
+        return "language" if safety == "language_invalid" else "quality"
+    if candidate.get("quality_status") not in {None, "approved"}:
+        return "quality"
+    if failed.get("target_language") and candidate.get("target_language") and candidate.get("target_language") != failed.get("target_language"):
+        return "language"
+    if failed.get("cefr_level") and candidate.get("cefr_level") and candidate.get("cefr_level") != failed.get("cefr_level"):
+        return "cefr"
+    return None
+
+
+_RETRY_BUCKET = {
+    "seen": "seen",
+    "same_activity": "seen",
+    "cooldown": "cooldown",
+    "family": "family",
+    "language": "language",
+    "quality": "quality",
+    "metadata": "metadata",
+    "objective": "metadata",
+    "cefr": "metadata",
+    "duplicate": "duplicate",
+}
+
+
 def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict | None = None, *,
-                             objective_id: str | None = None) -> dict | None:
+                             objective_id: str | None = None, trace: dict | None = None) -> dict | None:
     """Outra interação do mesmo objetivo, se houver item seguro. Não fabrica exercício."""
     payload = payload or {}
-    failed_family = interaction_family(failed.get("type"))
-    failed_id = activity_id(failed)
+    rejected = []
+    counts = {"seen": 0, "cooldown": 0, "family": 0, "language": 0, "quality": 0, "metadata": 0, "duplicate": 0}
+    chosen = None
     for candidate in candidates:
-        if not isinstance(candidate, dict):
+        code = interaction_retry_rejection(failed, candidate, payload, objective_id)
+        if code is not None:
+            rejected.append({
+                "activity_id": activity_id(candidate) if isinstance(candidate, dict) else None,
+                "code": code,
+            })
+            counts[_RETRY_BUCKET[code]] += 1
             continue
-        if objective_id and candidate.get("learning_objective_id") != objective_id:
-            continue
-        if activity_id(candidate) == failed_id:
-            continue
-        if interaction_family(candidate.get("type")) == failed_family or interaction_family(candidate.get("type")) == "unknown":
-            continue
-        failed_answer = normalize_question_text(str(failed.get("canonical_answer") or failed.get("answer") or ""))
-        candidate_answer = normalize_question_text(str(candidate.get("canonical_answer") or candidate.get("answer") or ""))
-        if failed_answer and candidate_answer == failed_answer:
-            continue
-        if family_key(candidate) == family_key(failed) or family_retired(candidate, payload) or is_seen(candidate, payload):
-            continue
-        if not deliverable(candidate, candidate.get("target_language"), candidate.get("native_language")):
-            continue
-        if candidate.get("quality_status") not in {None, "approved"}:
-            continue
-        if failed.get("target_language") and candidate.get("target_language") and candidate.get("target_language") != failed.get("target_language"):
-            continue
-        if failed.get("cefr_level") and candidate.get("cefr_level") and candidate.get("cefr_level") != failed.get("cefr_level"):
-            continue
-        return candidate
-    return None
+        chosen = candidate
+        break
+    rules = sorted({row["code"] for row in rejected})
+    decision = {
+        "candidate_count": len(candidates),
+        "exclusions": counts,
+        "excluded_candidates": rejected,
+        "chosen_activity": activity_id(chosen) if chosen else None,
+        "chosen": activity_diagnostic(chosen) if chosen else None,
+        "reason": "interaction_change_retry" if chosen else "pool_exhausted",
+        "fallback_used": chosen is None,
+        "exhaustion": None if chosen else {
+            "aggregate_reason": "pool_exhausted",
+            "contributing_rules": rules or ["no_candidates"],
+        },
+        "learning_objective_id": objective_id,
+        "retry": True,
+    }
+    if trace is not None:
+        trace.update(decision)
+    log_selection(decision)
+    return chosen
 
 
 def validate_batch(existing: list[dict], batch: list[dict], *, batch_size: int = 50,

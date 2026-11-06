@@ -77,6 +77,14 @@ def _objective_pool(db: Session, session) -> list[dict]:
         return []
 
 
+def _remember_selection(payload: dict[str, Any], trace: dict[str, Any]) -> None:
+    payload["selection_trace"] = trace
+    events = [event for event in (payload.get("selection_events") or []) if isinstance(event, dict)]
+    events.append(trace)
+    payload["selection_events"] = events
+    activity_pool.log_selection(trace)
+
+
 def _set_retry_activity(
     payload: dict[str, Any],
     activity: dict[str, Any],
@@ -86,6 +94,7 @@ def _set_retry_activity(
     objective_id: str | None = None,
     exposure_history: dict | None = None,
     session_id: str | None = None,
+    attempt_id: str | None = None,
 ) -> dict[str, Any]:
     """No erro, repete a mesma atividade, ou outra interação segura do mesmo objetivo."""
     seen = _record_seen_question(payload, activity)
@@ -96,8 +105,9 @@ def _set_retry_activity(
     if isinstance(current_retry, dict):
         activity_pool.record_exposure(payload, current_retry)
     family = activity_pool.retire_family(payload, activity)
+    retry_trace: dict[str, Any] = {}
     alternate = activity_pool.choose_interaction_retry(
-        activity, candidates or [], payload, objective_id=objective_id,
+        activity, candidates or [], payload, objective_id=objective_id, trace=retry_trace,
     )
     if alternate is not None:
         variant = dict(alternate)
@@ -106,23 +116,36 @@ def _set_retry_activity(
         variant["retry_strategy"] = "interaction_change"
         variant["post_reveal"] = False
         reason = "interaction_change_retry"
+        exhaustion = None
     else:
         variant = build_retry_variant(activity, patterns, seen_fingerprints=seen)
         reason = "same_activity_retry"
+        exhaustion = retry_trace.get("exhaustion")
+    delivered = activity_pool.activity_diagnostic(variant)
     trace = {
+        "kind": "interaction_retry",
         "candidate_count": len(candidates or []),
-        "exclusions": {"seen": 0, "metadata": 0},
+        "exclusions": retry_trace.get("exclusions") or {"seen": 0, "metadata": 0},
+        "excluded_candidates": retry_trace.get("excluded_candidates") or [],
         "seen_count": len(payload.get("seen_activity_ids") or []),
         "chosen_activity": activity_pool.activity_id(variant),
+        "chosen": delivered,
         "reason": reason,
         "fallback_used": False,
         "remediation_reason": "incorrect_same_objective",
         "session_id": session_id,
+        "attempt_id": attempt_id,
         "learning_objective_id": objective_id,
         "family_key": family,
+        "retry": True,
+        "target_language": delivered.get("target_language"),
+        "native_language": delivered.get("native_language"),
+        "cefr_level": delivered.get("cefr_level"),
+        "exhaustion": exhaustion,
+        "alternate_activity_id": activity_pool.activity_id(alternate) if alternate else None,
     }
-    payload["selection_trace"] = trace
-    logger.debug("activity_selection trace=%s", trace)
+    _remember_selection(payload, trace)
+    logger.debug("activity_selection trace=%s", activity_pool.public_selection_trace(trace))
     payload["retry_activity"] = variant
     _record_seen_question(payload, variant)
     activity_pool.record_exposure(payload, variant)
@@ -492,6 +515,7 @@ def submit_slice_answer(
                 candidates=_objective_pool(db, session),
                 objective_id=session.objective_id,
                 session_id=session.id,
+                attempt_id=attempt.id,
             )
             session.payload_json = payload
             db.flush()
