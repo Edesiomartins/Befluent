@@ -131,3 +131,22 @@ frontend: npm run lint
 frontend: npm run typecheck
 frontend: npx playwright test e2e/fr-b1-session.spec.ts
 ```
+
+## Etapa 2 — contrato de idioma (2026-11-06)
+
+A Etapa 1 está em `d6cd9d4`, publicado segundo o Dr. Edesio. Esta etapa não abriu o Coolify e não fez push.
+
+O objective `Praticar opinion, raison et concession em uma situação realista.` deixa de ser uma frase só. O trecho francês vai para `objective_target`; a instrução em português fica em `objective`. O original fica em `language_role_originals`. O trace recebe campo, papel e ação (`repaired`, `review_required` ou `blocked`), sem a frase.
+
+Commits: `f643aab` (backend e testes) e `701258f` (regiões com `lang` e TTS só do trecho-alvo). Relato: `docs/stage-2-language-contract/report.md`.
+
+### Contagens
+
+- Backend, `py -3 -m pytest --tb=line`: **1889 passed, 5 skipped, 41 warnings in 1727.88s**, exit 0.
+- Frontend: `npm test` **403 passed**, 52 arquivos, exit 0; `npm run lint` exit 0, 0 erros, 5 warnings anteriores; `npm run typecheck` exit 0.
+
+### Pendências
+
+- Lições já gravadas com o objective misturado só se separam na próxima geração. Sem migração.
+- `blocked` não muda a escolha nem a regra de retry.
+- TTS real continua pendente. O arquivo `backend/scripts/out/fr_b1_review_batches.json` ficou sujo de novo e não entra no commit.
