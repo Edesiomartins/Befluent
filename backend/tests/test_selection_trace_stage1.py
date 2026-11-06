@@ -107,7 +107,7 @@ def test_select_activity_records_each_exclusion_without_changing_the_choice(capl
         sort_keys=True,
     )
     trace = {}
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.INFO, logger="app.services.activity_pool"):
         chosen = activity_pool.select_activity(
             [keep, seen, cooled, retired, invalid, draft, wrong_level],
             objective_id="objective-x",
@@ -149,7 +149,7 @@ def test_select_activity_records_each_exclusion_without_changing_the_choice(capl
 
 def test_select_activity_exhaustion_names_the_rules(caplog):
     trace = {}
-    with caplog.at_level(logging.INFO):
+    with caplog.at_level(logging.INFO, logger="app.services.activity_pool"):
         chosen = activity_pool.select_activity(
             [item("only", cefr_level="B2")],
             objective_id="objective-x",

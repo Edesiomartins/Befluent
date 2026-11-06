@@ -26,7 +26,7 @@ def _codes(rows):
 
 
 def test_select_activity_names_every_exclusion_and_keeps_the_choice(caplog):
-    caplog.set_level(logging.INFO)
+    caplog.set_level(logging.INFO, logger="app.services.activity_pool")
     seen = item("seen-one", prompt=SECRET_PROMPT, canonical_answer=SECRET_ANSWER)
     retired = item("retired-one", prompt="Quel est le train de ce soir ?")
     cooled = item("cooled-one", prompt="Gare proche")
