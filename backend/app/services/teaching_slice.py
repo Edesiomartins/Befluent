@@ -60,21 +60,23 @@ def _record_seen_question(
     return seen
 
 
-def _objective_pool(db: Session, session) -> list[dict]:
+def _objective_pool(db: Session, session) -> tuple[list[dict], list[dict]]:
     from app.core.errors import APIError
     from app.models import LearningObjective, User, UserLanguage
     if not session.objective_id:
-        return []
+        return [], []
     objective = db.get(LearningObjective, session.objective_id)
     owner = db.get(UserLanguage, session.user_language_id)
     user = db.get(User, owner.user_id) if owner is not None else None
     native = getattr(user, "native_language", None)
     if objective is None or not native:
-        return []
+        return [], []
+    gate: dict[str, Any] = {}
     try:
-        return activity_pool.objective_candidates(db, objective, native_language=native)
+        rows = activity_pool.objective_candidates(db, objective, native_language=native, trace=gate)
     except (ValueError, APIError):
-        return []
+        return [], []
+    return rows, list(gate.get("excluded_candidates") or [])
 
 
 def _remember_selection(payload: dict[str, Any], trace: dict[str, Any]) -> None:
@@ -95,6 +97,7 @@ def _set_retry_activity(
     exposure_history: dict | None = None,
     session_id: str | None = None,
     attempt_id: str | None = None,
+    prior_exclusions: list[dict] | None = None,
 ) -> dict[str, Any]:
     """No erro, repete a mesma atividade, ou outra interação segura do mesmo objetivo."""
     seen = _record_seen_question(payload, activity)
@@ -149,6 +152,7 @@ def _set_retry_activity(
         "exhaustion": exhaustion,
         "alternate_activity_id": activity_pool.activity_id(alternate) if alternate else None,
     }
+    activity_pool.merge_exclusions(trace, list(prior_exclusions or []))
     _remember_selection(payload, trace)
     logger.debug("activity_selection trace=%s", activity_pool.public_selection_trace(trace))
     payload["retry_activity"] = variant
@@ -548,12 +552,14 @@ def submit_slice_answer(
             payload = dict(session.payload_json or {})
             payload["pending_remediation"] = remediation_payload
             payload["last_answer_feedback"] = answer_feedback
+            pool_rows, gate_excluded = _objective_pool(db, session)
             _set_retry_activity(
                 payload, activity, patterns,
-                candidates=_objective_pool(db, session),
+                candidates=pool_rows,
                 objective_id=session.objective_id,
                 session_id=session.id,
                 attempt_id=attempt.id,
+                prior_exclusions=gate_excluded,
             )
             session.payload_json = payload
             db.flush()
@@ -773,12 +779,14 @@ def retry_slice(
         payload = dict(session.payload_json or {})
         payload["pending_remediation"] = remediation_payload
         payload["last_answer_feedback"] = answer_feedback
+        pool_rows, gate_excluded = _objective_pool(db, session)
         _set_retry_activity(
             payload, activity, patterns,
-            candidates=_objective_pool(db, session),
+            candidates=pool_rows,
             objective_id=session.objective_id,
             session_id=session.id,
             attempt_id=attempt.id,
+            prior_exclusions=gate_excluded,
         )
         session.payload_json = payload
         db.flush()

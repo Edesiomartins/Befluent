@@ -1,3 +1,5 @@
+import json
+
 import httpx
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -562,13 +564,27 @@ def activate(client, auth):
 def test_conversation_mock(client, auth):
     activate(client, auth)
     conversation = client.post("/api/v1/conversations", json={"language_code": "en"}, headers=auth).json()
+    started = conversation["selection_trace"]
+    assert started["provider"] is None
+    assert started["model"] is None
+    assert started["source"] == "unknown"
+    assert started["content_version"] is None
+    assert started["content_version_status"] == "unknown"
+    assert started["content_source_id"] is None
     response = client.post(
         f"/api/v1/conversations/{conversation['id']}/messages",
         json={"text": "Hello"},
         headers=auth,
     )
     assert response.status_code == 200
-    assert response.json()["provider"] == "mock"
+    body = response.json()
+    assert body["provider"] == "mock"
+    turn = body["selection_trace"]
+    assert turn["provider"] == "mock"
+    assert turn["source"] == "unknown"
+    assert turn["content_version_status"] == "unknown"
+    assert "Hello" not in json.dumps(turn)
+    assert "openrouter" not in json.dumps(started)
 
 
 def test_tutor_chat_mock(client, auth):

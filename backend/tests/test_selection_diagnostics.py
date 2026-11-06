@@ -438,3 +438,67 @@ def test_exhausted_flow_records_the_rule_without_mastering(db_session):
     assert "activities_exhausted" in trace["exhaustion"]["contributing_rules"]
     assert trace["exhaustion"]["session_id"] == locked.id
     assert locked.phase == FlowPhase.NEEDS_REVIEW
+
+
+def test_curated_fr_b1_slice_declares_language_and_leaves_version_unknown():
+    from app.services.fr_b1_slice import activities
+    from fixtures.stage1_fr_b1 import EXPECTED_ACTIVITY_IDS, REFERENCE
+
+    rows = activities()
+    assert [row["activity_id"] for row in rows] == list(EXPECTED_ACTIVITY_IDS)
+    for row in rows:
+        diagnostic = activity_pool.activity_diagnostic(row)
+        assert diagnostic["target_language"] == REFERENCE["target_language"]
+        assert diagnostic["native_language"] == REFERENCE["native_language"]
+        assert diagnostic["cefr_level"] == REFERENCE["cefr_level"]
+        assert diagnostic["source"] == REFERENCE["source"]
+        assert diagnostic["content_version"] is None
+        assert diagnostic["content_version_status"] == REFERENCE["content_version_status"]
+        assert diagnostic["provider"] is None
+        assert diagnostic["model"] is None
+        assert diagnostic["content_source_id"] is None
+
+
+def test_objective_gate_names_each_drop_and_keeps_the_same_candidate(db_session):
+    from test_seen_activities_acceptance import _flow
+
+    _flow_row, objective = _flow(
+        db_session,
+        activities=[item("planned")],
+        pool=[item("kept", "Who travels today?")],
+    )
+    pedagogy = dict(objective.pedagogy_json or {})
+    pool = list(pedagogy.get("activity_pool") or [])
+    unit_id = pool[0]["content_unit_id"]
+    pool.append({
+        **item("wrong-lang", "Choisissez une phrase.", target_language="de"),
+        "learning_objective_id": objective.id,
+        "skill": objective.skill_focus,
+        "content_unit_id": unit_id,
+    })
+    pool.append({
+        **item("wrong-level", "Choose another long sentence please.", cefr_level="C2", target_language="en"),
+        "learning_objective_id": objective.id,
+        "skill": objective.skill_focus,
+        "content_unit_id": unit_id,
+    })
+    pedagogy["activity_pool"] = pool
+    objective.pedagogy_json = pedagogy
+    db_session.commit()
+    db_session.refresh(objective)
+    before = [
+        row["activity_id"]
+        for row in activity_pool.objective_candidates(db_session, objective, native_language="pt-BR")
+    ]
+    trace: dict = {}
+    chosen = activity_pool.objective_candidates(
+        db_session, objective, native_language="pt-BR", trace=trace,
+    )
+    assert [row["activity_id"] for row in chosen] == before == ["kept"]
+    assert _codes(trace["excluded_candidates"]) == {
+        "wrong-lang": "language",
+        "wrong-level": "cefr",
+    }
+    assert trace["reason"] == "objective_gate"
+    assert trace["exhaustion"] is None
+    assert "Choisissez" not in json.dumps(trace)

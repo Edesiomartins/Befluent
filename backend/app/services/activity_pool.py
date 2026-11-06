@@ -212,6 +212,23 @@ def exhaustion_record(reason: str, rules: list[str], **extra) -> dict:
     }
 
 
+def merge_exclusions(trace: dict, extra: list[dict]) -> None:
+    """Acrescenta exclusões de um portão anterior. Não mexe na atividade escolhida."""
+    if not extra or not isinstance(trace, dict):
+        return
+    merged = [*extra, *(trace.get("excluded_candidates") or [])]
+    trace["excluded_candidates"] = merged
+    trace["rejected_candidates"] = merged
+    exhaustion = trace.get("exhaustion")
+    if isinstance(exhaustion, dict):
+        rules = list(exhaustion.get("contributing_rules") or [])
+        for row in extra:
+            code = row.get("code") if isinstance(row, dict) else None
+            if code and code not in rules:
+                rules.append(code)
+        exhaustion["contributing_rules"] = rules
+
+
 def _rule_order(rows: list[dict]) -> list[str]:
     rules = []
     for row in rows:
@@ -730,21 +747,71 @@ def append_objective_batch(db, *, objective_id: str, batch: list[dict], batch_si
     return result
 
 
-def objective_candidates(db, objective, *, native_language: str) -> list[dict]:
-    """Delivery gate: stale/editorially invalid metadata is never relabeled."""
+def objective_candidates(db, objective, *, native_language: str, trace: dict | None = None) -> list[dict]:
+    """Delivery gate: stale/editorially invalid metadata is never relabeled.
+
+    O conjunto elegível é o mesmo de antes. O trace só nomeia quem ficou de fora.
+    """
     from app.models import Language, ContentUnit, ContentSource
     target = db.get(Language, objective.language_id).code
-    raw = [candidate for candidate in (objective.pedagogy_json or {}).get("activity_pool", [])
-           if candidate.get("learning_objective_id") == objective.id and candidate.get("target_language") == target
-           and candidate.get("native_language") == native_language and candidate.get("cefr_level") == objective.level
-           and candidate.get("skill") == objective.skill_focus and not candidate.get("ai_required")]
-    approved = validate_batch([], raw, batch_size=max(len(raw), 1))["accepted"]
+    pool = list((objective.pedagogy_json or {}).get("activity_pool", []) or [])
+    rejected = []
+    raw = []
+    for candidate in pool:
+        if candidate.get("learning_objective_id") != objective.id or candidate.get("skill") != objective.skill_focus or candidate.get("ai_required"):
+            rejected.append(exclusion_row(candidate, "metadata"))
+            continue
+        if candidate.get("target_language") != target or candidate.get("native_language") != native_language:
+            rejected.append(exclusion_row(candidate, "language"))
+            continue
+        if candidate.get("cefr_level") != objective.level:
+            rejected.append(exclusion_row(candidate, "cefr"))
+            continue
+        raw.append(candidate)
+    validated = validate_batch([], raw, batch_size=max(len(raw), 1))
+    for row in validated["rejected"]:
+        rejected.append({
+            "activity_id": row.get("activity_id"),
+            "legacy_id": None,
+            "code": row.get("reason") or "metadata",
+        })
     eligible = []
-    for candidate in approved:
+    for candidate in validated["accepted"]:
         unit = db.get(ContentUnit, candidate.get("content_unit_id"))
         source = db.get(ContentSource, unit.source_id) if unit else None
-        if unit and unit.is_active and unit.validation_status == "APPROVED" and unit.language_id == objective.language_id and unit.cefr_level == objective.level and source and source.review_status == "APPROVED":
+        admitted = bool(
+            unit and unit.is_active and unit.validation_status == "APPROVED"
+            and unit.language_id == objective.language_id and unit.cefr_level == objective.level
+            and source and source.review_status == "APPROVED"
+        )
+        if admitted:
             eligible.append(candidate)
+            continue
+        code = "metadata"
+        if unit is not None and unit.is_active and (unit.validation_status != "APPROVED" or source is None or source.review_status != "APPROVED"):
+            code = "quality"
+        rejected.append(exclusion_row(candidate, code))
+    decision = {
+        "kind": "objective_gate",
+        "candidate_count": len(pool),
+        "excluded_candidates": rejected,
+        "rejected_candidates": rejected,
+        "delivered": [delivery_record(item, reason="objective_gate") for item in eligible],
+        "reason": "objective_gate" if eligible else "pool_exhausted",
+        "fallback_used": not eligible,
+        "exhaustion": None if eligible else exhaustion_record(
+            "pool_exhausted", _rule_order(rejected) or ["no_candidates"],
+        ),
+        "learning_objective_id": objective.id,
+        "target_language": target,
+        "native_language": native_language,
+        "cefr_level": objective.level,
+        "retry": False,
+    }
+    if trace is not None:
+        trace.update(decision)
+    if rejected:
+        log_selection(decision)
     return eligible
 
 

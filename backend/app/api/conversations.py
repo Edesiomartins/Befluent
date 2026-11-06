@@ -124,16 +124,18 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     db.commit()
 
     context = build_context(db, user, data.language_code)
-    from app.core.config import get_settings
+    # Abrir a conversa ainda não chama modelo. Provedor ausente fica nulo.
     selection_trace = {
         "conversation_id": item.id,
         "study_session_id": session_id,
         "target_language": context.language_code,
         "native_language": context.native_language,
         "cefr_level": context.level_for_skill("speaking"),
-        "provider": "mock" if get_settings().ai_mock_mode else "openrouter",
+        "provider": None,
         "model": None,
-        "source": None,
+        "source": "unknown",
+        "content_source_id": None,
+        "content_unit_id": None,
         "content_version": None,
         "content_version_status": "unknown",
         "kind": "conversation_started",
@@ -223,11 +225,13 @@ def message(
         "target_language": result.get("target_language") or language.code,
         "native_language": result.get("native_language") or user.native_language,
         "cefr_level": result.get("level"),
-        "provider": result.get("provider"),
-        "model": result.get("model"),
-        "source": None,
-        "content_version": None,
-        "content_version_status": "unknown",
+        "provider": result.get("provider") or None,
+        "model": result.get("model") or None,
+        "source": result.get("content_origin") or result.get("content_source") or "unknown",
+        "content_source_id": result.get("content_source_id"),
+        "content_unit_id": result.get("content_unit_id"),
+        "content_version": result.get("content_version"),
+        "content_version_status": "declared" if result.get("content_version") else "unknown",
         "kind": "conversation_turn",
         "reason": "conversation_turn",
     }

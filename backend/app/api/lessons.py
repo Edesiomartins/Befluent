@@ -174,8 +174,9 @@ def _start_lesson_vocabulary_cycle(
         from app.services.session_engine import _candidate
         account = db.get(User, owner.user_id)
         native = account.native_language if account is not None else None
+        gate: dict = {}
         if objective:
-            for candidate in activity_pool.objective_candidates(db, objective, native_language=native):
+            for candidate in activity_pool.objective_candidates(db, objective, native_language=native, trace=gate):
                 wrapped = _candidate(candidate, priority=1)
                 if wrapped["area"]:
                     candidates.append(wrapped)
@@ -197,6 +198,9 @@ def _start_lesson_vocabulary_cycle(
                 if isinstance(entry, dict) and entry.get("vocabulary_item_id")
             },
         )
+        selection = plan.get("selection_trace")
+        if isinstance(selection, dict):
+            activity_pool.merge_exclusions(selection, list(gate.get("excluded_candidates") or []))
         if not plan["activities"]:
             savepoint.rollback()
             return _no_vocabulary_due(lesson_id)

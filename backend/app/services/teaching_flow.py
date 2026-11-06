@@ -122,7 +122,8 @@ def start_flow(
     from app.models import User, UserLanguage
     owner = db.get(UserLanguage, user_language_id)
     native = db.get(User, owner.user_id).native_language
-    authored = activity_pool.objective_candidates(db, objective, native_language=native)
+    gate: dict = {}
+    authored = activity_pool.objective_candidates(db, objective, native_language=native, trace=gate)
     # Generated legacy content is kept without fabricated quality/provenance.
     for activity in activities:
         activity["learning_objective_id"] = objective.id
@@ -183,6 +184,7 @@ def start_flow(
         },
         session_id=session.id,
     )
+    activity_pool.merge_exclusions(flow_trace, list(gate.get("excluded_candidates") or []))
     payload = dict(session.payload_json)
     payload["selection_trace"] = flow_trace
     payload["selection_events"] = [flow_trace]
@@ -297,6 +299,23 @@ def start_vocabulary_flow(
     session.payload_json = payload
     db.flush()
     plan_trace = (session_plan or {}).get("selection_trace") if isinstance(session_plan, dict) else None
+    if not isinstance(plan_trace, dict):
+        rows = [
+            activity_pool.delivery_record(activity, reason="vocabulary_generator", session_id=None)
+            for activity in activities
+            if isinstance(activity, dict)
+        ]
+        plan_trace = {
+            "kind": "vocabulary_generator",
+            "reason": "vocabulary_generator",
+            "candidate_count": len(activities),
+            "activities": rows,
+            "delivered": rows,
+            "excluded_candidates": [],
+            "fallback_used": False,
+            "exhaustion": None,
+            "retry": False,
+        }
     if isinstance(plan_trace, dict):
         stamped = activity_pool.stamp_selection_trace(plan_trace, session_id=session.id)
         payload = dict(session.payload_json)
