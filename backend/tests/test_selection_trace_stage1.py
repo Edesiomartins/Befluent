@@ -108,7 +108,8 @@ def test_select_activity_records_each_exclusion_without_changing_the_choice(capl
         prompt="This english sentence should stay out of french delivery now",
         quality_status="language_invalid",
     )
-    draft = item("draft", prompt="Choose this generated draft.", quality_status="generated")
+    # Menos de quatro palavras: o detector não opina. O motivo fica só quality_status.
+    draft = item("draft", prompt="Draft note.", quality_status="generated")
     wrong_level = item("level", prompt="Choose the level mismatch sentence please", cefr_level="A2")
     payload = {"seen_activity_ids": ["seen"], "retired_families": [activity_pool.family_key(retired)]}
     history = {
