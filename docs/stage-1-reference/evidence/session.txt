@@ -1,0 +1,16 @@
+língua nativa pt-BR
+plano FR B1 pt-BR criado; a conta não entra nos artefatos
+conversa texto id=7c8d6daa-4c63-405a-8707-a96eab498d41 provider ainda não chamado
+INCIDENTE: abertura 7c8d6daa-4c63-405a-8707-a96eab498d41 difere do turno 4292fb07-11cd-4288-bf6a-3cea9847ddb8
+turno texto id=4292fb07-11cd-4288-bf6a-3cea9847ddb8 provider=mock model=null alvo=fr nativo=pt-BR
+TTS stub status=200 type=audio/wav; audição humana PENDENTE
+STT exercitado com dispositivo falso e provedor mock; transcrição não foi salva; fala humana PENDENTE
+microfone físico não foi usado
+fluxo desktop=1b3f8ea4-551e-4b2c-8d83-104060a435b6 cursor=0 esgotamento=não observado
+passo 1 status=200 reason=freshness_budget_modality_interaction
+passo 2 status=200 reason=freshness_budget_modality_interaction
+passo 3 status=200 reason=same_activity_retry
+GET da mesma lição status=200 fluxo=1b3f8ea4-551e-4b2c-8d83-104060a435b6
+retomada mobile mesmo fluxo=true; o hub /learn/vocabulary gera lição nova e não foi usado como segunda jornada
+conversa mobile id=b92ed7ae-2bde-4e48-8a91-31477ab77d27; a UI inicia outra conversa, a anterior permanece 4292fb07-11cd-4288-bf6a-3cea9847ddb8
+GET da conversa original status=200

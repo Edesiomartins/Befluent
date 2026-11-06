@@ -83,3 +83,50 @@ O dashboard, a trilha e a barra inferior aparecem nas capturas. A sessão, o fee
 - Frontend: `npm test` **400 passed** (51 arquivos, exit 0), `npm run typecheck` exit 0, `npm run lint` exit 0 (0 erros, 5 warnings anteriores).
 - Backend: `py -3 -m pytest` nos 15 módulos de sessão/ensino/ciclo lexical (**262 passed**, exit 0).
 - Capturas `docs/layout-v1/after/` (14 PNGs) regeneradas incluindo o `FocusFrame`, o `FeedbackSheet` e o `SessionSummary` reais em `/learn/vocabulary`.
+
+## Etapa 1 — diagnóstico da seleção FR B1 / pt-BR (2026-11-06)
+
+Escopo: só diagnóstico. Ranking, cooldown, retry, elegibilidade e payload pedagógico não mudam. Sem migration, sem push, sem deploy, sem Coolify e sem PostgreSQL de produção. A execução é local, em SQLite `backend/tmp/e2e-fr-b1.sqlite3`, com IA, STT e TTS em mock. Não é homologação.
+
+Referência publicada, declaração do Dr. Edesio: depois do push e do deploy por volta das 08:44 (America/Sao_Paulo) de 06/11/2026, frontend e API ficaram em `d7fba8d`, no lugar de `57f4da7`. O Coolify não foi aberto. O SHA local não prova o deploy.
+
+### Commits locais, à frente de `origin/main`
+
+| Commit | O que guarda |
+|---|---|
+| `af4d79d` | motivo de cada seleção, exclusão e esgotamento |
+| `2c8d127` | proveniência declarada na lição e na abertura da conversa |
+| `b93507c` | exclusão nomeada no portão do objetivo; conversa sem provedor inventado |
+| `2c86e5f` | jornada desktop e mobile e artefatos |
+| `478a67f` | `falha.png` da tentativa interrompida; não é o resultado final |
+| `9a7f205` | o teste de log olha o logger do pool |
+| `9725070` | o Alembic deixa de desligar os loggers já importados; os dois testes reativam o logger |
+
+A jornada que gerou o manifesto rodou em `b93507c` (`2026-11-06T12:12:03.585Z`). Relato: `docs/stage-1-reference/report.md`. Checklist: `docs/stage-1-reference/checklist.md`.
+
+### Contagens
+
+- E2E: **1 passed**. Não foi repetido depois de `9725070`, para não trocar os IDs arquivados.
+- Backend, suíte das 12:32Z ainda com `9a7f205`: **exit 1**, dois testes com `caplog.text` vazio. A escolha da atividade estava certa.
+- Backend, suíte depois de `9725070` (`py -3 -m pytest -q --tb=line`, 12:59Z–13:24Z): **exit 0**, 1516 s, barra com **1878** passed e **5** skipped, nenhum `F`. A linha final não entrou no log quieto. Os únicos `pytest.skip` do código são os dois testes sem `POSTGRES_TEST_URL` e três saltos em `test_retry_antirrepeticao.py`.
+- Uma suíte paralela (`py -3 -m pytest --tb=line`, 12:41Z–13:06Z) imprimiu **1878 passed, 5 skipped, 41 warnings in 1523.99s**. O 41 é dessa impressão.
+- Frontend depois de `9725070`: `npm test` **400 passed**, 51 arquivos, exit 0, 25,00 s; `npm run lint` exit 0, 0 erros, 5 warnings anteriores; `npm run typecheck` exit 0.
+
+### Pendências
+
+- Áudio real, microfone físico e audição humana. STT/TTS desta jornada são stubs mock.
+- Homologação da referência publicada `d7fba8d`. Esta rodada não a executou.
+- Voz não foi repetida no mobile.
+- O plano de 12 não esgotou (`fallback_used` falso). O esgotamento visto foi o do pool de alternativa no retry.
+- O incidente histórico da lição `f2ab192f-36ef-42d0-b7aa-1038c8d230d2` não reapareceu neste mock.
+- `backend/scripts/out/fr_b1_review_batches.json` fica sujo quando a suíte roda (ids de objetivo). Não entra no commit.
+
+### Comandos
+
+```
+backend: py -3 -m pytest -q --tb=line
+frontend: npm test
+frontend: npm run lint
+frontend: npm run typecheck
+frontend: npx playwright test e2e/fr-b1-session.spec.ts
+```
