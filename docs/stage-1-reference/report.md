@@ -4,7 +4,7 @@ Diagnóstico somente. Nenhuma regra de seleção, cooldown, retry ou elegibilida
 
 ## Referência publicada
 
-Dr. Edesio informou que **frontend e API estão publicados no mesmo commit `57f4da7`**. Esse SHA fica como referência declarada para os dois. Esta rodada não abriu, consultou nem alterou o Coolify, e não leu o PostgreSQL de produção. O SHA local não prova o que o deploy entregou, e o conteúdo local não equivale ao publicado.
+SHAs de frontend e API em produção ou homologação: **BLOQUEADO — aguardando Dr. Edesio fornecer os valores do Coolify**. Esta rodada não abriu, consultou nem alterou o Coolify, e não leu o PostgreSQL de produção. Nem o HEAD local nem um commit anterior do git valem como SHA publicado.
 
 No momento da jornada E2E, `git rev-parse HEAD` era `b93507c0dc7e3f9085bc7b6b5d0f81cb386a9d68`. Esse commit já estava à frente de `57f4da7`. O spec do Playwright entrou em `2c86e5f`. `9a7f205` só aponta o logger do teste. `9725070` impede o Alembic de desligar os loggers da aplicação e reativa o logger nos dois testes de log. Nenhum desses commits muda a atividade escolhida. Nenhum deles foi enviado a produção nesta rodada.
 
