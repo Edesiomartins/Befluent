@@ -432,7 +432,41 @@ def generate(
             db.commit()
             payload = {**payload, "lesson_id": lesson.id, "study_session_id": session.id}
 
-    return payload
+    from app.services.activity_pool import delivery_record, log_selection
+    reason = "curated_lesson" if curated_unit is not None else "lesson_generate"
+    delivered = delivery_record(
+        {
+            "activity_id": payload.get("lesson_id"),
+            "type": data.mode,
+            "learning_objective_id": payload.get("learning_objective_id"),
+            "target_language": payload.get("language_code") or context.language_code,
+            "native_language": context.native_language,
+            "cefr_level": payload.get("level"),
+            "content_unit_id": curated_unit.id if curated_unit is not None else payload.get("content_unit_id"),
+            "content_source_id": curated_unit.source_id if curated_unit is not None else payload.get("content_source_id"),
+            "content_source": payload.get("content_origin"),
+            "provider": payload.get("provider"),
+            "model": payload.get("model"),
+            "content_version": payload.get("content_version"),
+        },
+        reason=reason,
+        session_id=payload.get("study_session_id"),
+    )
+    selection_trace = {
+        "kind": "lesson_generate",
+        "reason": reason,
+        "delivered": delivered,
+        "chosen_activity": delivered["activity_id"] if delivered else None,
+        "session_id": payload.get("study_session_id"),
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "cefr_level": payload.get("level"),
+        "fallback_used": False,
+        "exhaustion": None,
+        "excluded_candidates": [],
+    }
+    log_selection(selection_trace)
+    return {**payload, "selection_trace": selection_trace}
 
 
 @router.post("")

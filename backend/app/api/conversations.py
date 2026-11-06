@@ -124,19 +124,22 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     db.commit()
 
     context = build_context(db, user, data.language_code)
-    _delivery_log({
+    from app.core.config import get_settings
+    selection_trace = {
         "conversation_id": item.id,
         "study_session_id": session_id,
         "target_language": context.language_code,
         "native_language": context.native_language,
-        "level": context.level_for_skill("speaking"),
-        "provider": None,
+        "cefr_level": context.level_for_skill("speaking"),
+        "provider": "mock" if get_settings().ai_mock_mode else "openrouter",
         "model": None,
-        "source": "unknown",
+        "source": None,
         "content_version": None,
         "content_version_status": "unknown",
         "kind": "conversation_started",
-    })
+        "reason": "conversation_started",
+    }
+    _delivery_log(selection_trace)
     return {
         "id": item.id,
         "target_language": context.language_code,
@@ -147,6 +150,7 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
         "level": context.level_for_skill("speaking"),
         "level_source": context.level_source,
         "level_is_estimated": context.level_is_estimated,
+        "selection_trace": selection_trace,
     }
 
 
@@ -213,20 +217,22 @@ def message(
     )
     db.add(reply)
     db.commit()
-    _delivery_log({
+    selection_trace = {
         "conversation_id": conversation.id,
         "message_id": reply.id,
-        "target_language": result.get("target_language"),
-        "native_language": result.get("native_language"),
-        "level": result.get("level"),
-        "provider": result.get("provider") or "unknown",
+        "target_language": result.get("target_language") or language.code,
+        "native_language": result.get("native_language") or user.native_language,
+        "cefr_level": result.get("level"),
+        "provider": result.get("provider"),
         "model": result.get("model"),
-        "source": result.get("provider") or "unknown",
+        "source": None,
         "content_version": None,
         "content_version_status": "unknown",
         "kind": "conversation_turn",
-    })
-    return {"message_id": reply.id, **result}
+        "reason": "conversation_turn",
+    }
+    _delivery_log(selection_trace)
+    return {"message_id": reply.id, **result, "selection_trace": selection_trace}
 
 
 @router.post("/{conversation_id}/complete")
