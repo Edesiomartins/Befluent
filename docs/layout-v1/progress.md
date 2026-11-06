@@ -110,12 +110,13 @@ A jornada que gerou o manifesto rodou em `b93507c` (`2026-11-06T12:12:03.585Z`).
 - Backend, suíte das 12:32Z ainda com `9a7f205`: **exit 1**, dois testes com `caplog.text` vazio. A escolha da atividade estava certa.
 - Backend, suíte depois de `9725070` (`py -3 -m pytest -q --tb=line`, 12:59Z–13:24Z): **exit 0**, 1516 s, barra com **1878** passed e **5** skipped, nenhum `F`. A linha final não entrou no log quieto. Os únicos `pytest.skip` do código são os dois testes sem `POSTGRES_TEST_URL` e três saltos em `test_retry_antirrepeticao.py`.
 - Uma suíte paralela (`py -3 -m pytest --tb=line`, 12:41Z–13:06Z) imprimiu **1878 passed, 5 skipped, 41 warnings in 1523.99s**. O 41 é dessa impressão.
+- A suíte depois de `9725070` (`py -3 -m pytest --tb=line`, 13:09Z–13:29Z) imprimiu **1878 passed, 5 skipped, 41 warnings in 1228.15s**, exit 0.
 - Frontend depois de `9725070`: `npm test` **400 passed**, 51 arquivos, exit 0, 25,00 s; `npm run lint` exit 0, 0 erros, 5 warnings anteriores; `npm run typecheck` exit 0.
 
 ### Pendências
 
 - Áudio real, microfone físico e audição humana. STT/TTS desta jornada são stubs mock.
-- Homologação da referência publicada `d7fba8d`. Esta rodada não a executou.
+- Homologação da referência publicada `57f4da7`. Esta rodada não a executou.
 - Voz não foi repetida no mobile.
 - O plano de 12 não esgotou (`fallback_used` falso). O esgotamento visto foi o do pool de alternativa no retry.
 - O incidente histórico da lição `f2ab192f-36ef-42d0-b7aa-1038c8d230d2` não reapareceu neste mock.

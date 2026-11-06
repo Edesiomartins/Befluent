@@ -4,9 +4,9 @@ Diagnóstico somente. Nenhuma regra de seleção, cooldown, retry ou elegibilida
 
 ## Referência publicada
 
-Dr. Edesio informou que, após o push e o deploy por volta das 08:44 (America/Sao_Paulo) de 06/11/2026, **frontend e API passaram a ter `d7fba8d` como referência publicada**, no lugar de `57f4da7`. Isso fica registrado como declaração do usuário. Esta rodada não abriu, consultou nem alterou o Coolify, e não leu o PostgreSQL de produção. O SHA local não prova o que o deploy entregou.
+Dr. Edesio informou que **frontend e API estão publicados no mesmo commit `57f4da7`**. Esse SHA fica como referência declarada para os dois. Esta rodada não abriu, consultou nem alterou o Coolify, e não leu o PostgreSQL de produção. O SHA local não prova o que o deploy entregou, e o conteúdo local não equivale ao publicado.
 
-No momento da jornada E2E, `git rev-parse HEAD` era `b93507c0dc7e3f9085bc7b6b5d0f81cb386a9d68`. Esse commit já estava à frente de `d7fba8d`. O spec do Playwright entrou em `2c86e5f`. `9a7f205` só aponta o logger do teste. `9725070` impede o Alembic de desligar os loggers da aplicação e reativa o logger nos dois testes de log. Nenhum desses commits muda a atividade escolhida. Nenhum deles foi enviado a produção nesta rodada.
+No momento da jornada E2E, `git rev-parse HEAD` era `b93507c0dc7e3f9085bc7b6b5d0f81cb386a9d68`. Esse commit já estava à frente de `57f4da7`. O spec do Playwright entrou em `2c86e5f`. `9a7f205` só aponta o logger do teste. `9725070` impede o Alembic de desligar os loggers da aplicação e reativa o logger nos dois testes de log. Nenhum desses commits muda a atividade escolhida. Nenhum deles foi enviado a produção nesta rodada.
 
 ## Como a jornada foi executada
 
@@ -95,7 +95,7 @@ A lição de voz da mesma conta, `c39493f3-af3b-4800-bbf7-9914d5b70c89`, veio de
 
 ## Áudio e produção
 
-Microfone físico, fala humana e audição humana do TTS ficam **PENDENTES**. O que rodou foi dispositivo falso do Chromium e os stubs mock da API. A referência publicada `d7fba8d` não foi exercitada em homologação nesta rodada.
+Microfone físico, fala humana e audição humana do TTS ficam **PENDENTES**. O que rodou foi dispositivo falso do Chromium e os stubs mock da API. Não houve execução em homologação.
 
 ## Validação
 
@@ -106,5 +106,7 @@ A suíte `py -3 -m pytest -q --tb=line` iniciada às 12:32Z, já com `9a7f205`, 
 `9725070` passa `disable_existing_loggers=False` e os dois testes reativam o logger antes de ler o log. A suíte refeita depois disso, o mesmo comando, das 12:59Z às 13:24Z, terminou **exit 0** em 1516 s. A barra tem **1878** pontos e **5** `s`, nenhum `F`. O modo quieto não deixou a linha final no log capturado; a contagem é a das marcas. Os únicos `pytest.skip` do backend são os dois testes de `test_reset_test_user_learning_postgres.py` (sem `POSTGRES_TEST_URL`) e três saltos condicionais em `test_retry_antirrepeticao.py`. Produção não foi configurada para eliminar esses skips. O log dessa suíte lista os warnings de `path_separator` do Alembic e o adaptador de datetime do sqlite3 em `test_ensure_schema_adds_missing_user_columns`.
 
 Uma suíte paralela, `py -3 -m pytest --tb=line`, das 12:41Z às 13:06Z, imprimiu **1878 passed, 5 skipped, 41 warnings in 1523.99s**. Ela começou antes de `9725070` estar commitado. O número 41 é o dessa impressão, não uma segunda contagem inventada.
+
+A suíte reexecutada depois do commit `9725070`, o mesmo comando sem `-q`, das 13:09Z às 13:29Z, imprimiu **1878 passed, 5 skipped, 41 warnings in 1228.15s**, exit 0.
 
 Frontend, depois de `9725070`, sem mudança de UI: `npm test` **400 passed**, 51 arquivos, exit 0, 25,00 s (início 10:25 local). `npm run lint` exit 0, 0 erros, 5 warnings anteriores. `npm run typecheck` exit 0. O jsdom avisou que `HTMLMediaElement.play/pause` e `canvas` não estão implementados; isso não derrubou teste.
