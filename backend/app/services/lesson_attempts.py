@@ -6,6 +6,7 @@ Completion permanece independente (complete_lesson no frontend).
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from sqlalchemy import select
@@ -20,6 +21,8 @@ from app.services.question_identity import (
     fingerprints_from_snapshots,
     question_fingerprint,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def make_activity_key(surface: str, kind: str, index: int) -> str:
@@ -152,6 +155,72 @@ def _seen_question_fingerprints(
     return fingerprints_from_snapshots(snapshots)
 
 
+def legacy_selection_trace(
+    *,
+    session_id: str,
+    current: dict[str, Any],
+    variant: dict[str, Any] | None,
+    strategy: str,
+    rejections: list[dict],
+) -> dict[str, Any]:
+    """Mantém os motivos antigos e acrescenta cada candidato recusado."""
+    objective_id = current.get("learning_objective_id")
+    if variant is not None:
+        reason = "objective_pool"
+    elif objective_id:
+        reason = "pool_exhausted"
+    else:
+        reason = "legacy_objective_unknown"
+    rules = []
+    for row in rejections:
+        code = row.get("code")
+        if code and code not in rules:
+            rules.append(code)
+    if reason == "legacy_objective_unknown" and "legacy_objective_unknown" not in rules:
+        rules.append("legacy_objective_unknown")
+    chosen = activity_pool.activity_diagnostic(variant) if variant else None
+    current_diagnostic = activity_pool.activity_diagnostic(current)
+    described = chosen or current_diagnostic
+    searched = strategy != "none"
+    trace = {
+        "kind": "legacy_retry",
+        "session_id": session_id,
+        "attempt_id": None,
+        "learning_objective_id": objective_id,
+        "reason": reason,
+        "strategy": strategy,
+        "fallback_used": variant is None,
+        "retry": searched,
+        "candidate_count": len(rejections) + (1 if variant else 0),
+        "excluded_candidates": list(rejections),
+        "chosen_activity": activity_pool.activity_id(variant) if variant else None,
+        "chosen": chosen,
+        "delivered": activity_pool.delivery_record(
+            variant, reason=reason, retry=searched, session_id=session_id,
+        ),
+        "target_language": described["target_language"],
+        "native_language": described["native_language"],
+        "cefr_level": described["cefr_level"],
+        "source": described["source"],
+        "provider": described["provider"],
+        "model": described["model"],
+        "content_version": described["content_version"],
+        "content_version_status": described["content_version_status"],
+        "content_source_id": described["content_source_id"],
+        "content_unit_id": described["content_unit_id"],
+        "exhaustion": None if variant is not None or not searched else activity_pool.exhaustion_record(
+            reason, rules or ["no_candidates"],
+        ),
+    }
+    activity_pool.log_selection(trace)
+    return trace
+
+
+def _note_rejection(rejections: list[dict] | None, activity_id: str | None, code: str, legacy_id: str | None = None) -> None:
+    if rejections is not None:
+        rejections.append({"activity_id": activity_id, "legacy_id": legacy_id, "code": code})
+
+
 def _build_legacy_retry_activity(
     *,
     content: dict[str, Any],
@@ -159,6 +228,8 @@ def _build_legacy_retry_activity(
     current: dict[str, Any],
     seen_fingerprints: frozenset[str] | set[str] | None = None,
     seen_activities: list[dict] | None = None,
+    rejections: list[dict] | None = None,
+    trace: dict | None = None,
 ) -> tuple[dict[str, Any] | None, str]:
     """Only unplanned candidates with the same declared objective can repair it.
 
@@ -166,38 +237,75 @@ def _build_legacy_retry_activity(
     objectives degrade to continue/review, never unrelated CEFR-bank remediation.
     """
     parse_activity_key(activity_key)
+    notes = rejections if rejections is not None else []
     objective_id = current.get("learning_objective_id")
     if not objective_id:
+        _note_rejection(notes, activity_pool.activity_id(current) if isinstance(current, dict) else None, "legacy_objective_unknown")
+        if trace is not None:
+            trace.update(legacy_selection_trace(
+                session_id=None, current=current if isinstance(current, dict) else {},
+                variant=None, strategy="fallback_continue", rejections=notes,
+            ))
         return None, "fallback_continue"
-    pool = [x for x in (content.get("activity_pool") or []) if isinstance(x, dict)
-            and x.get("learning_objective_id") == objective_id
-            and x.get("target_language") == (content.get("target_language") or content.get("language_code"))
-            and content.get("level") and x.get("cefr_level") == content.get("level")
-            and x.get("native_language") == content.get("native_language")]
-    pool = activity_pool.validate_batch([], pool, batch_size=max(len(pool), 1))["accepted"]
+    target_language = content.get("target_language") or content.get("language_code")
+    raw_pool = [x for x in (content.get("activity_pool") or []) if isinstance(x, dict)]
+    matched = []
+    for candidate in raw_pool:
+        if candidate.get("learning_objective_id") != objective_id:
+            _note_rejection(notes, activity_pool.activity_id(candidate), "metadata", activity_pool.activity_diagnostic(candidate)["legacy_id"])
+            continue
+        if candidate.get("target_language") != target_language:
+            _note_rejection(notes, activity_pool.activity_id(candidate), "language", activity_pool.activity_diagnostic(candidate)["legacy_id"])
+            continue
+        if not content.get("level") or candidate.get("cefr_level") != content.get("level"):
+            _note_rejection(notes, activity_pool.activity_id(candidate), "cefr", activity_pool.activity_diagnostic(candidate)["legacy_id"])
+            continue
+        if candidate.get("native_language") != content.get("native_language"):
+            _note_rejection(notes, activity_pool.activity_id(candidate), "language", activity_pool.activity_diagnostic(candidate)["legacy_id"])
+            continue
+        matched.append(candidate)
+    validated = activity_pool.validate_batch([], matched, batch_size=max(len(matched), 1))
+    for rejected in validated["rejected"]:
+        _note_rejection(notes, rejected.get("activity_id"), rejected.get("reason") or "metadata")
+    pool = validated["accepted"]
     planned = [x for key in ("exercises", "questions") for x in (content.get(key) or []) if isinstance(x, dict)]
     seen = set(seen_fingerprints or ())
     current_fp = question_fingerprint(current)
     if current_fp:
         seen.add(current_fp)
 
-    def _usable(candidate: dict[str, Any]) -> bool:
+    def _unusable(candidate: dict[str, Any]) -> str | None:
         if not (candidate.get("answer") or candidate.get("canonical_answer")) or not candidate.get("options"):
-            return False
+            return "metadata"
         fingerprint = question_fingerprint(candidate)
-        return bool(fingerprint) and fingerprint not in seen and not any(
+        if not fingerprint or fingerprint in seen:
+            return "seen"
+        if any(
             activity_pool.activity_id(candidate) == activity_pool.activity_id(other)
             or activity_pool.same_stimulus(candidate, other) for other in (seen_activities or []) + planned
-        )
+        ):
+            return "duplicate"
+        return None
 
     for candidate in pool:
-        if _usable(candidate):
-            variant = dict(candidate)
-            variant["answer"] = candidate.get("answer") or candidate.get("canonical_answer")
-            variant["options"] = option_texts(candidate)
-            variant["post_reveal"] = True
-            variant["is_retry_variant"] = True
-            return variant, "objective_pool"
+        code = _unusable(candidate)
+        if code is not None:
+            _note_rejection(notes, activity_pool.activity_id(candidate), code, activity_pool.activity_diagnostic(candidate)["legacy_id"])
+            continue
+        variant = dict(candidate)
+        variant["answer"] = candidate.get("answer") or candidate.get("canonical_answer")
+        variant["options"] = option_texts(candidate)
+        variant["post_reveal"] = True
+        variant["is_retry_variant"] = True
+        if trace is not None:
+            trace.update(legacy_selection_trace(
+                session_id=None, current=current, variant=variant, strategy="objective_pool", rejections=notes,
+            ))
+        return variant, "objective_pool"
+    if trace is not None:
+        trace.update(legacy_selection_trace(
+            session_id=None, current=current, variant=None, strategy="fallback_continue", rejections=notes,
+        ))
     return None, "fallback_continue"
 
 
@@ -252,17 +360,23 @@ def prepare_retry(
     seen = _seen_question_fingerprints(
         db, lesson_id=lesson.id, activity_key=activity_key
     )
+    rejections: list[dict] = []
     variant, strategy = _build_legacy_retry_activity(
         content=content,
         activity_key=activity_key,
         current=current,
         seen_fingerprints=seen,
         seen_activities=_seen_activities(db, lesson.id),
+        rejections=rejections,
     )
     feedback = dict(latest.feedback_json or {})
-    feedback["selection_trace"] = {"session_id": lesson.id, "learning_objective_id": current.get("learning_objective_id"),
-                                   "reason": "objective_pool" if variant else ("pool_exhausted" if current.get("learning_objective_id") else "legacy_objective_unknown"),
-                                   "fallback_used": variant is None}
+    feedback["selection_trace"] = legacy_selection_trace(
+        session_id=lesson.id,
+        current=current,
+        variant=variant,
+        strategy=strategy,
+        rejections=rejections,
+    )
     if variant:
         feedback["retry"] = {
             "available": True,
@@ -400,12 +514,14 @@ def submit_objective_answer(
         current_fp = question_fingerprint(question)
         if current_fp:
             seen.add(current_fp)
+        rejections: list[dict] = []
         variant, strategy = _build_legacy_retry_activity(
             content=content,
             activity_key=activity_key,
             current=question,
             seen_fingerprints=seen,
             seen_activities=_seen_activities(db, lesson.id) + [question],
+            rejections=rejections,
         )
         if variant:
             retry_activity_full = variant
@@ -442,9 +558,13 @@ def submit_objective_answer(
         effect = "unresolved"
 
     feedback_store = {
-        "selection_trace": {"session_id": lesson.id, "learning_objective_id": question.get("learning_objective_id"),
-                            "reason": "objective_pool" if retry_activity_full else ("pool_exhausted" if question.get("learning_objective_id") else "legacy_objective_unknown"),
-                            "fallback_used": retry_activity_full is None},
+        "selection_trace": legacy_selection_trace(
+            session_id=lesson.id,
+            current=question,
+            variant=retry_activity_full,
+            strategy=retry_payload.get("strategy") or "fallback_continue",
+            rejections=rejections if not is_correct else [],
+        ),
         "answer_feedback": answer_feedback,
         "correct_option": correct_answer,
         "why_selected": answer_feedback.get("why_selected"),

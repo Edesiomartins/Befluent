@@ -31,6 +31,8 @@ from app.services.activity_generator import generate_vocabulary_activities
 from app.services.activity_pool import (
     activity_diagnostic,
     activity_id,
+    exclusion_row,
+    exhaustion_record,
     family_retired,
     freshness_rank,
     is_seen,
@@ -133,31 +135,32 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         allow_family = bool(candidate.get("deferred")) or str(candidate.get("item_key") or "") in deferred_ids
         if is_seen(activity, session_payload or {}):
             excluded_seen += 1
-            excluded_candidates.append({"activity_id": identity, "code": "seen"})
+            excluded_candidates.append(exclusion_row(activity, "seen"))
             continue
         if recently_exposed(activity, history, allow_deferred_family=allow_family):
             excluded_seen += 1
-            excluded_candidates.append({"activity_id": identity, "code": "cooldown"})
+            code = "cooldown" if freshness_rank(activity, history) >= 2 else "family"
+            excluded_candidates.append(exclusion_row(activity, code))
             continue
         if family_retired(activity, session_payload):
             excluded_family += 1
-            excluded_candidates.append({"activity_id": identity, "code": "family"})
+            excluded_candidates.append(exclusion_row(activity, "family"))
             continue
         safety = language_safety(activity, activity.get("target_language"), activity.get("native_language"))
         if safety == "language_invalid":
             excluded_language += 1
-            excluded_candidates.append({"activity_id": identity, "code": "language"})
+            excluded_candidates.append(exclusion_row(activity, "language"))
             continue
         if safety in blocked_quality:
             excluded_quality += 1
-            excluded_candidates.append({"activity_id": identity, "code": "quality"})
+            excluded_candidates.append(exclusion_row(activity, "quality"))
             continue
         if (
             identity in identities
             or any(same_stimulus(activity, other["activity"]) for other in unique)
         ):
             excluded_duplicate += 1
-            excluded_candidates.append({"activity_id": identity, "code": "duplicate"})
+            excluded_candidates.append(exclusion_row(activity, "duplicate"))
             continue
         identities.add(identity)
         unique.append(candidate)
@@ -202,7 +205,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         if id(candidate) in taken:
             continue
         code = "modality" if not _item_ok(candidate, chosen) else "budget"
-        excluded_candidates.append({"activity_id": activity_id(candidate["activity"]), "code": code})
+        excluded_candidates.append(exclusion_row(candidate["activity"], code))
 
     ordered, diversity_adjustments, excluded_diversity = _order_by_phase(selected)
     activities = []
@@ -242,7 +245,10 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             "attempt_id": None,
             "retry": False,
         })
-    specific_rules = sorted({row["code"] for row in excluded_candidates})
+    specific_rules = []
+    for row in excluded_candidates:
+        if row["code"] not in specific_rules:
+            specific_rules.append(row["code"])
     shortfall = len(activities) < budget.target_total
     exhaustion = None
     if shortfall:
@@ -251,17 +257,18 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
             rules.append("no_candidates")
         if not rules:
             rules.append("insufficient_candidates")
-        exhaustion = {
-            "aggregate_reason": "pool_exhausted" if not activities else "budget_shortfall",
-            "contributing_rules": rules,
-            "selected_count": len(activities),
-            "target_total": budget.target_total,
-        }
+        exhaustion = exhaustion_record(
+            "pool_exhausted" if not activities else "budget_shortfall",
+            rules,
+            selected_count=len(activities),
+            target_total=budget.target_total,
+        )
     selection_trace = {
         "candidate_count": incoming_count,
         "selected_count": len(activities),
         "chosen_count": len(activities),
         "activities": trace_rows,
+        "delivered": trace_rows,
         "excluded_seen": excluded_seen,
         "excluded_family": excluded_family,
         "excluded_language": excluded_language,
@@ -269,6 +276,7 @@ def plan_session(candidates: list[dict], *, budget: SessionBudget | None = None,
         "excluded_duplicate": excluded_duplicate,
         "excluded_diversity": excluded_diversity,
         "excluded_candidates": excluded_candidates,
+        "rejected_candidates": excluded_candidates,
         "diversity_adjustment": diversity_adjustments,
         "reason": "freshness_budget_modality_interaction",
         "fallback_used": shortfall,

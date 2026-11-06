@@ -1,8 +1,11 @@
 import os
+import json
+import logging
 from fastapi import APIRouter,Depends,File,Form,UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel,Field
 from app.core.deps import current_user
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.api.helpers import ensure_language_access
 from sqlalchemy.orm import Session
@@ -10,13 +13,19 @@ from app.core.errors import APIError
 from app.models import User
 from app.services.speech import assess_pronunciation,save_temp_audio,synthesize_audio,transcribe_audio
 router=APIRouter(prefix="/speech",tags=["speech"])
+logger=logging.getLogger(__name__)
+def _speech_log(record:dict)->None:
+    logger.info("speech_delivery %s",json.dumps(record,ensure_ascii=False,sort_keys=True,default=str))
 @router.post("/transcribe")
 async def transcribe(language_code:str=Form(...),file:UploadFile=File(...),user:User=Depends(current_user),db:Session=Depends(get_db)):
     ensure_language_access(db, user.id, language_code)
     data=await file.read()
     try: path=save_temp_audio(data)
     except ValueError as exc: raise APIError(413,"audio_too_large",str(exc)) from exc
-    try: return transcribe_audio(path,language_code,file.content_type)
+    try:
+        result=transcribe_audio(path,language_code,file.content_type)
+        _speech_log({"kind":"stt","language_code":language_code,"provider":result.get("provider") or "unknown","model":result.get("model"),"content_type":file.content_type,"content_version":None,"content_version_status":"unknown","transcript_logged":False})
+        return result
     finally:
         if os.path.exists(path): os.unlink(path)
 class TTSIn(BaseModel):
@@ -27,6 +36,7 @@ class TTSIn(BaseModel):
 def synthesize(data:TTSIn,user:User=Depends(current_user),db:Session=Depends(get_db)):
     ensure_language_access(db, user.id, data.language_code)
     audio,content_type=synthesize_audio(data.text,data.language_code,data.speed)
+    _speech_log({"kind":"tts","language_code":data.language_code,"provider":get_settings().tts_provider or "unknown","model":None,"content_type":content_type,"byte_length":len(audio),"content_version":None,"content_version_status":"unknown","text_logged":False})
     return Response(audio,media_type=content_type)
 class PronunciationIn(BaseModel): target_text:str; transcript:str
 @router.post("/pronunciation")

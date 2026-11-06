@@ -121,15 +121,20 @@ def _set_retry_activity(
         variant = build_retry_variant(activity, patterns, seen_fingerprints=seen)
         reason = "same_activity_retry"
         exhaustion = retry_trace.get("exhaustion")
-    delivered = activity_pool.activity_diagnostic(variant)
+    delivered = activity_pool.delivery_record(
+        variant, reason=reason, retry=True, session_id=session_id, attempt_id=attempt_id,
+    )
+    rejected = retry_trace.get("excluded_candidates") or []
     trace = {
         "kind": "interaction_retry",
         "candidate_count": len(candidates or []),
         "exclusions": retry_trace.get("exclusions") or {"seen": 0, "metadata": 0},
-        "excluded_candidates": retry_trace.get("excluded_candidates") or [],
+        "excluded_candidates": rejected,
+        "rejected_candidates": rejected,
         "seen_count": len(payload.get("seen_activity_ids") or []),
         "chosen_activity": activity_pool.activity_id(variant),
-        "chosen": delivered,
+        "chosen": activity_pool.activity_diagnostic(variant),
+        "delivered": delivered,
         "reason": reason,
         "fallback_used": False,
         "remediation_reason": "incorrect_same_objective",
@@ -138,9 +143,9 @@ def _set_retry_activity(
         "learning_objective_id": objective_id,
         "family_key": family,
         "retry": True,
-        "target_language": delivered.get("target_language"),
-        "native_language": delivered.get("native_language"),
-        "cefr_level": delivered.get("cefr_level"),
+        "target_language": (delivered or {}).get("target_language"),
+        "native_language": (delivered or {}).get("native_language"),
+        "cefr_level": (delivered or {}).get("cefr_level"),
         "exhaustion": exhaustion,
         "alternate_activity_id": activity_pool.activity_id(alternate) if alternate else None,
     }
@@ -479,6 +484,39 @@ def submit_slice_answer(
             payload["last_answer_feedback"] = answer_feedback
             payload.pop("retry_activity", None)
             payload.pop("pending_remediation", None)
+            deferred = activity_pool.activity_diagnostic(activity)
+            _remember_selection(payload, {
+                "kind": "lexical_defer",
+                "reason": "lexical_family_retired",
+                "session_id": session.id,
+                "attempt_id": attempt.id,
+                "retry": True,
+                "fallback_used": False,
+                "chosen_activity": None,
+                "chosen": None,
+                "retired_family": activity_pool.family_key(activity),
+                "excluded_candidates": [{
+                    "activity_id": deferred["activity_id"],
+                    "code": "family",
+                }],
+                "exclusions": {"family": 1},
+                "exhaustion": {
+                    "aggregate_reason": "lexical_item_deferred",
+                    "contributing_rules": ["family"],
+                },
+                "activity": deferred,
+                "learning_objective_id": deferred["learning_objective_id"],
+                "target_language": deferred["target_language"],
+                "native_language": deferred["native_language"],
+                "cefr_level": deferred["cefr_level"],
+                "content_source_id": deferred["content_source_id"],
+                "content_unit_id": deferred["content_unit_id"],
+                "source": deferred["source"],
+                "provider": deferred["provider"],
+                "model": deferred["model"],
+                "content_version": deferred["content_version"],
+                "content_version_status": deferred["content_version_status"],
+            })
             session.payload_json = payload
             teaching_flow.advance_lexical_activity(db, session)
         else:
@@ -740,6 +778,7 @@ def retry_slice(
             candidates=_objective_pool(db, session),
             objective_id=session.objective_id,
             session_id=session.id,
+            attempt_id=attempt.id,
         )
         session.payload_json = payload
         db.flush()
@@ -786,6 +825,27 @@ def _finish_exhausted_flow(db: Session, session: TeachingFlowSession) -> dict | 
     else:
         _step_toward(db, session, FlowPhase.EVALUATING)
         teaching_flow.transition(db, session, target_phase=FlowPhase.NEEDS_REVIEW, reason="activities_exhausted")
+        payload = dict(session.payload_json or {})
+        _remember_selection(payload, {
+            "kind": "flow_exhaustion",
+            "reason": "activities_exhausted",
+            "session_id": session.id,
+            "attempt_id": None,
+            "retry": False,
+            "fallback_used": True,
+            "chosen_activity": None,
+            "chosen": None,
+            "delivered": None,
+            "excluded_candidates": [],
+            "rejected_candidates": [],
+            "exhaustion": activity_pool.exhaustion_record(
+                "activities_exhausted",
+                ["activities_exhausted"],
+                session_id=session.id,
+            ),
+        })
+        session.payload_json = payload
+        db.flush()
     return mastery
 
 
@@ -966,6 +1026,13 @@ def _session_summary_metrics(
     }
 
 
+def _public_trace(trace: dict | None) -> dict | None:
+    safe = activity_pool.public_selection_trace(trace)
+    if safe is None:
+        return None
+    return {**safe, "latest": dict(safe)}
+
+
 def _session_payload(
     db: Session,
     session: TeachingFlowSession,
@@ -1006,6 +1073,12 @@ def _session_payload(
         "activities_total": len(payload.get("activities") or []),
         "session_progress": session_progress_from_flow(session),
         "answer_feedback": payload.get("last_answer_feedback"),
+        "selection_trace": _public_trace(payload.get("selection_trace")),
+        "selection_events": [
+            activity_pool.public_selection_trace(event)
+            for event in (payload.get("selection_events") or [])
+            if isinstance(event, dict)
+        ],
         # Em remediação/retry a UI mostra variante nova — desbloqueada.
         "activity_locked": session.phase
         not in {FlowPhase.NEEDS_REMEDIATION, FlowPhase.RETRYING}

@@ -104,10 +104,9 @@ def activity_diagnostic(activity: dict | None) -> dict:
     )
     source = _declared(provenance.get("source"), activity.get("content_source"), activity.get("source"))
     row_id = activity.get("id")
-    declared_activity_id = activity.get("activity_id")
     return {
         "activity_id": activity_id(activity),
-        "legacy_id": str(row_id) if row_id else (str(declared_activity_id) if declared_activity_id else None),
+        "legacy_id": str(row_id) if row_id else None,
         "learning_objective_id": activity.get("learning_objective_id"),
         "type": activity.get("type"),
         "interaction_family": activity.get("interaction_family") or interaction_family(activity.get("type")),
@@ -155,14 +154,71 @@ def stamp_selection_trace(
         stamped["attempt_id"] = attempt_id
     if retry is not None:
         stamped["retry"] = retry
-    for row in stamped.get("activities") or []:
-        if isinstance(row, dict):
-            row["session_id"] = session_id
-            if attempt_id is not None:
-                row["attempt_id"] = attempt_id
-            if retry is not None:
-                row["retry"] = retry
+    def _stamp_row(row: dict) -> None:
+        row["session_id"] = session_id
+        if attempt_id is not None:
+            row["attempt_id"] = attempt_id
+        if retry is not None:
+            row["retry"] = retry
+
+    for key in ("activities", "delivered"):
+        rows = stamped.get(key)
+        if isinstance(rows, list):
+            for row in rows:
+                if isinstance(row, dict):
+                    _stamp_row(row)
+        elif isinstance(rows, dict):
+            _stamp_row(rows)
+    chosen = stamped.get("chosen")
+    if isinstance(chosen, dict):
+        _stamp_row(chosen)
     return stamped
+
+
+def exclusion_row(candidate, code: str) -> dict:
+    if not isinstance(candidate, dict):
+        return {"activity_id": None, "legacy_id": None, "code": code}
+    diagnostic = activity_diagnostic(candidate)
+    return {"activity_id": diagnostic["activity_id"], "legacy_id": diagnostic["legacy_id"], "code": code}
+
+
+def delivery_record(
+    activity: dict | None,
+    *,
+    reason: str,
+    retry: bool = False,
+    session_id: str | None = None,
+    attempt_id: str | None = None,
+) -> dict | None:
+    if not isinstance(activity, dict):
+        return None
+    diagnostic = activity_diagnostic(activity)
+    return {
+        **diagnostic,
+        "activity_type": diagnostic.get("type"),
+        "selection_reason": reason,
+        "retry": retry,
+        "session_id": session_id,
+        "attempt_id": attempt_id,
+    }
+
+
+def exhaustion_record(reason: str, rules: list[str], **extra) -> dict:
+    return {
+        "reason": reason,
+        "aggregate_reason": reason,
+        "contributing_rules": list(rules),
+        **extra,
+    }
+
+
+def _rule_order(rows: list[dict]) -> list[str]:
+    rules = []
+    for row in rows:
+        code = row.get("code")
+        if code and code not in rules:
+            rules.append(code)
+    return rules
 
 
 def fingerprint(activity: dict) -> str:
@@ -385,7 +441,9 @@ def _select_exclusion(candidate: dict, *, payload: dict, history: dict, objectiv
     if family_retired(candidate, payload):
         return "family", "seen"
     if recently_exposed(candidate, history, now=now, cooldown_days=cooldown_days):
-        return "cooldown", "seen"
+        if freshness_rank(candidate, history, now=now, cooldown_days=cooldown_days) >= 2:
+            return "cooldown", "seen"
+        return "family", "seen"
     if (objective_id and candidate.get("learning_objective_id") != objective_id) or any(
         expected is not None and candidate.get(key) != expected
         for key, expected in (("target_language", target_language), ("native_language", native_language), ("cefr_level", level))
@@ -407,7 +465,7 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
     eligible = []
     for position, candidate in enumerate(candidates):
         if not isinstance(candidate, dict):
-            rejected.append({"activity_id": None, "code": "metadata"})
+            rejected.append(exclusion_row(candidate, "metadata"))
             excluded["metadata"] += 1
             continue
         found = _select_exclusion(
@@ -417,7 +475,7 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
         )
         if found is not None:
             code, bucket = found
-            rejected.append({"activity_id": activity_id(candidate), "code": code})
+            rejected.append(exclusion_row(candidate, code))
             excluded[bucket] += 1
             continue
         identity = activity_id(candidate)
@@ -435,20 +493,20 @@ def select_activity(candidates: list[dict], *, objective_id: str | None = None,
                 difficulty_distance = abs(candidate["difficulty"] - previous["difficulty"])
         eligible.append(((freshness, diversity, difficulty_distance, date.isoformat() if date else "", position), candidate))
     chosen = min(eligible, key=lambda pair: pair[0])[1] if eligible else None
-    rules = sorted({row["code"] for row in rejected})
+    reason = "freshness_then_diversity" if chosen else "pool_exhausted"
+    rules = _rule_order(rejected)
     decision = {
         "candidate_count": len(candidates),
         "exclusions": excluded,
         "excluded_candidates": rejected,
+        "rejected_candidates": rejected,
         "seen_count": len(payload.get("seen_activity_ids") or []),
         "chosen_activity": activity_id(chosen) if chosen else None,
         "chosen": activity_diagnostic(chosen) if chosen else None,
-        "reason": "freshness_then_diversity" if chosen else "pool_exhausted",
+        "delivered": delivery_record(chosen, reason=reason) if chosen else None,
+        "reason": reason,
         "fallback_used": chosen is None,
-        "exhaustion": None if chosen else {
-            "aggregate_reason": "pool_exhausted",
-            "contributing_rules": rules or ["no_candidates"],
-        },
+        "exhaustion": None if chosen else exhaustion_record(reason, rules or ["no_candidates"]),
         "learning_objective_id": objective_id,
         "target_language": target_language,
         "native_language": native_language,
@@ -468,7 +526,7 @@ def interaction_retry_rejection(failed: dict, candidate, payload: dict, objectiv
     if not isinstance(candidate, dict):
         return "metadata"
     if objective_id and candidate.get("learning_objective_id") != objective_id:
-        return "objective"
+        return "metadata"
     if activity_id(candidate) == activity_id(failed):
         return "same_activity"
     family = interaction_family(candidate.get("type"))
@@ -520,25 +578,26 @@ def choose_interaction_retry(failed: dict, candidates: list[dict], payload: dict
         if code is not None:
             rejected.append({
                 "activity_id": activity_id(candidate) if isinstance(candidate, dict) else None,
+                "legacy_id": activity_diagnostic(candidate)["legacy_id"] if isinstance(candidate, dict) else None,
                 "code": code,
             })
             counts[_RETRY_BUCKET[code]] += 1
             continue
         chosen = candidate
         break
-    rules = sorted({row["code"] for row in rejected})
+    reason = "interaction_change_retry" if chosen else "pool_exhausted"
+    rules = _rule_order(rejected)
     decision = {
         "candidate_count": len(candidates),
         "exclusions": counts,
         "excluded_candidates": rejected,
+        "rejected_candidates": rejected,
         "chosen_activity": activity_id(chosen) if chosen else None,
         "chosen": activity_diagnostic(chosen) if chosen else None,
-        "reason": "interaction_change_retry" if chosen else "pool_exhausted",
+        "delivered": delivery_record(chosen, reason=reason, retry=True) if chosen else None,
+        "reason": reason,
         "fallback_used": chosen is None,
-        "exhaustion": None if chosen else {
-            "aggregate_reason": "pool_exhausted",
-            "contributing_rules": rules or ["no_candidates"],
-        },
+        "exhaustion": None if chosen else exhaustion_record(reason, rules or ["no_candidates"]),
         "learning_objective_id": objective_id,
         "retry": True,
     }

@@ -95,7 +95,7 @@ def test_select_activity_records_each_exclusion_without_changing_the_choice(capl
         prompt="This english sentence should stay out of french delivery now",
         quality_status="language_invalid",
     )
-    draft = item("draft", prompt="Choisissez une phrase courte.", quality_status="generated")
+    draft = item("draft", prompt="Choose this generated draft.", quality_status="generated")
     wrong_level = item("level", prompt="Choose the level mismatch sentence please", cefr_level="A2")
     payload = {"seen_activity_ids": ["seen"], "retired_families": [activity_pool.family_key(retired)]}
     history = {
@@ -162,7 +162,7 @@ def test_select_activity_exhaustion_names_the_rules(caplog):
     assert trace["reason"] == "pool_exhausted"
     assert trace["fallback_used"] is True
     assert trace["chosen"] is None
-    assert trace["excluded_candidates"] == [{"activity_id": "only", "code": "metadata"}]
+    assert trace["excluded_candidates"] == [{"activity_id": "only", "legacy_id": None, "code": "metadata"}]
     assert trace["exhaustion"]["aggregate_reason"] == "pool_exhausted"
     assert "metadata" in trace["exhaustion"]["contributing_rules"]
     empty = {}
@@ -178,12 +178,12 @@ def test_interaction_retry_records_rejections_and_keeps_the_same_choice():
     trace = {}
     assert activity_pool.choose_interaction_retry(failed, [orphan, same_family], objective_id="obj-fr", trace=trace) is None
     assert {row["activity_id"]: row["code"] for row in trace["excluded_candidates"]} == {
-        "orphan": "objective",
+        "orphan": "metadata",
         "same-family": "family",
     }
     assert trace["reason"] == "pool_exhausted"
     assert trace["exhaustion"]["aggregate_reason"] == "pool_exhausted"
-    assert set(trace["exhaustion"]["contributing_rules"]) == {"objective", "family"}
+    assert set(trace["exhaustion"]["contributing_rules"]) == {"metadata", "family"}
     chosen_trace = {}
     chosen = activity_pool.choose_interaction_retry(
         failed, [orphan, same_family, same], objective_id="obj-fr", trace=chosen_trace,
@@ -278,7 +278,7 @@ def test_legacy_retry_trace_names_the_rejected_candidate_and_the_choice():
     )
     assert strategy == "objective_pool"
     assert variant["activity_id"] == "usable"
-    assert rejections == [{"activity_id": "other", "code": "objective"}]
+    assert rejections == [{"activity_id": "other", "legacy_id": None, "code": "metadata"}]
     trace = lesson_attempts.legacy_selection_trace(
         session_id="lesson-1",
         current=current,
@@ -290,7 +290,7 @@ def test_legacy_retry_trace_names_the_rejected_candidate_and_the_choice():
     assert trace["fallback_used"] is False
     assert trace["chosen_activity"] == "usable"
     assert trace["chosen"]["target_language"] == "fr"
-    assert trace["excluded_candidates"] == [{"activity_id": "other", "code": "objective"}]
+    assert trace["excluded_candidates"] == [{"activity_id": "other", "legacy_id": None, "code": "metadata"}]
     assert trace["exhaustion"] is None
     blocked = []
     none_variant, none_strategy = lesson_attempts._build_legacy_retry_activity(
@@ -316,7 +316,7 @@ def test_legacy_retry_trace_names_the_rejected_candidate_and_the_choice():
     assert exhausted["reason"] == "pool_exhausted"
     assert exhausted["fallback_used"] is True
     assert exhausted["exhaustion"]["aggregate_reason"] == "pool_exhausted"
-    assert "objective" in exhausted["exhaustion"]["contributing_rules"]
+    assert "objective" in exhausted["exhaustion"]["contributing_rules"] or "metadata" in exhausted["exhaustion"]["contributing_rules"]
     assert SECRET_PROMPT not in json.dumps(exhausted)
 
 

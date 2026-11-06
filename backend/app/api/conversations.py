@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import logging
+
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -47,6 +50,12 @@ class SessionActionIn(BaseModel):
 
 
 router = APIRouter(prefix="/conversations", tags=["conversations"])
+logger = logging.getLogger(__name__)
+
+
+def _delivery_log(record: dict) -> None:
+    """Metadados da conversa. Não inclui texto do aluno nem resposta do tutor."""
+    logger.info("conversation_delivery %s", json.dumps(record, ensure_ascii=False, sort_keys=True, default=str))
 
 
 def _owned_conversation(db: Session, user: User, conversation_id: str) -> Conversation:
@@ -115,6 +124,19 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     db.commit()
 
     context = build_context(db, user, data.language_code)
+    _delivery_log({
+        "conversation_id": item.id,
+        "study_session_id": session_id,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "level": context.level_for_skill("speaking"),
+        "provider": None,
+        "model": None,
+        "source": "unknown",
+        "content_version": None,
+        "content_version_status": "unknown",
+        "kind": "conversation_started",
+    })
     return {
         "id": item.id,
         "target_language": context.language_code,
@@ -191,6 +213,19 @@ def message(
     )
     db.add(reply)
     db.commit()
+    _delivery_log({
+        "conversation_id": conversation.id,
+        "message_id": reply.id,
+        "target_language": result.get("target_language"),
+        "native_language": result.get("native_language"),
+        "level": result.get("level"),
+        "provider": result.get("provider") or "unknown",
+        "model": result.get("model"),
+        "source": result.get("provider") or "unknown",
+        "content_version": None,
+        "content_version_status": "unknown",
+        "kind": "conversation_turn",
+    })
     return {"message_id": reply.id, **result}
 
 

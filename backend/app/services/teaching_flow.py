@@ -129,11 +129,14 @@ def start_flow(
         activity["activity_id"] = activity_pool.activity_id(activity)
     history = activity_pool.exposure_history(db, user_language_id)
     candidates = activities + authored
-    selected, selection_payload = [], {}
+    selected, selection_payload, decisions = [], {}, []
     from app.services.session_budget import PHASE_RANK, FULL_SESSION_BUDGET
     while candidates and len(selected) < FULL_SESSION_BUDGET.target_total:
+        decision: dict = {}
         choice = activity_pool.select_activity(candidates, objective_id=objective.id, exposure_history=history,
-                                               session_payload=selection_payload, previous=selected[-1] if selected else None)
+                                               session_payload=selection_payload, previous=selected[-1] if selected else None,
+                                               trace=decision)
+        decisions.append(decision)
         if choice is None:
             break
         selected.append(dict(choice))
@@ -158,6 +161,31 @@ def start_flow(
     db.add(session)
     payload = dict(session.payload_json)
     activity_pool.record_exposure(payload, activities[0] if activities else None)
+    session.payload_json = payload
+    db.flush()
+    flow_trace = activity_pool.stamp_selection_trace(
+        {
+            "kind": "objective_flow",
+            "reason": "objective_pool" if activities else "pool_exhausted",
+            "fallback_used": not activities,
+            "learning_objective_id": objective.id,
+            "target_language": activities[0].get("target_language") if activities else None,
+            "native_language": native,
+            "cefr_level": objective.level,
+            "activities": [activity_pool.activity_diagnostic(activity) for activity in activities],
+            "decisions": decisions,
+            "exhaustion": next((item.get("exhaustion") for item in reversed(decisions) if item.get("exhaustion")), None),
+            "excluded_candidates": [
+                row
+                for item in decisions
+                for row in (item.get("excluded_candidates") or [])
+            ],
+        },
+        session_id=session.id,
+    )
+    payload = dict(session.payload_json)
+    payload["selection_trace"] = flow_trace
+    payload["selection_events"] = [flow_trace]
     session.payload_json = payload
     db.flush()
     logger.info(
@@ -268,6 +296,14 @@ def start_vocabulary_flow(
     activity_pool.record_exposure(payload, activities[0] if activities else None)
     session.payload_json = payload
     db.flush()
+    plan_trace = (session_plan or {}).get("selection_trace") if isinstance(session_plan, dict) else None
+    if isinstance(plan_trace, dict):
+        stamped = activity_pool.stamp_selection_trace(plan_trace, session_id=session.id)
+        payload = dict(session.payload_json)
+        payload["selection_trace"] = stamped
+        payload["selection_events"] = [stamped]
+        session.payload_json = payload
+        db.flush()
     return session
 
 
