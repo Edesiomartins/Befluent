@@ -18,6 +18,18 @@ from test_activity_pool import item
 
 SECRET_PROMPT = "PROMPT_SHOULD_NOT_LEAK_9f3a"
 SECRET_ANSWER = "ANSWER_SHOULD_NOT_LEAK_9f3a"
+
+
+def _arm_selection_log():
+    """O Alembic desliga loggers já criados. O teste precisa deles outra vez."""
+    logging.disable(logging.NOTSET)
+    current = "app.services.activity_pool"
+    while current:
+        found = logging.getLogger(current)
+        found.disabled = False
+        found.propagate = True
+        current = current.rpartition(".")[0]
+    logging.getLogger().disabled = False
 NOW = datetime(2026, 11, 6, tzinfo=timezone.utc)
 
 
@@ -26,6 +38,7 @@ def _codes(rows):
 
 
 def test_select_activity_names_every_exclusion_and_keeps_the_choice(caplog):
+    _arm_selection_log()
     caplog.set_level(logging.INFO, logger="app.services.activity_pool")
     seen = item("seen-one", prompt=SECRET_PROMPT, canonical_answer=SECRET_ANSWER)
     retired = item("retired-one", prompt="Quel est le train de ce soir ?")

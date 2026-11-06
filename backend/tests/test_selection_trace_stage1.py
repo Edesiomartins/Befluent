@@ -17,6 +17,18 @@ SECRET_PROMPT = "PROMPT-SECRETO-NAO-LOGAR"
 SECRET_ANSWER = "RESPOSTA-SECRETA-NAO-LOGAR"
 
 
+def _arm_selection_log():
+    """O Alembic desliga loggers já criados. O teste precisa deles outra vez."""
+    logging.disable(logging.NOTSET)
+    current = "app.services.activity_pool"
+    while current:
+        found = logging.getLogger(current)
+        found.disabled = False
+        found.propagate = True
+        current = current.rpartition(".")[0]
+    logging.getLogger().disabled = False
+
+
 def _fr(identity, **changes):
     base = {
         "activity_id": identity,
@@ -86,6 +98,7 @@ def test_diagnostic_keeps_only_declared_provenance():
 
 
 def test_select_activity_records_each_exclusion_without_changing_the_choice(caplog):
+    _arm_selection_log()
     keep = item("keep", prompt="Choose the useful sentence now", canonical_answer="Ada")
     seen = item("seen", prompt="Choose another useful sentence now")
     cooled = item("cooled", prompt="Choose a cooled sentence today please")

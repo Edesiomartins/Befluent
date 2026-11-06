@@ -8,7 +8,9 @@ from app.models import Base
 
 config = context.config
 if config.config_file_name:
-    fileConfig(config.config_file_name)
+    # O padrão disable_existing_loggers=True desliga loggers já importados
+    # (por exemplo app.services.activity_pool) no mesmo processo da migration.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
