@@ -21,6 +21,9 @@ A auditoria de 7 de novembro permanece em `docs/delivery-audit-2026-11-07/report
 | `cc6c742` | Recarregar ou repetir `POST /lessons/generate` no mesmo modo devolve a prática `active`. Pedidos concorrentes passam por um lock. Unidade entregue continua excluída da próxima seleção |
 | `51f27bd` | O teste do lote FR B1 não regrava `backend/scripts/out/fr_b1_review_batches.json`. Os ids de objetivo no arquivo passam a ser estáveis (`fr-b1-vocabulary`, e os equivalentes) |
 | `00dec2f` | `backend/scripts/diagnose_mixed_objectives.py` lista objetivos mistos e o inventário. Não grava lição e recusa PostgreSQL cujo nome não termina em `_test` |
+| `(esta rodada)` | Sair da tela e voltar reaproveita a conversa `active` do mesmo contexto (mesmo `study_session_id` + tópico) |
+| `(esta rodada)` | Revisão crítica: lock do `generate` com timeout explícito e rollback em erro; gating do `study.tsx` sem `setState` no render |
+| `(esta rodada)` | Diagnóstico dry-run detalha contagens por idioma/campo/status, exemplos e proposta de reparo sem escrita |
 
 ## O que cada item fez
 
@@ -32,7 +35,11 @@ A tela colocava a abertura do tutor no estado antes de o backend responder, e o 
 
 O lote FR B1 de revisão continua com 10 gerados, 9 em revisão e 1 rejeitado por `review_required`. Nenhum item foi aprovado. O teste chama `build_report()` e confere que o arquivo não muda.
 
-O diagnóstico foi executado aqui só sem URL. `writes` ficou 0, `production` ficou falso e `historical_lessons` ficou nulo: nenhuma lição histórica foi lida. O inventário estático, contado no código, repetiu a tabela de 7 de novembro:
+Ao voltar para a tela de conversa com o mesmo contexto, `POST /conversations` reaproveita a conversa `active` em vez de abrir outra. Isso vale para texto e voz porque ambos passam o mesmo `study_session_id` da lição. O teste cobre o reaproveitamento no backend (`test_conversation_start_resumes_active_for_same_session_and_topic`) e também o caso com `opening_rejected` preservado (`test_conversation_resume_keeps_opening_rejected_flag`).
+
+No lock do `generate`, a revisão crítica adicionou timeout explícito (`practice_generation_in_progress`) e rollback em exceção, para não segurar lock de linha além do necessário. Há teste de lock ocupado e teste que força exceção e comprova liberação na chamada seguinte.
+
+O diagnóstico foi executado aqui só sem URL. `writes` ficou 0, `production` ficou falso e `historical_lessons` ficou nulo: nenhuma lição histórica foi lida. A saída agora traz, quando houver dados históricos, `mixed_by_language`, `mixed_by_field`, `mixed_by_status`, exemplos e `proposed_repair` com plano de correção sem escrita. O inventário estático, contado no código, repetiu a tabela de 7 de novembro:
 
 | Língua | Vocabulário | Leitura | Escuta | Placement |
 |---|---:|---:|---:|---:|
@@ -47,7 +54,7 @@ Isso não é o inventário aprovado do Postgres de produção.
 
 Backend, com `POSTGRES_TEST_URL` apontando para um PostgreSQL 18 local (`server_version_num` 180006) e o banco descartável `befluent_test` em `127.0.0.1`. Esse banco foi criado para a suíte. Os testes de reset criam e apagam só schemas com nome UUID dentro dele.
 
-`/tmp/befluent-venv/bin/python -m pytest --tb=line`, exit 0: **1917 passed, 43 warnings in 767.68s (0:12:47)**. A linha final não tem `skipped` nem `failed`. Os cinco testes que antes saltavam sem essa URL passaram dentro dessa suíte. Isolados, antes da suíte completa: **5 passed, 2 warnings in 5.22s**, exit 0 (`test_placement_completion_postgres.py`, `test_placement_exposure_postgres.py`, `test_reset_test_user_learning_postgres.py`).
+`/tmp/befluent-venv/bin/python -m pytest --tb=line`, exit 0: **1922 passed, 43 warnings in 776.84s (0:12:56)**. A linha final não tem `skipped` nem `failed`. Os cinco testes que antes saltavam sem essa URL passaram dentro dessa suíte.
 
 Frontend, em sequência, exit 0:
 
@@ -55,9 +62,9 @@ Frontend, em sequência, exit 0:
 - `npm run lint`: 0 erros, 5 warnings anteriores (`objective-choice.tsx`, `lesson-adaptation.test.tsx`, `speech-ui.test.tsx`);
 - `npm run typecheck`: exit 0.
 
-Playwright, jornada já existente `e2e/fr-b1-session.spec.ts`, desktop 1280×800 e mobile 390×844, exit 0: **1 passed (18,1 s)**. Servidores locais, IA/STT/TTS em mock, sqlite descartável em `/tmp/e2e-fr-b1.sqlite3`. A configuração usada para o Linux ficou fora do commit. Os arquivos de `docs/stage-1-reference/evidence/` foram restaurados depois da rodada; o manifesto antigo da Etapa 1 não foi substituído.
+Playwright, jornada já existente `e2e/fr-b1-session.spec.ts`, desktop 1280×800 e mobile 390×844, exit 0: **1 passed (17,4 s)**. Servidores locais, IA/STT/TTS em mock, sqlite descartável em `/tmp/e2e-fr-b1.sqlite3`. A configuração usada para o Linux ficou fora do commit. Os arquivos de `docs/stage-1-reference/evidence/` foram restaurados depois da rodada; o manifesto antigo da Etapa 1 não foi substituído.
 
-Nessa jornada local, a abertura e o turno de texto usaram o mesmo id de conversa. A retomada mobile do vocabulário manteve o mesmo fluxo (`mobile_resume_same_flow` verdadeiro). Microfone físico e audição humana continuam pendentes. Esgotamento do plano de 12 não apareceu. Abrir de novo a tela de conversa no mobile criou outra conversa; a anterior continuou consultável. Isso já estava anotado no spec e não foi tratado como defeito desta rodada.
+Nessa jornada local, a abertura e o turno de texto usaram o mesmo id de conversa. A retomada mobile do vocabulário manteve o mesmo fluxo (`mobile_resume_same_flow` verdadeiro). Ao abrir `/learn/conversation` no mobile, o id de conversa ficou igual ao do desktop na mesma lição. Microfone físico e audição humana continuam pendentes. Esgotamento do plano de 12 não apareceu.
 
 ## O que continua aberto
 
@@ -66,4 +73,4 @@ Nessa jornada local, a abertura e o turno de texto usaram o mesmo id de conversa
 - Lições já gravadas com objetivo misto. O script está pronto e não foi apontado para dados reais. Não houve correção.
 - `practiced` continua sendo entrega, não conclusão. Uma lição abandonada não devolve a unidade ao pool.
 - TTS/STT reais e audição humana.
-- Voltar à tela de conversa depois de sair dela abre outra conversa. O StrictMode na mesma montagem é que deixou de duplicar o `POST`.
+- Diagnóstico histórico em banco real ainda não executado. O script ficou mais detalhado, mas continuou em dry-run local.
