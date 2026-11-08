@@ -426,6 +426,7 @@ describe("Chat / conversação", () => {
     const input = screen.getByLabelText("Sua resposta");
     fireEvent.change(input, { target: { value: "First message" } });
     fireEvent.click(screen.getByRole("button", { name: "Enviar" }));
+    await waitFor(() => expect(typeof rejectSend).toBe("function"));
     fireEvent.change(input, { target: { value: "New draft" } });
     rejectSend(new Error("offline"));
     await screen.findByRole("alert");

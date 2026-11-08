@@ -12,7 +12,7 @@ from sqlalchemy import select
 
 from app.core.levels import LEVEL_INDEX, CEFRLevel, LevelSource, Skill
 from app.models import Language, User, UserLanguage
-from app.prompts.library import MODE_PROMPTS, SUPPORTED_MODES
+from app.prompts.library import CONVERSATION, MODE_PROMPTS, SUPPORTED_MODES
 from app.services.ai import MockAIProvider
 from app.services.learner_context import (
     DEFAULT_LEVEL,
@@ -558,3 +558,47 @@ def test_conversation_persists_opening_and_does_not_repeat_it(client, auth, db_s
         headers=auth,
     ).json()
     assert turn["reply"] != opening
+
+
+def test_conversation_prompt_keeps_translation_out_of_the_reply():
+    assert "com tradução entre parênteses" not in CONVERSATION.task
+    assert "reply_translation" in CONVERSATION.task
+
+
+def test_portuguese_opening_is_not_stored_as_french_speech(client, auth, db_session):
+    user = db_session.scalar(select(User).where(User.email == "admin@befluent.local"))
+    language = db_session.scalar(select(Language).where(Language.code == "fr"))
+    db_session.add(
+        UserLanguage(
+            user_id=user.id,
+            language_id=language.id,
+            current_level=CEFRLevel.A2,
+            level_source=LevelSource.PLACEMENT_TEST,
+            assessment_summary_json={"global_estimate_status": "sufficient"},
+            is_active=True,
+            onboarding_completed=True,
+        )
+    )
+    db_session.commit()
+    started = client.post(
+        "/api/v1/conversations",
+        json={
+            "language_code": "fr",
+            "topic": "Padaria",
+            "opening": "Olá, hoje vamos revisar o vocabulário da padaria com bastante calma.",
+        },
+        headers=auth,
+    )
+    assert started.status_code == 200
+    assert started.json()["opening_rejected"] is True
+    saved = client.get(f"/api/v1/conversations/{started.json()['id']}/messages", headers=auth)
+    assert saved.json() == []
+
+
+def test_mock_turn_index_ignores_the_history_window():
+    context = _context(language_code="fr", level=CEFRLevel.A2)
+    window = [{"role": "assistant", "content": "x"}] * 10
+    provider = MockAIProvider()
+    from_window = provider.conversation_turn("bonjour", context, window)
+    from_cursor = provider.conversation_turn("bonjour", context, window, turn_index=11)
+    assert from_window["reply"] != from_cursor["reply"]

@@ -26,6 +26,11 @@ vi.mock("@/hooks/use-active-language", () => ({
   useActiveLanguage: () => ({ code: "de", resolved: true }),
 }));
 
+vi.mock("@/components/native-language-context", () => ({
+  useLearnerNativeLanguage: () => "pt-BR",
+  NativeLanguageProvider: (props: { children: unknown }) => props.children,
+}));
+
 function vocabularyLesson(): VocabularyLesson {
   return {
     mode: "vocabulary",

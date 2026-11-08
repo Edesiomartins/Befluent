@@ -24,6 +24,9 @@ export type LessonEnvelope = {
   objective_target?: string | null;
   /** Instrução na língua nativa, quando o backend já a separou. */
   objective_native?: string | null;
+  /** A biblioteca curada desta competência não tem atividade nova. */
+  exhausted?: boolean;
+  selection_trace?: { exhaustion?: string | null } | null;
 };
 
 export type VocabularyLesson = LessonEnvelope & {

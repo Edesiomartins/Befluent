@@ -8,6 +8,7 @@ from app.services.learner_language_contract import (
     dictation_contract,
     language_safety,
 )
+from app.services.language_detection import top_language
 from app.services.lesson_bank import reading_text
 
 
@@ -130,6 +131,17 @@ def test_short_target_text_is_not_blocked_by_the_detector():
     }
     assert language_safety(payload, "fr", "pt-BR") == "approved"
     assert deliverable(payload, "fr", "pt-BR")
+
+
+def test_portuguese_support_class_does_not_hold_back_a_clear_french_prompt():
+    payload = {
+        "prompt_target": "Quel est le train de ce soir ?",
+        "target_language": "fr",
+        "native_language": "pt-BR",
+        "quality_status": "approved",
+    }
+    assert language_safety(payload, "fr", "pt-BR") == "approved"
+    assert top_language("Obrigado pela sua ajuda.")[0] == "pt"
 
 
 def test_low_confidence_target_text_needs_review_and_is_not_delivered():

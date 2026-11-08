@@ -70,14 +70,18 @@ function PageHeader({ mode, lesson }: { mode: string; lesson: LessonEnvelope | n
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
         <div>
           <h1 className="page-title">{lesson?.title ?? fallback.title}</h1>
-          {lesson && (
+          {lesson?.exhausted || lesson?.selection_trace?.exhaustion === "curated_pool_exhausted" ? (
+            <p role="status" className="mt-3 max-w-2xl leading-7 text-text-secondary">
+              Não há uma atividade nova desta competência agora. Você pode revisar o que já praticou ou voltar mais tarde.
+            </p>
+          ) : lesson ? (
             <LessonObjective
               objective={lesson.objective_native || lesson.objective}
               objectiveTarget={lesson.objective_target}
               targetLanguage={lesson.target_language || lesson.language_code}
               nativeLanguage={lesson.native_language || nativeLanguage}
             />
-          )}
+          ) : null}
         </div>
         {lesson && <LevelBadge lesson={lesson} />}
       </div>
@@ -361,7 +365,9 @@ function AdaptiveLesson({ mode }: { mode: string }) {
       {status === "error" && (
         <ErrorState message={error ?? undefined} retry={() => void reload()} error={rawError} />
       )}
-      {status === "ready" && lesson && <LessonContent mode={mode} lesson={lesson} />}
+      {status === "ready" && lesson && !lesson.exhausted && lesson.selection_trace?.exhaustion !== "curated_pool_exhausted" && (
+        <LessonContent mode={mode} lesson={lesson} />
+      )}
     </div>
   );
 }

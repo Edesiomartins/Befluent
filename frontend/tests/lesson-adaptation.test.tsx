@@ -14,6 +14,11 @@ vi.mock("next/navigation", () => ({
   notFound: () => notFound(),
 }));
 
+vi.mock("@/components/native-language-context", () => ({
+  useLearnerNativeLanguage: () => "pt-BR",
+  NativeLanguageProvider: (props: { children: unknown }) => props.children,
+}));
+
 vi.mock("@/lib/api", () => ({
   api: (...args: unknown[]) => apiMock(...args),
   ApiError: class ApiError extends Error {
@@ -756,10 +761,12 @@ describe("Conversação calibrada pelo nível", () => {
   });
 
   async function chat(response: unknown) {
-    routeApi({
-      "/api/v1/language-profiles": profiles,
-      "/api/v1/lessons/generate": conversationLesson,
-      "/api/v1/conversations": response,
+    apiMock.mockImplementation((path: string) => {
+      if (path === "/api/v1/language-profiles") return Promise.resolve(profiles);
+      if (path === "/api/v1/lessons/generate") return Promise.resolve(conversationLesson);
+      if (path === "/api/v1/conversations") return Promise.resolve({ id: "conv-1" });
+      if (path.includes("/messages")) return Promise.resolve(response);
+      return Promise.reject(new Error(`sem handler: ${path}`));
     });
     render(<StudyModePage />);
     await screen.findByText("Good morning! How are you?");

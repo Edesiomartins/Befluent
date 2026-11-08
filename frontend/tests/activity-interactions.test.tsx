@@ -5,7 +5,7 @@ import { NativeLanguageProvider } from "@/components/native-language-context";
 
 function renderActivity(
   activity: Parameters<typeof TeachingActivityBody>[0]["activity"],
-  nativeLanguage: string | null = null,
+  nativeLanguage: string | null = "pt-BR",
 ) {
   const onResponse = vi.fn();
   render(

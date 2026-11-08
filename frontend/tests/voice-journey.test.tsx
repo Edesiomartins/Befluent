@@ -22,6 +22,11 @@ vi.mock("@/lib/api", () => {
   };
 });
 
+vi.mock("@/components/native-language-context", () => ({
+  useLearnerNativeLanguage: () => "pt-BR",
+  NativeLanguageProvider: (props: { children: unknown }) => props.children,
+}));
+
 vi.mock("@/hooks/use-active-language", () => ({
   useActiveLanguage: () => ({ code: "fr", resolved: true }),
 }));

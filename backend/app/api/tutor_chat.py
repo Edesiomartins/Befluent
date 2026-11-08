@@ -53,4 +53,20 @@ def tutor_chat(
         {"role": message.role, "content": message.content}
         for message in data.history[-HISTORY_LIMIT:]
     ]
-    return get_ai_provider().tutor_chat_turn(data.text, context, history)
+    from app.services.language_roles import checked_tutor_turn
+
+    result, rejected = checked_tutor_turn(
+        get_ai_provider(),
+        data.text,
+        context,
+        history,
+        target_language=data.language_code,
+        native_language=user.native_language,
+    )
+    if rejected:
+        raise APIError(
+            422,
+            "assistant_language_rejected",
+            "A resposta do tutor não estava no par de idiomas desta conversa.",
+        )
+    return result

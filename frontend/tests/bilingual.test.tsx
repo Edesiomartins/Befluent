@@ -101,6 +101,12 @@ describe("apoio bilíngue", () => {
         legacyPortuguese: "na minha opinião",
       }),
     ).toBe("na minha opinião");
+    expect(
+      supportText({
+        nativeLanguage: null,
+        legacyPortuguese: "na minha opinião",
+      }),
+    ).toBeNull();
   });
 
   it("francês com nativo pt-BR mostra o termo e o gloss, e o áudio fica no francês", () => {

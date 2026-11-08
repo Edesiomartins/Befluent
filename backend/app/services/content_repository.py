@@ -143,5 +143,17 @@ def record_lesson_usage(
     return usage
 
 
+def practiced_content_unit_ids(db: Session, user_language_id: str) -> set[str]:
+    """Unidades já entregues a este perfil, em qualquer lição."""
+    from app.models import Lesson
+
+    rows = db.scalars(
+        select(LessonContentUsage.content_unit_id)
+        .join(Lesson, Lesson.id == LessonContentUsage.lesson_id)
+        .where(Lesson.user_language_id == user_language_id)
+    )
+    return {row for row in rows if row}
+
+
 def public_unit_or_none(unit: ContentUnit | None) -> dict | None:
     return _public_payload(unit) if unit else None

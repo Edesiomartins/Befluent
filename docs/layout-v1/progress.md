@@ -150,3 +150,27 @@ Commits: `f643aab` (backend e testes) e `701258f` (regiões com `lang` e TTS só
 - Lições já gravadas com o objective misturado só se separam na próxima geração. Sem migração.
 - `blocked` não muda a escolha nem a regra de retry.
 - TTS real continua pendente. O arquivo `backend/scripts/out/fr_b1_review_batches.json` ficou sujo de novo e não entra no commit.
+
+## Idioma, seleção e entrega (2026-11-07, local)
+
+Sem push e sem deploy. HEAD permanece `255458d`. `origin/main` permanece `d6cd9d4`. O Coolify não foi aberto. O relato está em `docs/delivery-audit-2026-11-07/report.md` e o contrato em `docs/language-selection-contract.md`.
+
+O que mudou no código local, ainda sem commit:
+
+- A fala do tutor e a abertura passam pelo contrato de papéis antes de serem gravadas. No máximo duas tentativas do mesmo provedor.
+- `POST /lessons/generate` exclui unidades já praticadas naquele perfil. Se a biblioteca curada acabou, a resposta é `exhausted` e não grava outra lição.
+- O chat não abre duas conversas na mesma tentativa e não mostra tradução sem língua nativa declarada.
+- O português ficou no classificador de papéis. O detector do texto-alvo continua com os oito idiomas ensinados.
+
+### Contagens
+
+- Backend, suíte completa antes da separação dos detectores: **1 failed, 1903 passed, 5 skipped, 41 warnings in 1625.35s**.
+- Depois da separação, os arquivos afetados: **179 passed in 125.23s**, exit 0. A suíte completa não foi repetida.
+- Frontend: **405 passed**, 53 arquivos; lint 0 erros e 5 warnings anteriores; typecheck exit 0.
+
+### Pendências
+
+- SHA, provedor e inventário aprovado de produção não foram lidos.
+- O mock ainda repete a faixa quando não há unidade curada. Recarregar a página ainda chama `generate`. Não há trava para dois `generate` ao mesmo tempo.
+- Nenhum lote novo foi gerado nem aprovado.
+- `backend/scripts/out/fr_b1_review_batches.json` continua fora de qualquer commit.

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services.language_detection import HIGH_CONFIDENCE, top_language
+from app.services.language_detection import HIGH_CONFIDENCE, has_enough_signal, top_language
 
 _SPAN_CONFIDENCE = 0.50
 _SPAN_MIN = 4
@@ -62,13 +62,16 @@ _SPAN_FIELDS = {
     "thread_note",
     "usage_note",
 }
+_TARGET_LISTS = {"suggested_replies", "suggestions", "target_expressions"}
 _SKIP = {
     "language_policy",
     "language_role_findings",
     "language_role_originals",
     "language_role_status",
+    "original",
     "selection_events",
     "selection_trace",
+    "student_response",
     "support_visibility",
     "thread",
 }
@@ -114,6 +117,19 @@ _CLOSED = {
     "você",
     "voce",
 }
+
+
+def separate_embedded_translation(reply: str, translation: str | None) -> str:
+    """Tira a tradução do fim da fala quando ela já está no campo de apoio."""
+    import re
+
+    spoken = str(reply or "").strip()
+    support = str(translation or "").strip()
+    if not spoken or not support:
+        return spoken
+    pattern = re.compile(r"\s*\(" + re.escape(support) + r"\)\s*$")
+    separated = pattern.sub("", spoken).strip()
+    return separated or spoken
 
 
 def apply_language_roles(
@@ -166,6 +182,22 @@ def _visit(
                         field=field,
                         text=text,
                         role="feedback",
+                        findings=findings,
+                        originals=originals,
+                        target_language=target_language,
+                        native_language=native_language,
+                        allow_repair=False,
+                    )
+            continue
+        if key in _TARGET_LISTS and isinstance(value, list):
+            for index, item in enumerate(value):
+                if isinstance(item, str) and item.strip():
+                    _judge(
+                        node,
+                        key=str(key),
+                        field=f"{field}[{index}]",
+                        text=item,
+                        role="target",
                         findings=findings,
                         originals=originals,
                         target_language=target_language,
@@ -270,7 +302,12 @@ def _judge(
     if mismatch is None:
         return
     detected, confidence = mismatch
-    findings.append(_finding(field, role, "review_required", "language_invalid", detected, confidence))
+    # Apoio numa língua distante é recusado. Feedback fica marcado e o texto permanece.
+    # O campo inteiro no idioma-alvo, sem moldura para separar, continua em revisão.
+    action = "review_required"
+    if role == "native" and detected in _DISTANT:
+        action = "blocked"
+    findings.append(_finding(field, role, action, "language_invalid", detected, confidence))
 
 
 def _repair_span(
@@ -324,7 +361,7 @@ def _target_key(field: str) -> str:
 
 
 def _target_block(text: str, target_language: str | None) -> tuple[str, float] | None:
-    if not target_language or len(text.split()) < _SPAN_MIN:
+    if not target_language or not has_enough_signal(text):
         return None
     detected, confidence = top_language(text)
     if detected and detected != target_language and confidence >= HIGH_CONFIDENCE:
@@ -338,7 +375,7 @@ def _support_mismatch(
     target_language: str | None,
     native_language: str | None,
 ) -> tuple[str, float] | None:
-    if len(text.split()) < _SPAN_MIN:
+    if not has_enough_signal(text):
         return None
     detected, confidence = top_language(text)
     if not detected or confidence < HIGH_CONFIDENCE:
@@ -382,6 +419,60 @@ def _finding(
         "detected_language": detected,
         "confidence": round(confidence, 3),
     }
+
+
+def tutor_reply_is_third_language(
+    text: str,
+    *,
+    target_language: str | None,
+    native_language: str | None,
+) -> bool:
+    """O tutor de apoio pode falar a língua nativa ou a língua-alvo.
+
+    Uma terceira língua, com confiança alta, não entra na resposta.
+    A citação curta e o termo isolado ficam de fora desta medição.
+    """
+    if not has_enough_signal(text):
+        return False
+    detected, confidence = top_language(text)
+    if not detected or confidence < HIGH_CONFIDENCE:
+        return False
+    if _same(detected, native_language) or detected == target_language:
+        return False
+    if native_language in _PT_NATIVES and detected in _ROMANCE_FALSE_FRIENDS:
+        return False
+    return True
+
+
+def checked_conversation_turn(provider, text, context, history, *, target_language, native_language, turn_index):
+    """No máximo duas tentativas do mesmo provedor. Não troca de provedor."""
+    last: dict[str, Any] = {}
+    findings: list[dict[str, Any]] = []
+    for _ in range(2):
+        raw = provider.conversation_turn(text, context, history, turn_index=turn_index)
+        last = dict(raw)
+        last["reply"] = separate_embedded_translation(last.get("reply") or "", last.get("reply_translation"))
+        findings = apply_language_roles(
+            last, target_language=target_language, native_language=native_language,
+        )
+        if last.get("language_role_status") != "blocked":
+            return last, findings
+    return last, findings
+
+
+def checked_tutor_turn(provider, text, context, history, *, target_language, native_language):
+    """No máximo duas tentativas. Explicação na língua nativa continua válida."""
+    last: dict[str, Any] = {}
+    for _ in range(2):
+        last = dict(provider.tutor_chat_turn(text, context, history))
+        last["reply"] = separate_embedded_translation(last.get("reply") or "", last.get("reply_translation"))
+        if not tutor_reply_is_third_language(
+            last.get("reply") or "",
+            target_language=target_language,
+            native_language=native_language,
+        ):
+            return last, False
+    return last, True
 
 
 def _status(findings: list[dict[str, Any]]) -> str:

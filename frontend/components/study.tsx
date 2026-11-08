@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui";
 import { api, apiBlob, ApiError } from "@/lib/api";
 import { useCooldown } from "@/hooks/use-cooldown";
 import { prepareEcclesiasticalLatinForSpeech } from "@/lib/ecclesiastical-latin-speech";
 import { useLearnerNativeLanguage } from "@/components/native-language-context";
+import { claimConversation, turnStillCurrent, type StartGate } from "@/lib/conversation-gate";
 
 /** Cooldown do circuit breaker de IA no backend (`provider_resilience.py`). */
 const AI_RETRY_COOLDOWN_SECONDS = 30;
@@ -591,28 +592,41 @@ export function Chat({
   const [closed, setClosed] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
+  const gateRef = useRef<StartGate>({ id: null, pending: null });
 
   const topic = situation ?? "Conversa livre";
 
+  const openConversation = useCallback(() => {
+    const gate = gateRef.current;
+    return claimConversation(gate, async () => {
+      const started = await api<{ id: string }>("/api/v1/conversations", {
+        method: "POST",
+        body: {
+          language_code: languageCode,
+          topic,
+          opening,
+          study_session_id: studySessionId ?? undefined,
+        },
+      });
+      if (gateRef.current !== gate) throw new Error("conversa substituída");
+      if (!started.id) throw new Error("conversa sem identificador");
+      conversationIdRef.current = started.id;
+      setConversationId(started.id);
+      return started.id;
+    });
+  }, [languageCode, topic, opening, studySessionId]);
+
   useEffect(() => {
     let cancelled = false;
+    gateRef.current = { id: null, pending: null };
     conversationIdRef.current = null;
     setConversationId(null);
-    (async () => {
-      try {
-        const started = await api<{ id: string }>("/api/v1/conversations", {
-          method: "POST",
-          body: {
-            language_code: languageCode,
-            topic,
-            opening,
-            study_session_id: studySessionId ?? undefined,
-          },
-        });
-        if (cancelled || !started.id) return;
-        conversationIdRef.current = started.id;
-        setConversationId(started.id);
-      } catch (err) {
+    setMessages(opening ? [{ role: "tutor", text: opening, translation: openingTranslation }] : []);
+    void openConversation()
+      .then(() => {
+        if (cancelled) return;
+      })
+      .catch((err: unknown) => {
         if (cancelled) return;
         conversationIdRef.current = null;
         setConversationId(null);
@@ -621,12 +635,11 @@ export function Chat({
             ? err.message
             : "Não foi possível abrir a conversa. Você pode tentar enviar a resposta de novo.",
         );
-      }
-    })();
+      });
     return () => {
       cancelled = true;
     };
-  }, [languageCode, topic, opening, studySessionId]);
+  }, [languageCode, topic, opening, openingTranslation, studySessionId, openConversation]);
 
   async function endConversation() {
     const id = conversationIdRef.current;
@@ -659,25 +672,12 @@ export function Chat({
     setThinking(true);
     setMessages((current) => [...current, { role: "user", text: userText }]);
     try {
-      if (!conversationIdRef.current) {
-        const started = await api<{ id: string }>("/api/v1/conversations", {
-          method: "POST",
-          body: {
-            language_code: languageCode,
-            topic,
-            opening,
-            study_session_id: studySessionId ?? undefined,
-          },
-        });
-        if (started.id) {
-          conversationIdRef.current = started.id;
-          setConversationId(started.id);
-        }
-      }
+      const conversationIdForTurn = await openConversation();
       const result = await api<TurnResponse>(
-        `/api/v1/conversations/${conversationIdRef.current}/messages`,
+        `/api/v1/conversations/${conversationIdForTurn}/messages`,
         { method: "POST", body: { text: userText } },
       );
+      if (!turnStillCurrent(conversationIdForTurn, conversationIdRef.current)) return;
 
       // Só mock explícito vira aviso de demo — falha de IA em produção vem como erro 503.
       setDemoMode(result.provider === "mock");
@@ -751,11 +751,11 @@ export function Chat({
             >
               <span lang={message.role === "tutor" ? languageCode : undefined}>{message.text}</span>
             </div>
-            {message.translation && (
-              <p lang={nativeLanguage || undefined} className="mt-1.5 pl-1 text-sm italic text-text-secondary">
+            {message.translation && nativeLanguage ? (
+              <p lang={nativeLanguage} className="mt-1.5 pl-1 text-sm italic text-text-secondary">
                 {message.translation}
               </p>
-            )}
+            ) : null}
             {message.corrections?.map((correction, position) => (
               <div
                 key={position}

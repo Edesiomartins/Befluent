@@ -26,8 +26,8 @@ function clean(value: string | null | undefined): string | null {
  *
  * `native` é o apoio na língua nativa, sem idioma fixo no nome do campo.
  * `legacyPortuguese` (`translation_pt`, `prompt_pt`, …) só entra quando a
- * língua nativa é portuguesa ou ainda não foi declarada. Com outra língua
- * nativa, esse texto seria uma terceira língua.
+ * língua nativa declarada é portuguesa. Sem língua nativa, o português
+ * legado não é inferido.
  */
 export function supportText(input: {
   nativeLanguage?: string | null;
@@ -38,7 +38,7 @@ export function supportText(input: {
   if (native) return native;
   const legacy = clean(input.legacyPortuguese);
   if (!legacy) return null;
-  if (input.nativeLanguage == null || input.nativeLanguage.trim() === "") return legacy;
+  if (!input.nativeLanguage || input.nativeLanguage.trim() === "") return null;
   if (isPortugueseNative(input.nativeLanguage)) return legacy;
   return null;
 }

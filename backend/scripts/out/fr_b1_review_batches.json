@@ -14,37 +14,37 @@
   "skills": [
     {
       "skill": "vocabulary",
-      "objective_id": "b1be7eaa-b7a7-4fff-94ac-e7643455b477",
+      "objective_id": "47d0860f-acbc-45e1-b65d-39231dde8a65",
       "drafts": 2
     },
     {
       "skill": "listening",
-      "objective_id": "68de9882-0c7f-4093-b536-4dda5d88880f",
+      "objective_id": "b10ca7eb-ebf1-4e24-b92d-9e15761d74c8",
       "drafts": 2
     },
     {
       "skill": "reading",
-      "objective_id": "23e6cc9f-0d1b-4cbf-afd3-e8a84faf88e9",
+      "objective_id": "96a6c9e3-8ad1-41ba-b762-f300f4f1c886",
       "drafts": 1
     },
     {
       "skill": "grammar",
-      "objective_id": "c27a43c4-f431-428f-b916-9f444551582e",
+      "objective_id": "0be56ea4-7a2a-44da-9b4e-46e573e942a6",
       "drafts": 2
     },
     {
       "skill": "production",
-      "objective_id": "e57e2ec4-a416-4f16-aaae-8562daeb507b",
+      "objective_id": "7f310571-a61f-4065-bfef-7d753bd6beac",
       "drafts": 1
     },
     {
       "skill": "speaking",
-      "objective_id": "fe9b5693-7a74-4e8a-98ea-e83dc47759e7",
+      "objective_id": "a1599894-0d97-4c11-9595-e6a2a863372b",
       "drafts": 1
     },
     {
       "skill": "conversation",
-      "objective_id": "5435ca3e-98bd-4d7e-9836-445968d0eb10",
+      "objective_id": "5b591c5b-b886-4e6e-ba7a-61e0e536691b",
       "drafts": 1
     }
   ],
@@ -70,7 +70,7 @@
       "prompt_native": "Veja como marcar contraste.",
       "example_sentence": "L'idée est simple, pourtant elle change la discussion.",
       "example_translation_pt": "A ideia é simples, contudo ela muda a discussão.",
-      "learning_objective_id": "b1be7eaa-b7a7-4fff-94ac-e7643455b477",
+      "learning_objective_id": "47d0860f-acbc-45e1-b65d-39231dde8a65",
       "content_unit_id": "unit-vocabulary",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -108,7 +108,7 @@
           "hint_pt": "na minha opinião"
         }
       ],
-      "learning_objective_id": "b1be7eaa-b7a7-4fff-94ac-e7643455b477",
+      "learning_objective_id": "47d0860f-acbc-45e1-b65d-39231dde8a65",
       "content_unit_id": "unit-vocabulary",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -140,7 +140,7 @@
         "Le quai est fermé."
       ],
       "canonical_answer": "Le train part à huit heures.",
-      "learning_objective_id": "68de9882-0c7f-4093-b536-4dda5d88880f",
+      "learning_objective_id": "b10ca7eb-ebf1-4e24-b92d-9e15761d74c8",
       "content_unit_id": "unit-listening",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -176,7 +176,7 @@
       ],
       "compare": "normalized_text",
       "response_mode": "typing",
-      "learning_objective_id": "68de9882-0c7f-4093-b536-4dda5d88880f",
+      "learning_objective_id": "b10ca7eb-ebf1-4e24-b92d-9e15761d74c8",
       "content_unit_id": "unit-listening",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -206,7 +206,7 @@
         "Elle se présente."
       ],
       "canonical_answer": "Elle donne un avis et une réserve.",
-      "learning_objective_id": "23e6cc9f-0d1b-4cbf-afd3-e8a84faf88e9",
+      "learning_objective_id": "96a6c9e3-8ad1-41ba-b762-f300f4f1c886",
       "content_unit_id": "unit-reading",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -237,7 +237,7 @@
       "accepted_variants": [
         "utile"
       ],
-      "learning_objective_id": "c27a43c4-f431-428f-b916-9f444551582e",
+      "learning_objective_id": "0be56ea4-7a2a-44da-9b4e-46e573e942a6",
       "content_unit_id": "unit-grammar",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -266,7 +266,7 @@
       "accepted_variants": [
         "Je préfère le train."
       ],
-      "learning_objective_id": "e57e2ec4-a416-4f16-aaae-8562daeb507b",
+      "learning_objective_id": "7f310571-a61f-4065-bfef-7d753bd6beac",
       "content_unit_id": "unit-production",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -301,7 +301,7 @@
         "typing",
         "speech"
       ],
-      "learning_objective_id": "fe9b5693-7a74-4e8a-98ea-e83dc47759e7",
+      "learning_objective_id": "a1599894-0d97-4c11-9595-e6a2a863372b",
       "content_unit_id": "unit-speaking",
       "provenance": {
         "source": "curated_fr_b1_slice"
@@ -330,7 +330,7 @@
         "Où se trouve le bon quai ?",
         "Où est le bon quai ?"
       ],
-      "learning_objective_id": "5435ca3e-98bd-4d7e-9836-445968d0eb10",
+      "learning_objective_id": "5b591c5b-b886-4e6e-ba7a-61e0e536691b",
       "content_unit_id": "unit-conversation",
       "provenance": {
         "source": "curated_fr_b1_slice"

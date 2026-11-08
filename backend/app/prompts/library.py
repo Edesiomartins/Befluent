@@ -184,10 +184,11 @@ CONVERSATION = PromptTemplate(
         "dificuldade conforme ele melhora."
     ),
     task=(
-        "Inicie um diálogo na situação escolhida. Fale no idioma-alvo, com "
-        "tradução entre parênteses quando o nível do aluno exigir. Ofereça "
-        "sugestões de resposta que ele consiga produzir no nível atual e liste as "
-        "expressões-alvo da situação."
+        "Inicie um diálogo na situação escolhida. A fala principal fica só no "
+        "idioma-alvo, no campo `reply`. Quando o nível exigir tradução, ela vai "
+        "apenas em `reply_translation`, nunca entre parênteses dentro da fala. "
+        "Ofereça sugestões de resposta que o aluno consiga produzir no nível "
+        "atual e liste as expressões-alvo da situação."
     ),
     rule=(
         "Nunca deixe um erro passar sem apontar. Mas corrija de um jeito que "

@@ -7,7 +7,7 @@ import logging
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.helpers import ensure_language_access, user_language
@@ -106,12 +106,26 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     )
     db.add(item)
     db.flush()
+    opening_rejected = False
     if data.opening:
-        db.add(
-            ConversationMessage(
-                conversation_id=item.id, role="assistant", content_text=data.opening, source=f"native:{user.native_language or 'unset'}"
-            )
+        from app.services.language_roles import apply_language_roles
+
+        opening_payload = {"opening": data.opening}
+        opening_findings = apply_language_roles(
+            opening_payload,
+            target_language=data.language_code,
+            native_language=user.native_language,
         )
+        opening_rejected = any(item.get("action") == "blocked" for item in opening_findings)
+        if not opening_rejected:
+            db.add(
+                ConversationMessage(
+                    conversation_id=item.id,
+                    role="assistant",
+                    content_text=data.opening,
+                    source=f"native:{user.native_language or 'unset'}",
+                )
+            )
     from app.services.language_progress import CONVERSATION_STARTED, record_product_event
 
     record_product_event(
@@ -152,6 +166,7 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
         "level": context.level_for_skill("speaking"),
         "level_source": context.level_source,
         "level_is_estimated": context.level_is_estimated,
+        "opening_rejected": opening_rejected,
         "selection_trace": selection_trace,
     }
 
@@ -208,17 +223,32 @@ def message(
         dedupe_key=f"{conversation.id}:context",
         payload={"context": keys[0] if keys else "general"},
     )
-    result = get_ai_provider().conversation_turn(data.text, context, history)
-    from app.services.language_roles import apply_language_roles
+    assistant_turns = db.scalar(
+        select(func.count())
+        .select_from(ConversationMessage)
+        .where(
+            ConversationMessage.conversation_id == conversation.id,
+            ConversationMessage.role == "assistant",
+        )
+    ) or 0
+    from app.services.language_roles import checked_conversation_turn
 
-    checked = dict(result)
-    language_roles = apply_language_roles(
-        checked,
-        target_language=result.get("target_language") or language.code,
-        native_language=result.get("native_language") or user.native_language,
+    result, language_roles = checked_conversation_turn(
+        get_ai_provider(),
+        data.text,
+        context,
+        history,
+        target_language=language.code,
+        native_language=user.native_language,
+        turn_index=int(assistant_turns),
     )
-    if language_roles:
-        result = checked
+    if result.get("language_role_status") == "blocked":
+        db.commit()
+        raise APIError(
+            422,
+            "assistant_language_rejected",
+            "A fala do tutor não estava no idioma da conversa e não foi gravada.",
+        )
 
     reply = ConversationMessage(
         conversation_id=conversation.id,

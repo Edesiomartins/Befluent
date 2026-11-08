@@ -15,6 +15,11 @@ vi.mock("next/navigation", () => ({
   notFound: vi.fn(),
 }));
 
+vi.mock("@/components/native-language-context", () => ({
+  useLearnerNativeLanguage: () => "pt-BR",
+  NativeLanguageProvider: (props: { children: unknown }) => props.children,
+}));
+
 vi.mock("@/lib/api", () => ({
   api: (...args: unknown[]) => apiMock(...args),
   // A classe vive dentro do factory: `vi.mock` é hoisted para o topo do arquivo

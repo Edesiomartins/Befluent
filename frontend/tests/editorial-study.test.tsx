@@ -1,10 +1,12 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import { NativeLanguageProvider } from "@/components/native-language-context";
 import { TeachingActivityBody } from "@/components/teaching-activity";
 
 describe("experiência editorial de estudo", () => {
   it("mantém o apoio opcional recolhido até o aluno pedir ajuda", () => {
     render(
+      <NativeLanguageProvider code="pt-BR">
       <TeachingActivityBody
         activity={{
           type: "open_response",
@@ -14,7 +16,8 @@ describe("experiência editorial de estudo", () => {
         }}
         response=""
         onResponse={vi.fn()}
-      />,
+      />
+      </NativeLanguageProvider>,
     );
 
     const disclosure = screen.getByText("Ver ajuda").closest("details");

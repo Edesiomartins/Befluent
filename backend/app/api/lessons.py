@@ -27,7 +27,12 @@ from app.models import (
 from app.prompts.library import MODE_SKILL, SUPPORTED_MODES
 from app.schemas import LessonGenerateIn, VocabularyCycleAnswerIn
 from app.services.ai import get_ai_provider
-from app.services.content_repository import fetch_approved_unit, record_lesson_usage, lesson_display_title
+from app.services.content_repository import (
+    fetch_approved_unit,
+    lesson_display_title,
+    practiced_content_unit_ids,
+    record_lesson_usage,
+)
 from app.services.learner_context import build_context, recommended_modes
 from app.services.lesson_attempts import (
     attempt_to_dict,
@@ -344,20 +349,49 @@ def generate(
 
     skill = MODE_SKILL.get(data.mode)
     curated_unit = None
+    curated_exhausted = False
     try:
         ul_preview = user_language(db, user.id, data.language_code)
     except APIError:
         ul_preview = None
     if ul_preview is not None and skill and context.native_language == "pt-BR":
+        already_practiced = practiced_content_unit_ids(db, ul_preview.id)
         curated_unit = fetch_approved_unit(
             db,
             language_id=ul_preview.language_id,
             level=context.level_for_skill(skill),
             skill=skill,
             mode=data.mode,
+            exclude_ids=already_practiced,
         )
+        if curated_unit is None and already_practiced:
+            still_available = fetch_approved_unit(
+                db,
+                language_id=ul_preview.language_id,
+                level=context.level_for_skill(skill),
+                skill=skill,
+                mode=data.mode,
+            )
+            curated_exhausted = still_available is not None
 
-    if curated_unit is not None:
+    if curated_exhausted:
+        payload = apply_lesson_envelope(
+            {
+                "title": "Sem atividade nova",
+                "objective": (
+                    "Você já praticou as atividades novas desta competência. "
+                    "Pode revisar o que já fez ou voltar mais tarde."
+                ),
+                "exhausted": True,
+            },
+            context=context,
+            mode=data.mode,
+            provider="curated_library",
+            content_origin="curated_library",
+            model=None,
+            thread_guaranteed=False,
+        )
+    elif curated_unit is not None:
         unit_payload = dict(curated_unit.payload_json or {})
         raw = {
             **unit_payload,
@@ -394,7 +428,7 @@ def generate(
             else None,
         )
 
-    if data.persist:
+    if data.persist and not payload.get("exhausted"):
         try:
             ul = user_language(db, user.id, data.language_code)
         except APIError:
@@ -437,7 +471,11 @@ def generate(
             payload = {**payload, "lesson_id": lesson.id, "study_session_id": session.id}
 
     from app.services.activity_pool import delivery_record, log_selection
-    reason = "curated_lesson" if curated_unit is not None else "lesson_generate"
+    reason = (
+        "curated_lesson" if curated_unit is not None
+        else "curated_pool_exhausted" if curated_exhausted
+        else "lesson_generate"
+    )
     delivered = delivery_record(
         {
             "activity_id": payload.get("lesson_id"),
@@ -466,7 +504,7 @@ def generate(
         "native_language": context.native_language,
         "cefr_level": payload.get("level"),
         "fallback_used": False,
-        "exhaustion": None,
+        "exhaustion": "curated_pool_exhausted" if curated_exhausted else None,
         "excluded_candidates": [],
     }
     if payload.get("language_role_findings"):

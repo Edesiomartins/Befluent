@@ -1,7 +1,8 @@
 """Contrato de papéis: alvo, apoio e feedback, sem descartar o texto."""
 
 from app.services.content_seed import _payload_for
-from app.services.language_roles import apply_language_roles
+from app.services.language_detection import target_field_status
+from app.services.language_roles import apply_language_roles, separate_embedded_translation
 from app.services.learner_context import LearnerContext
 from app.services.lesson_bank import BAND_INTERMEDIATE
 from app.services.lesson_envelope import apply_lesson_envelope
@@ -169,3 +170,146 @@ def test_vocabulary_cycle_return_records_feedback_without_changing_the_activity_
     roles = {(row["field"], row["role"], row["action"]) for row in findings}
     assert ("objective", "native", "repaired") in roles
     assert ("why_correct", "feedback", "review_required") in roles
+
+
+def test_embedded_translation_leaves_the_reply():
+    reply = separate_embedded_translation("Je vais à la gare. (Vou à estação.)", "Vou à estação.")
+    assert reply == "Je vais à la gare."
+
+
+def test_english_suggestion_is_visible_inside_the_list():
+    payload = {
+        "reply": "Je voudrais un billet pour Lyon, s'il vous plaît.",
+        "suggestions": [
+            "The student should buy a ticket and then ask for the platform number.",
+        ],
+    }
+    apply_language_roles(payload, target_language="fr", native_language="pt-BR")
+    assert payload["language_role_status"] == "blocked"
+    assert payload["language_role_findings"][0]["field"] == "suggestions[0]"
+
+
+def test_short_target_phrase_is_not_blocked():
+    payload = {"reply": "Bonjour"}
+    assert apply_language_roles(payload, target_language="fr", native_language="pt-BR") == []
+
+
+ENGLISH = "The student reads a short story about a long trip and then answers the questions."
+FRENCH = "Je voudrais un billet pour Lyon, s'il vous plaît, et ensuite le quai."
+FRENCH_SUPPORT = "L'élève lit une histoire courte sur un long voyage et répond ensuite aux questions posées."
+
+
+def test_english_support_is_refused_and_kept():
+    payload = {"reply": FRENCH, "reply_translation": ENGLISH}
+    apply_language_roles(payload, target_language="fr", native_language="pt-BR")
+    assert payload["language_role_status"] == "blocked"
+    assert payload["reply_translation"] == ENGLISH
+    assert payload["reply"] == FRENCH
+
+
+def test_french_support_is_allowed_when_native_is_french():
+    payload = {"reply": ENGLISH, "reply_translation": FRENCH_SUPPORT}
+    assert apply_language_roles(payload, target_language="en", native_language="fr") == []
+
+
+def test_missing_native_does_not_promote_portuguese():
+    payload = {
+        "prompt": FRENCH,
+        "prompt_pt": "Escolha a frase que expressa a opinião do aluno.",
+    }
+    apply_language_roles(payload, target_language="fr", native_language=None)
+    assert "prompt_native" not in payload
+
+
+def test_student_quote_in_another_language_does_not_block_the_reply():
+    payload = {
+        "reply": FRENCH,
+        "corrections": [{
+            "original": ENGLISH,
+            "corrected": "Je voudrais un billet.",
+            "explanation": "O verbo pedido aqui é o condicional de polidez.",
+        }],
+    }
+    assert apply_language_roles(payload, target_language="fr", native_language="pt-BR") == []
+    assert payload["corrections"][0]["original"] == ENGLISH
+
+
+def test_invalid_reply_is_retried_once_and_then_stopped():
+    from app.services.language_roles import checked_conversation_turn
+
+    class Once:
+        def __init__(self):
+            self.calls = 0
+
+        def conversation_turn(self, *_args, **_kwargs):
+            self.calls += 1
+            if self.calls == 1:
+                return {"reply": ENGLISH}
+            return {"reply": FRENCH}
+
+    provider = Once()
+    result, _findings = checked_conversation_turn(
+        provider, "bonjour", None, [], target_language="fr", native_language="pt-BR", turn_index=0,
+    )
+    assert provider.calls == 2
+    assert result["reply"] == FRENCH
+
+    class Always:
+        def __init__(self):
+            self.calls = 0
+
+        def conversation_turn(self, *_args, **_kwargs):
+            self.calls += 1
+            return {"reply": ENGLISH}
+
+    stuck = Always()
+    rejected, _findings = checked_conversation_turn(
+        stuck, "bonjour", None, [], target_language="fr", native_language="pt-BR", turn_index=0,
+    )
+    assert stuck.calls == 2
+    assert rejected["language_role_status"] == "blocked"
+
+
+def test_tutor_accepts_native_explanation_and_refuses_a_third_language():
+    from app.services.language_roles import checked_tutor_turn
+
+    class Native:
+        def tutor_chat_turn(self, *_args, **_kwargs):
+            return {"reply": "O condicional de polidez em francês usa je voudrais diante de um pedido."}
+
+    accepted, rejected = checked_tutor_turn(
+        Native(), "como peço?", None, [], target_language="fr", native_language="pt-BR",
+    )
+    assert rejected is False
+    assert accepted["reply"].startswith("O condicional")
+
+    class English:
+        def __init__(self):
+            self.calls = 0
+
+        def tutor_chat_turn(self, *_args, **_kwargs):
+            self.calls += 1
+            return {"reply": ENGLISH}
+
+    provider = English()
+    _result, rejected = checked_tutor_turn(
+        provider, "como peço?", None, [], target_language="fr", native_language="pt-BR",
+    )
+    assert rejected is True
+    assert provider.calls == 2
+
+
+def test_short_latin_and_isolated_term_are_not_blocked():
+    assert apply_language_roles(
+        {"reply": "Ave Maria"}, target_language="la", native_language="pt-BR",
+    ) == []
+    assert apply_language_roles(
+        {"term": "駅"}, target_language="ja", native_language="pt-BR",
+    ) == []
+
+
+def test_japanese_sentence_without_spaces_is_measured():
+    sentence = "今日は天気がいいので公園を散歩します"
+    assert target_field_status({"prompt_target": sentence}, "ja") is None
+    english = "The student reads a short story about a long trip and then answers the questions."
+    assert target_field_status({"prompt_target": english}, "ja") == "language_invalid"
