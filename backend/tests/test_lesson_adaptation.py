@@ -529,6 +529,113 @@ def test_conversation_rejects_empty_message(client, auth, db_session):
     assert response.status_code == 422
 
 
+def test_conversation_start_resumes_active_for_same_session_and_topic(client, auth, db_session):
+    _profile(db_session, CEFRLevel.A2)
+    generated = client.post(
+        "/api/v1/lessons/generate",
+        json={"language_code": "en", "mode": "conversation"},
+        headers=auth,
+    )
+    assert generated.status_code == 200
+    session_id = generated.json()["study_session_id"]
+
+    first = client.post(
+        "/api/v1/conversations",
+        json={
+            "language_code": "en",
+            "topic": "Restaurante",
+            "study_session_id": session_id,
+            "opening": "Hello!",
+        },
+        headers=auth,
+    )
+    assert first.status_code == 200
+
+    second = client.post(
+        "/api/v1/conversations",
+        json={
+            "language_code": "en",
+            "topic": "Restaurante",
+            "study_session_id": session_id,
+            "opening": "Hello!",
+        },
+        headers=auth,
+    )
+    assert second.status_code == 200
+    assert second.json()["id"] == first.json()["id"]
+
+    from app.models import Conversation
+
+    rows = db_session.scalars(select(Conversation).where(Conversation.study_session_id == session_id)).all()
+    assert len(rows) == 1
+
+
+def test_conversation_start_creates_new_when_topic_changes(client, auth, db_session):
+    _profile(db_session, CEFRLevel.A2)
+    generated = client.post(
+        "/api/v1/lessons/generate",
+        json={"language_code": "en", "mode": "conversation"},
+        headers=auth,
+    )
+    assert generated.status_code == 200
+    session_id = generated.json()["study_session_id"]
+
+    first = client.post(
+        "/api/v1/conversations",
+        json={"language_code": "en", "topic": "Restaurante", "study_session_id": session_id},
+        headers=auth,
+    )
+    second = client.post(
+        "/api/v1/conversations",
+        json={"language_code": "en", "topic": "Hotel", "study_session_id": session_id},
+        headers=auth,
+    )
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] != second.json()["id"]
+
+
+def test_conversation_resume_keeps_opening_rejected_flag(client, auth, db_session):
+    user = db_session.scalar(select(User).where(User.email == "admin@befluent.local"))
+    language = db_session.scalar(select(Language).where(Language.code == "fr"))
+    db_session.add(
+        UserLanguage(
+            user_id=user.id,
+            language_id=language.id,
+            current_level=CEFRLevel.A2,
+            level_source=LevelSource.PLACEMENT_TEST,
+            assessment_summary_json={"global_estimate_status": "sufficient"},
+            is_active=True,
+            onboarding_completed=True,
+        )
+    )
+    db_session.commit()
+    generated = client.post(
+        "/api/v1/lessons/generate",
+        json={"language_code": "fr", "mode": "conversation"},
+        headers=auth,
+    )
+    session_id = generated.json()["study_session_id"]
+    opening = "Olá, hoje vamos revisar o vocabulário da padaria com bastante calma."
+
+    first = client.post(
+        "/api/v1/conversations",
+        json={"language_code": "fr", "topic": "Padaria", "study_session_id": session_id, "opening": opening},
+        headers=auth,
+    )
+    second = client.post(
+        "/api/v1/conversations",
+        json={"language_code": "fr", "topic": "Padaria", "study_session_id": session_id, "opening": opening},
+        headers=auth,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["id"] == second.json()["id"]
+    assert first.json()["opening_rejected"] is True
+    assert second.json()["opening_rejected"] is True
+
+
 def test_conversation_lesson_opening_follows_translation_rule():
     """A abertura segue a mesma regra dos turnos: sem tradução a partir de B1."""
     provider = MockAIProvider()
