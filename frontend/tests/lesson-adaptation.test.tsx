@@ -858,7 +858,8 @@ describe("Conversação calibrada pelo nível", () => {
       "/api/v1/conversations": new Error("fora do ar"),
     });
     render(<StudyModePage />);
-    await screen.findByText("Good morning! How are you?");
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não foi possível abrir a conversa/i);
+    expect(screen.queryByText("Good morning! How are you?")).not.toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("Escreva sua resposta…"), {
       target: { value: "hello" },
     });
@@ -867,6 +868,7 @@ describe("Conversação calibrada pelo nível", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Não foi possível obter resposta do tutor.",
     );
+    expect(screen.queryByText("Good morning! How are you?")).not.toBeInTheDocument();
   });
 });
 

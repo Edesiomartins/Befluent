@@ -559,6 +559,11 @@ type TurnResponse = {
   level?: string;
 };
 
+type StartedConversation = {
+  id: string;
+  opening_rejected?: boolean;
+};
+
 export function Chat({
   languageCode = "en",
   situation,
@@ -573,11 +578,7 @@ export function Chat({
   studySessionId?: string;
 }) {
   const nativeLanguage = useLearnerNativeLanguage();
-  const [messages, setMessages] = useState<Message[]>(() =>
-    opening
-      ? [{ role: "tutor", text: opening, translation: openingTranslation }]
-      : [],
-  );
+  const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -596,6 +597,12 @@ export function Chat({
   const topic = situation ?? "Conversa livre";
   const conversationKey = `${languageCode}\0${topic}\0${opening ?? ""}\0${studySessionId ?? ""}`;
   const gateKeyRef = useRef(conversationKey);
+  const [shownKey, setShownKey] = useState(conversationKey);
+  if (shownKey !== conversationKey) {
+    setShownKey(conversationKey);
+    setMessages([]);
+    setConversationId(null);
+  }
   // Troca de modo, idioma, abertura ou sessão cria outro portão na renderização.
   // O efeito não pode fazer isso: no StrictMode ele roda de novo na mesma montagem
   // e um portão novo faria claimConversation abrir uma segunda conversa.
@@ -608,7 +615,7 @@ export function Chat({
   const openConversation = useCallback(() => {
     const gate = gateRef.current;
     return claimConversation(gate, async () => {
-      const started = await api<{ id: string }>("/api/v1/conversations", {
+      const started = await api<StartedConversation>("/api/v1/conversations", {
         method: "POST",
         body: {
           language_code: languageCode,
@@ -619,6 +626,7 @@ export function Chat({
       });
       if (gateRef.current !== gate) throw new Error("conversa substituída");
       if (!started.id) throw new Error("conversa sem identificador");
+      gate.openingRejected = started.opening_rejected === true;
       conversationIdRef.current = started.id;
       setConversationId(started.id);
       return started.id;
@@ -632,10 +640,26 @@ export function Chat({
       conversationIdRef.current = null;
       setConversationId(null);
     }
-    setMessages(opening ? [{ role: "tutor", text: opening, translation: openingTranslation }] : []);
     void openConversation()
       .then(() => {
         if (cancelled) return;
+        const acceptedOpening: Message | null =
+          opening && !gate.openingRejected
+            ? { role: "tutor", text: opening, translation: openingTranslation }
+            : null;
+        setMessages((current) => {
+          const withoutRejected = current.filter(
+            (message) => !(message.role === "tutor" && message.text === opening),
+          );
+          if (!acceptedOpening) return withoutRejected;
+          const [first, ...rest] = withoutRejected;
+          if (first?.role === "tutor" && first.text === acceptedOpening.text) {
+            return first.translation === acceptedOpening.translation
+              ? withoutRejected
+              : [acceptedOpening, ...rest];
+          }
+          return [acceptedOpening, ...withoutRejected];
+        });
       })
       .catch((err: unknown) => {
         if (cancelled) return;
