@@ -41,8 +41,13 @@ def test_dry_run_flags_a_stored_mixed_objective_without_writing(db_session):
     assert {"en", "fr", "es-ES", "it", "de", "ja", "zh-CN", "la"} <= languages
     assert all(row["vocabulary"] > 0 for row in report["static_inventory"])
     mixed = report["historical_lessons"]["mixed"]
+    assert report["historical_lessons"]["mixed_by_language"]["fr"] >= 1
+    assert report["historical_lessons"]["examples"]
+    assert report["historical_lessons"]["proposed_repair"]["mode"] == "diagnostic_only"
+    assert report["historical_lessons"]["proposed_repair"]["counts_by_language"]["fr"] >= 1
     assert any(item["lesson_id"] == lesson_id and item["reason"] == "mixed_target_span" for item in mixed)
     assert all("opinion" not in item["reason"] for item in mixed)
+    assert all(item["proposal"]["strategy"] in {"split_mixed_target_span", "manual_review_required"} for item in mixed)
     db_session.expire_all()
     stored = db_session.get(Lesson, lesson_id)
     assert stored.objective == MIXED

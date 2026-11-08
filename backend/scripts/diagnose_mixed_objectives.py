@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,13 @@ def static_inventory() -> list[dict]:
     return rows
 
 
+def _snippet(text: object, *, limit: int = 120) -> str:
+    raw = str(text or "").replace("\n", " ").strip()
+    if len(raw) <= limit:
+        return raw
+    return raw[: limit - 1].rstrip() + "…"
+
+
 def _mixed_objective(text: object, target_language: str | None, native_language: str | None) -> dict | None:
     if not isinstance(text, str) or len(text.split()) < 4:
         return None
@@ -59,7 +67,7 @@ def _mixed_objective(text: object, target_language: str | None, native_language:
         target_language=target_language,
         native_language=native_language,
     )
-    return next(
+    finding = next(
         (
             item
             for item in findings
@@ -67,6 +75,20 @@ def _mixed_objective(text: object, target_language: str | None, native_language:
         ),
         None,
     )
+    if finding is None:
+        return None
+    return {
+        "finding": finding,
+        "proposal": {
+            "objective_native": payload.get("objective"),
+            "objective_target": payload.get("objective_target"),
+            "strategy": (
+                "split_mixed_target_span"
+                if isinstance(payload.get("objective_target"), str) and payload.get("objective_target")
+                else "manual_review_required"
+            ),
+        },
+    }
 
 
 def _json_object(value: object) -> dict:
@@ -104,6 +126,10 @@ def scan_lessons(conn: Connection) -> dict:
         .order_by(lessons.c.id)
     ).mappings()
     mixed = []
+    per_language: Counter[str] = Counter()
+    per_field: Counter[str] = Counter()
+    per_status: Counter[str] = Counter()
+    examples = []
     checked = 0
     for row in rows:
         checked += 1
@@ -112,22 +138,60 @@ def scan_lessons(conn: Connection) -> dict:
         if isinstance(content.get("objective"), str):
             fields["content_json.objective"] = content["objective"]
         for field, text in fields.items():
-            finding = _mixed_objective(text, row["target_language"], row["native_language"])
-            if finding is None:
+            result = _mixed_objective(text, row["target_language"], row["native_language"])
+            if result is None:
                 continue
-            mixed.append(
-                {
-                    "lesson_id": row["id"],
-                    "status": row["status"],
-                    "field": field,
-                    "target_language": row["target_language"],
-                    "native_language": row["native_language"],
-                    "action": finding.get("action"),
-                    "reason": finding.get("reason"),
-                    "detected_language": finding.get("detected_language"),
-                }
-            )
-    return {"checked": checked, "mixed_count": len(mixed), "mixed": mixed}
+            finding = result["finding"]
+            proposal = result["proposal"]
+            record = {
+                "lesson_id": row["id"],
+                "status": row["status"],
+                "field": field,
+                "target_language": row["target_language"],
+                "native_language": row["native_language"],
+                "action": finding.get("action"),
+                "reason": finding.get("reason"),
+                "detected_language": finding.get("detected_language"),
+                "proposal": proposal,
+            }
+            mixed.append(record)
+            lang = row["target_language"] or "unknown"
+            per_language[lang] += 1
+            per_field[field] += 1
+            per_status[str(row["status"])] += 1
+            if len(examples) < 12:
+                examples.append(
+                    {
+                        "lesson_id": row["id"],
+                        "language": lang,
+                        "status": row["status"],
+                        "field": field,
+                        "objective_preview": _snippet(text),
+                        "proposed_native_preview": _snippet(proposal.get("objective_native")),
+                        "proposed_target_preview": _snippet(proposal.get("objective_target")),
+                    }
+                )
+    return {
+        "checked": checked,
+        "mixed_count": len(mixed),
+        "mixed_by_language": dict(sorted(per_language.items())),
+        "mixed_by_field": dict(sorted(per_field.items())),
+        "mixed_by_status": dict(sorted(per_status.items())),
+        "examples": examples,
+        "proposed_repair": {
+            "mode": "diagnostic_only",
+            "writes": 0,
+            "sql_or_script_run": False,
+            "steps": [
+                "Filtrar lessons ativas por language/status usando mixed_by_language.",
+                "Em cada linha, separar objective em objective_native e objective_target com strategy split_mixed_target_span.",
+                "Revisar manualmente casos sem objective_target antes de qualquer update.",
+                "Executar correção em transação com rollback ensaiado e auditoria por lesson_id.",
+            ],
+            "counts_by_language": dict(sorted(per_language.items())),
+        },
+        "mixed": mixed,
+    }
 
 
 def scan_content_units(conn: Connection) -> list[dict]:
