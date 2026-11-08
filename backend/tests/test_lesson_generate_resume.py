@@ -7,7 +7,9 @@ gravada em LessonContentUsage permanece fora da próxima seleção. O que muda
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+import threading
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
@@ -166,3 +168,52 @@ def test_concurrent_generate_creates_one_practice(client, auth, db_session):
         select(func.count()).select_from(Lesson).where(Lesson.user_language_id == profile.id)
     )
     assert count == 1
+
+
+def test_generate_returns_409_when_lock_is_busy(client, auth, db_session, monkeypatch):
+    _profile(db_session, "en")
+    _guided_units(db_session)
+    busy = threading.Lock()
+    busy.acquire()
+
+    monkeypatch.setattr("app.api.lessons._PRACTICE_LOCK_TIMEOUT_SECONDS", 0.01)
+    monkeypatch.setattr("app.api.lessons._thread_lock", lambda *_args, **_kwargs: busy)
+
+    response = client.post(
+        "/api/v1/lessons/generate",
+        json={"language_code": "en", "mode": "guided"},
+        headers=auth,
+    )
+    assert response.status_code == 409
+    assert response.json()["error"]["code"] == "practice_generation_in_progress"
+
+
+def test_generate_releases_lock_when_generation_raises(client, auth, db_session, monkeypatch):
+    _profile(db_session, "en")
+    _guided_units(db_session)
+
+    from app.api import lessons as lessons_api
+
+    calls = {"count": 0}
+    original = lessons_api._generate_unlocked
+
+    def fail_once(*args, **kwargs):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise RuntimeError("boom")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(lessons_api, "_generate_unlocked", fail_once)
+    with pytest.raises(RuntimeError, match="boom"):
+        client.post(
+            "/api/v1/lessons/generate",
+            json={"language_code": "en", "mode": "guided"},
+            headers=auth,
+        )
+
+    second = client.post(
+        "/api/v1/lessons/generate",
+        json={"language_code": "en", "mode": "guided"},
+        headers=auth,
+    )
+    assert second.status_code == 200

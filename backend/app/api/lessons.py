@@ -59,6 +59,7 @@ class SessionActionIn(BaseModel):
 
 _PRACTICE_LOCKS: dict[str, threading.Lock] = {}
 _PRACTICE_LOCKS_GUARD = threading.Lock()
+_PRACTICE_LOCK_TIMEOUT_SECONDS = 5.0
 
 
 def _thread_lock(user_id: str, language_code: str, mode: str) -> threading.Lock:
@@ -416,9 +417,16 @@ def generate(
     cruzarem na conexão. FOR UPDATE cobre outro processo no PostgreSQL.
     """
     practice_lock = None
+    lock_acquired = False
     if data.persist:
         practice_lock = _thread_lock(user.id, data.language_code, data.mode)
-        practice_lock.acquire()
+        lock_acquired = practice_lock.acquire(timeout=_PRACTICE_LOCK_TIMEOUT_SECONDS)
+        if not lock_acquired:
+            raise APIError(
+                409,
+                "practice_generation_in_progress",
+                "Já existe uma geração desta prática em andamento. Tente novamente em alguns segundos.",
+            )
     try:
         try:
             context = build_context(db, user, data.language_code)
@@ -435,8 +443,12 @@ def generate(
                 if existing is not None:
                     return _resume_practice(existing, context, data.mode)
         return _generate_unlocked(data, db, user, context)
+    except Exception:
+        # Libera lock de linha em PostgreSQL e remove estado parcial da sessão.
+        db.rollback()
+        raise
     finally:
-        if practice_lock is not None:
+        if practice_lock is not None and lock_acquired:
             practice_lock.release()
 
 
