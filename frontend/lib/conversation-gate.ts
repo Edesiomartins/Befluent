@@ -1,6 +1,8 @@
 export type StartGate = {
   id: string | null;
   pending: Promise<string> | null;
+  /** Definido pela resposta de abertura. Ausente até o servidor responder. */
+  openingRejected?: boolean;
 };
 
 export function claimConversation(

@@ -3,6 +3,7 @@
 from __future__ import annotations
 from app.services.assessment_level import verified_current_level
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends
@@ -54,6 +55,74 @@ class Create(BaseModel):
 
 class SessionActionIn(BaseModel):
     summary: str | None = Field(default=None, max_length=500)
+
+
+_PRACTICE_LOCKS: dict[str, threading.Lock] = {}
+_PRACTICE_LOCKS_GUARD = threading.Lock()
+_PRACTICE_LOCK_TIMEOUT_SECONDS = 5.0
+
+
+def _thread_lock(user_id: str, language_code: str, mode: str) -> threading.Lock:
+    key = f"{user_id}:{language_code}:{mode}"
+    with _PRACTICE_LOCKS_GUARD:
+        lock = _PRACTICE_LOCKS.get(key)
+        if lock is None:
+            lock = threading.Lock()
+            _PRACTICE_LOCKS[key] = lock
+        return lock
+
+
+def _lock_profile(db: Session, user_language_id: str) -> None:
+    db.rollback()
+    db.scalar(
+        select(UserLanguage)
+        .where(UserLanguage.id == user_language_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def _active_practice(db: Session, user_language_id: str, mode: str) -> Lesson | None:
+    return db.scalar(
+        select(Lesson)
+        .join(LessonActivity, LessonActivity.lesson_id == Lesson.id)
+        .where(
+            Lesson.user_language_id == user_language_id,
+            Lesson.status == "active",
+            LessonActivity.position == 1,
+            LessonActivity.activity_type == mode,
+        )
+        .order_by(Lesson.created_at.desc(), Lesson.id.desc())
+    )
+
+
+def _resume_practice(lesson: Lesson, context, mode: str) -> dict:
+    """Devolve a prática já entregue, sem nova unidade e sem nova chamada de modelo."""
+    payload = dict(lesson.content_json or {})
+    payload["lesson_id"] = lesson.id
+    payload["study_session_id"] = lesson.study_session_id
+    payload["resumed"] = True
+    from app.services.activity_pool import log_selection
+
+    selection_trace = {
+        "kind": "lesson_generate",
+        "reason": "resumed_active_practice",
+        "resumed": True,
+        "delivered": None,
+        "chosen_activity": lesson.id,
+        "session_id": lesson.study_session_id,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "cefr_level": payload.get("level"),
+        "mode": mode,
+        "fallback_used": False,
+        "exhaustion": None,
+        "excluded_candidates": [],
+    }
+    if payload.get("language_role_findings"):
+        selection_trace["language_roles"] = payload["language_role_findings"]
+    log_selection(selection_trace)
+    return {**payload, "selection_trace": selection_trace}
 
 
 class ObjectiveAnswerIn(BaseModel):
@@ -341,12 +410,49 @@ def generate(
     db: Session = Depends(get_db),
     user: User = Depends(current_user),
 ):
-    """Gera uma lição calibrada pelo nível do aluno naquela competência."""
-    try:
-        context = build_context(db, user, data.language_code)
-    except LookupError:
-        raise APIError(404, "language_not_found", "Idioma não encontrado.")
+    """Gera uma lição calibrada pelo nível do aluno naquela competência.
 
+    Com persistência, uma prática active do mesmo modo é retomada. O lock do
+    processo é pego antes de qualquer leitura, para dois pedidos não se
+    cruzarem na conexão. FOR UPDATE cobre outro processo no PostgreSQL.
+    """
+    practice_lock = None
+    lock_acquired = False
+    if data.persist:
+        practice_lock = _thread_lock(user.id, data.language_code, data.mode)
+        lock_acquired = practice_lock.acquire(timeout=_PRACTICE_LOCK_TIMEOUT_SECONDS)
+        if not lock_acquired:
+            raise APIError(
+                409,
+                "practice_generation_in_progress",
+                "Já existe uma geração desta prática em andamento. Tente novamente em alguns segundos.",
+            )
+    try:
+        try:
+            context = build_context(db, user, data.language_code)
+        except LookupError:
+            raise APIError(404, "language_not_found", "Idioma não encontrado.")
+        if data.persist:
+            try:
+                profile = user_language(db, user.id, data.language_code)
+            except APIError:
+                profile = None
+            if profile is not None:
+                _lock_profile(db, profile.id)
+                existing = _active_practice(db, profile.id, data.mode)
+                if existing is not None:
+                    return _resume_practice(existing, context, data.mode)
+        return _generate_unlocked(data, db, user, context)
+    except Exception:
+        # Libera lock de linha em PostgreSQL e remove estado parcial da sessão.
+        db.rollback()
+        raise
+    finally:
+        if practice_lock is not None and lock_acquired:
+            practice_lock.release()
+
+
+def _generate_unlocked(data, db, user, context):
     skill = MODE_SKILL.get(data.mode)
     curated_unit = None
     curated_exhausted = False
