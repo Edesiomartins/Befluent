@@ -144,7 +144,13 @@ def record_lesson_usage(
 
 
 def practiced_content_unit_ids(db: Session, user_language_id: str) -> set[str]:
-    """Unidades já entregues a este perfil, em qualquer lição."""
+    """Unidades já entregues a este perfil, em qualquer lição.
+
+    Entrega conta como praticada. Conclusão não entra neste critério: o uso
+    é gravado quando a lição é criada, e permanece se ela for concluída ou
+    abandonada. Uma lição ainda active não é motivo para sortear a próxima
+    unidade; POST /lessons/generate retoma essa prática.
+    """
     from app.models import Lesson
 
     rows = db.scalars(
