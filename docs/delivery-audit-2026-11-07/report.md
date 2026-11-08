@@ -100,3 +100,7 @@ Depois dessa separação, os arquivos de seleção, contrato, papéis, repositó
 Frontend, depois do ajuste final do chat: `npm test` **405 passed**, 53 arquivos, exit 0, 22,50 s. `npm run lint` exit 0, 0 erros, 5 warnings anteriores. `npm run typecheck` exit 0.
 
 Não houve navegador, Coolify nem Postgres de produção. O problema não está declarado como resolvido em produção.
+
+## Seguimento em 2026-11-08
+
+O fechamento dos itens que ficaram abertos está em `docs/stage-3-delivery-followups/report.md`, no branch de trabalho, com a suíte medida naquele dia. Esse relato não altera o que está publicado. `origin/main` e o Coolify continuam de fora desta nota.

@@ -30,7 +30,7 @@ Há dois detectores. O do texto-alvo usa os oito idiomas ensinados, com o limiar
 - `POST /lessons/generate` exclui unidades já entregues àquele perfil de idioma.
 - Outro aluno não herda essa exclusão.
 - Se ainda existe unidade aprovada, mas todas já foram praticadas, a resposta traz `exhausted: true` e `selection_trace.exhaustion = curated_pool_exhausted`. O gerador não fabrica outra lição com o mesmo material e essa resposta não grava lição nem sessão novas.
-- Retomada da mesma tela, no mesmo modo e idioma, não dispara outro `generate` enquanto o componente permanece montado. Recarregar a página ainda pede uma lição; isso continua pendente.
+- Retomada da mesma tela, no mesmo modo e idioma, não dispara outro `generate` enquanto o componente permanece montado. Recarregar a página pede de novo; se a prática daquele modo ainda está `active`, a resposta devolve essa lição e não grava outra. Unidade já entregue continua fora da seleção seguinte. Isto descreve o código local, não o Coolify.
 - Embaralhar alternativas não muda o fingerprint da questão. Retry legado continua olhando a mesma lição e não devolve item já revelado como avaliação inédita.
 - O roteiro simulado da conversa usa a contagem real de falas do tutor, não a janela de dez mensagens.
 - Revisão SRS e vocabulário em outra tarefa continuam nos caminhos que já existiam. O placement não foi reescrito.
