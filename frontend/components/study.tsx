@@ -593,8 +593,17 @@ export function Chat({
   const [conversationId, setConversationId] = useState<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const gateRef = useRef<StartGate>({ id: null, pending: null });
-
   const topic = situation ?? "Conversa livre";
+  const conversationKey = `${languageCode}\0${topic}\0${opening ?? ""}\0${studySessionId ?? ""}`;
+  const gateKeyRef = useRef(conversationKey);
+  // Troca de modo, idioma, abertura ou sessão cria outro portão na renderização.
+  // O efeito não pode fazer isso: no StrictMode ele roda de novo na mesma montagem
+  // e um portão novo faria claimConversation abrir uma segunda conversa.
+  if (gateKeyRef.current !== conversationKey) {
+    gateKeyRef.current = conversationKey;
+    gateRef.current = { id: null, pending: null };
+    conversationIdRef.current = null;
+  }
 
   const openConversation = useCallback(() => {
     const gate = gateRef.current;
@@ -618,9 +627,11 @@ export function Chat({
 
   useEffect(() => {
     let cancelled = false;
-    gateRef.current = { id: null, pending: null };
-    conversationIdRef.current = null;
-    setConversationId(null);
+    const gate = gateRef.current;
+    if (!gate.id && !gate.pending) {
+      conversationIdRef.current = null;
+      setConversationId(null);
+    }
     setMessages(opening ? [{ role: "tutor", text: opening, translation: openingTranslation }] : []);
     void openConversation()
       .then(() => {
