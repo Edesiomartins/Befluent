@@ -37,7 +37,8 @@ from app.services.learner_context import LearnerContext
 from app.services.vocabulary_selection import select_daily_vocabulary
 
 
-#: Abaixo deste nível, a tradução vai em `reply_translation`, nunca dentro da fala.
+#: Abaixo deste nível, o tutor acompanha cada fala com tradução — é a regra do
+#: prompt de conversação ("tradução entre parênteses quando o nível exigir").
 TRANSLATION_THRESHOLD = CEFRLevel.B1
 
 
@@ -47,7 +48,7 @@ class BaseAIProvider(ABC):
 
     @abstractmethod
     def conversation_turn(
-        self, text: str, context: LearnerContext, history: list[dict], turn_index: int | None = None
+        self, text: str, context: LearnerContext, history: list[dict]
     ) -> dict: ...
 
     @abstractmethod
@@ -191,7 +192,7 @@ class MockAIProvider(BaseAIProvider):
             "provider": "mock",
         }
 
-    def conversation_turn(self, text, context, history, turn_index: int | None = None):
+    def conversation_turn(self, text, context, history):
         """Avança um roteiro de prática no nível do aluno.
 
         Não devolve correções: analisar gramática exige o modelo. Fabricar uma
@@ -204,11 +205,8 @@ class MockAIProvider(BaseAIProvider):
         band = lesson_bank.band_for(level)
         items = lesson_bank.vocabulary(context.language_code, band)
 
-        # O índice vem da conversa inteira. A janela enviada ao modelo não é o cursor.
-        if turn_index is None:
-            turn = sum(1 for message in history if message.get("role") == "assistant")
-        else:
-            turn = turn_index
+        # Uma fala do tutor por turno já ocorrido, dando a volta ao fim do roteiro.
+        turn = sum(1 for message in history if message.get("role") == "assistant")
         from app.services.learning_interests import personalize_conversation_item
 
         item = personalize_conversation_item(
@@ -716,13 +714,11 @@ class OpenRouterProvider(BaseAIProvider):
             "model": model,
         }
 
-    def conversation_turn(self, text, context, history, turn_index: int | None = None):
+    def conversation_turn(self, text, context, history):
         """Um turno de conversa pelo prompt do documento (Parte II · 3)."""
         if not self.openrouter_ready:
             return self._unavailable_or_dev_mock(
-                lambda: MockAIProvider().conversation_turn(
-                    text, context, history, turn_index=turn_index,
-                )
+                lambda: MockAIProvider().conversation_turn(text, context, history)
             )
 
         level = context.level_for_skill(MODE_SKILL["conversation"])
@@ -758,9 +754,7 @@ class OpenRouterProvider(BaseAIProvider):
             )
         except OpenRouterUnavailableError:
             return self._unavailable_or_dev_mock(
-                lambda: MockAIProvider().conversation_turn(
-                    text, context, history, turn_index=turn_index,
-                )
+                lambda: MockAIProvider().conversation_turn(text, context, history)
             )
         return _conversation_envelope(context, payload, "openrouter", model)
 
