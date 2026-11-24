@@ -851,14 +851,15 @@ describe("Conversação calibrada pelo nível", () => {
     expect(screen.queryByText(/Modo demonstração/)).not.toBeInTheDocument();
   });
 
-  it("mostra erro sem inventar resposta do tutor", async () => {
+  it("mostra erro e preserva a abertura da lição sem inventar novo turno", async () => {
     routeApi({
       "/api/v1/language-profiles": profiles,
       "/api/v1/lessons/generate": conversationLesson,
       "/api/v1/conversations": new Error("fora do ar"),
     });
     render(<StudyModePage />);
-    await screen.findByText("Good morning! How are you?");
+    expect(await screen.findByRole("alert")).toHaveTextContent(/não foi possível abrir a conversa/i);
+    expect(screen.getByText("Good morning! How are you?")).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("Escreva sua resposta…"), {
       target: { value: "hello" },
     });
@@ -867,6 +868,7 @@ describe("Conversação calibrada pelo nível", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Não foi possível obter resposta do tutor.",
     );
+    expect(screen.getByText("Good morning! How are you?")).toBeInTheDocument();
   });
 });
 

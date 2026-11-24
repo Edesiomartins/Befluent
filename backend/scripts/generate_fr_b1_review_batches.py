@@ -49,6 +49,7 @@ def _memory_session():
 
 def _objective(db, language, skill: str, unit_id: str) -> LearningObjective:
     objective = LearningObjective(
+        id=f"fr-b1-{skill}",
         language_id=language.id,
         level="B1",
         code=f"FR-B1-{skill}"[:40],
@@ -97,7 +98,7 @@ def _drafts(skill: str, objective_id: str, unit_id: str) -> list[dict]:
     return drafts
 
 
-def main() -> dict:
+def build_report() -> dict:
     block = ai_block_reason()
     db = _memory_session()
     language = Language(
@@ -154,9 +155,15 @@ def main() -> dict:
         "accepted": accepted_items,
         "rejected_items": rejected,
     }
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
     db.close()
+    return report
+
+
+def main() -> dict:
+    """Grava o relatório. Os testes usam build_report e não passam por aqui."""
+    report = build_report()
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    OUT.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return report
 
 

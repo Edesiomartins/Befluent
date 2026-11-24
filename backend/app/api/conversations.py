@@ -86,12 +86,86 @@ def _ensure_conversation_active(conversation: Conversation) -> None:
         )
 
 
+def _active_same_context(
+    db: Session,
+    *,
+    user_language_id: str,
+    study_session_id: str,
+    topic: str,
+) -> Conversation | None:
+    return db.scalar(
+        select(Conversation)
+        .where(
+            Conversation.user_language_id == user_language_id,
+            Conversation.study_session_id == study_session_id,
+            Conversation.topic == topic,
+            Conversation.status == "active",
+        )
+        .order_by(Conversation.created_at.desc(), Conversation.id.desc())
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+
+
+def _start_payload(
+    *,
+    item: Conversation,
+    context,
+    session_id: str,
+    reason: str,
+) -> dict:
+    selection_trace = {
+        "conversation_id": item.id,
+        "study_session_id": session_id,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "cefr_level": context.level_for_skill("speaking"),
+        "provider": None,
+        "model": None,
+        "source": "unknown",
+        "content_source_id": None,
+        "content_unit_id": None,
+        "content_version": None,
+        "content_version_status": "unknown",
+        "kind": "conversation_started",
+        "reason": reason,
+    }
+    _delivery_log(selection_trace)
+    return {
+        "id": item.id,
+        "target_language": context.language_code,
+        "native_language": context.native_language,
+        "native_language_required": context.native_language is None,
+        "topic": item.topic,
+        "study_session_id": session_id,
+        "level": context.level_for_skill("speaking"),
+        "level_source": context.level_source,
+        "level_is_estimated": context.level_is_estimated,
+        "selection_trace": selection_trace,
+    }
+
+
 @router.post("")
 def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(current_user)):
     ul = user_language(db, user.id, data.language_code)
     session_id = data.study_session_id
     if session_id:
         validate_study_session_for_user(db, user, session_id, ul.id, require_active=True)
+        existing = _active_same_context(
+            db,
+            user_language_id=ul.id,
+            study_session_id=session_id,
+            topic=data.topic,
+        )
+        if existing is not None:
+            context = build_context(db, user, data.language_code)
+            db.commit()
+            return _start_payload(
+                item=existing,
+                context=context,
+                session_id=session_id,
+                reason="conversation_resumed",
+            )
     else:
         session = StudySession(user_language_id=ul.id, status="active", ended_at=None)
         db.add(session)
@@ -124,36 +198,12 @@ def start(data: StartIn, db: Session = Depends(get_db), user: User = Depends(cur
     db.commit()
 
     context = build_context(db, user, data.language_code)
-    # Abrir a conversa ainda não chama modelo. Provedor ausente fica nulo.
-    selection_trace = {
-        "conversation_id": item.id,
-        "study_session_id": session_id,
-        "target_language": context.language_code,
-        "native_language": context.native_language,
-        "cefr_level": context.level_for_skill("speaking"),
-        "provider": None,
-        "model": None,
-        "source": "unknown",
-        "content_source_id": None,
-        "content_unit_id": None,
-        "content_version": None,
-        "content_version_status": "unknown",
-        "kind": "conversation_started",
-        "reason": "conversation_started",
-    }
-    _delivery_log(selection_trace)
-    return {
-        "id": item.id,
-        "target_language": context.language_code,
-        "native_language": context.native_language,
-        "native_language_required": context.native_language is None,
-        "topic": item.topic,
-        "study_session_id": session_id,
-        "level": context.level_for_skill("speaking"),
-        "level_source": context.level_source,
-        "level_is_estimated": context.level_is_estimated,
-        "selection_trace": selection_trace,
-    }
+    return _start_payload(
+        item=item,
+        context=context,
+        session_id=session_id,
+        reason="conversation_started",
+    )
 
 
 @router.post("/{conversation_id}/messages")

@@ -598,6 +598,16 @@ export function Chat({
     let cancelled = false;
     conversationIdRef.current = null;
     setConversationId(null);
+    setMessages(opening ? [{ role: "tutor", text: opening, translation: openingTranslation }] : []);
+    setError(null);
+    setSuggestions([]);
+    setServiceDown(false);
+    setDemoMode(null);
+    setCorrectionsOff(false);
+    setThinking(false);
+    setText("");
+    setClosed(false);
+    setClosing(false);
     (async () => {
       try {
         const started = await api<{ id: string }>("/api/v1/conversations", {
@@ -626,7 +636,7 @@ export function Chat({
     return () => {
       cancelled = true;
     };
-  }, [languageCode, topic, opening, studySessionId]);
+  }, [languageCode, topic, opening, openingTranslation, studySessionId]);
 
   async function endConversation() {
     const id = conversationIdRef.current;

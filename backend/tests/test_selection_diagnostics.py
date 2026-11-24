@@ -194,7 +194,7 @@ def test_plan_session_records_duplicate_cooldown_and_does_not_change_the_plan():
     payload = {}
     activity_pool.record_exposure(payload, seen)
     payload["retired_families"] = [activity_pool.family_key(retired)]
-    history = {activity_pool.activity_id(cooled): (NOW - timedelta(days=1)).isoformat()}
+    history = {activity_pool.activity_id(cooled): (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()}
 
     def wrap(activity):
         return {
